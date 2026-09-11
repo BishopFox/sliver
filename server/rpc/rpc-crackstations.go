@@ -56,7 +56,7 @@ import (
 )
 
 var (
-	crackRpcLog                  = log.NamedLogger("rpc", "crackstations")
+	crackRPCLog                  = log.NamedLogger("rpc", "crackstations")
 	crackFileLifecycleMu         sync.Mutex
 	crackFileNow                 = time.Now
 	removeCrackFileChunk         = os.Remove
@@ -115,7 +115,7 @@ func reapStaleCrackUploadTempFiles(now time.Time) error {
 		if err := removeCrackFileChunk(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		crackRpcLog.Infof("Reaped stale crack file upload staging file %s", path)
+		crackRPCLog.Infof("Reaped stale crack file upload staging file %s", path)
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func reapStaleOrphanCrackChunkFiles(now time.Time) error {
 		if err := removeCrackFileChunk(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		crackRpcLog.Infof("Reaped stale orphan crack file chunk %s", path)
+		crackRPCLog.Infof("Reaped stale orphan crack file chunk %s", path)
 	}
 	return nil
 }
@@ -168,6 +168,8 @@ func reapStaleOrphanCrackChunkFiles(now time.Time) error {
 // reapStaleIncompleteCrackFilesLocked releases abandoned upload reservations.
 // Callers must hold crackFileLifecycleMu. Each candidate is locked and checked
 // again in its deletion transaction so a concurrent uploader's activity wins.
+//
+//nolint:gocyclo // Filesystem staging, database reservations, and chunks are revalidated under one lifecycle lock.
 func reapStaleIncompleteCrackFilesLocked(ctx context.Context, now time.Time) error {
 	if err := reapStaleCrackUploadTempFiles(now); err != nil {
 		return err
@@ -230,10 +232,10 @@ func reapStaleIncompleteCrackFilesLocked(ctx context.Context, now time.Time) err
 		if !deleted {
 			continue
 		}
-		crackRpcLog.Infof("Reaped stale incomplete crack file upload %s", candidates[index].ID)
+		crackRPCLog.Infof("Reaped stale incomplete crack file upload %s", candidates[index].ID)
 		for _, chunkPath := range chunkPaths {
 			if err := removeCrackFileChunk(chunkPath); err != nil && !os.IsNotExist(err) {
-				crackRpcLog.Warnf("Failed to clean up stale crack file chunk %s: %s", chunkPath, err)
+				crackRPCLog.Warnf("Failed to clean up stale crack file chunk %s: %s", chunkPath, err)
 			}
 		}
 	}
@@ -315,7 +317,7 @@ func (rpc *Server) Crackstations(ctx context.Context, req *commonpb.Empty) (*cli
 		crackstation.Benchmarks = map[int32]uint64{}
 		dbCrackstation, err := db.CrackstationByHostUUID(crackstation.HostUUID)
 		if err != nil {
-			crackRpcLog.Errorf("Failed to get crackstation by host UUID: %s", err)
+			crackRPCLog.Errorf("Failed to get crackstation by host UUID: %s", err)
 			return nil, status.Errorf(codes.NotFound, "Failed to find crackstation by host UUID")
 		}
 		for _, benchmark := range dbCrackstation.Benchmarks {
@@ -356,7 +358,7 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 		statusUpdate := &clientpb.CrackstationStatus{}
 		err := proto.Unmarshal(req.Data, statusUpdate)
 		if err != nil {
-			crackRpcLog.Errorf("Failed to unmarshal crackstation status update: %s", err)
+			crackRPCLog.Errorf("Failed to unmarshal crackstation status update: %s", err)
 			return nil, status.Errorf(codes.InvalidArgument, "Failed to unmarshal status update")
 		}
 		if err := rpc.authorizeCrackstation(ctx, statusUpdate.HostUUID); err != nil {
@@ -364,7 +366,7 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 		}
 		crackStation := core.GetCrackstation(statusUpdate.HostUUID)
 		if crackStation == nil {
-			crackRpcLog.Errorf("Received status update for unknown crackstation: %s", statusUpdate.Name)
+			crackRPCLog.Errorf("Received status update for unknown crackstation: %s", statusUpdate.Name)
 			return nil, status.Errorf(codes.InvalidArgument, "Unknown crackstation")
 		}
 		crackStation.UpdateStatus(statusUpdate)
@@ -406,7 +408,7 @@ func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (
 	}
 	task, err := db.GetCrackTaskByID(req.ID)
 	if err != nil {
-		crackRpcLog.Errorf("Failed to get crack task by ID: %s", err)
+		crackRPCLog.Errorf("Failed to get crack task by ID: %s", err)
 		return nil, status.Errorf(codes.NotFound, "Failed to get crack task by ID")
 	}
 	if req.HostUUID == "" || req.HostUUID != task.CrackstationID.String() || req.Attempt != task.Attempt || req.LeaseToken == "" || req.LeaseToken != task.LeaseToken {
@@ -451,7 +453,7 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, status.Error(codes.NotFound, "crack task not found")
 		}
-		crackRpcLog.Errorf("Failed to query crack task: %s", err)
+		crackRPCLog.Errorf("Failed to query crack task: %s", err)
 		return nil, status.Error(codes.Internal, "failed to query crack task")
 	}
 
@@ -465,7 +467,7 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 		if errors.Is(err, errStaleCrackTaskAttempt) {
 			return nil, status.Error(codes.Aborted, err.Error())
 		}
-		crackRpcLog.Errorf("Failed to update crack task: %s", err)
+		crackRPCLog.Errorf("Failed to update crack task: %s", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &commonpb.Empty{}, nil
@@ -502,7 +504,7 @@ func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.Crac
 	}
 	crackstation, err := db.CrackstationByHostUUID(req.HostUUID)
 	if err != nil {
-		crackRpcLog.Errorf("Failed to get crackstation by host UUID: %s", err)
+		crackRPCLog.Errorf("Failed to get crackstation by host UUID: %s", err)
 		return nil, status.Errorf(codes.NotFound, "Failed to find crackstation by host UUID")
 	}
 	benchmarks := make([]models.Benchmark, 0, len(req.Benchmarks))
@@ -536,7 +538,7 @@ func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.Crac
 		return nil
 	})
 	if err != nil {
-		crackRpcLog.Errorf("Failed to save crackstation benchmarks: %s", err)
+		crackRPCLog.Errorf("Failed to save crackstation benchmarks: %s", err)
 		return nil, status.Errorf(codes.Internal, "Failed to save crackstation benchmarks")
 	}
 
@@ -564,7 +566,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 		return status.Error(codes.PermissionDenied, err.Error())
 	}
 	if err != nil {
-		crackRpcLog.Errorf("Failed to query crackstation record: %s", err)
+		crackRPCLog.Errorf("Failed to query crackstation record: %s", err)
 		return status.Error(codes.Internal, "failed to register crackstation")
 	}
 	crackStation := core.NewCrackstation(req)
@@ -576,14 +578,14 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 		return rpcError(err)
 	}
 
-	crackRpcLog.Infof("Crackstation %s (%s) connected", req.Name, req.OperatorName)
+	crackRPCLog.Infof("Crackstation %s (%s) connected", req.Name, req.OperatorName)
 	events := core.EventBroker.Subscribe()
 	defer func() {
-		crackRpcLog.Infof("Crackstation %s disconnected", req.Name)
+		crackRPCLog.Infof("Crackstation %s disconnected", req.Name)
 		core.EventBroker.Unsubscribe(events)
 		core.RemoveCrackstation(req.HostUUID)
 		if err := requeueCrackstationTasksForConnection(req.HostUUID, crackStation); err != nil {
-			crackRpcLog.Warnf("Failed to requeue tasks for disconnected crackstation %s: %s", req.HostUUID, err)
+			crackRPCLog.Warnf("Failed to requeue tasks for disconnected crackstation %s: %s", req.HostUUID, err)
 		}
 	}()
 	if err := stream.SendHeader(metadata.MD{}); err != nil {
@@ -596,7 +598,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	default:
 	}
 	if !crackstationBenchmarksFresh(dbCrackstation, req.HashcatVersion) {
-		crackRpcLog.Infof("Benchmark information for '%s' is missing or stale, requesting benchmark...", req.Name)
+		crackRPCLog.Infof("Benchmark information for '%s' is missing or stale, requesting benchmark...", req.Name)
 		select {
 		case crackStation.Events <- &clientpb.Event{EventType: consts.CrackBenchmark}:
 		default:
@@ -621,7 +623,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 		case msg := <-crackStation.Events: // This event stream is specific to this crackstation
 			err := stream.Send(msg)
 			if err != nil {
-				crackRpcLog.Warnf("Crackstation stream send failed: %s", err)
+				crackRPCLog.Warnf("Crackstation stream send failed: %s", err)
 				return rpcError(err)
 			}
 		case event := <-events: // All server-side events
@@ -648,7 +650,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 
 			err := stream.Send(pbEvent)
 			if err != nil {
-				crackRpcLog.Warnf("Crackstation event send failed: %s", err)
+				crackRPCLog.Warnf("Crackstation event send failed: %s", err)
 				return rpcError(err)
 			}
 		}
@@ -672,14 +674,14 @@ func (rpc *Server) CrackFilesList(ctx context.Context, req *clientpb.CrackFile) 
 		crackFiles, err = db.AllCrackFiles()
 	}
 	if err != nil {
-		crackRpcLog.Errorf("Failed to query crack files: %s", err)
+		crackRPCLog.Errorf("Failed to query crack files: %s", err)
 		return nil, status.Error(codes.Internal, "failed to query crack files")
 	}
 
 	crackCfg, _ := configs.LoadCrackConfig()
 	currentUsage, err := db.CrackFilesDiskUsage()
 	if err != nil {
-		crackRpcLog.Errorf("Failed to query crack file usage: %s", err)
+		crackRPCLog.Errorf("Failed to query crack file usage: %s", err)
 		return nil, status.Error(codes.Internal, "failed to query crack file usage")
 	}
 	pbCrackFiles := &clientpb.CrackFiles{
@@ -707,7 +709,7 @@ func (rpc *Server) CrackFileCreate(ctx context.Context, req *clientpb.CrackFile)
 	defer crackFileLifecycleMu.Unlock()
 	now := crackFileNow()
 	if err := reapStaleIncompleteCrackFilesLocked(ctx, now); err != nil {
-		crackRpcLog.Errorf("Failed to reap stale crack file uploads: %s", err)
+		crackRPCLog.Errorf("Failed to reap stale crack file uploads: %s", err)
 		return nil, status.Error(codes.Internal, "failed to reap stale crack file uploads")
 	}
 	duplicateCrackFile := &models.CrackFile{}
@@ -720,7 +722,7 @@ func (rpc *Server) CrackFileCreate(ctx context.Context, req *clientpb.CrackFile)
 	}
 	usage, err := db.CrackFilesDiskUsage()
 	if err != nil {
-		crackRpcLog.Errorf("Failed to query crack files' disk quota: %s", err)
+		crackRPCLog.Errorf("Failed to query crack files' disk quota: %s", err)
 		return nil, status.Error(codes.Internal, "failed to query crack files' disk quota")
 	}
 
@@ -927,6 +929,7 @@ func (reader *sequentialCrackChunkReader) Close() error {
 	return err
 }
 
+//nolint:gocyclo // Stream ordering, compression, size, and digest checks share one sequential-reader lifecycle.
 func verifyCrackFileUpload(crackFile *models.CrackFile, expectedSHA256 string) error {
 	if crackFile.UncompressedSize < 1 || crackFile.CompressedSize < 0 {
 		return errors.New("crack file has invalid persisted sizes")
@@ -961,7 +964,7 @@ func verifyCrackFileUpload(crackFile *models.CrackFile, expectedSHA256 string) e
 		return fmt.Errorf("compressed size is %d, expected %d", compressedSize, crackFile.CompressedSize)
 	}
 	chunkReader := &sequentialCrackChunkReader{paths: paths}
-	defer chunkReader.Close()
+	defer func() { _ = chunkReader.Close() }()
 	var reader io.Reader = chunkReader
 	var decoder *zstd.Decoder
 	if crackFile.IsCompressed {
@@ -1099,7 +1102,7 @@ func (rpc *Server) CrackFileDelete(ctx context.Context, req *clientpb.CrackFile)
 	}
 	referenced, err := activeCrackJobReferencesManagedFile(db.Session().WithContext(ctx), crackFile)
 	if err != nil {
-		crackRpcLog.Errorf("Failed to check crack file references: %s", err)
+		crackRPCLog.Errorf("Failed to check crack file references: %s", err)
 		return nil, status.Error(codes.Internal, "failed to check crack file references")
 	}
 	if referenced {

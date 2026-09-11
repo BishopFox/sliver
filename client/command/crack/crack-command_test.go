@@ -297,7 +297,7 @@ func TestBuildCrackCommandHashcatV7Options(t *testing.T) {
 		ColorCracked:            true,
 		HashCopy:                true,
 		EncryptWithPubkey:       "key.pub",
-		Identify:                "legacy-input",
+		Identify:                "legacy-input", //nolint:staticcheck // Verify the legacy positional operand remains populated for wire compatibility.
 		PositionalArguments:     []string{"first-input", "second-input"},
 	}
 	if !proto.Equal(got, want) {

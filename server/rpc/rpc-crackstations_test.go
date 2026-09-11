@@ -110,6 +110,7 @@ func crackstationTestContext(commonName string) context.Context {
 	}}})
 }
 
+//nolint:gocyclo // Lease validation and preservation of every server-owned field form one update contract.
 func TestCrackTaskUpdateEnforcesLeaseAndPreservesServerOwnedFields(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 
@@ -275,6 +276,7 @@ func TestCrackTaskUpdateEnforcesLeaseAndPreservesServerOwnedFields(t *testing.T)
 	}
 }
 
+//nolint:gocyclo // Fetch, update, renewal, and requeue checks cover one expired-lease lifecycle.
 func TestExpiredCrackTaskLeaseCannotFetchUpdateOrRenew(t *testing.T) {
 	for _, test := range []struct {
 		name      string
@@ -369,6 +371,7 @@ func TestCrackstationTriggerRejectsOversizedEnvelopeBeforeParsing(t *testing.T) 
 	}
 }
 
+//nolint:gocyclo // The table validates all malformed benchmark shapes and their persisted-state effects.
 func TestCrackstationBenchmarkRejectsEmptyAndInvalidResults(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	station := &models.Crackstation{ID: models.NewUUID(), HashcatVersion: "hashcat-v1"}
@@ -438,6 +441,7 @@ func TestCrackstationBenchmarkRejectsEmptyAndInvalidResults(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Registration, readiness, benchmark requests, persistence, and reconnect form one protocol.
 func TestCrackstationRegisterSignalsReadyThenBenchmarksOnlyUntilRecorded(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	originalReaperStarter := crackQueueReaperStarter

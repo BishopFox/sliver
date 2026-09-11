@@ -19,7 +19,7 @@ func readKeyboardLayoutMapping(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open keyboard layout mapping %q: %w", path, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
 	if err != nil {
@@ -162,7 +162,7 @@ func buildCrackCommand(cmd *cobra.Command, args []string) (*clientpb.CrackComman
 	}
 	req.RestorePosition, _ = flags.GetBool("restore-position")
 	req.RestoreShowCommand, _ = flags.GetBool("restore-show-command")
-	if req.RestoreShowCommand && (req.Restore || req.RestorePosition) {
+	if req.RestoreShowCommand && (req.Restore || req.RestorePosition) { //nolint:staticcheck // Restore is required for legacy command compatibility.
 		return nil, fmt.Errorf("--restore-show-command and restore-position modes are mutually exclusive")
 	}
 

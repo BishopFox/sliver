@@ -116,6 +116,7 @@ func createQueueTestJob(t *testing.T, database *gorm.DB, command models.CrackCom
 	return job
 }
 
+//nolint:gocyclo // Benchmark gating, single-task leasing, and persisted state form one scheduler scenario.
 func TestSchedulerWaitsForBenchmarkAndLeasesOnlyOneTask(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", nil)
@@ -209,6 +210,7 @@ func TestSchedulerWaitsForBenchmarkAndLeasesOnlyOneTask(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test follows legacy benchmark rejection through freshness repair and task leasing.
 func TestSchedulerRejectsLegacyBenchmarkUntilFreshnessMarkerMatches(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	hostID := models.ParseUUIDOrNil("11111111-1111-4111-8111-111111111111")
@@ -256,6 +258,7 @@ func TestSchedulerRejectsLegacyBenchmarkUntilFreshnessMarkerMatches(t *testing.T
 	}
 }
 
+//nolint:gocyclo // The table validates benchmark eligibility and shard weights across selected attack modes.
 func TestSchedulerAndShardWeightsRequirePositiveSelectedModeBenchmark(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	unsupported := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{200: 900})
@@ -320,6 +323,7 @@ func TestSchedulerAndShardWeightsRequirePositiveSelectedModeBenchmark(t *testing
 	}
 }
 
+//nolint:gocyclo // The test spans disconnect recovery, version pinning, and rescheduled keyspace completion.
 func TestKeyspaceCompletionSurvivesDisconnectAndPinsHashcatVersion(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	versionOne := addQueueTestStationVersion(t, database, "11111111-1111-4111-8111-111111111111", "hashcat-v1", map[int32]uint64{100: 100})
@@ -423,6 +427,7 @@ func TestExpiredLeaseRequeuesWithFreshAttemptAndClearsTelemetry(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Parent preservation, weighted ranges, and child commands are one sharding contract.
 func TestKeyspaceCompletionCreatesWeightedRangeShardsAndPreservesParent(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	stationA := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{100: 1})
@@ -556,7 +561,7 @@ func TestKeyspaceShardCreationRollsBackPartialRows(t *testing.T) {
 	if err := database.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
 		command, ok := tx.Statement.Dest.(*models.CrackCommand)
 		if ok && command.CrackTaskID != models.NilUUID() && command.Skip > 0 {
-			tx.AddError(errors.New("injected second shard command failure"))
+			_ = tx.AddError(errors.New("injected second shard command failure"))
 		}
 	}); err != nil {
 		t.Fatalf("register create failure callback: %v", err)
@@ -616,6 +621,7 @@ func TestSchedulerDoesNotLeaseTasksForCompletedJobs(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Binary plaintext ingestion, deduplication, and result counts share one recovery contract.
 func TestRecoveredResultsAreIdempotentAndPreserveBinaryPlaintext(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	job := createQueueTestJob(t, database, models.CrackCommand{HashType: 100, Hashes: []string{"ABCDEF-UPPERCASE"}})
@@ -753,6 +759,7 @@ func TestRunningRecoveryBatchHonorsCumulativeJobBudget(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Recovery-batch ordering and the final empty terminal update form one transaction.
 func TestRunningTaskRecoveryBatchesAreIngestedBeforeEmptyTerminalUpdate(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	hashes := []string{"batched-hash-one", "batched-hash-two"}
@@ -829,6 +836,7 @@ func TestRunningTaskRecoveryBatchesAreIngestedBeforeEmptyTerminalUpdate(t *testi
 	}
 }
 
+//nolint:gocyclo // Recovered-result ingestion and failure-state retention must be asserted atomically.
 func TestFailedCrackTaskIngestsRecoveredResultsAndPreservesFailure(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	job := createQueueTestJob(t, database, models.CrackCommand{HashType: 100, Hashes: []string{"failed-task-hash"}})
@@ -904,6 +912,7 @@ func TestFailedCrackTaskIngestsRecoveredResultsAndPreservesFailure(t *testing.T)
 	}
 }
 
+//nolint:gocyclo // Malformed recovery must roll back both result ingestion and terminal-state changes.
 func TestMalformedFailedTaskRecoveryRollsBackTerminalUpdate(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	job := createQueueTestJob(t, database, models.CrackCommand{HashType: 100, Hashes: []string{"rollback-hash"}})
@@ -957,6 +966,7 @@ func TestMalformedFailedTaskRecoveryRollsBackTerminalUpdate(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Size limits, malformed keyspaces, and rollback share one atomic update boundary.
 func TestCrackTaskUpdateRejectsOversizedAndInvalidKeyspaceAtomically(t *testing.T) {
 	legitimateWorkerPayload := &clientpb.CrackTask{
 		Stdout:        make([]byte, maxCrackOutputBytes),
@@ -1064,6 +1074,7 @@ func TestCrackTaskUpdateRejectsOversizedAndInvalidKeyspaceAtomically(t *testing.
 	}
 }
 
+//nolint:gocyclo // Lease renewal, heartbeat persistence, and stale-token rejection form one lifecycle.
 func TestCrackTaskStatusHeartbeatRenewsLeaseAndRejectsStaleToken(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	job := createQueueTestJob(t, database, models.CrackCommand{})
@@ -1114,6 +1125,7 @@ func TestCrackTaskStatusHeartbeatRenewsLeaseAndRejectsStaleToken(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Credential filtering, hash modes, and managed file resolution are one selection contract.
 func TestCredentialSelectionUsesHashModeAndManagedFileResolution(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	hashMode := uint32(100)
@@ -1274,6 +1286,7 @@ func TestCrackRejectsUnmanagedWordlistsWithoutPersisting(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test follows managed wordlist identity through failure, requeue, and reassignment.
 func TestManagedWordlistPersistsAcrossTaskFailover(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{100: 100})
@@ -1418,7 +1431,8 @@ func TestDistributedCommandNormalizesHashcatFieldPrecedence(t *testing.T) {
 	disabledOutfileCheck := uint32(0)
 	response, err := (&Server{}).Crack(t.Context(), &clientpb.CrackCommand{
 		AttackMode: clientpb.CrackAttackMode_BRUTEFORCE, Hashes: []string{"hash"}, PositionalArguments: []string{"?d"},
-		Identify: "crackfile://not-a-valid-ignored-reference", RulesFile: []byte("ignored-local.rule"),
+		Identify:     "crackfile://not-a-valid-ignored-reference", //nolint:staticcheck // Verify canonical inputs override the deprecated field.
+		RulesFile:    []byte("ignored-local.rule"),
 		RulesFilesV7: [][]byte{[]byte(managedCrackFileURI(rules))}, GenerateRules: 1, GenerateRulesSeed: -1, GenerateRulesSeedV7: &seed,
 		OutfileCheckTimer: 5, OutfileCheckTimerV7: &disabledOutfileCheck,
 	})
@@ -1438,6 +1452,7 @@ func TestDistributedCommandNormalizesHashcatFieldPrecedence(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The table covers all terminating-mode rejections and internal normalization invariants.
 func TestCrackRejectsTerminatingModesAndNormalizesInternalCommands(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	rpcServer := &Server{}
@@ -1462,7 +1477,7 @@ func TestCrackRejectsTerminatingModesAndNormalizesInternalCommands(t *testing.T)
 		{name: "session", set: func(command *clientpb.CrackCommand) { command.Session = "station-local-session" }},
 		{name: "remove", set: func(command *clientpb.CrackCommand) { command.Remove = true }},
 		{name: "remove-timer", set: func(command *clientpb.CrackCommand) { command.RemoveTimer = 1 }},
-		{name: "segment-size", set: func(command *clientpb.CrackCommand) { command.SegmentSize = 32 }},
+		{name: "segment-size", set: func(command *clientpb.CrackCommand) { command.SegmentSize = 32 }}, //nolint:staticcheck // Verify rejection of the deprecated compatibility field.
 		{name: "negative-generate-rules-seed", set: func(command *clientpb.CrackCommand) { command.GenerateRulesSeed = -1 }},
 		{name: "loopback", set: func(command *clientpb.CrackCommand) { command.Loopback = true }},
 		{name: "induction-directory", set: func(command *clientpb.CrackCommand) { command.InductionDir = "induct" }},
@@ -1513,7 +1528,7 @@ func TestCrackRejectsTerminatingModesAndNormalizesInternalCommands(t *testing.T)
 		{name: "lookup", set: func(command *clientpb.CrackCommand) { command.Lookup = "candidate" }},
 		{name: "identify-mode", set: func(command *clientpb.CrackCommand) { command.IdentifyMode = true }},
 		{name: "brain-server", set: func(command *clientpb.CrackCommand) { command.BrainServer = true }},
-		{name: "restore", set: func(command *clientpb.CrackCommand) { command.Restore = true }},
+		{name: "restore", set: func(command *clientpb.CrackCommand) { command.Restore = true }}, //nolint:staticcheck // Verify rejection of the deprecated compatibility field.
 		{name: "restore-position", set: func(command *clientpb.CrackCommand) { command.RestorePosition = true }},
 		{name: "restore-show", set: func(command *clientpb.CrackCommand) { command.RestoreShowCommand = true }},
 		{name: "restore-file", set: func(command *clientpb.CrackCommand) { command.RestoreFile = []byte("restore") }},
@@ -1604,6 +1619,7 @@ func TestCrackRejectsTerminatingModesAndNormalizesInternalCommands(t *testing.T)
 	}
 }
 
+//nolint:gocyclo // The test compares generated-rule seeds across assignments and persisted commands.
 func TestGeneratedRulesSeedIsStableAcrossDistributedTasks(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{int32(clientpb.HashType_MD5): 100})
@@ -1689,6 +1705,7 @@ func TestDistributedNormalizationDisablesInstallationLocalMarkovData(t *testing.
 	}
 }
 
+//nolint:gocyclo // List and detail responses must redact task secrets while retaining public job metadata.
 func TestCrackJobRPCsRedactLeaseTokens(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	job := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_MD5), Hashes: []string{"hash"}})
@@ -1755,6 +1772,7 @@ func TestCrackJobStatusDerivesFailureFromTaskState(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Multi-chunk verification, publication, and listing visibility form one upload lifecycle.
 func TestCrackFileCompletionVerifiesMultichunkStreamAndListsOnlyComplete(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
@@ -1888,6 +1906,7 @@ func TestCrackFileCompletionVerifiesMultichunkStreamAndListsOnlyComplete(t *test
 	}
 }
 
+//nolint:gocyclo // The table exercises persisted-size and accumulation overflow boundaries together.
 func TestCrackFileSizeArithmeticRejectsOverflow(t *testing.T) {
 	if value, ok := checkedCrackFileSizeAdd(math.MaxInt64-1, 1); !ok || value != math.MaxInt64 {
 		t.Fatalf("checked max-boundary addition = %d, %v", value, ok)
@@ -2050,7 +2069,7 @@ func TestCrackFileDeleteRollsBackDatabaseBeforeRemovingChunks(t *testing.T) {
 	callbackName := "test:reject-crack-file-parent-delete"
 	if err := database.Callback().Delete().Before("gorm:delete").Register(callbackName, func(tx *gorm.DB) {
 		if _, ok := tx.Statement.Dest.(*models.CrackFile); ok {
-			tx.AddError(injectedErr)
+			_ = tx.AddError(injectedErr)
 		}
 	}); err != nil {
 		t.Fatalf("register delete failure callback: %v", err)
@@ -2129,6 +2148,7 @@ func TestCrackFileDeleteCommitsBeforeBestEffortChunkCleanup(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Stale reservation reaping, orphan cleanup, and live-upload preservation share one scenario.
 func TestCrackFileCreateReapsOnlyStaleIncompleteReservationsAndOrphans(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())

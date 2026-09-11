@@ -68,7 +68,7 @@ func crackJobChoices(jobs []*clientpb.CrackJob) []crackJobChoice {
 	var output bytes.Buffer
 	table := tabwriter.NewWriter(&output, 0, 2, 2, ' ', 0)
 	for _, job := range ordered {
-		fmt.Fprintf(table, "JOB\t%s\t%s\t%s\tkeyspace %s\ttasks %d\tresults %d\n",
+		_, _ = fmt.Fprintf(table, "JOB\t%s\t%s\t%s\tkeyspace %s\ttasks %d\tresults %d\n",
 			shortCrackJobID(job.GetID()),
 			safeCrackJobText(job.GetStatus().String()),
 			formatCrackJobChoiceTime(job.GetCreatedAt()),

@@ -127,6 +127,7 @@ func TestCrackCommandExtendedFieldsProtobufRoundTrip(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The round trip verifies every persisted task field and protobuf representation together.
 func TestCrackTaskProtobufRoundTrip(t *testing.T) {
 	want := &CrackTask{
 		ID:               ParseUUIDOrNil("3f2a6f33-586f-4af4-9f86-175db84bf2ab"),
@@ -265,6 +266,7 @@ func TestCrackCommandSQLiteRepeatedFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The migration test compares every legacy scalar slice with its restored representation.
 func TestCrackCommandLegacyScalarSlicesSurviveMigration(t *testing.T) {
 	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "legacy-crack-command.db")), &gorm.Config{})
 	if err != nil {

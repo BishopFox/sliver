@@ -1,5 +1,6 @@
 //go:build windows
 
+// Package rpc implements the Sliver server RPC surface.
 package rpc
 
 import "golang.org/x/sys/windows"

@@ -43,7 +43,7 @@ import (
 )
 
 var (
-	crackCommandRpcLog     = log.NamedLogger("rpc", "crack")
+	crackCommandRPCLog     = log.NamedLogger("rpc", "crack")
 	errInvalidCrackCommand = errors.New("invalid crack command")
 )
 
@@ -75,6 +75,7 @@ func crackFileTypeName(fileType clientpb.CrackFileType) string {
 	}
 }
 
+//nolint:gocyclo // The accepted URI, digest, and legacy-reference forms share one type-safe resolution boundary.
 func resolveManagedCrackFileReference(files []models.CrackFile, value string, expectedType clientpb.CrackFileType) (string, bool, error) {
 	if value == "" {
 		return value, false, nil
@@ -139,6 +140,7 @@ func validateCrackHashes(hashes []string) error {
 	return nil
 }
 
+//nolint:gocyclo // Mutually dependent Hashcat options are centralized so the distributed-command contract stays explicit.
 func validateDistributedCrackCommand(command *models.CrackCommand) error {
 	switch {
 	case command.HashMode != nil && *command.HashMode > math.MaxInt32:
@@ -276,6 +278,7 @@ func normalizeDistributedCrackCommand(command *models.CrackCommand, jobID models
 	}
 }
 
+//nolint:gocyclo // Legacy and v7 file fields are resolved together before the command is persisted.
 func resolveManagedCrackFiles(tx *gorm.DB, command *models.CrackCommand) error {
 	var files []models.CrackFile
 	if err := tx.Where("is_complete = ?", true).Find(&files).Error; err != nil {
@@ -355,6 +358,7 @@ func isManagedWordlistReference(value string) bool {
 	return strings.HasPrefix(value, "crackfile://wordlist/")
 }
 
+//nolint:gocyclo // This defensive classifier intentionally enumerates unsafe path forms from every supported platform.
 func unsafeDistributedCandidatePath(value string) bool {
 	if value == "" {
 		return false
@@ -463,7 +467,7 @@ func validateDistributedCrackFileFields(command *models.CrackCommand) error {
 		}
 	}
 	if len(command.MarkovHcstat2) != 0 && !strings.HasPrefix(string(command.MarkovHcstat2), "crackfile://hcstat2/") {
-		return errors.New("Markov hcstat2 file is not a managed crack file")
+		return errors.New("Markov hcstat2 file is not a managed crack file") //nolint:staticcheck // Preserve the established operator-facing error text.
 	}
 	customCharsets := []string{
 		command.CustomCharset1, command.CustomCharset2, command.CustomCharset3, command.CustomCharset4,
@@ -527,6 +531,7 @@ func activeCrackJobReferencesManagedFile(tx *gorm.DB, crackFile *models.CrackFil
 	return false, nil
 }
 
+//nolint:gocyclo // Explicit IDs and optional credential filters must be combined with stable deduplication semantics.
 func selectCrackCredentials(tx *gorm.DB, command *models.CrackCommand) ([]models.Credential, error) {
 	selected := map[models.UUID]models.Credential{}
 	for _, idText := range command.CredentialIDs {
@@ -600,6 +605,9 @@ func selectCrackCredentials(tx *gorm.DB, command *models.CrackCommand) ([]models
 	return credentials, nil
 }
 
+// Crack validates a distributed cracking request, persists its job, and schedules work.
+//
+//nolint:gocyclo // Validation, resolution, job creation, and scheduling make up one transactional RPC boundary.
 func (rpc *Server) Crack(ctx context.Context, req *clientpb.CrackCommand) (*clientpb.CrackResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing crack command")
@@ -710,7 +718,7 @@ func (rpc *Server) Crack(ctx context.Context, req *clientpb.CrackCommand) (*clie
 		if errors.Is(err, errInvalidCrackCommand) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		crackCommandRpcLog.Errorf("Failed to save crack job: %s", err)
+		crackCommandRPCLog.Errorf("Failed to save crack job: %s", err)
 		return nil, status.Error(codes.Internal, "failed to save crack job")
 	}
 
@@ -719,7 +727,7 @@ func (rpc *Server) Crack(ctx context.Context, req *clientpb.CrackCommand) (*clie
 	core.EventBroker.Publish(core.Event{EventType: consts.CrackJobCreated, Data: []byte(job.ID.String())})
 	crackQueueReaperStarter()
 	if err := scheduleCrackTasks(); err != nil {
-		crackCommandRpcLog.Warnf("Failed to schedule crack job %s: %s", job.ID, err)
+		crackCommandRPCLog.Warnf("Failed to schedule crack job %s: %s", job.ID, err)
 	}
 	return &clientpb.CrackResponse{Job: job.ToProtobuf()}, nil
 }
@@ -735,6 +743,7 @@ func loadCrackJob(tx *gorm.DB, id models.UUID) (*models.CrackJob, error) {
 	return job, nil
 }
 
+// CrackJobs lists recent distributed cracking jobs without exposing task internals.
 func (rpc *Server) CrackJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.CrackJobs, error) {
 	var jobs []models.CrackJob
 	dbSession := db.Session().WithContext(ctx)
@@ -782,6 +791,7 @@ func (rpc *Server) CrackJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.
 	return response, nil
 }
 
+// CrackJobByID returns one distributed cracking job with sensitive task fields redacted.
 func (rpc *Server) CrackJobByID(ctx context.Context, req *clientpb.CrackJob) (*clientpb.CrackJob, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing crack job")

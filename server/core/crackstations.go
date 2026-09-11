@@ -73,6 +73,7 @@ func (c *Crackstation) GetStatus() *clientpb.CrackstationStatus {
 	return proto.Clone(c.status).(*clientpb.CrackstationStatus)
 }
 
+// Snapshot returns an isolated copy of the crackstation and its current status.
 func (c *Crackstation) Snapshot() *clientpb.Crackstation {
 	c.stationLock.RLock()
 	defer c.stationLock.RUnlock()
@@ -81,6 +82,7 @@ func (c *Crackstation) Snapshot() *clientpb.Crackstation {
 	return station
 }
 
+// UpdateBenchmarks replaces the crackstation's benchmark results.
 func (c *Crackstation) UpdateBenchmarks(benchmarks map[int32]uint64) {
 	c.stationLock.Lock()
 	defer c.stationLock.Unlock()

@@ -26,7 +26,7 @@ type standaloneKeyspaceTestResult struct {
 
 func resetStandaloneCrackKeyspaceTasksForTest(t *testing.T) {
 	t.Helper()
-	clear := func() {
+	cleanup := func() {
 		crackQueueMu.Lock()
 		defer crackQueueMu.Unlock()
 		for taskID, entry := range standaloneCrackKeyspaceTasks {
@@ -39,8 +39,8 @@ func resetStandaloneCrackKeyspaceTasksForTest(t *testing.T) {
 		}
 		standaloneCrackKeyspaceTasks = map[string]*standaloneCrackKeyspaceTask{}
 	}
-	clear()
-	t.Cleanup(clear)
+	cleanup()
+	t.Cleanup(cleanup)
 }
 
 func disableCrackQueueReaperForTest(t *testing.T) {
@@ -95,6 +95,7 @@ func waitStandaloneKeyspaceResult(t *testing.T, result <-chan standaloneKeyspace
 	}
 }
 
+//nolint:gocyclo // The test keeps assignment, worker updates, result delivery, and cleanup in one lifecycle.
 func TestStandaloneCrackKeyspaceLifecycleUsesExistingWorkerProtocol(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	resetStandaloneCrackKeyspaceTasksForTest(t)

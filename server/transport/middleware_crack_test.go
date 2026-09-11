@@ -88,6 +88,7 @@ func TestSanitizeAuditRequestClearsTaskStatusEventDataOnly(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test verifies every sensitive crack-command field and preserves the original request in one redaction contract.
 func TestSanitizeAuditRequestRemovesCrackCommandAndChunkContentsWithoutMutation(t *testing.T) {
 	brainPasswordV7 := "secret-brain-password-v7"
 	hashMode := uint32(100)
@@ -119,7 +120,7 @@ func TestSanitizeAuditRequestRemovesCrackCommandAndChunkContentsWithoutMutation(
 		CustomCharset6:            "secret-charset-6",
 		CustomCharset7:            "secret-charset-7",
 		CustomCharset8:            "secret-charset-8",
-		Identify:                  "secret-legacy-operand",
+		Identify:                  "secret-legacy-operand", //nolint:staticcheck // Verify deprecated operands are redacted for wire compatibility.
 		BrainHost:                 "secret-brain-host",
 		BrainPassword:             "secret-brain-password",
 		BrainPasswordV7:           &brainPasswordV7,

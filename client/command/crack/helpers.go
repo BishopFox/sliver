@@ -19,6 +19,8 @@ type crackJobCompletionEntry struct {
 }
 
 // CrackJobIDCompleter completes durable crack job IDs.
+//
+//nolint:revive // Keep the established exported completer name for compatibility.
 func CrackJobIDCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		entries, err := crackJobCompletionEntries(con)

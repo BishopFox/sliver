@@ -134,6 +134,7 @@ func TestResolveCrackJobIDPropagatesUserAbort(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // One fixture verifies the complete newest-status telemetry contract and all presentation helpers.
 func TestParseCrackStatusJSONUsesNewestStatus(t *testing.T) {
 	raw := []byte("{\"status\":1,\"progress\":[1,10]}\n" +
 		"{\"session\":\"distributed-job\",\"status\":2,\"target\":\"hashes\",\"progress\":[5,10]," +

@@ -396,7 +396,8 @@ type CrackResult struct {
 	Fingerprint  string `gorm:"uniqueIndex;size:64"`
 }
 
-func (c *CrackResult) BeforeCreate(tx *gorm.DB) error {
+// BeforeCreate initializes server-owned fields before a crack result is persisted.
+func (c *CrackResult) BeforeCreate(_ *gorm.DB) error {
 	if c.ID == NilUUID() {
 		c.ID = NewUUID()
 	}
@@ -406,6 +407,7 @@ func (c *CrackResult) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// ToProtobuf converts a persisted crack result to its RPC representation.
 func (c *CrackResult) ToProtobuf() *clientpb.CrackResult {
 	result := &clientpb.CrackResult{
 		ID:          c.ID.String(),
@@ -428,7 +430,8 @@ type CrackJobCredential struct {
 	CredentialID UUID `gorm:"type:uuid;uniqueIndex:idx_crack_job_credential"`
 }
 
-func (c *CrackJobCredential) BeforeCreate(tx *gorm.DB) error {
+// BeforeCreate initializes server-owned fields before a job credential is persisted.
+func (c *CrackJobCredential) BeforeCreate(_ *gorm.DB) error {
 	if c.ID == NilUUID() {
 		c.ID = NewUUID()
 	}

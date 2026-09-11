@@ -19,6 +19,7 @@ type standaloneQueryTestResult struct {
 	err      error
 }
 
+//nolint:gocyclo // The table compares every transient query mode across assignment and result delivery.
 func TestStandaloneCrackQueryModesUseTransientWorkerProtocol(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	resetStandaloneCrackKeyspaceTasksForTest(t)

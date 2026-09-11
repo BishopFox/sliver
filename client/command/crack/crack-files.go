@@ -400,6 +400,7 @@ func readCrackFileChunks(reader io.Reader, chunkSize int64) (<-chan []byte, <-ch
 	return chunks, errors
 }
 
+//nolint:gocyclo // Compression, fixed-size emission, final remainder handling, and cleanup form one streaming state machine.
 func chunkReader(wordlistReader io.Reader, chunkSize int64, chunks chan []byte) (retErr error) {
 	defer close(chunks)
 	if chunkSize < 1 {

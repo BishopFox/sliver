@@ -232,6 +232,7 @@ func standaloneCrackQueryDispatchError(err error) error {
 	}
 }
 
+//nolint:gocyclo // Keep the mode-specific Hashcat compatibility checks in one auditable validation boundary.
 func prepareStandaloneCrackQuery(command *models.CrackCommand, mode clientpb.CrackQueryMode) error {
 	if command == nil {
 		return errors.New("missing crack command")
@@ -396,6 +397,7 @@ func validateStandaloneCrackQueryOperands(command *models.CrackCommand, mode cli
 	}
 }
 
+//nolint:gocyclo // Reservation, capability selection, enqueue, and rollback must remain atomic under the queue lock.
 func reserveStandaloneCrackQueryTask(ctx context.Context, taskID models.UUID, command *models.CrackCommand, mode clientpb.CrackQueryMode, selector string) (*standaloneCrackKeyspaceTask, error) {
 	crackQueueMu.Lock()
 	defer crackQueueMu.Unlock()
@@ -500,14 +502,11 @@ func selectIdleCrackstationLocked(ctx context.Context) (*core.Crackstation, erro
 	return stations[0], nil
 }
 
-func idleCrackstationsLocked(ctx context.Context) ([]*core.Crackstation, error) {
-	return selectableCrackstationsLocked(ctx, "")
-}
-
 func selectableCrackstationsLocked(ctx context.Context, selector string) ([]*core.Crackstation, error) {
 	return selectableCrackstationsWithCapabilityLocked(ctx, selector, "")
 }
 
+//nolint:gocyclo // Ownership, lease, selector, and capability filters intentionally share one deterministic pass.
 func selectableCrackstationsWithCapabilityLocked(ctx context.Context, selector string, requiredCapability string) ([]*core.Crackstation, error) {
 	busyHosts := map[string]struct{}{}
 	var active []models.CrackTask
@@ -647,6 +646,8 @@ func requestStandaloneCrackKeyspaceCancellation(taskID string, expected *standal
 
 // standaloneCrackTaskByID is the in-memory fallback for CrackTaskByID. The
 // boolean reports whether the task ID belonged to the standalone registry.
+//
+//nolint:gocyclo // Registry validation and response redaction must use one locked snapshot of the transient task.
 func (rpc *Server) standaloneCrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (*clientpb.CrackTask, bool, error) {
 	if req == nil {
 		return nil, false, nil
@@ -696,6 +697,8 @@ func (rpc *Server) standaloneCrackTaskByID(ctx context.Context, req *clientpb.Cr
 }
 
 // standaloneCrackTaskUpdate is the in-memory fallback for CrackTaskUpdate.
+//
+//nolint:gocyclo // Lease validation, status transitions, and completion are one atomic in-memory lifecycle operation.
 func (rpc *Server) standaloneCrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask) (bool, error) {
 	if req == nil {
 		return false, nil
@@ -809,7 +812,7 @@ func (rpc *Server) standaloneCrackTaskUpdate(ctx context.Context, req *clientpb.
 	entry.resultStderr = string(req.Stderr)
 	completeStandaloneCrackKeyspaceTaskLocked(req.ID, entry, result, resultErr)
 	if err := scheduleCrackTasksLocked(now); err != nil {
-		crackCommandRpcLog.Warnf("Completed standalone crack query but could not schedule queued work: %s", err)
+		crackCommandRPCLog.Warnf("Completed standalone crack query but could not schedule queued work: %s", err)
 	}
 	// The terminal update has been consumed and the operator-facing result has
 	// already been delivered through entry.done. Acknowledge the worker even
@@ -840,6 +843,7 @@ func validateStandaloneCrackTaskUpdate(req *clientpb.CrackTask) error {
 	return nil
 }
 
+//nolint:gocyclo // Mode-specific response validation stays centralized so every synchronous query has the same trust boundary.
 func standaloneCrackQueryValue(mode clientpb.CrackQueryMode, req *clientpb.CrackTask) (string, error) {
 	if req == nil {
 		return "", errors.New("missing crack query result")

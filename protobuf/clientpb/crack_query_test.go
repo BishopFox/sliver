@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+//nolint:gocyclo // Keep field-number and round-trip assertions together as one wire-compatibility contract.
 func TestCrackQueryProtocolFieldNumbersAndRoundTrip(t *testing.T) {
 	capabilitiesField := (&Crackstation{}).ProtoReflect().Descriptor().Fields().ByName("Capabilities")
 	if capabilitiesField == nil || capabilitiesField.Number() != protoreflect.FieldNumber(104) ||

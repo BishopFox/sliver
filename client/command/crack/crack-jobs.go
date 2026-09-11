@@ -50,6 +50,8 @@ type crackJobFetcher func(context.Context, string) (*clientpb.CrackJob, error)
 var errNoCrackJobs = errors.New("no crack jobs")
 
 // CrackJobsCmd lists all durable cracking jobs known to the server.
+//
+//nolint:revive // Keep the established exported command-handler name for compatibility.
 func CrackJobsCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 	ctx, cancel := crackCommandContext(cmd.Context(), cmd)
 	defer cancel()
@@ -67,6 +69,8 @@ func CrackJobsCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 }
 
 // CrackJobCmd displays one cracking job, optionally polling until completion.
+//
+//nolint:revive // Keep the established exported command-handler name for compatibility.
 func CrackJobCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	pollInterval, _ := cmd.Flags().GetDuration("poll-interval")
 	if pollInterval <= 0 {
@@ -288,6 +292,7 @@ func renderCrackJobs(jobs []*clientpb.CrackJob, style table.Style) string {
 	return tw.Render()
 }
 
+//nolint:gocyclo // Keep the summary, task, device, and result sections in one deterministic job rendering pass.
 func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 	if job == nil {
 		return "Empty crack job"

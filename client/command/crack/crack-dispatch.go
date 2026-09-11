@@ -68,6 +68,8 @@ var incompatibleCandidateQueryFlags = map[string]struct{}{
 // belongs in the distributed crack queue. Backend information comes from the
 // registration snapshots; the remaining query modes execute synchronously on
 // one idle crackstation and never create a CrackJob.
+//
+//nolint:gocyclo // The ordered flag matrix keeps mutually exclusive query modes and their validation in one decision point.
 func classifyCrackInvocation(cmd *cobra.Command, args []string) (crackInvocation, error) {
 	flags := cmd.Flags()
 	backendInfo, _ := flags.GetBool("backend-info")

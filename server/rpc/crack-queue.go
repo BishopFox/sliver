@@ -86,6 +86,8 @@ type recoveredCrackResult struct {
 // splitCrackKeyspace uses largest-remainder apportionment. It is deterministic,
 // covers the keyspace exactly, and gives zero-rate stations a fallback weight so
 // a missing benchmark does not permanently starve a connected station.
+//
+//nolint:gocyclo // Weighted allocation, remainder distribution, and overflow-safe boundaries form one deterministic split.
 func splitCrackKeyspace(keyspace uint64, stations []weightedCrackstation) []crackShard {
 	if keyspace == 0 || len(stations) == 0 {
 		return nil
@@ -182,11 +184,11 @@ func startCrackQueueReaper() {
 				select {
 				case <-queueTicker.C:
 					if err := scheduleCrackTasks(); err != nil {
-						crackCommandRpcLog.Warnf("Failed to reap/schedule crack tasks: %s", err)
+						crackCommandRPCLog.Warnf("Failed to reap/schedule crack tasks: %s", err)
 					}
 				case now := <-uploadTicker.C:
 					if err := reapStaleIncompleteCrackFiles(now); err != nil {
-						crackCommandRpcLog.Warnf("Failed to reap stale crack file uploads: %s", err)
+						crackCommandRPCLog.Warnf("Failed to reap stale crack file uploads: %s", err)
 					}
 				}
 			}
@@ -220,6 +222,7 @@ func scheduleCrackTasks() error {
 	return scheduleCrackTasksLocked(time.Now())
 }
 
+//nolint:gocyclo // Reaping, task selection, leasing, dispatch, and rollback form one queue-lock transaction.
 func scheduleCrackTasksLocked(now time.Time) error {
 	reapStandaloneCrackKeyspaceTasksLocked(now)
 	dbSession := db.Session()
@@ -507,6 +510,7 @@ func stationWeights(tx *gorm.DB, hashType int32, hashcatVersion string) ([]weigh
 	return stations, nil
 }
 
+//nolint:gocyclo // Keyspace validation, weighted allocation, and shard creation must commit in one database transaction.
 func createCrackShards(tx *gorm.DB, task *models.CrackTask, now time.Time) error {
 	keyspaceText := strings.TrimSpace(task.Keyspace)
 	if keyspaceText == "" {
@@ -608,6 +612,7 @@ func crackResultFingerprint(jobID models.UUID, credentialID models.UUID, hash st
 	return hex.EncodeToString(digest.Sum(nil))
 }
 
+//nolint:gocyclo // Validation, deduplication, persistence, and credential updates intentionally share the caller's transaction.
 func ingestRecoveredResults(tx *gorm.DB, task *models.CrackTask, now time.Time) ([]string, error) {
 	if len(task.RecoveredJSON) == 0 {
 		return nil, nil
@@ -700,6 +705,7 @@ func ingestRecoveredResults(tx *gorm.DB, task *models.CrackTask, now time.Time) 
 	return crackedCredentialIDs, nil
 }
 
+//nolint:gocyclo // Terminal-state precedence and aggregate task counts must be evaluated from one database snapshot.
 func updateCrackJobState(tx *gorm.DB, jobID models.UUID, now time.Time) error {
 	if jobID == models.NilUUID() {
 		return nil
@@ -740,6 +746,7 @@ func updateCrackJobState(tx *gorm.DB, jobID models.UUID, now time.Time) error {
 	return tx.Model(&models.CrackJob{}).Where("id = ?", jobID).Updates(updates).Error
 }
 
+//nolint:gocyclo // Lease and state invariants plus result and job updates must be enforced atomically.
 func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 	if req == nil {
 		return nil, errors.New("missing crack task update")
@@ -898,7 +905,7 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 		core.EventBroker.Publish(core.Event{EventType: consts.CredentialCrackedEvent, Data: []byte(credentialID)})
 	}
 	if err := scheduleCrackTasksLocked(now); err != nil {
-		crackCommandRpcLog.Warnf("Accepted crack task update but could not schedule follow-up work: %s", err)
+		crackCommandRPCLog.Warnf("Accepted crack task update but could not schedule follow-up work: %s", err)
 	}
 	return crackedCredentialIDs, nil
 }

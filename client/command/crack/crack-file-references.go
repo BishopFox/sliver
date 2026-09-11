@@ -17,6 +17,8 @@ type crackFilesListFunc func(context.Context, *clientpb.CrackFile) (*clientpb.Cr
 // names, IDs, and digests with the content-addressed URI understood by a
 // crackstation. Inputs that do not match a managed file remain ordinary
 // Hashcat operands, masks, paths, or inline rule content.
+//
+//nolint:gocyclo // Resolve every managed-file role together in one deterministic pass.
 func resolveManagedCrackFileReferences(ctx context.Context, command *clientpb.CrackCommand, list crackFilesListFunc) error {
 	if command == nil {
 		return fmt.Errorf("missing crack command")
@@ -47,13 +49,14 @@ func resolveManagedCrackFileReferences(ctx context.Context, command *clientpb.Cr
 			command.PositionalArguments[wordlistIndexes[index]] = argument
 		}
 	}
-	if len(command.PositionalArguments) == 0 && command.Identify != "" &&
-		(crackOperandIsWordlist(command.AttackMode, 0) || strings.HasPrefix(command.Identify, crackFileScheme)) {
-		resolved, err := resolveCrackFileValues(ctx, []string{command.Identify}, clientpb.CrackFileType_WORDLIST, list)
+	legacyIdentify := command.Identify //nolint:staticcheck // Identify remains required for legacy wire compatibility.
+	if len(command.PositionalArguments) == 0 && legacyIdentify != "" &&
+		(crackOperandIsWordlist(command.AttackMode, 0) || strings.HasPrefix(legacyIdentify, crackFileScheme)) {
+		resolved, err := resolveCrackFileValues(ctx, []string{legacyIdentify}, clientpb.CrackFileType_WORDLIST, list)
 		if err != nil {
 			return err
 		}
-		command.Identify = resolved[0]
+		command.Identify = resolved[0] //nolint:staticcheck // Keep the resolved legacy operand synchronized for older servers.
 	}
 
 	rules := command.RulesFilesV7
@@ -99,6 +102,7 @@ func crackOperandIsWordlist(attackMode clientpb.CrackAttackMode, index int) bool
 	}
 }
 
+//nolint:gocyclo // Validation and alias disambiguation intentionally share the manifest lookup and preserve input ordering.
 func resolveCrackFileValues(ctx context.Context, values []string, fileType clientpb.CrackFileType, list crackFilesListFunc) ([]string, error) {
 	needsManifest := false
 	for _, value := range values {
