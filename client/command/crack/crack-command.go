@@ -51,9 +51,18 @@ func shouldRunCrack(cmd *cobra.Command, args []string) bool {
 
 	hasFlag := false
 	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		if flag.Changed && flag.Name != "timeout" {
-			hasFlag = true
+		if !flag.Changed || flag.Name == "timeout" {
+			return
 		}
+		// An explicitly disabled standalone mode is a no-op, not a crack job.
+		switch flag.Name {
+		case "backend-info", "keyspace", "total-candidates", "identify-mode", "hash-info":
+			enabled, _ := cmd.Flags().GetBool(flag.Name)
+			if !enabled {
+				return
+			}
+		}
+		hasFlag = true
 	})
 	return hasFlag
 }
@@ -103,6 +112,8 @@ func buildCrackCommand(cmd *cobra.Command, args []string) (*clientpb.CrackComman
 		return nil, fmt.Errorf("--include-cracked-credentials requires --credential or --credential-collection")
 	}
 	req.PositionalArguments, _ = flags.GetStringArray("input")
+	req.Crackstation, _ = flags.GetString("crackstation")
+	req.Crackstation = strings.TrimSpace(req.Crackstation)
 	if stdin, _ := flags.GetString("stdin"); stdin != "" {
 		req.Stdin = []byte(stdin)
 	}
@@ -174,7 +185,6 @@ func buildCrackCommand(cmd *cobra.Command, args []string) (*clientpb.CrackComman
 	}
 	req.WordlistAutohexDisable, _ = flags.GetBool("wordlist-autohex-disable")
 	req.Separator, _ = flags.GetString("separator")
-	req.Stdout, _ = flags.GetBool("stdout")
 	req.Show, _ = flags.GetBool("show")
 	req.Left, _ = flags.GetBool("left")
 	req.Username, _ = flags.GetBool("username")

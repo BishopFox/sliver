@@ -111,6 +111,7 @@ const (
 	// Crack Events - Events consumed by crackstations.
 	Crack                  = "crack"
 	CrackKeyspace          = "crack-keyspace"
+	CrackQuery             = "crack-query"
 	CrackBenchmark         = "crack-benchmark"
 	CrackFileUpdated       = "crack-file-updated"
 	CrackStatusEvent       = "crack-status"

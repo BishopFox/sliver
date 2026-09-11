@@ -505,6 +505,9 @@ func activeCrackJobReferencesManagedFile(tx *gorm.DB, crackFile *models.CrackFil
 	if uri == "" || crackFile.Sha2_256 == "" {
 		return false, nil
 	}
+	if activeStandaloneCrackKeyspaceReferencesManagedFile(uri) {
+		return true, nil
+	}
 	var activeJobIDs []models.UUID
 	if err := tx.Model(&models.CrackJob{}).Where("completed_at = ?", time.Time{}).Pluck("id", &activeJobIDs).Error; err != nil {
 		return false, err
@@ -605,7 +608,32 @@ func (rpc *Server) Crack(ctx context.Context, req *clientpb.CrackCommand) (*clie
 		return nil, status.Error(codes.ResourceExhausted, "crack command exceeds size limit")
 	}
 	commandRequest := proto.Clone(req).(*clientpb.CrackCommand)
+	selector := strings.TrimSpace(commandRequest.GetCrackstation())
+	// Crackstation is routing metadata for synchronous queries. Never persist
+	// it in a CrackCommand or send it back to a worker.
+	commandRequest.Crackstation = ""
 	command := models.CrackCommand{}.FromProtobuf(commandRequest)
+	if isStandaloneCrackQueryCommand(command) {
+		result, err := runStandaloneCrackQuery(ctx, command, selector)
+		if err != nil {
+			return nil, err
+		}
+		response := &clientpb.CrackResponse{Query: &clientpb.CrackQueryResult{
+			Mode:                 result.Mode,
+			CrackstationHostUUID: result.CrackstationHostUUID,
+			CrackstationName:     result.CrackstationName,
+			HashcatVersion:       result.HashcatVersion,
+			Value:                result.Value,
+			Stderr:               result.Stderr,
+		}}
+		if result.Mode == clientpb.CrackQueryMode_CRACK_QUERY_KEYSPACE {
+			response.Keyspace = result.Value
+		}
+		return response, nil
+	}
+	if selector != "" {
+		return nil, status.Error(codes.InvalidArgument, "crackstation selector is only valid for synchronous crack queries")
+	}
 	if err := validateDistributedCrackCommand(command); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid crack command: %s", err)
 	}

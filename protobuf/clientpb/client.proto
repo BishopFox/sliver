@@ -1125,6 +1125,7 @@ enum CrackTaskKind {
   CRACK_TASK_CRACK = 1;
   CRACK_TASK_KEYSPACE = 2;
   CRACK_TASK_BENCHMARK = 3;
+  CRACK_TASK_QUERY = 4;
 }
 
 enum CrackTaskState {
@@ -1197,6 +1198,7 @@ message Crackstation {
   repeated MetalBackendInfo Metal = 101;
   repeated OpenCLBackendInfo OpenCL = 102;
   repeated HIPBackendInfo HIP = 103;
+  repeated string Capabilities = 104;
 }
 
 message CUDABackendInfo {
@@ -1513,6 +1515,8 @@ message CrackCommand {
   repeated string CredentialIDs = 170;
   string CredentialCollection = 171;
   bool IncludeCrackedCredentials = 172;
+  // Optional exact crackstation HostUUID or name for synchronous query modes.
+  string Crackstation = 173;
 }
 
 message CrackJob {
@@ -1545,6 +1549,8 @@ message CrackResult {
 
 message CrackResponse {
   CrackJob Job = 1;
+  string Keyspace = 2;
+  CrackQueryResult Query = 3;
 }
 
 message CrackConfig {
@@ -1776,4 +1782,24 @@ message CertificateAuthorityData {
 
 message CertificateAuthorityInfo {
   repeated CertificateAuthorityData info = 1;
+}
+
+// [ Synchronous crack queries ] ---------------------------
+
+enum CrackQueryMode {
+  CRACK_QUERY_UNSPECIFIED = 0;
+  CRACK_QUERY_KEYSPACE = 1;
+  CRACK_QUERY_TOTAL_CANDIDATES = 2;
+  CRACK_QUERY_LOOKUP = 3;
+  CRACK_QUERY_IDENTIFY = 4;
+  CRACK_QUERY_HASH_INFO = 5;
+}
+
+message CrackQueryResult {
+  CrackQueryMode Mode = 1;
+  string CrackstationHostUUID = 2;
+  string CrackstationName = 3;
+  string HashcatVersion = 4;
+  string Value = 5;
+  string Stderr = 6;
 }

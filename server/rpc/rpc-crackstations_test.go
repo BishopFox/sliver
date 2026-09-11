@@ -700,6 +700,35 @@ func TestRegisterCrackstationRecordAtomicallyBindsLegacyOwner(t *testing.T) {
 	}
 }
 
+func TestRegisterCrackstationRecordBindsLegacyNullOwner(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	hostID := models.NewUUID()
+	if err := database.Omit("Tasks", "Benchmarks").Create(&models.Crackstation{ID: hostID}).Error; err != nil {
+		t.Fatalf("create legacy crackstation: %v", err)
+	}
+	if err := database.Model(&models.Crackstation{}).Where("id = ?", hostID).Update("operator_name", nil).Error; err != nil {
+		t.Fatalf("set legacy null owner: %v", err)
+	}
+	var nullOwnerCount int64
+	if err := database.Model(&models.Crackstation{}).Where("id = ? AND operator_name IS NULL", hostID).Count(&nullOwnerCount).Error; err != nil {
+		t.Fatalf("count legacy null owner: %v", err)
+	}
+	if nullOwnerCount != 1 {
+		t.Fatalf("legacy null owner count = %d, want 1", nullOwnerCount)
+	}
+
+	persisted, err := registerCrackstationRecord(hostID, "first-owner", "hashcat-v1")
+	if err != nil {
+		t.Fatalf("bind legacy null crackstation owner: %v", err)
+	}
+	if persisted.OperatorName != "first-owner" {
+		t.Fatalf("legacy null owner = %q, want first-owner", persisted.OperatorName)
+	}
+	if _, err := registerCrackstationRecord(hostID, "different-owner", "hashcat-v1"); !errors.Is(err, errCrackstationOwnerMismatch) {
+		t.Fatalf("different owner bind error = %v, want owner mismatch", err)
+	}
+}
+
 func setupCrackstationRPCTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	originalDB := db.Client

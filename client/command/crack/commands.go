@@ -27,6 +27,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", true, crackCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.Bind("", false, crackCmd, func(f *pflag.FlagSet) {
 		bindCrackFlags(f)
 	})
 	flags.BindFlagCompletions(crackCmd, func(comp *carapace.ActionMap) {

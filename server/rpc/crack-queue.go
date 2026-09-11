@@ -198,6 +198,8 @@ func crackTaskEventType(kind int32) string {
 	switch clientpb.CrackTaskKind(kind) {
 	case clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE:
 		return consts.CrackKeyspace
+	case clientpb.CrackTaskKind_CRACK_TASK_QUERY:
+		return consts.CrackQuery
 	default:
 		return consts.Crack
 	}
@@ -205,7 +207,7 @@ func crackTaskEventType(kind int32) string {
 
 func crackLeaseDuration(kind int32) time.Duration {
 	switch clientpb.CrackTaskKind(kind) {
-	case clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE:
+	case clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE, clientpb.CrackTaskKind_CRACK_TASK_QUERY:
 		return crackKeyspaceLeaseDuration
 	default:
 		return crackTaskLeaseDuration
@@ -219,6 +221,7 @@ func scheduleCrackTasks() error {
 }
 
 func scheduleCrackTasksLocked(now time.Time) error {
+	reapStandaloneCrackKeyspaceTasksLocked(now)
 	dbSession := db.Session()
 	if err := dbSession.Model(&models.CrackTask{}).
 		Where("kind IN ? AND state IN ? AND lease_expires_at < ?", schedulableCrackTaskKinds, []int32{
@@ -282,6 +285,7 @@ func scheduleCrackTasksLocked(now time.Time) error {
 	for _, task := range active {
 		delete(available, task.CrackstationID.String())
 	}
+	excludeStandaloneCrackKeyspaceHostsLocked(available)
 
 	var queued []models.CrackTask
 	if err := dbSession.Model(&models.CrackTask{}).Select("crack_tasks.*").Preload("Command").
@@ -392,12 +396,17 @@ func scheduleCrackTasksLocked(now time.Time) error {
 }
 
 func requeueCrackstationTasks(hostUUID string) error {
+	return requeueCrackstationTasksForConnection(hostUUID, nil)
+}
+
+func requeueCrackstationTasksForConnection(hostUUID string, disconnected *core.Crackstation) error {
 	hostID := models.ParseUUIDOrNil(hostUUID)
 	if hostID == models.NilUUID() {
 		return nil
 	}
 	crackQueueMu.Lock()
 	defer crackQueueMu.Unlock()
+	failStandaloneCrackKeyspaceTasksForStationLocked(disconnected)
 	now := time.Now()
 	if err := db.Session().Model(&models.CrackTask{}).
 		Where("crackstation_id = ? AND kind IN ? AND state IN ?", hostID, schedulableCrackTaskKinds, []int32{
@@ -895,8 +904,8 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 }
 
 func updateCrackTaskStatus(event crackTaskStatusEvent) error {
-	if event.TaskID == "" || event.HostUUID == "" || event.Attempt == 0 || event.LeaseToken == "" || len(event.Status) == 0 || len(event.Status) > maxCrackStatusBytes || !json.Valid(event.Status) {
-		return errors.New("invalid crack task status event")
+	if err := validateCrackTaskStatusEvent(event); err != nil {
+		return err
 	}
 	crackQueueMu.Lock()
 	defer crackQueueMu.Unlock()
@@ -942,5 +951,12 @@ func updateCrackTaskStatus(event crackTaskStatusEvent) error {
 		return err
 	}
 	core.EventBroker.Publish(core.Event{EventType: consts.CrackTaskStatus, Data: data})
+	return nil
+}
+
+func validateCrackTaskStatusEvent(event crackTaskStatusEvent) error {
+	if event.TaskID == "" || event.HostUUID == "" || event.Attempt == 0 || event.LeaseToken == "" || len(event.Status) == 0 || len(event.Status) > maxCrackStatusBytes || !json.Valid(event.Status) {
+		return errors.New("invalid crack task status event")
+	}
 	return nil
 }

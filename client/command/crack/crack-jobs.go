@@ -111,6 +111,9 @@ func CrackJobCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 func crackCommandContext(parent context.Context, cmd *cobra.Command) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
 	timeoutSeconds, _ := cmd.Flags().GetInt64("timeout")
 	if timeoutSeconds <= 0 {
 		return parent, func() {}

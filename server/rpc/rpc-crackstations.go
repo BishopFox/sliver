@@ -280,7 +280,7 @@ func registerCrackstationRecord(hostID models.UUID, operatorName string, hashcat
 		}
 		if persisted.OperatorName == "" {
 			result := tx.Model(&models.Crackstation{}).
-				Where("id = ? AND operator_name = ?", hostID, "").
+				Where("id = ? AND (operator_name = ? OR operator_name IS NULL)", hostID, "").
 				Update("operator_name", operatorName)
 			if result.Error != nil {
 				return result.Error
@@ -373,10 +373,19 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 		if err := json.Unmarshal(req.Data, &statusUpdate); err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid crack task status update")
 		}
+		if err := validateCrackTaskStatusEvent(statusUpdate); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		if err := rpc.authorizeCrackstation(ctx, statusUpdate.HostUUID); err != nil {
 			return nil, err
 		}
-		if err := updateCrackTaskStatus(statusUpdate); err != nil {
+		crackQueueMu.Lock()
+		handled, err := updateStandaloneCrackTaskStatusLocked(statusUpdate, time.Now())
+		crackQueueMu.Unlock()
+		if !handled {
+			err = updateCrackTaskStatus(statusUpdate)
+		}
+		if err != nil {
 			if errors.Is(err, errStaleCrackTaskAttempt) {
 				return nil, status.Error(codes.Aborted, err.Error())
 			}
@@ -391,6 +400,9 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (*clientpb.CrackTask, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing crack task")
+	}
+	if task, handled, err := rpc.standaloneCrackTaskByID(ctx, req); handled {
+		return task, err
 	}
 	task, err := db.GetCrackTaskByID(req.ID)
 	if err != nil {
@@ -420,6 +432,18 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 	taskID := models.ParseUUIDOrNil(req.ID)
 	if taskID == models.NilUUID() {
 		return nil, status.Error(codes.InvalidArgument, "invalid crack task id")
+	}
+	if handled, err := rpc.standaloneCrackTaskUpdate(ctx, req); handled {
+		if err != nil {
+			if status.Code(err) != codes.Unknown {
+				return nil, err
+			}
+			if errors.Is(err, errStaleCrackTaskAttempt) {
+				return nil, status.Error(codes.Aborted, err.Error())
+			}
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return &commonpb.Empty{}, nil
 	}
 
 	persisted, err := db.GetCrackTaskByID(req.ID)
@@ -558,7 +582,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 		crackRpcLog.Infof("Crackstation %s disconnected", req.Name)
 		core.EventBroker.Unsubscribe(events)
 		core.RemoveCrackstation(req.HostUUID)
-		if err := requeueCrackstationTasks(req.HostUUID); err != nil {
+		if err := requeueCrackstationTasksForConnection(req.HostUUID, crackStation); err != nil {
 			crackRpcLog.Warnf("Failed to requeue tasks for disconnected crackstation %s: %s", req.HostUUID, err)
 		}
 	}()
@@ -1079,7 +1103,7 @@ func (rpc *Server) CrackFileDelete(ctx context.Context, req *clientpb.CrackFile)
 		return nil, status.Error(codes.Internal, "failed to check crack file references")
 	}
 	if referenced {
-		return nil, status.Error(codes.FailedPrecondition, "crack file is referenced by an active crack job")
+		return nil, status.Error(codes.FailedPrecondition, "crack file is referenced by active crack work")
 	}
 	chunkDataDir := assets.GetChunkDataDir()
 	if chunkDataDir == "" {

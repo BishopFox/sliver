@@ -803,6 +803,7 @@ const (
 	CrackTaskKind_CRACK_TASK_CRACK       CrackTaskKind = 1
 	CrackTaskKind_CRACK_TASK_KEYSPACE    CrackTaskKind = 2
 	CrackTaskKind_CRACK_TASK_BENCHMARK   CrackTaskKind = 3
+	CrackTaskKind_CRACK_TASK_QUERY       CrackTaskKind = 4
 )
 
 // Enum value maps for CrackTaskKind.
@@ -812,12 +813,14 @@ var (
 		1: "CRACK_TASK_CRACK",
 		2: "CRACK_TASK_KEYSPACE",
 		3: "CRACK_TASK_BENCHMARK",
+		4: "CRACK_TASK_QUERY",
 	}
 	CrackTaskKind_value = map[string]int32{
 		"CRACK_TASK_UNSPECIFIED": 0,
 		"CRACK_TASK_CRACK":       1,
 		"CRACK_TASK_KEYSPACE":    2,
 		"CRACK_TASK_BENCHMARK":   3,
+		"CRACK_TASK_QUERY":       4,
 	}
 )
 
@@ -1451,6 +1454,64 @@ func (x AIConversationEventType) Number() protoreflect.EnumNumber {
 // Deprecated: Use AIConversationEventType.Descriptor instead.
 func (AIConversationEventType) EnumDescriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{19}
+}
+
+type CrackQueryMode int32
+
+const (
+	CrackQueryMode_CRACK_QUERY_UNSPECIFIED      CrackQueryMode = 0
+	CrackQueryMode_CRACK_QUERY_KEYSPACE         CrackQueryMode = 1
+	CrackQueryMode_CRACK_QUERY_TOTAL_CANDIDATES CrackQueryMode = 2
+	CrackQueryMode_CRACK_QUERY_LOOKUP           CrackQueryMode = 3
+	CrackQueryMode_CRACK_QUERY_IDENTIFY         CrackQueryMode = 4
+	CrackQueryMode_CRACK_QUERY_HASH_INFO        CrackQueryMode = 5
+)
+
+// Enum value maps for CrackQueryMode.
+var (
+	CrackQueryMode_name = map[int32]string{
+		0: "CRACK_QUERY_UNSPECIFIED",
+		1: "CRACK_QUERY_KEYSPACE",
+		2: "CRACK_QUERY_TOTAL_CANDIDATES",
+		3: "CRACK_QUERY_LOOKUP",
+		4: "CRACK_QUERY_IDENTIFY",
+		5: "CRACK_QUERY_HASH_INFO",
+	}
+	CrackQueryMode_value = map[string]int32{
+		"CRACK_QUERY_UNSPECIFIED":      0,
+		"CRACK_QUERY_KEYSPACE":         1,
+		"CRACK_QUERY_TOTAL_CANDIDATES": 2,
+		"CRACK_QUERY_LOOKUP":           3,
+		"CRACK_QUERY_IDENTIFY":         4,
+		"CRACK_QUERY_HASH_INFO":        5,
+	}
+)
+
+func (x CrackQueryMode) Enum() *CrackQueryMode {
+	p := new(CrackQueryMode)
+	*p = x
+	return p
+}
+
+func (x CrackQueryMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CrackQueryMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[20].Descriptor()
+}
+
+func (CrackQueryMode) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[20]
+}
+
+func (x CrackQueryMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CrackQueryMode.Descriptor instead.
+func (CrackQueryMode) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{20}
 }
 
 type Version struct {
@@ -10072,6 +10133,7 @@ type Crackstation struct {
 	Metal          []*MetalBackendInfo    `protobuf:"bytes,101,rep,name=Metal,proto3" json:"Metal,omitempty"`
 	OpenCL         []*OpenCLBackendInfo   `protobuf:"bytes,102,rep,name=OpenCL,proto3" json:"OpenCL,omitempty"`
 	HIP            []*HIPBackendInfo      `protobuf:"bytes,103,rep,name=HIP,proto3" json:"HIP,omitempty"`
+	Capabilities   []string               `protobuf:"bytes,104,rep,name=Capabilities,proto3" json:"Capabilities,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -10200,6 +10262,13 @@ func (x *Crackstation) GetOpenCL() []*OpenCLBackendInfo {
 func (x *Crackstation) GetHIP() []*HIPBackendInfo {
 	if x != nil {
 		return x.HIP
+	}
+	return nil
+}
+
+func (x *Crackstation) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
 	}
 	return nil
 }
@@ -11167,8 +11236,10 @@ type CrackCommand struct {
 	CredentialIDs             []string `protobuf:"bytes,170,rep,name=CredentialIDs,proto3" json:"CredentialIDs,omitempty"`
 	CredentialCollection      string   `protobuf:"bytes,171,opt,name=CredentialCollection,proto3" json:"CredentialCollection,omitempty"`
 	IncludeCrackedCredentials bool     `protobuf:"varint,172,opt,name=IncludeCrackedCredentials,proto3" json:"IncludeCrackedCredentials,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Optional exact crackstation HostUUID or name for synchronous query modes.
+	Crackstation  string `protobuf:"bytes,173,opt,name=Crackstation,proto3" json:"Crackstation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CrackCommand) Reset() {
@@ -12401,6 +12472,13 @@ func (x *CrackCommand) GetIncludeCrackedCredentials() bool {
 	return false
 }
 
+func (x *CrackCommand) GetCrackstation() string {
+	if x != nil {
+		return x.Crackstation
+	}
+	return ""
+}
+
 type CrackJob struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ID            string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
@@ -12672,6 +12750,8 @@ func (x *CrackResult) GetCreatedAt() int64 {
 type CrackResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Job           *CrackJob              `protobuf:"bytes,1,opt,name=Job,proto3" json:"Job,omitempty"`
+	Keyspace      string                 `protobuf:"bytes,2,opt,name=Keyspace,proto3" json:"Keyspace,omitempty"`
+	Query         *CrackQueryResult      `protobuf:"bytes,3,opt,name=Query,proto3" json:"Query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -12709,6 +12789,20 @@ func (*CrackResponse) Descriptor() ([]byte, []int) {
 func (x *CrackResponse) GetJob() *CrackJob {
 	if x != nil {
 		return x.Job
+	}
+	return nil
+}
+
+func (x *CrackResponse) GetKeyspace() string {
+	if x != nil {
+		return x.Keyspace
+	}
+	return ""
+}
+
+func (x *CrackResponse) GetQuery() *CrackQueryResult {
+	if x != nil {
+		return x.Query
 	}
 	return nil
 }
@@ -14427,6 +14521,90 @@ func (x *CertificateAuthorityInfo) GetInfo() []*CertificateAuthorityData {
 	return nil
 }
 
+type CrackQueryResult struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Mode                 CrackQueryMode         `protobuf:"varint,1,opt,name=Mode,proto3,enum=clientpb.CrackQueryMode" json:"Mode,omitempty"`
+	CrackstationHostUUID string                 `protobuf:"bytes,2,opt,name=CrackstationHostUUID,proto3" json:"CrackstationHostUUID,omitempty"`
+	CrackstationName     string                 `protobuf:"bytes,3,opt,name=CrackstationName,proto3" json:"CrackstationName,omitempty"`
+	HashcatVersion       string                 `protobuf:"bytes,4,opt,name=HashcatVersion,proto3" json:"HashcatVersion,omitempty"`
+	Value                string                 `protobuf:"bytes,5,opt,name=Value,proto3" json:"Value,omitempty"`
+	Stderr               string                 `protobuf:"bytes,6,opt,name=Stderr,proto3" json:"Stderr,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *CrackQueryResult) Reset() {
+	*x = CrackQueryResult{}
+	mi := &file_clientpb_client_proto_msgTypes[147]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CrackQueryResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CrackQueryResult) ProtoMessage() {}
+
+func (x *CrackQueryResult) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[147]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CrackQueryResult.ProtoReflect.Descriptor instead.
+func (*CrackQueryResult) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{147}
+}
+
+func (x *CrackQueryResult) GetMode() CrackQueryMode {
+	if x != nil {
+		return x.Mode
+	}
+	return CrackQueryMode_CRACK_QUERY_UNSPECIFIED
+}
+
+func (x *CrackQueryResult) GetCrackstationHostUUID() string {
+	if x != nil {
+		return x.CrackstationHostUUID
+	}
+	return ""
+}
+
+func (x *CrackQueryResult) GetCrackstationName() string {
+	if x != nil {
+		return x.CrackstationName
+	}
+	return ""
+}
+
+func (x *CrackQueryResult) GetHashcatVersion() string {
+	if x != nil {
+		return x.HashcatVersion
+	}
+	return ""
+}
+
+func (x *CrackQueryResult) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *CrackQueryResult) GetStderr() string {
+	if x != nil {
+		return x.Stderr
+	}
+	return ""
+}
+
 var File_clientpb_client_proto protoreflect.FileDescriptor
 
 const file_clientpb_client_proto_rawDesc = "" +
@@ -15206,7 +15384,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\tShardSkip\x18\x1b \x01(\x04R\tShardSkip\x12\x1e\n" +
 	"\n" +
 	"ShardLimit\x18\x1c \x01(\x04R\n" +
-	"ShardLimit\"\xdf\x04\n" +
+	"ShardLimit\"\x83\x05\n" +
 	"\fCrackstation\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\"\n" +
@@ -15224,7 +15402,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04CUDA\x18d \x03(\v2\x19.clientpb.CUDABackendInfoR\x04CUDA\x120\n" +
 	"\x05Metal\x18e \x03(\v2\x1a.clientpb.MetalBackendInfoR\x05Metal\x123\n" +
 	"\x06OpenCL\x18f \x03(\v2\x1b.clientpb.OpenCLBackendInfoR\x06OpenCL\x12*\n" +
-	"\x03HIP\x18g \x03(\v2\x18.clientpb.HIPBackendInfoR\x03HIP\x1a=\n" +
+	"\x03HIP\x18g \x03(\v2\x18.clientpb.HIPBackendInfoR\x03HIP\x12\"\n" +
+	"\fCapabilities\x18h \x03(\tR\fCapabilities\x1a=\n" +
 	"\x0fBenchmarksEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\x83\x05\n" +
@@ -15358,7 +15537,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"PCIAddressB\x15\n" +
 	"\x13_BackendDeviceAliasB\x16\n" +
 	"\x14_PreferredThreadSizeB\x10\n" +
-	"\x0e_MemoryUnified\"\xc49\n" +
+	"\x0e_MemoryUnified\"\xe99\n" +
 	"\fCrackCommand\x129\n" +
 	"\n" +
 	"AttackMode\x18\x01 \x01(\x0e2\x19.clientpb.CrackAttackModeR\n" +
@@ -15544,7 +15723,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x16GenerateRulesFuncMaxV7\x18\xa9\x01 \x01(\rH\x14R\x16GenerateRulesFuncMaxV7\x88\x01\x01\x12%\n" +
 	"\rCredentialIDs\x18\xaa\x01 \x03(\tR\rCredentialIDs\x123\n" +
 	"\x14CredentialCollection\x18\xab\x01 \x01(\tR\x14CredentialCollection\x12=\n" +
-	"\x19IncludeCrackedCredentials\x18\xac\x01 \x01(\bR\x19IncludeCrackedCredentialsB\x14\n" +
+	"\x19IncludeCrackedCredentials\x18\xac\x01 \x01(\bR\x19IncludeCrackedCredentials\x12#\n" +
+	"\fCrackstation\x18\xad\x01 \x01(\tR\fCrackstationB\x14\n" +
 	"\x12_VeracryptPimStartB\x13\n" +
 	"\x11_VeracryptPimStopB\x0f\n" +
 	"\r_BenchmarkMaxB\x0e\n" +
@@ -15591,9 +15771,11 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\fCredentialID\x18\x04 \x01(\tR\fCredentialID\x12\x12\n" +
 	"\x04Hash\x18\x05 \x01(\tR\x04Hash\x12\x1c\n" +
 	"\tPlaintext\x18\x06 \x01(\fR\tPlaintext\x12\x1c\n" +
-	"\tCreatedAt\x18\a \x01(\x03R\tCreatedAt\"5\n" +
+	"\tCreatedAt\x18\a \x01(\x03R\tCreatedAt\"\x83\x01\n" +
 	"\rCrackResponse\x12$\n" +
-	"\x03Job\x18\x01 \x01(\v2\x12.clientpb.CrackJobR\x03Job\"\x8d\x01\n" +
+	"\x03Job\x18\x01 \x01(\v2\x12.clientpb.CrackJobR\x03Job\x12\x1a\n" +
+	"\bKeyspace\x18\x02 \x01(\tR\bKeyspace\x120\n" +
+	"\x05Query\x18\x03 \x01(\v2\x1a.clientpb.CrackQueryResultR\x05Query\"\x8d\x01\n" +
 	"\vCrackConfig\x12\x1a\n" +
 	"\bAutoFire\x18\x01 \x01(\bR\bAutoFire\x12 \n" +
 	"\vMaxFileSize\x18\x02 \x01(\x03R\vMaxFileSize\x12\x1c\n" +
@@ -15744,7 +15926,14 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\fKeyAlgorithm\x18\x06 \x01(\tR\fKeyAlgorithm\x12\x0e\n" +
 	"\x02ID\x18\a \x01(\tR\x02ID\"R\n" +
 	"\x18CertificateAuthorityInfo\x126\n" +
-	"\x04info\x18\x01 \x03(\v2\".clientpb.CertificateAuthorityDataR\x04info*k\n" +
+	"\x04info\x18\x01 \x03(\v2\".clientpb.CertificateAuthorityDataR\x04info\"\xf6\x01\n" +
+	"\x10CrackQueryResult\x12,\n" +
+	"\x04Mode\x18\x01 \x01(\x0e2\x18.clientpb.CrackQueryModeR\x04Mode\x122\n" +
+	"\x14CrackstationHostUUID\x18\x02 \x01(\tR\x14CrackstationHostUUID\x12*\n" +
+	"\x10CrackstationName\x18\x03 \x01(\tR\x10CrackstationName\x12&\n" +
+	"\x0eHashcatVersion\x18\x04 \x01(\tR\x0eHashcatVersion\x12\x14\n" +
+	"\x05Value\x18\x05 \x01(\tR\x05Value\x12\x16\n" +
+	"\x06Stderr\x18\x06 \x01(\tR\x06Stderr*k\n" +
 	"\fOutputFormat\x12\x0e\n" +
 	"\n" +
 	"SHARED_LIB\x10\x00\x12\r\n" +
@@ -15924,12 +16113,13 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\tCOMPLETED\x10\x01\x12\n" +
 	"\n" +
 	"\x06FAILED\x10\x02\x12\r\n" +
-	"\tCANCELLED\x10\x03*t\n" +
+	"\tCANCELLED\x10\x03*\x8a\x01\n" +
 	"\rCrackTaskKind\x12\x1a\n" +
 	"\x16CRACK_TASK_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CRACK_TASK_CRACK\x10\x01\x12\x17\n" +
 	"\x13CRACK_TASK_KEYSPACE\x10\x02\x12\x18\n" +
-	"\x14CRACK_TASK_BENCHMARK\x10\x03*\xa1\x01\n" +
+	"\x14CRACK_TASK_BENCHMARK\x10\x03\x12\x14\n" +
+	"\x10CRACK_TASK_QUERY\x10\x04*\xa1\x01\n" +
 	"\x0eCrackTaskState\x12\x15\n" +
 	"\x11CRACK_TASK_QUEUED\x10\x00\x12\x15\n" +
 	"\x11CRACK_TASK_LEASED\x10\x01\x12\x16\n" +
@@ -15998,7 +16188,14 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"&AI_CONVERSATION_EVENT_TYPE_TURN_FAILED\x10\x05\x12.\n" +
 	"*AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED\x10\x06\x12.\n" +
 	"*AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED\x10\a\x120\n" +
-	",AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED\x10\bB/Z-github.com/bishopfox/sliver/protobuf/clientpbb\x06proto3"
+	",AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED\x10\b*\xb6\x01\n" +
+	"\x0eCrackQueryMode\x12\x1b\n" +
+	"\x17CRACK_QUERY_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14CRACK_QUERY_KEYSPACE\x10\x01\x12 \n" +
+	"\x1cCRACK_QUERY_TOTAL_CANDIDATES\x10\x02\x12\x16\n" +
+	"\x12CRACK_QUERY_LOOKUP\x10\x03\x12\x18\n" +
+	"\x14CRACK_QUERY_IDENTIFY\x10\x04\x12\x19\n" +
+	"\x15CRACK_QUERY_HASH_INFO\x10\x05B/Z-github.com/bishopfox/sliver/protobuf/clientpbb\x06proto3"
 
 var (
 	file_clientpb_client_proto_rawDescOnce sync.Once
@@ -16012,8 +16209,8 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 	return file_clientpb_client_proto_rawDescData
 }
 
-var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 20)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 161)
+var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 21)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 162)
 var file_clientpb_client_proto_goTypes = []any{
 	(OutputFormat)(0),                      // 0: clientpb.OutputFormat
 	(StageProtocol)(0),                     // 1: clientpb.StageProtocol
@@ -16035,287 +16232,289 @@ var file_clientpb_client_proto_goTypes = []any{
 	(AIConversationMessageVisibility)(0),   // 17: clientpb.AIConversationMessageVisibility
 	(AIConversationMessageState)(0),        // 18: clientpb.AIConversationMessageState
 	(AIConversationEventType)(0),           // 19: clientpb.AIConversationEventType
-	(*Version)(nil),                        // 20: clientpb.Version
-	(*ClientLogData)(nil),                  // 21: clientpb.ClientLogData
-	(*Session)(nil),                        // 22: clientpb.Session
-	(*Beacon)(nil),                         // 23: clientpb.Beacon
-	(*Beacons)(nil),                        // 24: clientpb.Beacons
-	(*BeaconTask)(nil),                     // 25: clientpb.BeaconTask
-	(*BeaconTasks)(nil),                    // 26: clientpb.BeaconTasks
-	(*BeaconIntegrity)(nil),                // 27: clientpb.BeaconIntegrity
-	(*ImplantC2)(nil),                      // 28: clientpb.ImplantC2
-	(*ShellcodeConfig)(nil),                // 29: clientpb.ShellcodeConfig
-	(*ImplantConfig)(nil),                  // 30: clientpb.ImplantConfig
-	(*SpoofMetadataFile)(nil),              // 31: clientpb.SpoofMetadataFile
-	(*IMAGE_RESOURCE_DIRECTORY)(nil),       // 32: clientpb.IMAGE_RESOURCE_DIRECTORY
-	(*IMAGE_RESOURCE_DIRECTORY_ENTRY)(nil), // 33: clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
-	(*IMAGE_RESOURCE_DATA_ENTRY)(nil),      // 34: clientpb.IMAGE_RESOURCE_DATA_ENTRY
-	(*IMAGE_EXPORT_DIRECTORY)(nil),         // 35: clientpb.IMAGE_EXPORT_DIRECTORY
-	(*PESpoofMetadataConfig)(nil),          // 36: clientpb.PESpoofMetadataConfig
-	(*SpoofMetadataConfig)(nil),            // 37: clientpb.SpoofMetadataConfig
-	(*TrafficEncoder)(nil),                 // 38: clientpb.TrafficEncoder
-	(*TrafficEncoderMap)(nil),              // 39: clientpb.TrafficEncoderMap
-	(*TrafficEncoderTest)(nil),             // 40: clientpb.TrafficEncoderTest
-	(*TrafficEncoderTests)(nil),            // 41: clientpb.TrafficEncoderTests
-	(*ExternalImplantConfig)(nil),          // 42: clientpb.ExternalImplantConfig
-	(*ExternalImplantBinary)(nil),          // 43: clientpb.ExternalImplantBinary
-	(*ImplantBuilds)(nil),                  // 44: clientpb.ImplantBuilds
-	(*ImplantStageReq)(nil),                // 45: clientpb.ImplantStageReq
-	(*ImplantBuild)(nil),                   // 46: clientpb.ImplantBuild
-	(*CompilerTarget)(nil),                 // 47: clientpb.CompilerTarget
-	(*CrossCompiler)(nil),                  // 48: clientpb.CrossCompiler
-	(*Compiler)(nil),                       // 49: clientpb.Compiler
-	(*DeleteReq)(nil),                      // 50: clientpb.DeleteReq
-	(*DNSCanary)(nil),                      // 51: clientpb.DNSCanary
-	(*Canaries)(nil),                       // 52: clientpb.Canaries
-	(*UniqueWGIP)(nil),                     // 53: clientpb.UniqueWGIP
-	(*ImplantProfile)(nil),                 // 54: clientpb.ImplantProfile
-	(*ImplantProfiles)(nil),                // 55: clientpb.ImplantProfiles
-	(*RegenerateReq)(nil),                  // 56: clientpb.RegenerateReq
-	(*Job)(nil),                            // 57: clientpb.Job
-	(*Jobs)(nil),                           // 58: clientpb.Jobs
-	(*KillJobReq)(nil),                     // 59: clientpb.KillJobReq
-	(*RestartJobReq)(nil),                  // 60: clientpb.RestartJobReq
-	(*KillJob)(nil),                        // 61: clientpb.KillJob
-	(*ListenerJob)(nil),                    // 62: clientpb.ListenerJob
-	(*MultiplayerListenerReq)(nil),         // 63: clientpb.MultiplayerListenerReq
-	(*MTLSListenerReq)(nil),                // 64: clientpb.MTLSListenerReq
-	(*WGListenerReq)(nil),                  // 65: clientpb.WGListenerReq
-	(*DNSListenerReq)(nil),                 // 66: clientpb.DNSListenerReq
-	(*HTTPListenerReq)(nil),                // 67: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),                  // 68: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),                     // 69: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),                    // 70: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),                       // 71: clientpb.TCPPivot
-	(*Sessions)(nil),                       // 72: clientpb.Sessions
-	(*RenameReq)(nil),                      // 73: clientpb.RenameReq
-	(*GenerateReq)(nil),                    // 74: clientpb.GenerateReq
-	(*GenerateStageReq)(nil),               // 75: clientpb.GenerateStageReq
-	(*Generate)(nil),                       // 76: clientpb.Generate
-	(*GenerateSpoofMetadataReq)(nil),       // 77: clientpb.GenerateSpoofMetadataReq
-	(*MSFReq)(nil),                         // 78: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),                   // 79: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),              // 80: clientpb.StagerListenerReq
-	(*StagerListener)(nil),                 // 81: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),                // 82: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),                   // 83: clientpb.ShellcodeRDI
-	(*GetSystemReq)(nil),                   // 84: clientpb.GetSystemReq
-	(*MigrateReq)(nil),                     // 85: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),                // 86: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),                   // 87: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),                 // 88: clientpb.CloseTunnelReq
-	(*PivotGraphEntry)(nil),                // 89: clientpb.PivotGraphEntry
-	(*PivotGraph)(nil),                     // 90: clientpb.PivotGraph
-	(*Client)(nil),                         // 91: clientpb.Client
-	(*Event)(nil),                          // 92: clientpb.Event
-	(*Operators)(nil),                      // 93: clientpb.Operators
-	(*Operator)(nil),                       // 94: clientpb.Operator
-	(*WebContent)(nil),                     // 95: clientpb.WebContent
-	(*WebsiteAddContent)(nil),              // 96: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil),           // 97: clientpb.WebsiteRemoveContent
-	(*Website)(nil),                        // 98: clientpb.Website
-	(*Websites)(nil),                       // 99: clientpb.Websites
-	(*WGClientConfig)(nil),                 // 100: clientpb.WGClientConfig
-	(*Loot)(nil),                           // 101: clientpb.Loot
-	(*AllLoot)(nil),                        // 102: clientpb.AllLoot
-	(*IOC)(nil),                            // 103: clientpb.IOC
-	(*ExtensionData)(nil),                  // 104: clientpb.ExtensionData
-	(*Host)(nil),                           // 105: clientpb.Host
-	(*AllHosts)(nil),                       // 106: clientpb.AllHosts
-	(*DllHijackReq)(nil),                   // 107: clientpb.DllHijackReq
-	(*DllHijack)(nil),                      // 108: clientpb.DllHijack
-	(*BackdoorReq)(nil),                    // 109: clientpb.BackdoorReq
-	(*Backdoor)(nil),                       // 110: clientpb.Backdoor
-	(*ShellcodeEncodeReq)(nil),             // 111: clientpb.ShellcodeEncodeReq
-	(*ShellcodeEncode)(nil),                // 112: clientpb.ShellcodeEncode
-	(*ShellcodeEncoderArchMap)(nil),        // 113: clientpb.ShellcodeEncoderArchMap
-	(*ShellcodeEncoderMap)(nil),            // 114: clientpb.ShellcodeEncoderMap
-	(*ExternalGenerateReq)(nil),            // 115: clientpb.ExternalGenerateReq
-	(*Builders)(nil),                       // 116: clientpb.Builders
-	(*Builder)(nil),                        // 117: clientpb.Builder
-	(*HTTPC2Configs)(nil),                  // 118: clientpb.HTTPC2Configs
-	(*C2ProfileReq)(nil),                   // 119: clientpb.C2ProfileReq
-	(*HTTPC2ConfigReq)(nil),                // 120: clientpb.HTTPC2ConfigReq
-	(*HTTPC2Config)(nil),                   // 121: clientpb.HTTPC2Config
-	(*HTTPC2ServerConfig)(nil),             // 122: clientpb.HTTPC2ServerConfig
-	(*HTTPC2ImplantConfig)(nil),            // 123: clientpb.HTTPC2ImplantConfig
-	(*HTTPC2Cookie)(nil),                   // 124: clientpb.HTTPC2Cookie
-	(*HTTPC2Header)(nil),                   // 125: clientpb.HTTPC2Header
-	(*HTTPC2URLParameter)(nil),             // 126: clientpb.HTTPC2URLParameter
-	(*HTTPC2PathSegment)(nil),              // 127: clientpb.HTTPC2PathSegment
-	(*Credential)(nil),                     // 128: clientpb.Credential
-	(*Credentials)(nil),                    // 129: clientpb.Credentials
-	(*Crackstations)(nil),                  // 130: clientpb.Crackstations
-	(*CrackstationStatus)(nil),             // 131: clientpb.CrackstationStatus
-	(*CrackSyncStatus)(nil),                // 132: clientpb.CrackSyncStatus
-	(*CrackBenchmark)(nil),                 // 133: clientpb.CrackBenchmark
-	(*CrackTask)(nil),                      // 134: clientpb.CrackTask
-	(*Crackstation)(nil),                   // 135: clientpb.Crackstation
-	(*CUDABackendInfo)(nil),                // 136: clientpb.CUDABackendInfo
-	(*OpenCLBackendInfo)(nil),              // 137: clientpb.OpenCLBackendInfo
-	(*MetalBackendInfo)(nil),               // 138: clientpb.MetalBackendInfo
-	(*HIPBackendInfo)(nil),                 // 139: clientpb.HIPBackendInfo
-	(*CrackCommand)(nil),                   // 140: clientpb.CrackCommand
-	(*CrackJob)(nil),                       // 141: clientpb.CrackJob
-	(*CrackJobs)(nil),                      // 142: clientpb.CrackJobs
-	(*CrackResult)(nil),                    // 143: clientpb.CrackResult
-	(*CrackResponse)(nil),                  // 144: clientpb.CrackResponse
-	(*CrackConfig)(nil),                    // 145: clientpb.CrackConfig
-	(*CrackFiles)(nil),                     // 146: clientpb.CrackFiles
-	(*CrackFile)(nil),                      // 147: clientpb.CrackFile
-	(*CrackFileChunk)(nil),                 // 148: clientpb.CrackFileChunk
-	(*AIProviderConfigs)(nil),              // 149: clientpb.AIProviderConfigs
-	(*AIProviderConfig)(nil),               // 150: clientpb.AIProviderConfig
-	(*AIConfigSummary)(nil),                // 151: clientpb.AIConfigSummary
-	(*AIConversationReq)(nil),              // 152: clientpb.AIConversationReq
-	(*AIConversations)(nil),                // 153: clientpb.AIConversations
-	(*AIContextWindowUsage)(nil),           // 154: clientpb.AIContextWindowUsage
-	(*AIConversation)(nil),                 // 155: clientpb.AIConversation
-	(*AIConversationMessages)(nil),         // 156: clientpb.AIConversationMessages
-	(*AIConversationMessage)(nil),          // 157: clientpb.AIConversationMessage
-	(*AIConversationEvent)(nil),            // 158: clientpb.AIConversationEvent
-	(*MonitoringProviders)(nil),            // 159: clientpb.MonitoringProviders
-	(*MonitoringProvider)(nil),             // 160: clientpb.MonitoringProvider
-	(*ResourceID)(nil),                     // 161: clientpb.ResourceID
-	(*CertificatesReq)(nil),                // 162: clientpb.CertificatesReq
-	(*CertificateData)(nil),                // 163: clientpb.CertificateData
-	(*CertificateInfo)(nil),                // 164: clientpb.CertificateInfo
-	(*CertificateAuthorityData)(nil),       // 165: clientpb.CertificateAuthorityData
-	(*CertificateAuthorityInfo)(nil),       // 166: clientpb.CertificateAuthorityInfo
-	nil,                                    // 167: clientpb.TrafficEncoderMap.EncodersEntry
-	nil,                                    // 168: clientpb.ExternalImplantConfig.EncodersEntry
-	nil,                                    // 169: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                                    // 170: clientpb.ImplantBuilds.ResourceIDsEntry
-	nil,                                    // 171: clientpb.ImplantBuilds.StagedEntry
-	nil,                                    // 172: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                                    // 173: clientpb.Website.ContentsEntry
-	nil,                                    // 174: clientpb.Host.ExtensionDataEntry
-	nil,                                    // 175: clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	nil,                                    // 176: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	nil,                                    // 177: clientpb.ShellcodeEncoderMap.EncodersEntry
-	nil,                                    // 178: clientpb.CrackSyncStatus.ProgressEntry
-	nil,                                    // 179: clientpb.CrackBenchmark.BenchmarksEntry
-	nil,                                    // 180: clientpb.Crackstation.BenchmarksEntry
-	(*commonpb.File)(nil),                  // 181: commonpb.File
-	(*commonpb.Request)(nil),               // 182: commonpb.Request
-	(*commonpb.Response)(nil),              // 183: commonpb.Response
+	(CrackQueryMode)(0),                    // 20: clientpb.CrackQueryMode
+	(*Version)(nil),                        // 21: clientpb.Version
+	(*ClientLogData)(nil),                  // 22: clientpb.ClientLogData
+	(*Session)(nil),                        // 23: clientpb.Session
+	(*Beacon)(nil),                         // 24: clientpb.Beacon
+	(*Beacons)(nil),                        // 25: clientpb.Beacons
+	(*BeaconTask)(nil),                     // 26: clientpb.BeaconTask
+	(*BeaconTasks)(nil),                    // 27: clientpb.BeaconTasks
+	(*BeaconIntegrity)(nil),                // 28: clientpb.BeaconIntegrity
+	(*ImplantC2)(nil),                      // 29: clientpb.ImplantC2
+	(*ShellcodeConfig)(nil),                // 30: clientpb.ShellcodeConfig
+	(*ImplantConfig)(nil),                  // 31: clientpb.ImplantConfig
+	(*SpoofMetadataFile)(nil),              // 32: clientpb.SpoofMetadataFile
+	(*IMAGE_RESOURCE_DIRECTORY)(nil),       // 33: clientpb.IMAGE_RESOURCE_DIRECTORY
+	(*IMAGE_RESOURCE_DIRECTORY_ENTRY)(nil), // 34: clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
+	(*IMAGE_RESOURCE_DATA_ENTRY)(nil),      // 35: clientpb.IMAGE_RESOURCE_DATA_ENTRY
+	(*IMAGE_EXPORT_DIRECTORY)(nil),         // 36: clientpb.IMAGE_EXPORT_DIRECTORY
+	(*PESpoofMetadataConfig)(nil),          // 37: clientpb.PESpoofMetadataConfig
+	(*SpoofMetadataConfig)(nil),            // 38: clientpb.SpoofMetadataConfig
+	(*TrafficEncoder)(nil),                 // 39: clientpb.TrafficEncoder
+	(*TrafficEncoderMap)(nil),              // 40: clientpb.TrafficEncoderMap
+	(*TrafficEncoderTest)(nil),             // 41: clientpb.TrafficEncoderTest
+	(*TrafficEncoderTests)(nil),            // 42: clientpb.TrafficEncoderTests
+	(*ExternalImplantConfig)(nil),          // 43: clientpb.ExternalImplantConfig
+	(*ExternalImplantBinary)(nil),          // 44: clientpb.ExternalImplantBinary
+	(*ImplantBuilds)(nil),                  // 45: clientpb.ImplantBuilds
+	(*ImplantStageReq)(nil),                // 46: clientpb.ImplantStageReq
+	(*ImplantBuild)(nil),                   // 47: clientpb.ImplantBuild
+	(*CompilerTarget)(nil),                 // 48: clientpb.CompilerTarget
+	(*CrossCompiler)(nil),                  // 49: clientpb.CrossCompiler
+	(*Compiler)(nil),                       // 50: clientpb.Compiler
+	(*DeleteReq)(nil),                      // 51: clientpb.DeleteReq
+	(*DNSCanary)(nil),                      // 52: clientpb.DNSCanary
+	(*Canaries)(nil),                       // 53: clientpb.Canaries
+	(*UniqueWGIP)(nil),                     // 54: clientpb.UniqueWGIP
+	(*ImplantProfile)(nil),                 // 55: clientpb.ImplantProfile
+	(*ImplantProfiles)(nil),                // 56: clientpb.ImplantProfiles
+	(*RegenerateReq)(nil),                  // 57: clientpb.RegenerateReq
+	(*Job)(nil),                            // 58: clientpb.Job
+	(*Jobs)(nil),                           // 59: clientpb.Jobs
+	(*KillJobReq)(nil),                     // 60: clientpb.KillJobReq
+	(*RestartJobReq)(nil),                  // 61: clientpb.RestartJobReq
+	(*KillJob)(nil),                        // 62: clientpb.KillJob
+	(*ListenerJob)(nil),                    // 63: clientpb.ListenerJob
+	(*MultiplayerListenerReq)(nil),         // 64: clientpb.MultiplayerListenerReq
+	(*MTLSListenerReq)(nil),                // 65: clientpb.MTLSListenerReq
+	(*WGListenerReq)(nil),                  // 66: clientpb.WGListenerReq
+	(*DNSListenerReq)(nil),                 // 67: clientpb.DNSListenerReq
+	(*HTTPListenerReq)(nil),                // 68: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),                  // 69: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),                     // 70: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),                    // 71: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),                       // 72: clientpb.TCPPivot
+	(*Sessions)(nil),                       // 73: clientpb.Sessions
+	(*RenameReq)(nil),                      // 74: clientpb.RenameReq
+	(*GenerateReq)(nil),                    // 75: clientpb.GenerateReq
+	(*GenerateStageReq)(nil),               // 76: clientpb.GenerateStageReq
+	(*Generate)(nil),                       // 77: clientpb.Generate
+	(*GenerateSpoofMetadataReq)(nil),       // 78: clientpb.GenerateSpoofMetadataReq
+	(*MSFReq)(nil),                         // 79: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),                   // 80: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),              // 81: clientpb.StagerListenerReq
+	(*StagerListener)(nil),                 // 82: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),                // 83: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),                   // 84: clientpb.ShellcodeRDI
+	(*GetSystemReq)(nil),                   // 85: clientpb.GetSystemReq
+	(*MigrateReq)(nil),                     // 86: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),                // 87: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),                   // 88: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),                 // 89: clientpb.CloseTunnelReq
+	(*PivotGraphEntry)(nil),                // 90: clientpb.PivotGraphEntry
+	(*PivotGraph)(nil),                     // 91: clientpb.PivotGraph
+	(*Client)(nil),                         // 92: clientpb.Client
+	(*Event)(nil),                          // 93: clientpb.Event
+	(*Operators)(nil),                      // 94: clientpb.Operators
+	(*Operator)(nil),                       // 95: clientpb.Operator
+	(*WebContent)(nil),                     // 96: clientpb.WebContent
+	(*WebsiteAddContent)(nil),              // 97: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil),           // 98: clientpb.WebsiteRemoveContent
+	(*Website)(nil),                        // 99: clientpb.Website
+	(*Websites)(nil),                       // 100: clientpb.Websites
+	(*WGClientConfig)(nil),                 // 101: clientpb.WGClientConfig
+	(*Loot)(nil),                           // 102: clientpb.Loot
+	(*AllLoot)(nil),                        // 103: clientpb.AllLoot
+	(*IOC)(nil),                            // 104: clientpb.IOC
+	(*ExtensionData)(nil),                  // 105: clientpb.ExtensionData
+	(*Host)(nil),                           // 106: clientpb.Host
+	(*AllHosts)(nil),                       // 107: clientpb.AllHosts
+	(*DllHijackReq)(nil),                   // 108: clientpb.DllHijackReq
+	(*DllHijack)(nil),                      // 109: clientpb.DllHijack
+	(*BackdoorReq)(nil),                    // 110: clientpb.BackdoorReq
+	(*Backdoor)(nil),                       // 111: clientpb.Backdoor
+	(*ShellcodeEncodeReq)(nil),             // 112: clientpb.ShellcodeEncodeReq
+	(*ShellcodeEncode)(nil),                // 113: clientpb.ShellcodeEncode
+	(*ShellcodeEncoderArchMap)(nil),        // 114: clientpb.ShellcodeEncoderArchMap
+	(*ShellcodeEncoderMap)(nil),            // 115: clientpb.ShellcodeEncoderMap
+	(*ExternalGenerateReq)(nil),            // 116: clientpb.ExternalGenerateReq
+	(*Builders)(nil),                       // 117: clientpb.Builders
+	(*Builder)(nil),                        // 118: clientpb.Builder
+	(*HTTPC2Configs)(nil),                  // 119: clientpb.HTTPC2Configs
+	(*C2ProfileReq)(nil),                   // 120: clientpb.C2ProfileReq
+	(*HTTPC2ConfigReq)(nil),                // 121: clientpb.HTTPC2ConfigReq
+	(*HTTPC2Config)(nil),                   // 122: clientpb.HTTPC2Config
+	(*HTTPC2ServerConfig)(nil),             // 123: clientpb.HTTPC2ServerConfig
+	(*HTTPC2ImplantConfig)(nil),            // 124: clientpb.HTTPC2ImplantConfig
+	(*HTTPC2Cookie)(nil),                   // 125: clientpb.HTTPC2Cookie
+	(*HTTPC2Header)(nil),                   // 126: clientpb.HTTPC2Header
+	(*HTTPC2URLParameter)(nil),             // 127: clientpb.HTTPC2URLParameter
+	(*HTTPC2PathSegment)(nil),              // 128: clientpb.HTTPC2PathSegment
+	(*Credential)(nil),                     // 129: clientpb.Credential
+	(*Credentials)(nil),                    // 130: clientpb.Credentials
+	(*Crackstations)(nil),                  // 131: clientpb.Crackstations
+	(*CrackstationStatus)(nil),             // 132: clientpb.CrackstationStatus
+	(*CrackSyncStatus)(nil),                // 133: clientpb.CrackSyncStatus
+	(*CrackBenchmark)(nil),                 // 134: clientpb.CrackBenchmark
+	(*CrackTask)(nil),                      // 135: clientpb.CrackTask
+	(*Crackstation)(nil),                   // 136: clientpb.Crackstation
+	(*CUDABackendInfo)(nil),                // 137: clientpb.CUDABackendInfo
+	(*OpenCLBackendInfo)(nil),              // 138: clientpb.OpenCLBackendInfo
+	(*MetalBackendInfo)(nil),               // 139: clientpb.MetalBackendInfo
+	(*HIPBackendInfo)(nil),                 // 140: clientpb.HIPBackendInfo
+	(*CrackCommand)(nil),                   // 141: clientpb.CrackCommand
+	(*CrackJob)(nil),                       // 142: clientpb.CrackJob
+	(*CrackJobs)(nil),                      // 143: clientpb.CrackJobs
+	(*CrackResult)(nil),                    // 144: clientpb.CrackResult
+	(*CrackResponse)(nil),                  // 145: clientpb.CrackResponse
+	(*CrackConfig)(nil),                    // 146: clientpb.CrackConfig
+	(*CrackFiles)(nil),                     // 147: clientpb.CrackFiles
+	(*CrackFile)(nil),                      // 148: clientpb.CrackFile
+	(*CrackFileChunk)(nil),                 // 149: clientpb.CrackFileChunk
+	(*AIProviderConfigs)(nil),              // 150: clientpb.AIProviderConfigs
+	(*AIProviderConfig)(nil),               // 151: clientpb.AIProviderConfig
+	(*AIConfigSummary)(nil),                // 152: clientpb.AIConfigSummary
+	(*AIConversationReq)(nil),              // 153: clientpb.AIConversationReq
+	(*AIConversations)(nil),                // 154: clientpb.AIConversations
+	(*AIContextWindowUsage)(nil),           // 155: clientpb.AIContextWindowUsage
+	(*AIConversation)(nil),                 // 156: clientpb.AIConversation
+	(*AIConversationMessages)(nil),         // 157: clientpb.AIConversationMessages
+	(*AIConversationMessage)(nil),          // 158: clientpb.AIConversationMessage
+	(*AIConversationEvent)(nil),            // 159: clientpb.AIConversationEvent
+	(*MonitoringProviders)(nil),            // 160: clientpb.MonitoringProviders
+	(*MonitoringProvider)(nil),             // 161: clientpb.MonitoringProvider
+	(*ResourceID)(nil),                     // 162: clientpb.ResourceID
+	(*CertificatesReq)(nil),                // 163: clientpb.CertificatesReq
+	(*CertificateData)(nil),                // 164: clientpb.CertificateData
+	(*CertificateInfo)(nil),                // 165: clientpb.CertificateInfo
+	(*CertificateAuthorityData)(nil),       // 166: clientpb.CertificateAuthorityData
+	(*CertificateAuthorityInfo)(nil),       // 167: clientpb.CertificateAuthorityInfo
+	(*CrackQueryResult)(nil),               // 168: clientpb.CrackQueryResult
+	nil,                                    // 169: clientpb.TrafficEncoderMap.EncodersEntry
+	nil,                                    // 170: clientpb.ExternalImplantConfig.EncodersEntry
+	nil,                                    // 171: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                                    // 172: clientpb.ImplantBuilds.ResourceIDsEntry
+	nil,                                    // 173: clientpb.ImplantBuilds.StagedEntry
+	nil,                                    // 174: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                                    // 175: clientpb.Website.ContentsEntry
+	nil,                                    // 176: clientpb.Host.ExtensionDataEntry
+	nil,                                    // 177: clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	nil,                                    // 178: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	nil,                                    // 179: clientpb.ShellcodeEncoderMap.EncodersEntry
+	nil,                                    // 180: clientpb.CrackSyncStatus.ProgressEntry
+	nil,                                    // 181: clientpb.CrackBenchmark.BenchmarksEntry
+	nil,                                    // 182: clientpb.Crackstation.BenchmarksEntry
+	(*commonpb.File)(nil),                  // 183: commonpb.File
+	(*commonpb.Request)(nil),               // 184: commonpb.Request
+	(*commonpb.Response)(nil),              // 185: commonpb.Response
 }
 var file_clientpb_client_proto_depIdxs = []int32{
-	23,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
-	25,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
-	46,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
-	28,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
+	24,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
+	26,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
+	47,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
+	29,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
 	0,   // 4: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
-	29,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
+	30,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
 	3,   // 6: clientpb.ImplantConfig.ShellcodeEncoder:type_name -> clientpb.ShellcodeEncoder
-	181, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
-	31,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
-	31,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
-	32,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
-	33,  // 11: clientpb.PESpoofMetadataConfig.ResourceDirectoryEntries:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
-	34,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
-	35,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
-	36,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
-	181, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
-	167, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
-	38,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
-	40,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
-	30,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
-	46,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
-	121, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
-	168, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
-	181, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
-	169, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
-	170, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
-	171, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
+	183, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
+	32,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
+	32,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
+	33,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
+	34,  // 11: clientpb.PESpoofMetadataConfig.ResourceDirectoryEntries:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
+	35,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
+	36,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
+	37,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
+	183, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
+	169, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
+	39,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
+	41,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
+	31,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
+	47,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
+	122, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
+	170, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
+	183, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
+	171, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	172, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
+	173, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
 	0,   // 27: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
-	47,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
-	48,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
-	47,  // 30: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
-	51,  // 31: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
-	30,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
-	54,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
-	57,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
-	64,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
-	65,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
-	66,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
-	67,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
-	63,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
-	80,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
-	182, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	183, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	182, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	183, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	22,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	30,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	181, // 47: clientpb.Generate.File:type_name -> commonpb.File
-	37,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
-	182, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	182, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	48,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
+	49,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
+	48,  // 30: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
+	52,  // 31: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
+	31,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
+	55,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
+	58,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
+	65,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
+	66,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
+	67,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
+	68,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
+	64,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
+	81,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
+	184, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	185, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	184, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	185, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	23,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	31,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	183, // 47: clientpb.Generate.File:type_name -> commonpb.File
+	38,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
+	184, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	184, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
 	1,   // 51: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
-	30,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	182, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	30,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	31,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	184, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	31,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
 	3,   // 55: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	182, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	182, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	182, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	22,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
-	89,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
-	89,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
-	94,  // 62: clientpb.Client.Operator:type_name -> clientpb.Operator
-	22,  // 63: clientpb.Event.Session:type_name -> clientpb.Session
-	57,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
-	91,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
-	94,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	172, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	173, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	98,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
+	184, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	184, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	184, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	23,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
+	90,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
+	90,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
+	95,  // 62: clientpb.Client.Operator:type_name -> clientpb.Operator
+	23,  // 63: clientpb.Event.Session:type_name -> clientpb.Session
+	58,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
+	92,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
+	95,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	174, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	175, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	99,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
 	2,   // 70: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	181, // 71: clientpb.Loot.File:type_name -> commonpb.File
-	101, // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	103, // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	174, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
-	105, // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	182, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	183, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	182, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
-	183, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
+	183, // 71: clientpb.Loot.File:type_name -> commonpb.File
+	102, // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	104, // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
+	176, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	106, // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
+	184, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	185, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	184, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
+	185, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
 	3,   // 80: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	182, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
-	183, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
-	175, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	176, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	177, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
-	30,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
-	117, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
-	47,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
-	48,  // 89: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
-	121, // 90: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
-	121, // 91: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
-	122, // 92: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
-	123, // 93: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
-	125, // 94: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
-	124, // 95: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
-	126, // 96: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
-	125, // 97: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
-	127, // 98: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
+	184, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	185, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	177, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	178, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	179, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	31,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
+	118, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
+	48,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
+	49,  // 89: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
+	122, // 90: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
+	122, // 91: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
+	123, // 92: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
+	124, // 93: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
+	126, // 94: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
+	125, // 95: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
+	127, // 96: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
+	126, // 97: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
+	128, // 98: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
 	5,   // 99: clientpb.Credential.HashType:type_name -> clientpb.HashType
-	128, // 100: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
-	135, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
+	129, // 100: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
+	136, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
 	6,   // 102: clientpb.CrackstationStatus.State:type_name -> clientpb.States
-	132, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	178, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	179, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
-	140, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
+	133, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
+	180, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	181, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	141, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
 	8,   // 107: clientpb.CrackTask.Kind:type_name -> clientpb.CrackTaskKind
 	9,   // 108: clientpb.CrackTask.State:type_name -> clientpb.CrackTaskState
-	180, // 109: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
-	131, // 110: clientpb.Crackstation.Status:type_name -> clientpb.CrackstationStatus
-	136, // 111: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
-	138, // 112: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
-	137, // 113: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
-	139, // 114: clientpb.Crackstation.HIP:type_name -> clientpb.HIPBackendInfo
+	182, // 109: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	132, // 110: clientpb.Crackstation.Status:type_name -> clientpb.CrackstationStatus
+	137, // 111: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
+	139, // 112: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
+	138, // 113: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
+	140, // 114: clientpb.Crackstation.HIP:type_name -> clientpb.HIPBackendInfo
 	10,  // 115: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
 	5,   // 116: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
 	12,  // 117: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
@@ -16323,43 +16522,45 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	11,  // 119: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
 	13,  // 120: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
 	7,   // 121: clientpb.CrackJob.Status:type_name -> clientpb.CrackJobStatus
-	140, // 122: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
-	134, // 123: clientpb.CrackJob.Tasks:type_name -> clientpb.CrackTask
-	143, // 124: clientpb.CrackJob.Results:type_name -> clientpb.CrackResult
-	141, // 125: clientpb.CrackJobs.Jobs:type_name -> clientpb.CrackJob
-	141, // 126: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
-	147, // 127: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
-	14,  // 128: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
-	148, // 129: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
-	150, // 130: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
-	151, // 131: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
-	155, // 132: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
-	157, // 133: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
-	15,  // 134: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
-	154, // 135: clientpb.AIConversation.ContextWindowUsage:type_name -> clientpb.AIContextWindowUsage
-	157, // 136: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
-	16,  // 137: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
-	17,  // 138: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
-	18,  // 139: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
-	19,  // 140: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
-	155, // 141: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
-	157, // 142: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
-	160, // 143: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	163, // 144: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	165, // 145: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
-	38,  // 146: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	30,  // 147: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	161, // 148: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	95,  // 149: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	95,  // 150: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	104, // 151: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 152: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	113, // 153: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
-	154, // [154:154] is the sub-list for method output_type
-	154, // [154:154] is the sub-list for method input_type
-	154, // [154:154] is the sub-list for extension type_name
-	154, // [154:154] is the sub-list for extension extendee
-	0,   // [0:154] is the sub-list for field type_name
+	141, // 122: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
+	135, // 123: clientpb.CrackJob.Tasks:type_name -> clientpb.CrackTask
+	144, // 124: clientpb.CrackJob.Results:type_name -> clientpb.CrackResult
+	142, // 125: clientpb.CrackJobs.Jobs:type_name -> clientpb.CrackJob
+	142, // 126: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
+	168, // 127: clientpb.CrackResponse.Query:type_name -> clientpb.CrackQueryResult
+	148, // 128: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
+	14,  // 129: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
+	149, // 130: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
+	151, // 131: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
+	152, // 132: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
+	156, // 133: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
+	158, // 134: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
+	15,  // 135: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
+	155, // 136: clientpb.AIConversation.ContextWindowUsage:type_name -> clientpb.AIContextWindowUsage
+	158, // 137: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
+	16,  // 138: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
+	17,  // 139: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
+	18,  // 140: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
+	19,  // 141: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
+	156, // 142: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
+	158, // 143: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
+	161, // 144: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	164, // 145: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	166, // 146: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
+	20,  // 147: clientpb.CrackQueryResult.Mode:type_name -> clientpb.CrackQueryMode
+	39,  // 148: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	31,  // 149: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	162, // 150: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	96,  // 151: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	96,  // 152: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	105, // 153: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 154: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	114, // 155: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
+	156, // [156:156] is the sub-list for method output_type
+	156, // [156:156] is the sub-list for method input_type
+	156, // [156:156] is the sub-list for extension type_name
+	156, // [156:156] is the sub-list for extension extendee
+	0,   // [0:156] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -16378,8 +16579,8 @@ func file_clientpb_client_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_clientpb_client_proto_rawDesc), len(file_clientpb_client_proto_rawDesc)),
-			NumEnums:      20,
-			NumMessages:   161,
+			NumEnums:      21,
+			NumMessages:   162,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
