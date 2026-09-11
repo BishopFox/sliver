@@ -418,6 +418,472 @@ const (
 	// Out of order
 	HashType_BCRYPT_UNIX       HashType = 3200 // bcrypt
 	HashType_SHA512_CRYPT_UNIX HashType = 1800 // sha512crypt $6$, SHA512 (Unix)
+	// Hashcat v7.1.2-armory.1 module catalog additions, pinned at
+	// deadd52de22e2753e9caaff6d1b92e5a22a35626.
+	HashType_JOOMLA_2_5_18                                          HashType = 11    // Joomla < 2.5.18
+	HashType_POSTGRESQL                                             HashType = 12    // PostgreSQL
+	HashType_OSCOMMERCE_XT_COMMERCE                                 HashType = 21    // osCommerce, xt:Commerce
+	HashType_JUNIPER_NETSCREEN_SSG_SCREENOS                         HashType = 22    // Juniper NetScreen/SSG (ScreenOS)
+	HashType_SKYPE                                                  HashType = 23    // Skype
+	HashType_SOLARWINDS_SERV_U                                      HashType = 24    // SolarWinds Serv-U
+	HashType_MD5_UTF16LE_PASS_SALT                                  HashType = 30    // md5(utf16le($pass).$salt)
+	HashType_MD5_SALT_UTF16LE_PASS                                  HashType = 40    // md5($salt.utf16le($pass))
+	HashType_HMAC_MD5_KEY_PASS                                      HashType = 50    // HMAC-MD5 (key = $pass)
+	HashType_HMAC_MD5_KEY_SALT                                      HashType = 60    // HMAC-MD5 (key = $salt)
+	HashType_NSLDAP_SHA_1_BASE64_NETSCAPE_LDAP_SHA                  HashType = 101   // nsldap, SHA-1(Base64), Netscape LDAP SHA
+	HashType_SHA1_PASS_SALT                                         HashType = 110   // sha1($pass.$salt)
+	HashType_NSLDAPS_SSHA_1_BASE64_NETSCAPE_LDAP_SSHA               HashType = 111   // nsldaps, SSHA-1(Base64), Netscape LDAP SSHA
+	HashType_ORACLE_S_TYPE_ORACLE_11                                HashType = 112   // Oracle S: Type (Oracle 11+)
+	HashType_SHA1_SALT_PASS                                         HashType = 120   // sha1($salt.$pass)
+	HashType_SMF_SIMPLE_MACHINES_FORUM_V1_1                         HashType = 121   // SMF (Simple Machines Forum) > v1.1
+	HashType_MACOS_V10_4_MACOS_V10_5_MACOS_V10_6                    HashType = 122   // macOS v10.4, macOS v10.5, macOS v10.6
+	HashType_DJANGO_SHA_1                                           HashType = 124   // Django (SHA-1)
+	HashType_ARUBAOS                                                HashType = 125   // ArubaOS
+	HashType_SHA1_UTF16LE_PASS_SALT                                 HashType = 130   // sha1(utf16le($pass).$salt)
+	HashType_MSSQL_2000                                             HashType = 131   // MSSQL (2000)
+	HashType_MSSQL_2005                                             HashType = 132   // MSSQL (2005)
+	HashType_PEOPLESOFT                                             HashType = 133   // PeopleSoft
+	HashType_SHA1_SALT_UTF16LE_PASS                                 HashType = 140   // sha1($salt.utf16le($pass))
+	HashType_EPISERVER_6_X_NET_4_MODE_141                           HashType = 141   // Episerver 6.x < .NET 4
+	HashType_HMAC_SHA1_KEY_PASS                                     HashType = 150   // HMAC-SHA1 (key = $pass)
+	HashType_HMAC_SHA1_KEY_SALT                                     HashType = 160   // HMAC-SHA1 (key = $salt)
+	HashType_MYSQL323                                               HashType = 200   // MySQL323
+	HashType_MYSQL4_1_MYSQL5                                        HashType = 300   // MySQL4.1/MySQL5
+	HashType_MD5CRYPT_MD5_UNIX_CISCO_IOS_1_MD5                      HashType = 500   // md5crypt, MD5 (Unix), Cisco-IOS $1$ (MD5)
+	HashType_JUNIPER_IVE                                            HashType = 501   // Juniper IVE
+	HashType_SHA224_PASS_SALT                                       HashType = 1310  // sha224($pass.$salt)
+	HashType_SHA224_SALT_PASS                                       HashType = 1320  // sha224($salt.$pass)
+	HashType_SHA256_PASS_SALT                                       HashType = 1410  // sha256($pass.$salt)
+	HashType_SSHA_256_BASE64_LDAP_SSHA256                           HashType = 1411  // SSHA-256(Base64), LDAP {SSHA256}
+	HashType_SHA256_SALT_PASS                                       HashType = 1420  // sha256($salt.$pass)
+	HashType_HMAILSERVER                                            HashType = 1421  // hMailServer
+	HashType_SHA256_UTF16LE_PASS_SALT                               HashType = 1430  // sha256(utf16le($pass).$salt)
+	HashType_SHA256_SALT_UTF16LE_PASS                               HashType = 1440  // sha256($salt.utf16le($pass))
+	HashType_EPISERVER_6_X_NET_4_MODE_1441                          HashType = 1441  // Episerver 6.x >= .NET 4
+	HashType_HMAC_SHA256_KEY_PASS                                   HashType = 1450  // HMAC-SHA256 (key = $pass)
+	HashType_HMAC_SHA256_KEY_SALT                                   HashType = 1460  // HMAC-SHA256 (key = $salt)
+	HashType_DESCRYPT_DES_UNIX_TRADITIONAL_DES                      HashType = 1500  // descrypt, DES (Unix), Traditional DES
+	HashType_APACHE_APR1_MD5_MD5APR1_MD5_APR                        HashType = 1600  // Apache $apr1$ MD5, md5apr1, MD5 (APR)
+	HashType_SHA512_PASS_SALT                                       HashType = 1710  // sha512($pass.$salt)
+	HashType_SSHA_512_BASE64_LDAP_SSHA512                           HashType = 1711  // SSHA-512(Base64), LDAP {SSHA512}
+	HashType_SHA512_SALT_PASS                                       HashType = 1720  // sha512($salt.$pass)
+	HashType_MACOS_V10_7                                            HashType = 1722  // macOS v10.7
+	HashType_SHA512_UTF16LE_PASS_SALT                               HashType = 1730  // sha512(utf16le($pass).$salt)
+	HashType_MSSQL_2012_2014                                        HashType = 1731  // MSSQL (2012, 2014)
+	HashType_SHA512_SALT_UTF16LE_PASS                               HashType = 1740  // sha512($salt.utf16le($pass))
+	HashType_HMAC_SHA512_KEY_PASS                                   HashType = 1750  // HMAC-SHA512 (key = $pass)
+	HashType_HMAC_SHA512_KEY_SALT                                   HashType = 1760  // HMAC-SHA512 (key = $salt)
+	HashType_STDOUT                                                 HashType = 2000  // STDOUT
+	HashType_MD5_MD5_PASS                                           HashType = 2600  // md5(md5($pass))
+	HashType_VBULLETIN_V3_8_5_MODE_2611                             HashType = 2611  // vBulletin < v3.8.5
+	HashType_PHPS                                                   HashType = 2612  // PHPS
+	HashType_MD5_MD5_PASS_SALT                                      HashType = 2630  // md5(md5($pass.$salt))
+	HashType_VBULLETIN_V3_8_5_MODE_2711                             HashType = 2711  // vBulletin >= v3.8.5
+	HashType_MYBB_1_2_IPB2_INVISION_POWER_BOARD                     HashType = 2811  // MyBB 1.2+, IPB2+ (Invision Power Board)
+	HashType_ORACLE_H_TYPE_ORACLE_7                                 HashType = 3100  // Oracle H: Type (Oracle 7+)
+	HashType_MD5_MD5_MD5_PASS                                       HashType = 3500  // md5(md5(md5($pass)))
+	HashType_MD5_MD5_MD5_PASS_SALT                                  HashType = 3610  // md5(md5(md5($pass)).$salt)
+	HashType_MEDIAWIKI_B_TYPE                                       HashType = 3711  // MediaWiki B type
+	HashType_MD5_SALT1_STRTOUPPER_MD5_SALT2_PASS                    HashType = 3730  // md5($salt1.strtoupper(md5($salt2.$pass)))
+	HashType_MD5_MD5_PASS_MD5_SALT                                  HashType = 3910  // md5(md5($pass).md5($salt))
+	HashType_MD5_SALT_MD5_SALT_PASS                                 HashType = 4010  // md5($salt.md5($salt.$pass))
+	HashType_MD5_SALT_MD5_PASS_SALT_MODE_4110                       HashType = 4110  // md5($salt.md5($pass.$salt))
+	HashType_MD5_STRTOUPPER_MD5_PASS                                HashType = 4300  // md5(strtoupper(md5($pass)))
+	HashType_MD5_SHA1_PASS                                          HashType = 4400  // md5(sha1($pass))
+	HashType_MD5_SHA1_PASS_SALT_MODE_4410                           HashType = 4410  // md5(sha1($pass).$salt)
+	HashType_MD5_SHA1_PASS_SALT_MODE_4420                           HashType = 4420  // md5(sha1($pass.$salt))
+	HashType_MD5_SHA1_SALT_PASS                                     HashType = 4430  // md5(sha1($salt.$pass))
+	HashType_SHA1_SHA1_PASS                                         HashType = 4500  // sha1(sha1($pass))
+	HashType_SHA1_SHA1_PASS_SALT                                    HashType = 4510  // sha1(sha1($pass).$salt)
+	HashType_SHA1_SALT_SHA1_PASS                                    HashType = 4520  // sha1($salt.sha1($pass))
+	HashType_REDMINE                                                HashType = 4521  // Redmine
+	HashType_PUNBB                                                  HashType = 4522  // PunBB
+	HashType_SHA1_MD5_PASS                                          HashType = 4700  // sha1(md5($pass))
+	HashType_SHA1_MD5_PASS_SALT_MODE_4710                           HashType = 4710  // sha1(md5($pass).$salt)
+	HashType_HUAWEI_SHA1_MD5_PASS_SALT                              HashType = 4711  // Huawei sha1(md5($pass).$salt)
+	HashType_SHA1_SALT_PASS_SALT                                    HashType = 4900  // sha1($salt.$pass.$salt)
+	HashType_SHA1_SHA1_SALT_PASS_SALT                               HashType = 5000  // sha1(sha1($salt.$pass.$salt))
+	HashType_PASSWORD_SAFE_V3                                       HashType = 5200  // Password Safe v3
+	HashType_CISCO_IOS_TYPE_4_SHA256                                HashType = 5700  // Cisco-IOS type 4 (SHA256)
+	HashType_CISCO_ISE_HASHED_PASSWORD_SHA256                       HashType = 5720  // Cisco-ISE Hashed Password (SHA256)
+	HashType_HMAC_RIPEMD160_KEY_PASS                                HashType = 6050  // HMAC-RIPEMD160 (key = $pass)
+	HashType_HMAC_RIPEMD160_KEY_SALT                                HashType = 6060  // HMAC-RIPEMD160 (key = $salt)
+	HashType_TRUECRYPT_RIPEMD160_XTS_512_BIT_LEGACY                 HashType = 6211  // TrueCrypt RIPEMD160 + XTS 512 bit (legacy)
+	HashType_TRUECRYPT_RIPEMD160_XTS_1024_BIT_LEGACY                HashType = 6212  // TrueCrypt RIPEMD160 + XTS 1024 bit (legacy)
+	HashType_TRUECRYPT_RIPEMD160_XTS_1536_BIT_LEGACY                HashType = 6213  // TrueCrypt RIPEMD160 + XTS 1536 bit (legacy)
+	HashType_TRUECRYPT_SHA512_XTS_512_BIT_LEGACY                    HashType = 6221  // TrueCrypt SHA512 + XTS 512 bit (legacy)
+	HashType_TRUECRYPT_SHA512_XTS_1024_BIT_LEGACY                   HashType = 6222  // TrueCrypt SHA512 + XTS 1024 bit (legacy)
+	HashType_TRUECRYPT_SHA512_XTS_1536_BIT_LEGACY                   HashType = 6223  // TrueCrypt SHA512 + XTS 1536 bit (legacy)
+	HashType_TRUECRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY                 HashType = 6231  // TrueCrypt Whirlpool + XTS 512 bit (legacy)
+	HashType_TRUECRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY                HashType = 6232  // TrueCrypt Whirlpool + XTS 1024 bit (legacy)
+	HashType_TRUECRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY                HashType = 6233  // TrueCrypt Whirlpool + XTS 1536 bit (legacy)
+	HashType_TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY       HashType = 6241  // TrueCrypt RIPEMD160 + XTS 512 bit + boot-mode (legacy)
+	HashType_TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY      HashType = 6242  // TrueCrypt RIPEMD160 + XTS 1024 bit + boot-mode (legacy)
+	HashType_TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY      HashType = 6243  // TrueCrypt RIPEMD160 + XTS 1536 bit + boot-mode (legacy)
+	HashType_HASHCAT_1PASSWORD_AGILEKEYCHAIN                        HashType = 6600  // 1Password, agilekeychain
+	HashType_LASTPASS_LASTPASS_SNIFFED                              HashType = 6800  // LastPass + LastPass sniffed
+	HashType_FORTIGATE_FORTIOS                                      HashType = 7000  // FortiGate (FortiOS)
+	HashType_IPMI2_RAKP_HMAC_MD5                                    HashType = 7350  // IPMI2 RAKP HMAC-MD5
+	HashType_SHA256CRYPT_5_SHA256_UNIX                              HashType = 7400  // sha256crypt $5$, SHA256 (Unix)
+	HashType_MYSQL_A_SHA256CRYPT                                    HashType = 7401  // MySQL $A$ (sha256crypt)
+	HashType_SAP_CODVN_B_BCODE                                      HashType = 7700  // SAP CODVN B (BCODE)
+	HashType_SAP_CODVN_B_BCODE_FROM_RFC_READ_TABLE                  HashType = 7701  // SAP CODVN B (BCODE) from RFC_READ_TABLE
+	HashType_SAP_CODVN_F_G_PASSCODE                                 HashType = 7800  // SAP CODVN F/G (PASSCODE)
+	HashType_SAP_CODVN_F_G_PASSCODE_FROM_RFC_READ_TABLE             HashType = 7801  // SAP CODVN F/G (PASSCODE) from RFC_READ_TABLE
+	HashType_DRUPAL7                                                HashType = 7900  // Drupal7
+	HashType_SYBASE_ASE                                             HashType = 8000  // Sybase ASE
+	HashType_HASHCAT_1PASSWORD_CLOUDKEYCHAIN                        HashType = 8200  // 1Password, cloudkeychain
+	HashType_DNSSEC_NSEC3                                           HashType = 8300  // DNSSEC (NSEC3)
+	HashType_WBB3_WOLTLAB_BURNING_BOARD                             HashType = 8400  // WBB3 (Woltlab Burning Board)
+	HashType_AS_400_DES                                             HashType = 8501  // AS/400 DES
+	HashType_LOTUS_NOTES_DOMINO_5                                   HashType = 8600  // Lotus Notes/Domino 5
+	HashType_LOTUS_NOTES_DOMINO_6                                   HashType = 8700  // Lotus Notes/Domino 6
+	HashType_ANDROID_FDE_4_3                                        HashType = 8800  // Android FDE <= 4.3
+	HashType_PASSWORD_SAFE_V2                                       HashType = 9000  // Password Safe v2
+	HashType_LOTUS_NOTES_DOMINO_8                                   HashType = 9100  // Lotus Notes/Domino 8
+	HashType_MS_OFFICE_2007                                         HashType = 9400  // MS Office 2007
+	HashType_MS_OFFICE_2010                                         HashType = 9500  // MS Office 2010
+	HashType_MS_OFFICE_2013                                         HashType = 9600  // MS Office 2013
+	HashType_MS_OFFICE_2003_0_1_MD5_RC4                             HashType = 9700  // MS Office <= 2003 $0/$1, MD5 + RC4
+	HashType_MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_1                  HashType = 9710  // MS Office <= 2003 $0/$1, MD5 + RC4, collider #1
+	HashType_MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_2                  HashType = 9720  // MS Office <= 2003 $0/$1, MD5 + RC4, collider #2
+	HashType_MS_OFFICE_2003_3_4_SHA1_RC4                            HashType = 9800  // MS Office <= 2003 $3/$4, SHA1 + RC4
+	HashType_MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_1                   HashType = 9810  // MS Office <= 2003 $3, SHA1 + RC4, collider #1
+	HashType_MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_2                   HashType = 9820  // MS Office <= 2003 $3, SHA1 + RC4, collider #2
+	HashType_DJANGO_PBKDF2_SHA256                                   HashType = 10000 // Django (PBKDF2-SHA256)
+	HashType_SAP_CODVN_H_PWDSALTEDHASH_ISSHA_1                      HashType = 10300 // SAP CODVN H (PWDSALTEDHASH) iSSHA-1
+	HashType_PDF_1_1_1_3_ACROBAT_2_4                                HashType = 10400 // PDF 1.1 - 1.3 (Acrobat 2 - 4)
+	HashType_PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_1                     HashType = 10410 // PDF 1.1 - 1.3 (Acrobat 2 - 4), collider #1
+	HashType_PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_2                     HashType = 10420 // PDF 1.1 - 1.3 (Acrobat 2 - 4), collider #2
+	HashType_PDF_1_4_1_6_ACROBAT_5_8                                HashType = 10500 // PDF 1.4 - 1.6 (Acrobat 5 - 8)
+	HashType_PDF_1_3_1_6_ACROBAT_4_8_W_RC4_40                       HashType = 10510 // PDF 1.3 - 1.6 (Acrobat 4 - 8) w/ RC4-40
+	HashType_PDF_1_7_LEVEL_3_ACROBAT_9                              HashType = 10600 // PDF 1.7 Level 3 (Acrobat 9)
+	HashType_PDF_1_7_LEVEL_8_ACROBAT_10_11                          HashType = 10700 // PDF 1.7 Level 8 (Acrobat 10 - 11)
+	HashType_SHA384_PASS_SALT                                       HashType = 10810 // sha384($pass.$salt)
+	HashType_SHA384_SALT_PASS                                       HashType = 10820 // sha384($salt.$pass)
+	HashType_SHA384_UTF16LE_PASS_SALT                               HashType = 10830 // sha384(utf16le($pass).$salt)
+	HashType_SHA384_SALT_UTF16LE_PASS                               HashType = 10840 // sha384($salt.utf16le($pass))
+	HashType_REDHAT_389_DS_LDAP_PBKDF2_HMAC_SHA256                  HashType = 10901 // RedHat 389-DS LDAP (PBKDF2-HMAC-SHA256)
+	HashType_PRESTASHOP                                             HashType = 11000 // PrestaShop
+	HashType_POSTGRESQL_CRAM_MD5                                    HashType = 11100 // PostgreSQL CRAM (MD5)
+	HashType_MYSQL_CRAM_SHA1                                        HashType = 11200 // MySQL CRAM (SHA1)
+	HashType_BITCOIN_LITECOIN_WALLET_DAT                            HashType = 11300 // Bitcoin/Litecoin wallet.dat
+	HashType_HASHCAT_7_ZIP                                          HashType = 11600 // 7-Zip
+	HashType_HMAC_STREEBOG_256_KEY_PASS_BIG_ENDIAN                  HashType = 11750 // HMAC-Streebog-256 (key = $pass), big-endian
+	HashType_HMAC_STREEBOG_256_KEY_SALT_BIG_ENDIAN                  HashType = 11760 // HMAC-Streebog-256 (key = $salt), big-endian
+	HashType_HMAC_STREEBOG_512_KEY_PASS_BIG_ENDIAN                  HashType = 11850 // HMAC-Streebog-512 (key = $pass), big-endian
+	HashType_HMAC_STREEBOG_512_KEY_SALT_BIG_ENDIAN                  HashType = 11860 // HMAC-Streebog-512 (key = $salt), big-endian
+	HashType_ATLASSIAN_PBKDF2_HMAC_SHA1                             HashType = 12001 // Atlassian (PBKDF2-HMAC-SHA1)
+	HashType_APACHE_SHIRO_1_SHA_512                                 HashType = 12150 // Apache Shiro 1 SHA-512
+	HashType_ECRYPTFS                                               HashType = 12200 // eCryptfs
+	HashType_ORACLE_T_TYPE_ORACLE_12                                HashType = 12300 // Oracle T: Type (Oracle 12+)
+	HashType_RAR3_HP                                                HashType = 12500 // RAR3-hp
+	HashType_COLDFUSION_10                                          HashType = 12600 // ColdFusion 10+
+	HashType_BLOCKCHAIN_MY_WALLET                                   HashType = 12700 // Blockchain, My Wallet
+	HashType_ANDROID_FDE_SAMSUNG_DEK                                HashType = 12900 // Android FDE (Samsung DEK)
+	HashType_RAR5                                                   HashType = 13000 // RAR5
+	HashType_AXCRYPT_1                                              HashType = 13200 // AxCrypt 1
+	HashType_AXCRYPT_1_IN_MEMORY_SHA1                               HashType = 13300 // AxCrypt 1 in-memory SHA1
+	HashType_KEEPASS_KDBX_V2_V3                                     HashType = 13400 // KeePass (KDBX v2/v3)
+	HashType_PEOPLESOFT_PS_TOKEN                                    HashType = 13500 // PeopleSoft PS_TOKEN
+	HashType_WINZIP                                                 HashType = 13600 // WinZip
+	HashType_VERACRYPT_RIPEMD160_XTS_512_BIT_LEGACY                 HashType = 13711 // VeraCrypt RIPEMD160 + XTS 512 bit (legacy)
+	HashType_VERACRYPT_RIPEMD160_XTS_1024_BIT_LEGACY                HashType = 13712 // VeraCrypt RIPEMD160 + XTS 1024 bit (legacy)
+	HashType_VERACRYPT_RIPEMD160_XTS_1536_BIT_LEGACY                HashType = 13713 // VeraCrypt RIPEMD160 + XTS 1536 bit (legacy)
+	HashType_VERACRYPT_SHA512_XTS_512_BIT_LEGACY                    HashType = 13721 // VeraCrypt SHA512 + XTS 512 bit (legacy)
+	HashType_VERACRYPT_SHA512_XTS_1024_BIT_LEGACY                   HashType = 13722 // VeraCrypt SHA512 + XTS 1024 bit (legacy)
+	HashType_VERACRYPT_SHA512_XTS_1536_BIT_LEGACY                   HashType = 13723 // VeraCrypt SHA512 + XTS 1536 bit (legacy)
+	HashType_VERACRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY                 HashType = 13731 // VeraCrypt Whirlpool + XTS 512 bit (legacy)
+	HashType_VERACRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY                HashType = 13732 // VeraCrypt Whirlpool + XTS 1024 bit (legacy)
+	HashType_VERACRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY                HashType = 13733 // VeraCrypt Whirlpool + XTS 1536 bit (legacy)
+	HashType_VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY       HashType = 13741 // VeraCrypt RIPEMD160 + XTS 512 bit + boot-mode (legacy)
+	HashType_VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY      HashType = 13742 // VeraCrypt RIPEMD160 + XTS 1024 bit + boot-mode (legacy)
+	HashType_VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY      HashType = 13743 // VeraCrypt RIPEMD160 + XTS 1536 bit + boot-mode (legacy)
+	HashType_VERACRYPT_SHA256_XTS_512_BIT_LEGACY                    HashType = 13751 // VeraCrypt SHA256 + XTS 512 bit (legacy)
+	HashType_VERACRYPT_SHA256_XTS_1024_BIT_LEGACY                   HashType = 13752 // VeraCrypt SHA256 + XTS 1024 bit (legacy)
+	HashType_VERACRYPT_SHA256_XTS_1536_BIT_LEGACY                   HashType = 13753 // VeraCrypt SHA256 + XTS 1536 bit (legacy)
+	HashType_VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE_LEGACY          HashType = 13761 // VeraCrypt SHA256 + XTS 512 bit + boot-mode (legacy)
+	HashType_VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE_LEGACY         HashType = 13762 // VeraCrypt SHA256 + XTS 1024 bit + boot-mode (legacy)
+	HashType_RACF_KDFAES                                            HashType = 14200 // RACF KDFAES
+	HashType_SHA1_CX                                                HashType = 14400 // sha1(CX)
+	HashType_LUKS_V1_LEGACY                                         HashType = 14600 // LUKS v1 (legacy)
+	HashType_ITUNES_BACKUP_10_0_MODE_14700                          HashType = 14700 // iTunes backup < 10.0
+	HashType_ITUNES_BACKUP_10_0_MODE_14800                          HashType = 14800 // iTunes backup >= 10.0
+	HashType_FILEZILLA_SERVER_0_9_55                                HashType = 15000 // FileZilla Server >= 0.9.55
+	HashType_JUNIPER_NETBSD_SHA1CRYPT                               HashType = 15100 // Juniper/NetBSD sha1crypt
+	HashType_BLOCKCHAIN_MY_WALLET_V2                                HashType = 15200 // Blockchain, My Wallet, V2
+	HashType_JKS_JAVA_KEY_STORE_PRIVATE_KEYS_SHA1                   HashType = 15500 // JKS Java Key Store Private Keys (SHA1)
+	HashType_ETHEREUM_WALLET_PBKDF2_HMAC_SHA256                     HashType = 15600 // Ethereum Wallet, PBKDF2-HMAC-SHA256
+	HashType_ETHEREUM_WALLET_SCRYPT                                 HashType = 15700 // Ethereum Wallet, SCRYPT
+	HashType_TRIPCODE                                               HashType = 16000 // Tripcode
+	HashType_APPLE_SECURE_NOTES                                     HashType = 16200 // Apple Secure Notes
+	HashType_ETHEREUM_PRE_SALE_WALLET_PBKDF2_HMAC_SHA256            HashType = 16300 // Ethereum Pre-Sale Wallet, PBKDF2-HMAC-SHA256
+	HashType_CRAM_MD5_DOVECOT                                       HashType = 16400 // CRAM-MD5 Dovecot
+	HashType_PERL_MOJOLICIOUS_SESSION_COOKIE_HMAC_SHA256_V9_19      HashType = 16501 // Perl Mojolicious session cookie (HMAC-SHA256, >= v9.19)
+	HashType_ELECTRUM_WALLET_SALT_TYPE_1_3                          HashType = 16600 // Electrum Wallet (Salt-Type 1-3)
+	HashType_FILEVAULT_2                                            HashType = 16700 // FileVault 2
+	HashType_ANSIBLE_VAULT                                          HashType = 16900 // Ansible Vault
+	HashType_GPG_AES_128_AES_256_SHA_512_PASS                       HashType = 17020 // GPG (AES-128/AES-256 (SHA-512($pass)))
+	HashType_GPG_AES_128_AES_256_SHA_256_PASS                       HashType = 17030 // GPG (AES-128/AES-256 (SHA-256($pass)))
+	HashType_GPG_CAST5_SHA_1_PASS                                   HashType = 17040 // GPG (CAST5 (SHA-1($pass)))
+	HashType_GPG_AES_OCB_128_SHA_1_PASS                             HashType = 17050 // GPG (AES-OCB-128 (SHA-1($pass)))
+	HashType_PKZIP_COMPRESSED                                       HashType = 17200 // PKZIP (Compressed)
+	HashType_PKZIP_UNCOMPRESSED                                     HashType = 17210 // PKZIP (Uncompressed)
+	HashType_PKZIP_COMPRESSED_MULTI_FILE                            HashType = 17220 // PKZIP (Compressed Multi-File)
+	HashType_PKZIP_MIXED_MULTI_FILE                                 HashType = 17225 // PKZIP (Mixed Multi-File)
+	HashType_PKZIP_MIXED_MULTI_FILE_CHECKSUM_ONLY                   HashType = 17230 // PKZIP (Mixed Multi-File Checksum-Only)
+	HashType_TOTP_HMAC_SHA1                                         HashType = 18100 // TOTP (HMAC-SHA1)
+	HashType_APPLE_FILE_SYSTEM_APFS                                 HashType = 18300 // Apple File System (APFS)
+	HashType_OPEN_DOCUMENT_FORMAT_ODF_1_2_SHA_256_AES               HashType = 18400 // Open Document Format (ODF) 1.2 (SHA-256, AES)
+	HashType_SHA1_MD5_MD5_PASS                                      HashType = 18500 // sha1(md5(md5($pass)))
+	HashType_OPEN_DOCUMENT_FORMAT_ODF_1_1_SHA_1_BLOWFISH            HashType = 18600 // Open Document Format (ODF) 1.1 (SHA-1, Blowfish)
+	HashType_BLOCKCHAIN_MY_WALLET_SECOND_PASSWORD_SHA256            HashType = 18800 // Blockchain, My Wallet, Second Password (SHA256)
+	HashType_ANDROID_BACKUP                                         HashType = 18900 // Android Backup
+	HashType_QNX_7_ETC_SHADOW_SHA512                                HashType = 19210 // QNX 7 /etc/shadow (SHA512)
+	HashType_SHA1_SALT1_PASS_SALT2                                  HashType = 19300 // sha1($salt1.$pass.$salt2)
+	HashType_RUBY_ON_RAILS_RESTFUL_AUTHENTICATION                   HashType = 19500 // Ruby on Rails Restful-Authentication
+	HashType_DISKCRYPTOR_SHA512_XTS_512_BIT                         HashType = 20011 // DiskCryptor SHA512 + XTS 512 bit
+	HashType_DISKCRYPTOR_SHA512_XTS_1024_BIT                        HashType = 20012 // DiskCryptor SHA512 + XTS 1024 bit
+	HashType_DISKCRYPTOR_SHA512_XTS_1536_BIT                        HashType = 20013 // DiskCryptor SHA512 + XTS 1536 bit
+	HashType_PYTHON_PASSLIB_PBKDF2_SHA512                           HashType = 20200 // Python passlib pbkdf2-sha512
+	HashType_PYTHON_PASSLIB_PBKDF2_SHA256                           HashType = 20300 // Python passlib pbkdf2-sha256
+	HashType_PYTHON_PASSLIB_PBKDF2_SHA1                             HashType = 20400 // Python passlib pbkdf2-sha1
+	HashType_PKZIP_MASTER_KEY                                       HashType = 20500 // PKZIP Master Key
+	HashType_PKZIP_MASTER_KEY_6_BYTE_OPTIMIZATION                   HashType = 20510 // PKZIP Master Key (6 byte optimization)
+	HashType_ORACLE_TRANSPORTATION_MANAGEMENT_SHA256                HashType = 20600 // Oracle Transportation Management (SHA256)
+	HashType_SHA256_SHA256_PASS_SALT_MODE_20710                     HashType = 20710 // sha256(sha256($pass).$salt)
+	HashType_AUTHME_SHA256                                          HashType = 20711 // AuthMe sha256
+	HashType_RSA_SECURITY_ANALYTICS_NETWITNESS_SHA256               HashType = 20712 // RSA Security Analytics / NetWitness (sha256)
+	HashType_SHA256_SALT_SHA256_PASS                                HashType = 20720 // sha256($salt.sha256($pass))
+	HashType_SHA256_SHA256_PASS_SALT_MODE_20730                     HashType = 20730 // sha256(sha256($pass.$salt))
+	HashType_SHA256_MD5_PASS                                        HashType = 20800 // sha256(md5($pass))
+	HashType_MD5_SHA1_PASS_MD5_PASS_SHA1_PASS                       HashType = 20900 // md5(sha1($pass).md5($pass).sha1($pass))
+	HashType_BITSHARES_V0_X_SHA512_SHA512_BIN_PASS                  HashType = 21000 // BitShares v0.x - sha512(sha512_bin(pass))
+	HashType_SHA1_MD5_PASS_SALT_MODE_21100                          HashType = 21100 // sha1(md5($pass.$salt))
+	HashType_MD5_SHA1_SALT_MD5_PASS                                 HashType = 21200 // md5(sha1($salt).md5($pass))
+	HashType_MD5_SALT_SHA1_SALT_PASS                                HashType = 21300 // md5($salt.sha1($salt.$pass))
+	HashType_MD5_SALT1_SHA1_SALT2_PASS                              HashType = 21310 // md5($salt1.sha1($salt2.$pass))
+	HashType_SHA256_SHA256_BIN_PASS                                 HashType = 21400 // sha256(sha256_bin($pass))
+	HashType_SHA256_SALT_SHA256_BIN_PASS                            HashType = 21420 // sha256($salt.sha256_bin($pass))
+	HashType_SOLARWINDS_ORION                                       HashType = 21500 // SolarWinds Orion
+	HashType_SOLARWINDS_ORION_V2                                    HashType = 21501 // SolarWinds Orion v2
+	HashType_WEB2PY_PBKDF2_SHA512                                   HashType = 21600 // Web2py pbkdf2-sha512
+	HashType_ELECTRUM_WALLET_SALT_TYPE_4                            HashType = 21700 // Electrum Wallet (Salt-Type 4)
+	HashType_ELECTRUM_WALLET_SALT_TYPE_5                            HashType = 21800 // Electrum Wallet (Salt-Type 5)
+	HashType_MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_21900                HashType = 21900 // md5(md5(md5($pass.$salt1)).$salt2)
+	HashType_BITLOCKER                                              HashType = 22100 // BitLocker
+	HashType_SHA256_SALT_PASS_SALT                                  HashType = 22300 // sha256($salt.$pass.$salt)
+	HashType_TELEGRAM_MOBILE_APP_PASSCODE_SHA256                    HashType = 22301 // Telegram Mobile App Passcode (SHA256)
+	HashType_AES_CRYPT_SHA256                                       HashType = 22400 // AES Crypt (SHA256)
+	HashType_MULTIBIT_CLASSIC_KEY_MD5                               HashType = 22500 // MultiBit Classic .key (MD5)
+	HashType_TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA1              HashType = 22600 // Telegram Desktop < v2.1.14 (PBKDF2-HMAC-SHA1)
+	HashType_MULTIBIT_HD_SCRYPT                                     HashType = 22700 // MultiBit HD (scrypt)
+	HashType_SIMPLA_CMS_MD5_SALT_PASS_MD5_PASS                      HashType = 22800 // Simpla CMS - md5($salt.$pass.md5($pass))
+	HashType_RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_0                      HashType = 22911 // RSA/DSA/EC/OpenSSH Private Keys ($0$)
+	HashType_RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_6                      HashType = 22921 // RSA/DSA/EC/OpenSSH Private Keys ($6$)
+	HashType_RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_1_3                    HashType = 22931 // RSA/DSA/EC/OpenSSH Private Keys ($1, $3$)
+	HashType_RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_4                      HashType = 22941 // RSA/DSA/EC/OpenSSH Private Keys ($4$)
+	HashType_RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_5                      HashType = 22951 // RSA/DSA/EC/OpenSSH Private Keys ($5$)
+	HashType_SECUREZIP_AES_128                                      HashType = 23001 // SecureZIP AES-128
+	HashType_SECUREZIP_AES_192                                      HashType = 23002 // SecureZIP AES-192
+	HashType_SECUREZIP_AES_256                                      HashType = 23003 // SecureZIP AES-256
+	HashType_APPLE_KEYCHAIN                                         HashType = 23100 // Apple Keychain
+	HashType_XMPP_SCRAM_PBKDF2_SHA1                                 HashType = 23200 // XMPP SCRAM PBKDF2-SHA1
+	HashType_APPLE_IWORK                                            HashType = 23300 // Apple iWork
+	HashType_BITWARDEN                                              HashType = 23400 // Bitwarden
+	HashType_AXCRYPT_2_AES_128                                      HashType = 23500 // AxCrypt 2 AES-128
+	HashType_AXCRYPT_2_AES_256                                      HashType = 23600 // AxCrypt 2 AES-256
+	HashType_RAR3_P_UNCOMPRESSED                                    HashType = 23700 // RAR3-p (Uncompressed)
+	HashType_RAR3_P_COMPRESSED                                      HashType = 23800 // RAR3-p (Compressed)
+	HashType_BESTCRYPT_V3_VOLUME_ENCRYPTION                         HashType = 23900 // BestCrypt v3 Volume Encryption
+	HashType_BESTCRYPT_V4_VOLUME_ENCRYPTION                         HashType = 24000 // BestCrypt v4 Volume Encryption
+	HashType_MONGODB_SERVERKEY_SCRAM_SHA_1                          HashType = 24100 // MongoDB ServerKey SCRAM-SHA-1
+	HashType_MONGODB_SERVERKEY_SCRAM_SHA_256                        HashType = 24200 // MongoDB ServerKey SCRAM-SHA-256
+	HashType_SHA1_SALT_SHA1_PASS_SALT                               HashType = 24300 // sha1($salt.sha1($pass.$salt))
+	HashType_PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA1_3DES_AES          HashType = 24410 // PKCS#8 Private Keys (PBKDF2-HMAC-SHA1 + 3DES/AES)
+	HashType_PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA256_3DES_AES        HashType = 24420 // PKCS#8 Private Keys (PBKDF2-HMAC-SHA256 + 3DES/AES)
+	HashType_TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA512            HashType = 24500 // Telegram Desktop >= v2.1.14 (PBKDF2-HMAC-SHA512)
+	HashType_SQLCIPHER                                              HashType = 24600 // SQLCipher
+	HashType_STUFFIT5                                               HashType = 24700 // Stuffit5
+	HashType_UMBRACO_HMAC_SHA1                                      HashType = 24800 // Umbraco HMAC-SHA1
+	HashType_DAHUA_AUTHENTICATION_MD5                               HashType = 24900 // Dahua Authentication MD5
+	HashType_BESDER_AUTHENTICATION_MD5                              HashType = 24901 // Besder Authentication MD5
+	HashType_MS_OFFICE_2016_SHEETPROTECTION                         HashType = 25300 // MS Office 2016 - SheetProtection
+	HashType_PDF_1_4_1_6_ACROBAT_5_8_USER_AND_OWNER_PASS            HashType = 25400 // PDF 1.4 - 1.6 (Acrobat 5 - 8) - user and owner pass
+	HashType_STARGAZER_STELLAR_WALLET_XLM                           HashType = 25500 // Stargazer Stellar Wallet XLM
+	HashType_BCRYPT_MD5_PASS                                        HashType = 25600 // bcrypt(md5($pass))
+	HashType_BCRYPT_SHA1_PASS                                       HashType = 25800 // bcrypt(sha1($pass))
+	HashType_KNX_IP_SECURE_DEVICE_AUTHENTICATION_CODE               HashType = 25900 // KNX IP Secure - Device Authentication Code
+	HashType_MOZILLA_KEY3_DB                                        HashType = 26000 // Mozilla key3.db
+	HashType_MOZILLA_KEY4_DB                                        HashType = 26100 // Mozilla key4.db
+	HashType_OPENEDGE_PROGRESS_ENCODE                               HashType = 26200 // OpenEdge Progress Encode
+	HashType_FORTIGATE256_FORTIOS256                                HashType = 26300 // FortiGate256 (FortiOS256)
+	HashType_IPHONE_PASSCODE_UID_KEY_SYSTEM_KEYBAG                  HashType = 26500 // iPhone passcode (UID key + System Keybag)
+	HashType_METAMASK_WALLET_NEEDS_ALL_DATA_CHECKS_AES_GCM_TAG      HashType = 26600 // MetaMask Wallet (needs all data, checks AES-GCM tag)
+	HashType_METAMASK_WALLET_SHORT_HASH_PLAINTEXT_CHECK             HashType = 26610 // MetaMask Wallet (short hash, plaintext check)
+	HashType_RUBY_ON_RAILS_RESTFUL_AUTH_ONE_ROUND_NO_SITEKEY        HashType = 27200 // Ruby on Rails Restful Auth (one round, no sitekey)
+	HashType_VMWARE_VMX_PBKDF2_HMAC_SHA1_AES_256_CBC                HashType = 27400 // VMware VMX (PBKDF2-HMAC-SHA1 + AES-256-CBC)
+	HashType_VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_128_XTS              HashType = 27500 // VirtualBox (PBKDF2-HMAC-SHA256 & AES-128-XTS)
+	HashType_VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_256_XTS              HashType = 27600 // VirtualBox (PBKDF2-HMAC-SHA256 & AES-256-XTS)
+	HashType_MULTIBIT_CLASSIC_WALLET_SCRYPT                         HashType = 27700 // MultiBit Classic .wallet (scrypt)
+	HashType_EXODUS_DESKTOP_WALLET_SCRYPT                           HashType = 28200 // Exodus Desktop Wallet (scrypt)
+	HashType_TEAMSPEAK_3_CHANNEL_HASH                               HashType = 28300 // Teamspeak 3 (channel hash)
+	HashType_BCRYPT_SHA512_PASS                                     HashType = 28400 // bcrypt(sha512($pass))
+	HashType_BITCOIN_WIF_PRIVATE_KEY_P2PKH_COMPRESSED               HashType = 28501 // Bitcoin WIF private key (P2PKH), compressed
+	HashType_BITCOIN_WIF_PRIVATE_KEY_P2PKH_UNCOMPRESSED             HashType = 28502 // Bitcoin WIF private key (P2PKH), uncompressed
+	HashType_BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED       HashType = 28503 // Bitcoin WIF private key (P2WPKH, Bech32), compressed
+	HashType_BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED     HashType = 28504 // Bitcoin WIF private key (P2WPKH, Bech32), uncompressed
+	HashType_BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED         HashType = 28505 // Bitcoin WIF private key (P2SH(P2WPKH)), compressed
+	HashType_BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED       HashType = 28506 // Bitcoin WIF private key (P2SH(P2WPKH)), uncompressed
+	HashType_POSTGRESQL_SCRAM_SHA_256                               HashType = 28600 // PostgreSQL SCRAM-SHA-256
+	HashType_AMAZON_AWS_SIGNATURE_VERSION_4                         HashType = 28700 // Amazon AWS Signature Version 4
+	HashType_SHA1_SALT_SHA1_UTF16LE_USERNAME_UTF16LE_PASS           HashType = 29000 // sha1($salt.sha1(utf16le($username).':'.utf16le($pass)))
+	HashType_TRUECRYPT_RIPEMD160_XTS_512_BIT                        HashType = 29311 // TrueCrypt RIPEMD160 + XTS 512 bit
+	HashType_TRUECRYPT_RIPEMD160_XTS_1024_BIT                       HashType = 29312 // TrueCrypt RIPEMD160 + XTS 1024 bit
+	HashType_TRUECRYPT_RIPEMD160_XTS_1536_BIT                       HashType = 29313 // TrueCrypt RIPEMD160 + XTS 1536 bit
+	HashType_TRUECRYPT_SHA512_XTS_512_BIT                           HashType = 29321 // TrueCrypt SHA512 + XTS 512 bit
+	HashType_TRUECRYPT_SHA512_XTS_1024_BIT                          HashType = 29322 // TrueCrypt SHA512 + XTS 1024 bit
+	HashType_TRUECRYPT_SHA512_XTS_1536_BIT                          HashType = 29323 // TrueCrypt SHA512 + XTS 1536 bit
+	HashType_TRUECRYPT_WHIRLPOOL_XTS_512_BIT                        HashType = 29331 // TrueCrypt Whirlpool + XTS 512 bit
+	HashType_TRUECRYPT_WHIRLPOOL_XTS_1024_BIT                       HashType = 29332 // TrueCrypt Whirlpool + XTS 1024 bit
+	HashType_TRUECRYPT_WHIRLPOOL_XTS_1536_BIT                       HashType = 29333 // TrueCrypt Whirlpool + XTS 1536 bit
+	HashType_TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE              HashType = 29341 // TrueCrypt RIPEMD160 + XTS 512 bit + boot-mode
+	HashType_TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE             HashType = 29342 // TrueCrypt RIPEMD160 + XTS 1024 bit + boot-mode
+	HashType_TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE             HashType = 29343 // TrueCrypt RIPEMD160 + XTS 1536 bit + boot-mode
+	HashType_VERACRYPT_RIPEMD160_XTS_512_BIT                        HashType = 29411 // VeraCrypt RIPEMD160 + XTS 512 bit
+	HashType_VERACRYPT_RIPEMD160_XTS_1024_BIT                       HashType = 29412 // VeraCrypt RIPEMD160 + XTS 1024 bit
+	HashType_VERACRYPT_RIPEMD160_XTS_1536_BIT                       HashType = 29413 // VeraCrypt RIPEMD160 + XTS 1536 bit
+	HashType_VERACRYPT_SHA512_XTS_512_BIT                           HashType = 29421 // VeraCrypt SHA512 + XTS 512 bit
+	HashType_VERACRYPT_SHA512_XTS_1024_BIT                          HashType = 29422 // VeraCrypt SHA512 + XTS 1024 bit
+	HashType_VERACRYPT_SHA512_XTS_1536_BIT                          HashType = 29423 // VeraCrypt SHA512 + XTS 1536 bit
+	HashType_VERACRYPT_WHIRLPOOL_XTS_512_BIT                        HashType = 29431 // VeraCrypt Whirlpool + XTS 512 bit
+	HashType_VERACRYPT_WHIRLPOOL_XTS_1024_BIT                       HashType = 29432 // VeraCrypt Whirlpool + XTS 1024 bit
+	HashType_VERACRYPT_WHIRLPOOL_XTS_1536_BIT                       HashType = 29433 // VeraCrypt Whirlpool + XTS 1536 bit
+	HashType_VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE              HashType = 29441 // VeraCrypt RIPEMD160 + XTS 512 bit + boot-mode
+	HashType_VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE             HashType = 29442 // VeraCrypt RIPEMD160 + XTS 1024 bit + boot-mode
+	HashType_VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE             HashType = 29443 // VeraCrypt RIPEMD160 + XTS 1536 bit + boot-mode
+	HashType_VERACRYPT_SHA256_XTS_512_BIT                           HashType = 29451 // VeraCrypt SHA256 + XTS 512 bit
+	HashType_VERACRYPT_SHA256_XTS_1024_BIT                          HashType = 29452 // VeraCrypt SHA256 + XTS 1024 bit
+	HashType_VERACRYPT_SHA256_XTS_1536_BIT                          HashType = 29453 // VeraCrypt SHA256 + XTS 1536 bit
+	HashType_VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE                 HashType = 29461 // VeraCrypt SHA256 + XTS 512 bit + boot-mode
+	HashType_VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE                HashType = 29462 // VeraCrypt SHA256 + XTS 1024 bit + boot-mode
+	HashType_VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE                HashType = 29463 // VeraCrypt SHA256 + XTS 1536 bit + boot-mode
+	HashType_VERACRYPT_STREEBOG_512_XTS_512_BIT                     HashType = 29471 // VeraCrypt Streebog-512 + XTS 512 bit
+	HashType_VERACRYPT_STREEBOG_512_XTS_1024_BIT                    HashType = 29472 // VeraCrypt Streebog-512 + XTS 1024 bit
+	HashType_VERACRYPT_STREEBOG_512_XTS_1536_BIT                    HashType = 29473 // VeraCrypt Streebog-512 + XTS 1536 bit
+	HashType_VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE           HashType = 29481 // VeraCrypt Streebog-512 + XTS 512 bit + boot-mode
+	HashType_VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE          HashType = 29482 // VeraCrypt Streebog-512 + XTS 1024 bit + boot-mode
+	HashType_VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE          HashType = 29483 // VeraCrypt Streebog-512 + XTS 1536 bit + boot-mode
+	HashType_LUKS_V1_SHA_1_AES                                      HashType = 29511 // LUKS v1 SHA-1 + AES
+	HashType_LUKS_V1_SHA_1_SERPENT                                  HashType = 29512 // LUKS v1 SHA-1 + Serpent
+	HashType_LUKS_V1_SHA_1_TWOFISH                                  HashType = 29513 // LUKS v1 SHA-1 + Twofish
+	HashType_LUKS_V1_SHA_256_AES                                    HashType = 29521 // LUKS v1 SHA-256 + AES
+	HashType_LUKS_V1_SHA_256_SERPENT                                HashType = 29522 // LUKS v1 SHA-256 + Serpent
+	HashType_LUKS_V1_SHA_256_TWOFISH                                HashType = 29523 // LUKS v1 SHA-256 + Twofish
+	HashType_LUKS_V1_SHA_512_AES                                    HashType = 29531 // LUKS v1 SHA-512 + AES
+	HashType_LUKS_V1_SHA_512_SERPENT                                HashType = 29532 // LUKS v1 SHA-512 + Serpent
+	HashType_LUKS_V1_SHA_512_TWOFISH                                HashType = 29533 // LUKS v1 SHA-512 + Twofish
+	HashType_LUKS_V1_RIPEMD_160_AES                                 HashType = 29541 // LUKS v1 RIPEMD-160 + AES
+	HashType_LUKS_V1_RIPEMD_160_SERPENT                             HashType = 29542 // LUKS v1 RIPEMD-160 + Serpent
+	HashType_LUKS_V1_RIPEMD_160_TWOFISH                             HashType = 29543 // LUKS v1 RIPEMD-160 + Twofish
+	HashType_TERRA_STATION_WALLET_AES256_CBC_PBKDF2_PASS            HashType = 29600 // Terra Station Wallet (AES256-CBC(PBKDF2($pass)))
+	HashType_KEEPASS_KDBX_V2_V3_KEYFILE_ONLY                        HashType = 29700 // KeePass (KDBX v2/v3) - keyfile only
+	HashType_BISQ_WALLET_SCRYPT                                     HashType = 29800 // Bisq .wallet (scrypt)
+	HashType_ENCSECURITY_DATAVAULT_PBKDF2_NO_KEYCHAIN               HashType = 29910 // ENCsecurity Datavault (PBKDF2/no keychain)
+	HashType_ENCSECURITY_DATAVAULT_PBKDF2_KEYCHAIN                  HashType = 29920 // ENCsecurity Datavault (PBKDF2/keychain)
+	HashType_ENCSECURITY_DATAVAULT_MD5_NO_KEYCHAIN                  HashType = 29930 // ENCsecurity Datavault (MD5/no keychain)
+	HashType_ENCSECURITY_DATAVAULT_MD5_KEYCHAIN                     HashType = 29940 // ENCsecurity Datavault (MD5/keychain)
+	HashType_PYTHON_WERKZEUG_MD5_HMAC_MD5_KEY_SALT                  HashType = 30000 // Python Werkzeug MD5 (HMAC-MD5 (key = $salt))
+	HashType_PYTHON_WERKZEUG_SHA256_HMAC_SHA256_KEY_SALT            HashType = 30120 // Python Werkzeug SHA256 (HMAC-SHA256 (key = $salt))
+	HashType_DANE_RFC7929_RFC8162_SHA2_256                          HashType = 30420 // DANE RFC7929/RFC8162 SHA2-256
+	HashType_MD5_MD5_SALT_MD5_MD5_PASS                              HashType = 30500 // md5(md5($salt).md5(md5($pass)))
+	HashType_BCRYPT_SHA256_PASS                                     HashType = 30600 // bcrypt(sha256($pass))
+	HashType_BCRYPT_HMAC_SHA256_PASS                                HashType = 30601 // bcrypt(HMAC-SHA256($pass))
+	HashType_ANOPE_IRC_SERVICES_ENC_SHA256                          HashType = 30700 // Anope IRC Services (enc_sha256)
+	HashType_BITCOIN_RAW_PRIVATE_KEY_P2PKH_COMPRESSED               HashType = 30901 // Bitcoin raw private key (P2PKH), compressed
+	HashType_BITCOIN_RAW_PRIVATE_KEY_P2PKH_UNCOMPRESSED             HashType = 30902 // Bitcoin raw private key (P2PKH), uncompressed
+	HashType_BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED       HashType = 30903 // Bitcoin raw private key (P2WPKH, Bech32), compressed
+	HashType_BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED     HashType = 30904 // Bitcoin raw private key (P2WPKH, Bech32), uncompressed
+	HashType_BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED         HashType = 30905 // Bitcoin raw private key (P2SH(P2WPKH)), compressed
+	HashType_BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED       HashType = 30906 // Bitcoin raw private key (P2SH(P2WPKH)), uncompressed
+	HashType_BLAKE2S_256                                            HashType = 31000 // BLAKE2s-256
+	HashType_SHANGMI_3_SM3                                          HashType = 31100 // ShangMi 3 (SM3)
+	HashType_VEEAM_VBK                                              HashType = 31200 // Veeam VBK
+	HashType_MS_SNTP                                                HashType = 31300 // MS SNTP
+	HashType_SECURECRT_MASTERPASSPHRASE_V2                          HashType = 31400 // SecureCRT MasterPassphrase v2
+	HashType_DOMAIN_CACHED_CREDENTIALS_DCC_MS_CACHE_NT              HashType = 31500 // Domain Cached Credentials (DCC), MS Cache (NT)
+	HashType_DOMAIN_CACHED_CREDENTIALS_2_DCC2_MS_CACHE_2_NT         HashType = 31600 // Domain Cached Credentials 2 (DCC2), MS Cache 2, (NT)
+	HashType_MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_31700                HashType = 31700 // md5(md5(md5($pass).$salt1).$salt2)
+	HashType_HASHCAT_1PASSWORD_MOBILEKEYCHAIN_1PASSWORD_8           HashType = 31800 // 1Password, mobilekeychain (1Password 8)
+	HashType_METAMASK_MOBILE_WALLET                                 HashType = 31900 // MetaMask Mobile Wallet
+	HashType_NETIQ_SSPR_MD5                                         HashType = 32000 // NetIQ SSPR (MD5)
+	HashType_NETIQ_SSPR_SHA1                                        HashType = 32010 // NetIQ SSPR (SHA1)
+	HashType_NETIQ_SSPR_SHA_1_WITH_SALT                             HashType = 32020 // NetIQ SSPR (SHA-1 with Salt)
+	HashType_NETIQ_SSPR_SHA_256_WITH_SALT                           HashType = 32030 // NetIQ SSPR (SHA-256 with Salt)
+	HashType_ADOBE_AEM_SSPR_SHA_256_WITH_SALT                       HashType = 32031 // Adobe AEM (SSPR, SHA-256 with Salt)
+	HashType_NETIQ_SSPR_SHA_512_WITH_SALT                           HashType = 32040 // NetIQ SSPR (SHA-512 with Salt)
+	HashType_ADOBE_AEM_SSPR_SHA_512_WITH_SALT                       HashType = 32041 // Adobe AEM (SSPR, SHA-512 with Salt)
+	HashType_NETIQ_SSPR_PBKDF2WITHHMACSHA1                          HashType = 32050 // NetIQ SSPR (PBKDF2WithHmacSHA1)
+	HashType_NETIQ_SSPR_PBKDF2WITHHMACSHA256                        HashType = 32060 // NetIQ SSPR (PBKDF2WithHmacSHA256)
+	HashType_NETIQ_SSPR_PBKDF2WITHHMACSHA512                        HashType = 32070 // NetIQ SSPR (PBKDF2WithHmacSHA512)
+	HashType_KERBEROS_5_ETYPE_17_AS_REP                             HashType = 32100 // Kerberos 5, etype 17, AS-REP
+	HashType_KERBEROS_5_ETYPE_18_AS_REP                             HashType = 32200 // Kerberos 5, etype 18, AS-REP
+	HashType_EMPIRE_CMS_ADMIN_PASSWORD                              HashType = 32300 // Empire CMS (Admin password)
+	HashType_SHA512_SHA512_PASS_SALT                                HashType = 32410 // sha512(sha512($pass).$salt)
+	HashType_SHA512_SHA512_BIN_PASS_SALT                            HashType = 32420 // sha512(sha512_bin($pass).$salt)
+	HashType_DOGECHAIN_INFO_WALLET                                  HashType = 32500 // Dogechain.info Wallet
+	HashType_CUBECART_WHIRLPOOL_SALT_PASS_SALT                      HashType = 32600 // CubeCart (whirlpool($salt.$pass.$salt))
+	HashType_KREMLIN_ENCRYPT_3_0_W_NEWDES                           HashType = 32700 // Kremlin Encrypt 3.0 w/NewDES
+	HashType_MD5_SHA1_MD5_PASS                                      HashType = 32800 // md5(sha1(md5($pass)))
+	HashType_PBKDF1_SHA1                                            HashType = 32900 // PBKDF1-SHA1
+	HashType_MD5_SALT1_PASS_SALT2                                   HashType = 33000 // md5($salt1.$pass.$salt2)
+	HashType_MD5_SALT_MD5_PASS_SALT_MODE_33100                      HashType = 33100 // md5($salt.md5($pass).$salt)
+	HashType_HMAC_BLAKE2S_KEY_PASS                                  HashType = 33300 // HMAC-BLAKE2S (key = $pass)
+	HashType_MEGA_NZ_PASSWORD_PROTECTED_LINK_PBKDF2_HMAC_SHA512     HashType = 33400 // mega.nz password-protected link (PBKDF2-HMAC-SHA512)
+	HashType_RC4_40_BIT_DROPN                                       HashType = 33500 // RC4 40-bit DropN
+	HashType_RC4_72_BIT_DROPN                                       HashType = 33501 // RC4 72-bit DropN
+	HashType_RC4_104_BIT_DROPN                                      HashType = 33502 // RC4 104-bit DropN
+	HashType_RIPEMD_320                                             HashType = 33600 // RIPEMD-320
+	HashType_HMAC_RIPEMD320_KEY_PASS                                HashType = 33650 // HMAC-RIPEMD320 (key = $pass)
+	HashType_HMAC_RIPEMD320_KEY_SALT                                HashType = 33660 // HMAC-RIPEMD320 (key = $salt)
+	HashType_MICROSOFT_ONLINE_ACCOUNT_PBKDF2_HMAC_SHA256_AES256     HashType = 33700 // Microsoft Online Account (PBKDF2-HMAC-SHA256 + AES256)
+	HashType_WBB4_WOLTLAB_BURNING_BOARD_BCRYPT_BCRYPT_PASS          HashType = 33800 // WBB4 (Woltlab Burning Board) [bcrypt(bcrypt($pass))]
+	HashType_CITRIX_NETSCALER_PBKDF2_HMAC_SHA256                    HashType = 33900 // Citrix NetScaler (PBKDF2-HMAC-SHA256)
+	HashType_ARGON2                                                 HashType = 34000 // Argon2
+	HashType_LUKS_V2_ARGON2_SHA_256_AES                             HashType = 34100 // LUKS v2 argon2 + SHA-256 + AES
+	HashType_MURMURHASH64A                                          HashType = 34200 // MurmurHash64A
+	HashType_MURMURHASH64A_ZERO_SEED                                HashType = 34201 // MurmurHash64A (zero seed)
+	HashType_MURMURHASH64A_TRUNCATED_ZERO_SEED                      HashType = 34211 // MurmurHash64A truncated (zero seed)
+	HashType_KEEPASS_ARGON2_KDBX_V4                                 HashType = 34300 // KeePass Argon2 (KDBX v4)
+	HashType_KEEPASS_AESKDF_KDBX_V4                                 HashType = 34301 // KeePass AESKDF (KDBX v4)
+	HashType_SHA224_SHA224_PASS                                     HashType = 34400 // sha224(sha224($pass))
+	HashType_SHA224_SHA1_PASS                                       HashType = 34500 // sha224(sha1($pass))
+	HashType_MD6_256                                                HashType = 34600 // MD6 (256)
+	HashType_BLOCKCHAIN_MY_WALLET_LEGACY_WALLETS                    HashType = 34700 // Blockchain, My Wallet, Legacy Wallets
+	HashType_BLAKE2B_256_MODE_34800                                 HashType = 34800 // BLAKE2b-256
+	HashType_BLAKE2B_256_PASS_SALT                                  HashType = 34810 // BLAKE2b-256($pass.$salt)
+	HashType_BLAKE2B_256_SALT_PASS                                  HashType = 34820 // BLAKE2b-256($salt.$pass)
+	HashType_SAP_CODVN_H_PWDSALTEDHASH_ISSHA512                     HashType = 35000 // SAP CODVN H (PWDSALTEDHASH) isSHA512
+	HashType_SM3CRYPT_SM3_SM3_UNIX                                  HashType = 35100 // sm3crypt $sm3$, SM3 (Unix)
+	HashType_AS_400_SSHA1                                           HashType = 35200 // AS/400 SSHA1
+	HashType_KERBEROS_5_ETYPE_23_TGS_REP_NT                         HashType = 35300 // Kerberos 5, etype 23, TGS-REP (NT)
+	HashType_KERBEROS_5_ETYPE_23_AS_REP_NT                          HashType = 35400 // Kerberos 5, etype 23, AS-REP (NT)
+	HashType_WORDPRESS_BCRYPT_HMAC_SHA384_PASS                      HashType = 35500 // Wordpress bcrypt(hmac-sha384($pass))
+	HashType_GOST12512CRYPT_GOST12512HASH_UNIX                      HashType = 35600 // gost12512crypt [$gost12512hash$] (Unix)
+	HashType_PHPASS_MD5_PASS                                        HashType = 35700 // phpass(md5($pass))
+	HashType_SYMFONY_LEGACY_SHA256                                  HashType = 35800 // Symfony Legacy SHA256
+	HashType_YESCRYPT                                               HashType = 36100 // yescrypt
+	HashType_GOST_YESCRYPT                                          HashType = 36200 // gost-yescrypt
+	HashType_SCRYPTCRYPT_SCRYPT_UNIX                                HashType = 36300 // scryptcrypt, scrypt (Unix)
+	HashType_KDE_KWALLET_4_13_PBKDF2_HMAC_SHA512_BLOWFISH           HashType = 36400 // KDE KWallet 4.13+ (PBKDF2-HMAC-SHA512, Blowfish)
+	HashType_KDE_KWALLET_4_13_SHA_1_BLOWFISH                        HashType = 36410 // KDE KWallet < 4.13 (SHA-1, Blowfish)
+	HashType_ARGON2ID_BRIDGED_REFERENCE_IMPLEMENTATION_TUNINGS      HashType = 70000 // Argon2id [Bridged: reference implementation + tunings]
+	HashType_SCRYPT_BRIDGED_SCRYPT_JANE_SMIX                        HashType = 70100 // scrypt [Bridged: Scrypt-Jane SMix]
+	HashType_SCRYPT_BRIDGED_SCRYPT_YESCRYPT                         HashType = 70200 // scrypt [Bridged: Scrypt-Yescrypt]
+	HashType_GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_FREE_THREADING HashType = 72000 // Generic Hash [Bridged: Python Interpreter free-threading]
+	HashType_GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_WITH_GIL       HashType = 73000 // Generic Hash [Bridged: Python Interpreter with GIL]
+	HashType_GENERIC_HASH_BRIDGED_RUST                              HashType = 74000 // Generic Hash [Bridged: Rust]
+	HashType_PLAINTEXT                                              HashType = 99999 // Plaintext
 )
 
 // Enum value maps for HashType.
@@ -555,6 +1021,470 @@ var (
 		9999:  "INVALID",
 		3200:  "BCRYPT_UNIX",
 		1800:  "SHA512_CRYPT_UNIX",
+		11:    "JOOMLA_2_5_18",
+		12:    "POSTGRESQL",
+		21:    "OSCOMMERCE_XT_COMMERCE",
+		22:    "JUNIPER_NETSCREEN_SSG_SCREENOS",
+		23:    "SKYPE",
+		24:    "SOLARWINDS_SERV_U",
+		30:    "MD5_UTF16LE_PASS_SALT",
+		40:    "MD5_SALT_UTF16LE_PASS",
+		50:    "HMAC_MD5_KEY_PASS",
+		60:    "HMAC_MD5_KEY_SALT",
+		101:   "NSLDAP_SHA_1_BASE64_NETSCAPE_LDAP_SHA",
+		110:   "SHA1_PASS_SALT",
+		111:   "NSLDAPS_SSHA_1_BASE64_NETSCAPE_LDAP_SSHA",
+		112:   "ORACLE_S_TYPE_ORACLE_11",
+		120:   "SHA1_SALT_PASS",
+		121:   "SMF_SIMPLE_MACHINES_FORUM_V1_1",
+		122:   "MACOS_V10_4_MACOS_V10_5_MACOS_V10_6",
+		124:   "DJANGO_SHA_1",
+		125:   "ARUBAOS",
+		130:   "SHA1_UTF16LE_PASS_SALT",
+		131:   "MSSQL_2000",
+		132:   "MSSQL_2005",
+		133:   "PEOPLESOFT",
+		140:   "SHA1_SALT_UTF16LE_PASS",
+		141:   "EPISERVER_6_X_NET_4_MODE_141",
+		150:   "HMAC_SHA1_KEY_PASS",
+		160:   "HMAC_SHA1_KEY_SALT",
+		200:   "MYSQL323",
+		300:   "MYSQL4_1_MYSQL5",
+		500:   "MD5CRYPT_MD5_UNIX_CISCO_IOS_1_MD5",
+		501:   "JUNIPER_IVE",
+		1310:  "SHA224_PASS_SALT",
+		1320:  "SHA224_SALT_PASS",
+		1410:  "SHA256_PASS_SALT",
+		1411:  "SSHA_256_BASE64_LDAP_SSHA256",
+		1420:  "SHA256_SALT_PASS",
+		1421:  "HMAILSERVER",
+		1430:  "SHA256_UTF16LE_PASS_SALT",
+		1440:  "SHA256_SALT_UTF16LE_PASS",
+		1441:  "EPISERVER_6_X_NET_4_MODE_1441",
+		1450:  "HMAC_SHA256_KEY_PASS",
+		1460:  "HMAC_SHA256_KEY_SALT",
+		1500:  "DESCRYPT_DES_UNIX_TRADITIONAL_DES",
+		1600:  "APACHE_APR1_MD5_MD5APR1_MD5_APR",
+		1710:  "SHA512_PASS_SALT",
+		1711:  "SSHA_512_BASE64_LDAP_SSHA512",
+		1720:  "SHA512_SALT_PASS",
+		1722:  "MACOS_V10_7",
+		1730:  "SHA512_UTF16LE_PASS_SALT",
+		1731:  "MSSQL_2012_2014",
+		1740:  "SHA512_SALT_UTF16LE_PASS",
+		1750:  "HMAC_SHA512_KEY_PASS",
+		1760:  "HMAC_SHA512_KEY_SALT",
+		2000:  "STDOUT",
+		2600:  "MD5_MD5_PASS",
+		2611:  "VBULLETIN_V3_8_5_MODE_2611",
+		2612:  "PHPS",
+		2630:  "MD5_MD5_PASS_SALT",
+		2711:  "VBULLETIN_V3_8_5_MODE_2711",
+		2811:  "MYBB_1_2_IPB2_INVISION_POWER_BOARD",
+		3100:  "ORACLE_H_TYPE_ORACLE_7",
+		3500:  "MD5_MD5_MD5_PASS",
+		3610:  "MD5_MD5_MD5_PASS_SALT",
+		3711:  "MEDIAWIKI_B_TYPE",
+		3730:  "MD5_SALT1_STRTOUPPER_MD5_SALT2_PASS",
+		3910:  "MD5_MD5_PASS_MD5_SALT",
+		4010:  "MD5_SALT_MD5_SALT_PASS",
+		4110:  "MD5_SALT_MD5_PASS_SALT_MODE_4110",
+		4300:  "MD5_STRTOUPPER_MD5_PASS",
+		4400:  "MD5_SHA1_PASS",
+		4410:  "MD5_SHA1_PASS_SALT_MODE_4410",
+		4420:  "MD5_SHA1_PASS_SALT_MODE_4420",
+		4430:  "MD5_SHA1_SALT_PASS",
+		4500:  "SHA1_SHA1_PASS",
+		4510:  "SHA1_SHA1_PASS_SALT",
+		4520:  "SHA1_SALT_SHA1_PASS",
+		4521:  "REDMINE",
+		4522:  "PUNBB",
+		4700:  "SHA1_MD5_PASS",
+		4710:  "SHA1_MD5_PASS_SALT_MODE_4710",
+		4711:  "HUAWEI_SHA1_MD5_PASS_SALT",
+		4900:  "SHA1_SALT_PASS_SALT",
+		5000:  "SHA1_SHA1_SALT_PASS_SALT",
+		5200:  "PASSWORD_SAFE_V3",
+		5700:  "CISCO_IOS_TYPE_4_SHA256",
+		5720:  "CISCO_ISE_HASHED_PASSWORD_SHA256",
+		6050:  "HMAC_RIPEMD160_KEY_PASS",
+		6060:  "HMAC_RIPEMD160_KEY_SALT",
+		6211:  "TRUECRYPT_RIPEMD160_XTS_512_BIT_LEGACY",
+		6212:  "TRUECRYPT_RIPEMD160_XTS_1024_BIT_LEGACY",
+		6213:  "TRUECRYPT_RIPEMD160_XTS_1536_BIT_LEGACY",
+		6221:  "TRUECRYPT_SHA512_XTS_512_BIT_LEGACY",
+		6222:  "TRUECRYPT_SHA512_XTS_1024_BIT_LEGACY",
+		6223:  "TRUECRYPT_SHA512_XTS_1536_BIT_LEGACY",
+		6231:  "TRUECRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY",
+		6232:  "TRUECRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY",
+		6233:  "TRUECRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY",
+		6241:  "TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY",
+		6242:  "TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY",
+		6243:  "TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY",
+		6600:  "HASHCAT_1PASSWORD_AGILEKEYCHAIN",
+		6800:  "LASTPASS_LASTPASS_SNIFFED",
+		7000:  "FORTIGATE_FORTIOS",
+		7350:  "IPMI2_RAKP_HMAC_MD5",
+		7400:  "SHA256CRYPT_5_SHA256_UNIX",
+		7401:  "MYSQL_A_SHA256CRYPT",
+		7700:  "SAP_CODVN_B_BCODE",
+		7701:  "SAP_CODVN_B_BCODE_FROM_RFC_READ_TABLE",
+		7800:  "SAP_CODVN_F_G_PASSCODE",
+		7801:  "SAP_CODVN_F_G_PASSCODE_FROM_RFC_READ_TABLE",
+		7900:  "DRUPAL7",
+		8000:  "SYBASE_ASE",
+		8200:  "HASHCAT_1PASSWORD_CLOUDKEYCHAIN",
+		8300:  "DNSSEC_NSEC3",
+		8400:  "WBB3_WOLTLAB_BURNING_BOARD",
+		8501:  "AS_400_DES",
+		8600:  "LOTUS_NOTES_DOMINO_5",
+		8700:  "LOTUS_NOTES_DOMINO_6",
+		8800:  "ANDROID_FDE_4_3",
+		9000:  "PASSWORD_SAFE_V2",
+		9100:  "LOTUS_NOTES_DOMINO_8",
+		9400:  "MS_OFFICE_2007",
+		9500:  "MS_OFFICE_2010",
+		9600:  "MS_OFFICE_2013",
+		9700:  "MS_OFFICE_2003_0_1_MD5_RC4",
+		9710:  "MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_1",
+		9720:  "MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_2",
+		9800:  "MS_OFFICE_2003_3_4_SHA1_RC4",
+		9810:  "MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_1",
+		9820:  "MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_2",
+		10000: "DJANGO_PBKDF2_SHA256",
+		10300: "SAP_CODVN_H_PWDSALTEDHASH_ISSHA_1",
+		10400: "PDF_1_1_1_3_ACROBAT_2_4",
+		10410: "PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_1",
+		10420: "PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_2",
+		10500: "PDF_1_4_1_6_ACROBAT_5_8",
+		10510: "PDF_1_3_1_6_ACROBAT_4_8_W_RC4_40",
+		10600: "PDF_1_7_LEVEL_3_ACROBAT_9",
+		10700: "PDF_1_7_LEVEL_8_ACROBAT_10_11",
+		10810: "SHA384_PASS_SALT",
+		10820: "SHA384_SALT_PASS",
+		10830: "SHA384_UTF16LE_PASS_SALT",
+		10840: "SHA384_SALT_UTF16LE_PASS",
+		10901: "REDHAT_389_DS_LDAP_PBKDF2_HMAC_SHA256",
+		11000: "PRESTASHOP",
+		11100: "POSTGRESQL_CRAM_MD5",
+		11200: "MYSQL_CRAM_SHA1",
+		11300: "BITCOIN_LITECOIN_WALLET_DAT",
+		11600: "HASHCAT_7_ZIP",
+		11750: "HMAC_STREEBOG_256_KEY_PASS_BIG_ENDIAN",
+		11760: "HMAC_STREEBOG_256_KEY_SALT_BIG_ENDIAN",
+		11850: "HMAC_STREEBOG_512_KEY_PASS_BIG_ENDIAN",
+		11860: "HMAC_STREEBOG_512_KEY_SALT_BIG_ENDIAN",
+		12001: "ATLASSIAN_PBKDF2_HMAC_SHA1",
+		12150: "APACHE_SHIRO_1_SHA_512",
+		12200: "ECRYPTFS",
+		12300: "ORACLE_T_TYPE_ORACLE_12",
+		12500: "RAR3_HP",
+		12600: "COLDFUSION_10",
+		12700: "BLOCKCHAIN_MY_WALLET",
+		12900: "ANDROID_FDE_SAMSUNG_DEK",
+		13000: "RAR5",
+		13200: "AXCRYPT_1",
+		13300: "AXCRYPT_1_IN_MEMORY_SHA1",
+		13400: "KEEPASS_KDBX_V2_V3",
+		13500: "PEOPLESOFT_PS_TOKEN",
+		13600: "WINZIP",
+		13711: "VERACRYPT_RIPEMD160_XTS_512_BIT_LEGACY",
+		13712: "VERACRYPT_RIPEMD160_XTS_1024_BIT_LEGACY",
+		13713: "VERACRYPT_RIPEMD160_XTS_1536_BIT_LEGACY",
+		13721: "VERACRYPT_SHA512_XTS_512_BIT_LEGACY",
+		13722: "VERACRYPT_SHA512_XTS_1024_BIT_LEGACY",
+		13723: "VERACRYPT_SHA512_XTS_1536_BIT_LEGACY",
+		13731: "VERACRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY",
+		13732: "VERACRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY",
+		13733: "VERACRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY",
+		13741: "VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY",
+		13742: "VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY",
+		13743: "VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY",
+		13751: "VERACRYPT_SHA256_XTS_512_BIT_LEGACY",
+		13752: "VERACRYPT_SHA256_XTS_1024_BIT_LEGACY",
+		13753: "VERACRYPT_SHA256_XTS_1536_BIT_LEGACY",
+		13761: "VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE_LEGACY",
+		13762: "VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE_LEGACY",
+		14200: "RACF_KDFAES",
+		14400: "SHA1_CX",
+		14600: "LUKS_V1_LEGACY",
+		14700: "ITUNES_BACKUP_10_0_MODE_14700",
+		14800: "ITUNES_BACKUP_10_0_MODE_14800",
+		15000: "FILEZILLA_SERVER_0_9_55",
+		15100: "JUNIPER_NETBSD_SHA1CRYPT",
+		15200: "BLOCKCHAIN_MY_WALLET_V2",
+		15500: "JKS_JAVA_KEY_STORE_PRIVATE_KEYS_SHA1",
+		15600: "ETHEREUM_WALLET_PBKDF2_HMAC_SHA256",
+		15700: "ETHEREUM_WALLET_SCRYPT",
+		16000: "TRIPCODE",
+		16200: "APPLE_SECURE_NOTES",
+		16300: "ETHEREUM_PRE_SALE_WALLET_PBKDF2_HMAC_SHA256",
+		16400: "CRAM_MD5_DOVECOT",
+		16501: "PERL_MOJOLICIOUS_SESSION_COOKIE_HMAC_SHA256_V9_19",
+		16600: "ELECTRUM_WALLET_SALT_TYPE_1_3",
+		16700: "FILEVAULT_2",
+		16900: "ANSIBLE_VAULT",
+		17020: "GPG_AES_128_AES_256_SHA_512_PASS",
+		17030: "GPG_AES_128_AES_256_SHA_256_PASS",
+		17040: "GPG_CAST5_SHA_1_PASS",
+		17050: "GPG_AES_OCB_128_SHA_1_PASS",
+		17200: "PKZIP_COMPRESSED",
+		17210: "PKZIP_UNCOMPRESSED",
+		17220: "PKZIP_COMPRESSED_MULTI_FILE",
+		17225: "PKZIP_MIXED_MULTI_FILE",
+		17230: "PKZIP_MIXED_MULTI_FILE_CHECKSUM_ONLY",
+		18100: "TOTP_HMAC_SHA1",
+		18300: "APPLE_FILE_SYSTEM_APFS",
+		18400: "OPEN_DOCUMENT_FORMAT_ODF_1_2_SHA_256_AES",
+		18500: "SHA1_MD5_MD5_PASS",
+		18600: "OPEN_DOCUMENT_FORMAT_ODF_1_1_SHA_1_BLOWFISH",
+		18800: "BLOCKCHAIN_MY_WALLET_SECOND_PASSWORD_SHA256",
+		18900: "ANDROID_BACKUP",
+		19210: "QNX_7_ETC_SHADOW_SHA512",
+		19300: "SHA1_SALT1_PASS_SALT2",
+		19500: "RUBY_ON_RAILS_RESTFUL_AUTHENTICATION",
+		20011: "DISKCRYPTOR_SHA512_XTS_512_BIT",
+		20012: "DISKCRYPTOR_SHA512_XTS_1024_BIT",
+		20013: "DISKCRYPTOR_SHA512_XTS_1536_BIT",
+		20200: "PYTHON_PASSLIB_PBKDF2_SHA512",
+		20300: "PYTHON_PASSLIB_PBKDF2_SHA256",
+		20400: "PYTHON_PASSLIB_PBKDF2_SHA1",
+		20500: "PKZIP_MASTER_KEY",
+		20510: "PKZIP_MASTER_KEY_6_BYTE_OPTIMIZATION",
+		20600: "ORACLE_TRANSPORTATION_MANAGEMENT_SHA256",
+		20710: "SHA256_SHA256_PASS_SALT_MODE_20710",
+		20711: "AUTHME_SHA256",
+		20712: "RSA_SECURITY_ANALYTICS_NETWITNESS_SHA256",
+		20720: "SHA256_SALT_SHA256_PASS",
+		20730: "SHA256_SHA256_PASS_SALT_MODE_20730",
+		20800: "SHA256_MD5_PASS",
+		20900: "MD5_SHA1_PASS_MD5_PASS_SHA1_PASS",
+		21000: "BITSHARES_V0_X_SHA512_SHA512_BIN_PASS",
+		21100: "SHA1_MD5_PASS_SALT_MODE_21100",
+		21200: "MD5_SHA1_SALT_MD5_PASS",
+		21300: "MD5_SALT_SHA1_SALT_PASS",
+		21310: "MD5_SALT1_SHA1_SALT2_PASS",
+		21400: "SHA256_SHA256_BIN_PASS",
+		21420: "SHA256_SALT_SHA256_BIN_PASS",
+		21500: "SOLARWINDS_ORION",
+		21501: "SOLARWINDS_ORION_V2",
+		21600: "WEB2PY_PBKDF2_SHA512",
+		21700: "ELECTRUM_WALLET_SALT_TYPE_4",
+		21800: "ELECTRUM_WALLET_SALT_TYPE_5",
+		21900: "MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_21900",
+		22100: "BITLOCKER",
+		22300: "SHA256_SALT_PASS_SALT",
+		22301: "TELEGRAM_MOBILE_APP_PASSCODE_SHA256",
+		22400: "AES_CRYPT_SHA256",
+		22500: "MULTIBIT_CLASSIC_KEY_MD5",
+		22600: "TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA1",
+		22700: "MULTIBIT_HD_SCRYPT",
+		22800: "SIMPLA_CMS_MD5_SALT_PASS_MD5_PASS",
+		22911: "RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_0",
+		22921: "RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_6",
+		22931: "RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_1_3",
+		22941: "RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_4",
+		22951: "RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_5",
+		23001: "SECUREZIP_AES_128",
+		23002: "SECUREZIP_AES_192",
+		23003: "SECUREZIP_AES_256",
+		23100: "APPLE_KEYCHAIN",
+		23200: "XMPP_SCRAM_PBKDF2_SHA1",
+		23300: "APPLE_IWORK",
+		23400: "BITWARDEN",
+		23500: "AXCRYPT_2_AES_128",
+		23600: "AXCRYPT_2_AES_256",
+		23700: "RAR3_P_UNCOMPRESSED",
+		23800: "RAR3_P_COMPRESSED",
+		23900: "BESTCRYPT_V3_VOLUME_ENCRYPTION",
+		24000: "BESTCRYPT_V4_VOLUME_ENCRYPTION",
+		24100: "MONGODB_SERVERKEY_SCRAM_SHA_1",
+		24200: "MONGODB_SERVERKEY_SCRAM_SHA_256",
+		24300: "SHA1_SALT_SHA1_PASS_SALT",
+		24410: "PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA1_3DES_AES",
+		24420: "PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA256_3DES_AES",
+		24500: "TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA512",
+		24600: "SQLCIPHER",
+		24700: "STUFFIT5",
+		24800: "UMBRACO_HMAC_SHA1",
+		24900: "DAHUA_AUTHENTICATION_MD5",
+		24901: "BESDER_AUTHENTICATION_MD5",
+		25300: "MS_OFFICE_2016_SHEETPROTECTION",
+		25400: "PDF_1_4_1_6_ACROBAT_5_8_USER_AND_OWNER_PASS",
+		25500: "STARGAZER_STELLAR_WALLET_XLM",
+		25600: "BCRYPT_MD5_PASS",
+		25800: "BCRYPT_SHA1_PASS",
+		25900: "KNX_IP_SECURE_DEVICE_AUTHENTICATION_CODE",
+		26000: "MOZILLA_KEY3_DB",
+		26100: "MOZILLA_KEY4_DB",
+		26200: "OPENEDGE_PROGRESS_ENCODE",
+		26300: "FORTIGATE256_FORTIOS256",
+		26500: "IPHONE_PASSCODE_UID_KEY_SYSTEM_KEYBAG",
+		26600: "METAMASK_WALLET_NEEDS_ALL_DATA_CHECKS_AES_GCM_TAG",
+		26610: "METAMASK_WALLET_SHORT_HASH_PLAINTEXT_CHECK",
+		27200: "RUBY_ON_RAILS_RESTFUL_AUTH_ONE_ROUND_NO_SITEKEY",
+		27400: "VMWARE_VMX_PBKDF2_HMAC_SHA1_AES_256_CBC",
+		27500: "VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_128_XTS",
+		27600: "VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_256_XTS",
+		27700: "MULTIBIT_CLASSIC_WALLET_SCRYPT",
+		28200: "EXODUS_DESKTOP_WALLET_SCRYPT",
+		28300: "TEAMSPEAK_3_CHANNEL_HASH",
+		28400: "BCRYPT_SHA512_PASS",
+		28501: "BITCOIN_WIF_PRIVATE_KEY_P2PKH_COMPRESSED",
+		28502: "BITCOIN_WIF_PRIVATE_KEY_P2PKH_UNCOMPRESSED",
+		28503: "BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED",
+		28504: "BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED",
+		28505: "BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED",
+		28506: "BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED",
+		28600: "POSTGRESQL_SCRAM_SHA_256",
+		28700: "AMAZON_AWS_SIGNATURE_VERSION_4",
+		29000: "SHA1_SALT_SHA1_UTF16LE_USERNAME_UTF16LE_PASS",
+		29311: "TRUECRYPT_RIPEMD160_XTS_512_BIT",
+		29312: "TRUECRYPT_RIPEMD160_XTS_1024_BIT",
+		29313: "TRUECRYPT_RIPEMD160_XTS_1536_BIT",
+		29321: "TRUECRYPT_SHA512_XTS_512_BIT",
+		29322: "TRUECRYPT_SHA512_XTS_1024_BIT",
+		29323: "TRUECRYPT_SHA512_XTS_1536_BIT",
+		29331: "TRUECRYPT_WHIRLPOOL_XTS_512_BIT",
+		29332: "TRUECRYPT_WHIRLPOOL_XTS_1024_BIT",
+		29333: "TRUECRYPT_WHIRLPOOL_XTS_1536_BIT",
+		29341: "TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE",
+		29342: "TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE",
+		29343: "TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE",
+		29411: "VERACRYPT_RIPEMD160_XTS_512_BIT",
+		29412: "VERACRYPT_RIPEMD160_XTS_1024_BIT",
+		29413: "VERACRYPT_RIPEMD160_XTS_1536_BIT",
+		29421: "VERACRYPT_SHA512_XTS_512_BIT",
+		29422: "VERACRYPT_SHA512_XTS_1024_BIT",
+		29423: "VERACRYPT_SHA512_XTS_1536_BIT",
+		29431: "VERACRYPT_WHIRLPOOL_XTS_512_BIT",
+		29432: "VERACRYPT_WHIRLPOOL_XTS_1024_BIT",
+		29433: "VERACRYPT_WHIRLPOOL_XTS_1536_BIT",
+		29441: "VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE",
+		29442: "VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE",
+		29443: "VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE",
+		29451: "VERACRYPT_SHA256_XTS_512_BIT",
+		29452: "VERACRYPT_SHA256_XTS_1024_BIT",
+		29453: "VERACRYPT_SHA256_XTS_1536_BIT",
+		29461: "VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE",
+		29462: "VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE",
+		29463: "VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE",
+		29471: "VERACRYPT_STREEBOG_512_XTS_512_BIT",
+		29472: "VERACRYPT_STREEBOG_512_XTS_1024_BIT",
+		29473: "VERACRYPT_STREEBOG_512_XTS_1536_BIT",
+		29481: "VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE",
+		29482: "VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE",
+		29483: "VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE",
+		29511: "LUKS_V1_SHA_1_AES",
+		29512: "LUKS_V1_SHA_1_SERPENT",
+		29513: "LUKS_V1_SHA_1_TWOFISH",
+		29521: "LUKS_V1_SHA_256_AES",
+		29522: "LUKS_V1_SHA_256_SERPENT",
+		29523: "LUKS_V1_SHA_256_TWOFISH",
+		29531: "LUKS_V1_SHA_512_AES",
+		29532: "LUKS_V1_SHA_512_SERPENT",
+		29533: "LUKS_V1_SHA_512_TWOFISH",
+		29541: "LUKS_V1_RIPEMD_160_AES",
+		29542: "LUKS_V1_RIPEMD_160_SERPENT",
+		29543: "LUKS_V1_RIPEMD_160_TWOFISH",
+		29600: "TERRA_STATION_WALLET_AES256_CBC_PBKDF2_PASS",
+		29700: "KEEPASS_KDBX_V2_V3_KEYFILE_ONLY",
+		29800: "BISQ_WALLET_SCRYPT",
+		29910: "ENCSECURITY_DATAVAULT_PBKDF2_NO_KEYCHAIN",
+		29920: "ENCSECURITY_DATAVAULT_PBKDF2_KEYCHAIN",
+		29930: "ENCSECURITY_DATAVAULT_MD5_NO_KEYCHAIN",
+		29940: "ENCSECURITY_DATAVAULT_MD5_KEYCHAIN",
+		30000: "PYTHON_WERKZEUG_MD5_HMAC_MD5_KEY_SALT",
+		30120: "PYTHON_WERKZEUG_SHA256_HMAC_SHA256_KEY_SALT",
+		30420: "DANE_RFC7929_RFC8162_SHA2_256",
+		30500: "MD5_MD5_SALT_MD5_MD5_PASS",
+		30600: "BCRYPT_SHA256_PASS",
+		30601: "BCRYPT_HMAC_SHA256_PASS",
+		30700: "ANOPE_IRC_SERVICES_ENC_SHA256",
+		30901: "BITCOIN_RAW_PRIVATE_KEY_P2PKH_COMPRESSED",
+		30902: "BITCOIN_RAW_PRIVATE_KEY_P2PKH_UNCOMPRESSED",
+		30903: "BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED",
+		30904: "BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED",
+		30905: "BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED",
+		30906: "BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED",
+		31000: "BLAKE2S_256",
+		31100: "SHANGMI_3_SM3",
+		31200: "VEEAM_VBK",
+		31300: "MS_SNTP",
+		31400: "SECURECRT_MASTERPASSPHRASE_V2",
+		31500: "DOMAIN_CACHED_CREDENTIALS_DCC_MS_CACHE_NT",
+		31600: "DOMAIN_CACHED_CREDENTIALS_2_DCC2_MS_CACHE_2_NT",
+		31700: "MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_31700",
+		31800: "HASHCAT_1PASSWORD_MOBILEKEYCHAIN_1PASSWORD_8",
+		31900: "METAMASK_MOBILE_WALLET",
+		32000: "NETIQ_SSPR_MD5",
+		32010: "NETIQ_SSPR_SHA1",
+		32020: "NETIQ_SSPR_SHA_1_WITH_SALT",
+		32030: "NETIQ_SSPR_SHA_256_WITH_SALT",
+		32031: "ADOBE_AEM_SSPR_SHA_256_WITH_SALT",
+		32040: "NETIQ_SSPR_SHA_512_WITH_SALT",
+		32041: "ADOBE_AEM_SSPR_SHA_512_WITH_SALT",
+		32050: "NETIQ_SSPR_PBKDF2WITHHMACSHA1",
+		32060: "NETIQ_SSPR_PBKDF2WITHHMACSHA256",
+		32070: "NETIQ_SSPR_PBKDF2WITHHMACSHA512",
+		32100: "KERBEROS_5_ETYPE_17_AS_REP",
+		32200: "KERBEROS_5_ETYPE_18_AS_REP",
+		32300: "EMPIRE_CMS_ADMIN_PASSWORD",
+		32410: "SHA512_SHA512_PASS_SALT",
+		32420: "SHA512_SHA512_BIN_PASS_SALT",
+		32500: "DOGECHAIN_INFO_WALLET",
+		32600: "CUBECART_WHIRLPOOL_SALT_PASS_SALT",
+		32700: "KREMLIN_ENCRYPT_3_0_W_NEWDES",
+		32800: "MD5_SHA1_MD5_PASS",
+		32900: "PBKDF1_SHA1",
+		33000: "MD5_SALT1_PASS_SALT2",
+		33100: "MD5_SALT_MD5_PASS_SALT_MODE_33100",
+		33300: "HMAC_BLAKE2S_KEY_PASS",
+		33400: "MEGA_NZ_PASSWORD_PROTECTED_LINK_PBKDF2_HMAC_SHA512",
+		33500: "RC4_40_BIT_DROPN",
+		33501: "RC4_72_BIT_DROPN",
+		33502: "RC4_104_BIT_DROPN",
+		33600: "RIPEMD_320",
+		33650: "HMAC_RIPEMD320_KEY_PASS",
+		33660: "HMAC_RIPEMD320_KEY_SALT",
+		33700: "MICROSOFT_ONLINE_ACCOUNT_PBKDF2_HMAC_SHA256_AES256",
+		33800: "WBB4_WOLTLAB_BURNING_BOARD_BCRYPT_BCRYPT_PASS",
+		33900: "CITRIX_NETSCALER_PBKDF2_HMAC_SHA256",
+		34000: "ARGON2",
+		34100: "LUKS_V2_ARGON2_SHA_256_AES",
+		34200: "MURMURHASH64A",
+		34201: "MURMURHASH64A_ZERO_SEED",
+		34211: "MURMURHASH64A_TRUNCATED_ZERO_SEED",
+		34300: "KEEPASS_ARGON2_KDBX_V4",
+		34301: "KEEPASS_AESKDF_KDBX_V4",
+		34400: "SHA224_SHA224_PASS",
+		34500: "SHA224_SHA1_PASS",
+		34600: "MD6_256",
+		34700: "BLOCKCHAIN_MY_WALLET_LEGACY_WALLETS",
+		34800: "BLAKE2B_256_MODE_34800",
+		34810: "BLAKE2B_256_PASS_SALT",
+		34820: "BLAKE2B_256_SALT_PASS",
+		35000: "SAP_CODVN_H_PWDSALTEDHASH_ISSHA512",
+		35100: "SM3CRYPT_SM3_SM3_UNIX",
+		35200: "AS_400_SSHA1",
+		35300: "KERBEROS_5_ETYPE_23_TGS_REP_NT",
+		35400: "KERBEROS_5_ETYPE_23_AS_REP_NT",
+		35500: "WORDPRESS_BCRYPT_HMAC_SHA384_PASS",
+		35600: "GOST12512CRYPT_GOST12512HASH_UNIX",
+		35700: "PHPASS_MD5_PASS",
+		35800: "SYMFONY_LEGACY_SHA256",
+		36100: "YESCRYPT",
+		36200: "GOST_YESCRYPT",
+		36300: "SCRYPTCRYPT_SCRYPT_UNIX",
+		36400: "KDE_KWALLET_4_13_PBKDF2_HMAC_SHA512_BLOWFISH",
+		36410: "KDE_KWALLET_4_13_SHA_1_BLOWFISH",
+		70000: "ARGON2ID_BRIDGED_REFERENCE_IMPLEMENTATION_TUNINGS",
+		70100: "SCRYPT_BRIDGED_SCRYPT_JANE_SMIX",
+		70200: "SCRYPT_BRIDGED_SCRYPT_YESCRYPT",
+		72000: "GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_FREE_THREADING",
+		73000: "GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_WITH_GIL",
+		74000: "GENERIC_HASH_BRIDGED_RUST",
+		99999: "PLAINTEXT",
 	}
 	HashType_value = map[string]int32{
 		"MD5":                          0,
@@ -676,19 +1606,483 @@ var (
 		"VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY":  13781,
 		"VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY": 13782,
 		"VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY": 13783,
-		"OPENCART":                13900,
-		"CISCO_ASA_MD5":           2410,
-		"CISCO_IOS_PBKDF2_SHA256": 9200,
-		"CISCO_IOS_SCRYPT":        9300,
-		"CISCO_PIX_MD5":           2400,
-		"CITRIX_NETSCALER_SHA1":   8100,
-		"CITRIX_NETSCALER_SHA512": 22200,
-		"DCC":                     1100,
-		"DCC2":                    2100,
-		"MACOS_10_8":              7100,
-		"INVALID":                 9999,
-		"BCRYPT_UNIX":             3200,
-		"SHA512_CRYPT_UNIX":       1800,
+		"OPENCART":                              13900,
+		"CISCO_ASA_MD5":                         2410,
+		"CISCO_IOS_PBKDF2_SHA256":               9200,
+		"CISCO_IOS_SCRYPT":                      9300,
+		"CISCO_PIX_MD5":                         2400,
+		"CITRIX_NETSCALER_SHA1":                 8100,
+		"CITRIX_NETSCALER_SHA512":               22200,
+		"DCC":                                   1100,
+		"DCC2":                                  2100,
+		"MACOS_10_8":                            7100,
+		"INVALID":                               9999,
+		"BCRYPT_UNIX":                           3200,
+		"SHA512_CRYPT_UNIX":                     1800,
+		"JOOMLA_2_5_18":                         11,
+		"POSTGRESQL":                            12,
+		"OSCOMMERCE_XT_COMMERCE":                21,
+		"JUNIPER_NETSCREEN_SSG_SCREENOS":        22,
+		"SKYPE":                                 23,
+		"SOLARWINDS_SERV_U":                     24,
+		"MD5_UTF16LE_PASS_SALT":                 30,
+		"MD5_SALT_UTF16LE_PASS":                 40,
+		"HMAC_MD5_KEY_PASS":                     50,
+		"HMAC_MD5_KEY_SALT":                     60,
+		"NSLDAP_SHA_1_BASE64_NETSCAPE_LDAP_SHA": 101,
+		"SHA1_PASS_SALT":                        110,
+		"NSLDAPS_SSHA_1_BASE64_NETSCAPE_LDAP_SSHA":          111,
+		"ORACLE_S_TYPE_ORACLE_11":                           112,
+		"SHA1_SALT_PASS":                                    120,
+		"SMF_SIMPLE_MACHINES_FORUM_V1_1":                    121,
+		"MACOS_V10_4_MACOS_V10_5_MACOS_V10_6":               122,
+		"DJANGO_SHA_1":                                      124,
+		"ARUBAOS":                                           125,
+		"SHA1_UTF16LE_PASS_SALT":                            130,
+		"MSSQL_2000":                                        131,
+		"MSSQL_2005":                                        132,
+		"PEOPLESOFT":                                        133,
+		"SHA1_SALT_UTF16LE_PASS":                            140,
+		"EPISERVER_6_X_NET_4_MODE_141":                      141,
+		"HMAC_SHA1_KEY_PASS":                                150,
+		"HMAC_SHA1_KEY_SALT":                                160,
+		"MYSQL323":                                          200,
+		"MYSQL4_1_MYSQL5":                                   300,
+		"MD5CRYPT_MD5_UNIX_CISCO_IOS_1_MD5":                 500,
+		"JUNIPER_IVE":                                       501,
+		"SHA224_PASS_SALT":                                  1310,
+		"SHA224_SALT_PASS":                                  1320,
+		"SHA256_PASS_SALT":                                  1410,
+		"SSHA_256_BASE64_LDAP_SSHA256":                      1411,
+		"SHA256_SALT_PASS":                                  1420,
+		"HMAILSERVER":                                       1421,
+		"SHA256_UTF16LE_PASS_SALT":                          1430,
+		"SHA256_SALT_UTF16LE_PASS":                          1440,
+		"EPISERVER_6_X_NET_4_MODE_1441":                     1441,
+		"HMAC_SHA256_KEY_PASS":                              1450,
+		"HMAC_SHA256_KEY_SALT":                              1460,
+		"DESCRYPT_DES_UNIX_TRADITIONAL_DES":                 1500,
+		"APACHE_APR1_MD5_MD5APR1_MD5_APR":                   1600,
+		"SHA512_PASS_SALT":                                  1710,
+		"SSHA_512_BASE64_LDAP_SSHA512":                      1711,
+		"SHA512_SALT_PASS":                                  1720,
+		"MACOS_V10_7":                                       1722,
+		"SHA512_UTF16LE_PASS_SALT":                          1730,
+		"MSSQL_2012_2014":                                   1731,
+		"SHA512_SALT_UTF16LE_PASS":                          1740,
+		"HMAC_SHA512_KEY_PASS":                              1750,
+		"HMAC_SHA512_KEY_SALT":                              1760,
+		"STDOUT":                                            2000,
+		"MD5_MD5_PASS":                                      2600,
+		"VBULLETIN_V3_8_5_MODE_2611":                        2611,
+		"PHPS":                                              2612,
+		"MD5_MD5_PASS_SALT":                                 2630,
+		"VBULLETIN_V3_8_5_MODE_2711":                        2711,
+		"MYBB_1_2_IPB2_INVISION_POWER_BOARD":                2811,
+		"ORACLE_H_TYPE_ORACLE_7":                            3100,
+		"MD5_MD5_MD5_PASS":                                  3500,
+		"MD5_MD5_MD5_PASS_SALT":                             3610,
+		"MEDIAWIKI_B_TYPE":                                  3711,
+		"MD5_SALT1_STRTOUPPER_MD5_SALT2_PASS":               3730,
+		"MD5_MD5_PASS_MD5_SALT":                             3910,
+		"MD5_SALT_MD5_SALT_PASS":                            4010,
+		"MD5_SALT_MD5_PASS_SALT_MODE_4110":                  4110,
+		"MD5_STRTOUPPER_MD5_PASS":                           4300,
+		"MD5_SHA1_PASS":                                     4400,
+		"MD5_SHA1_PASS_SALT_MODE_4410":                      4410,
+		"MD5_SHA1_PASS_SALT_MODE_4420":                      4420,
+		"MD5_SHA1_SALT_PASS":                                4430,
+		"SHA1_SHA1_PASS":                                    4500,
+		"SHA1_SHA1_PASS_SALT":                               4510,
+		"SHA1_SALT_SHA1_PASS":                               4520,
+		"REDMINE":                                           4521,
+		"PUNBB":                                             4522,
+		"SHA1_MD5_PASS":                                     4700,
+		"SHA1_MD5_PASS_SALT_MODE_4710":                      4710,
+		"HUAWEI_SHA1_MD5_PASS_SALT":                         4711,
+		"SHA1_SALT_PASS_SALT":                               4900,
+		"SHA1_SHA1_SALT_PASS_SALT":                          5000,
+		"PASSWORD_SAFE_V3":                                  5200,
+		"CISCO_IOS_TYPE_4_SHA256":                           5700,
+		"CISCO_ISE_HASHED_PASSWORD_SHA256":                  5720,
+		"HMAC_RIPEMD160_KEY_PASS":                           6050,
+		"HMAC_RIPEMD160_KEY_SALT":                           6060,
+		"TRUECRYPT_RIPEMD160_XTS_512_BIT_LEGACY":            6211,
+		"TRUECRYPT_RIPEMD160_XTS_1024_BIT_LEGACY":           6212,
+		"TRUECRYPT_RIPEMD160_XTS_1536_BIT_LEGACY":           6213,
+		"TRUECRYPT_SHA512_XTS_512_BIT_LEGACY":               6221,
+		"TRUECRYPT_SHA512_XTS_1024_BIT_LEGACY":              6222,
+		"TRUECRYPT_SHA512_XTS_1536_BIT_LEGACY":              6223,
+		"TRUECRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY":            6231,
+		"TRUECRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY":           6232,
+		"TRUECRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY":           6233,
+		"TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY":  6241,
+		"TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY": 6242,
+		"TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY": 6243,
+		"HASHCAT_1PASSWORD_AGILEKEYCHAIN":                   6600,
+		"LASTPASS_LASTPASS_SNIFFED":                         6800,
+		"FORTIGATE_FORTIOS":                                 7000,
+		"IPMI2_RAKP_HMAC_MD5":                               7350,
+		"SHA256CRYPT_5_SHA256_UNIX":                         7400,
+		"MYSQL_A_SHA256CRYPT":                               7401,
+		"SAP_CODVN_B_BCODE":                                 7700,
+		"SAP_CODVN_B_BCODE_FROM_RFC_READ_TABLE":             7701,
+		"SAP_CODVN_F_G_PASSCODE":                            7800,
+		"SAP_CODVN_F_G_PASSCODE_FROM_RFC_READ_TABLE":        7801,
+		"DRUPAL7":                                                7900,
+		"SYBASE_ASE":                                             8000,
+		"HASHCAT_1PASSWORD_CLOUDKEYCHAIN":                        8200,
+		"DNSSEC_NSEC3":                                           8300,
+		"WBB3_WOLTLAB_BURNING_BOARD":                             8400,
+		"AS_400_DES":                                             8501,
+		"LOTUS_NOTES_DOMINO_5":                                   8600,
+		"LOTUS_NOTES_DOMINO_6":                                   8700,
+		"ANDROID_FDE_4_3":                                        8800,
+		"PASSWORD_SAFE_V2":                                       9000,
+		"LOTUS_NOTES_DOMINO_8":                                   9100,
+		"MS_OFFICE_2007":                                         9400,
+		"MS_OFFICE_2010":                                         9500,
+		"MS_OFFICE_2013":                                         9600,
+		"MS_OFFICE_2003_0_1_MD5_RC4":                             9700,
+		"MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_1":                  9710,
+		"MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_2":                  9720,
+		"MS_OFFICE_2003_3_4_SHA1_RC4":                            9800,
+		"MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_1":                   9810,
+		"MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_2":                   9820,
+		"DJANGO_PBKDF2_SHA256":                                   10000,
+		"SAP_CODVN_H_PWDSALTEDHASH_ISSHA_1":                      10300,
+		"PDF_1_1_1_3_ACROBAT_2_4":                                10400,
+		"PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_1":                     10410,
+		"PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_2":                     10420,
+		"PDF_1_4_1_6_ACROBAT_5_8":                                10500,
+		"PDF_1_3_1_6_ACROBAT_4_8_W_RC4_40":                       10510,
+		"PDF_1_7_LEVEL_3_ACROBAT_9":                              10600,
+		"PDF_1_7_LEVEL_8_ACROBAT_10_11":                          10700,
+		"SHA384_PASS_SALT":                                       10810,
+		"SHA384_SALT_PASS":                                       10820,
+		"SHA384_UTF16LE_PASS_SALT":                               10830,
+		"SHA384_SALT_UTF16LE_PASS":                               10840,
+		"REDHAT_389_DS_LDAP_PBKDF2_HMAC_SHA256":                  10901,
+		"PRESTASHOP":                                             11000,
+		"POSTGRESQL_CRAM_MD5":                                    11100,
+		"MYSQL_CRAM_SHA1":                                        11200,
+		"BITCOIN_LITECOIN_WALLET_DAT":                            11300,
+		"HASHCAT_7_ZIP":                                          11600,
+		"HMAC_STREEBOG_256_KEY_PASS_BIG_ENDIAN":                  11750,
+		"HMAC_STREEBOG_256_KEY_SALT_BIG_ENDIAN":                  11760,
+		"HMAC_STREEBOG_512_KEY_PASS_BIG_ENDIAN":                  11850,
+		"HMAC_STREEBOG_512_KEY_SALT_BIG_ENDIAN":                  11860,
+		"ATLASSIAN_PBKDF2_HMAC_SHA1":                             12001,
+		"APACHE_SHIRO_1_SHA_512":                                 12150,
+		"ECRYPTFS":                                               12200,
+		"ORACLE_T_TYPE_ORACLE_12":                                12300,
+		"RAR3_HP":                                                12500,
+		"COLDFUSION_10":                                          12600,
+		"BLOCKCHAIN_MY_WALLET":                                   12700,
+		"ANDROID_FDE_SAMSUNG_DEK":                                12900,
+		"RAR5":                                                   13000,
+		"AXCRYPT_1":                                              13200,
+		"AXCRYPT_1_IN_MEMORY_SHA1":                               13300,
+		"KEEPASS_KDBX_V2_V3":                                     13400,
+		"PEOPLESOFT_PS_TOKEN":                                    13500,
+		"WINZIP":                                                 13600,
+		"VERACRYPT_RIPEMD160_XTS_512_BIT_LEGACY":                 13711,
+		"VERACRYPT_RIPEMD160_XTS_1024_BIT_LEGACY":                13712,
+		"VERACRYPT_RIPEMD160_XTS_1536_BIT_LEGACY":                13713,
+		"VERACRYPT_SHA512_XTS_512_BIT_LEGACY":                    13721,
+		"VERACRYPT_SHA512_XTS_1024_BIT_LEGACY":                   13722,
+		"VERACRYPT_SHA512_XTS_1536_BIT_LEGACY":                   13723,
+		"VERACRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY":                 13731,
+		"VERACRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY":                13732,
+		"VERACRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY":                13733,
+		"VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY":       13741,
+		"VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY":      13742,
+		"VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY":      13743,
+		"VERACRYPT_SHA256_XTS_512_BIT_LEGACY":                    13751,
+		"VERACRYPT_SHA256_XTS_1024_BIT_LEGACY":                   13752,
+		"VERACRYPT_SHA256_XTS_1536_BIT_LEGACY":                   13753,
+		"VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE_LEGACY":          13761,
+		"VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE_LEGACY":         13762,
+		"RACF_KDFAES":                                            14200,
+		"SHA1_CX":                                                14400,
+		"LUKS_V1_LEGACY":                                         14600,
+		"ITUNES_BACKUP_10_0_MODE_14700":                          14700,
+		"ITUNES_BACKUP_10_0_MODE_14800":                          14800,
+		"FILEZILLA_SERVER_0_9_55":                                15000,
+		"JUNIPER_NETBSD_SHA1CRYPT":                               15100,
+		"BLOCKCHAIN_MY_WALLET_V2":                                15200,
+		"JKS_JAVA_KEY_STORE_PRIVATE_KEYS_SHA1":                   15500,
+		"ETHEREUM_WALLET_PBKDF2_HMAC_SHA256":                     15600,
+		"ETHEREUM_WALLET_SCRYPT":                                 15700,
+		"TRIPCODE":                                               16000,
+		"APPLE_SECURE_NOTES":                                     16200,
+		"ETHEREUM_PRE_SALE_WALLET_PBKDF2_HMAC_SHA256":            16300,
+		"CRAM_MD5_DOVECOT":                                       16400,
+		"PERL_MOJOLICIOUS_SESSION_COOKIE_HMAC_SHA256_V9_19":      16501,
+		"ELECTRUM_WALLET_SALT_TYPE_1_3":                          16600,
+		"FILEVAULT_2":                                            16700,
+		"ANSIBLE_VAULT":                                          16900,
+		"GPG_AES_128_AES_256_SHA_512_PASS":                       17020,
+		"GPG_AES_128_AES_256_SHA_256_PASS":                       17030,
+		"GPG_CAST5_SHA_1_PASS":                                   17040,
+		"GPG_AES_OCB_128_SHA_1_PASS":                             17050,
+		"PKZIP_COMPRESSED":                                       17200,
+		"PKZIP_UNCOMPRESSED":                                     17210,
+		"PKZIP_COMPRESSED_MULTI_FILE":                            17220,
+		"PKZIP_MIXED_MULTI_FILE":                                 17225,
+		"PKZIP_MIXED_MULTI_FILE_CHECKSUM_ONLY":                   17230,
+		"TOTP_HMAC_SHA1":                                         18100,
+		"APPLE_FILE_SYSTEM_APFS":                                 18300,
+		"OPEN_DOCUMENT_FORMAT_ODF_1_2_SHA_256_AES":               18400,
+		"SHA1_MD5_MD5_PASS":                                      18500,
+		"OPEN_DOCUMENT_FORMAT_ODF_1_1_SHA_1_BLOWFISH":            18600,
+		"BLOCKCHAIN_MY_WALLET_SECOND_PASSWORD_SHA256":            18800,
+		"ANDROID_BACKUP":                                         18900,
+		"QNX_7_ETC_SHADOW_SHA512":                                19210,
+		"SHA1_SALT1_PASS_SALT2":                                  19300,
+		"RUBY_ON_RAILS_RESTFUL_AUTHENTICATION":                   19500,
+		"DISKCRYPTOR_SHA512_XTS_512_BIT":                         20011,
+		"DISKCRYPTOR_SHA512_XTS_1024_BIT":                        20012,
+		"DISKCRYPTOR_SHA512_XTS_1536_BIT":                        20013,
+		"PYTHON_PASSLIB_PBKDF2_SHA512":                           20200,
+		"PYTHON_PASSLIB_PBKDF2_SHA256":                           20300,
+		"PYTHON_PASSLIB_PBKDF2_SHA1":                             20400,
+		"PKZIP_MASTER_KEY":                                       20500,
+		"PKZIP_MASTER_KEY_6_BYTE_OPTIMIZATION":                   20510,
+		"ORACLE_TRANSPORTATION_MANAGEMENT_SHA256":                20600,
+		"SHA256_SHA256_PASS_SALT_MODE_20710":                     20710,
+		"AUTHME_SHA256":                                          20711,
+		"RSA_SECURITY_ANALYTICS_NETWITNESS_SHA256":               20712,
+		"SHA256_SALT_SHA256_PASS":                                20720,
+		"SHA256_SHA256_PASS_SALT_MODE_20730":                     20730,
+		"SHA256_MD5_PASS":                                        20800,
+		"MD5_SHA1_PASS_MD5_PASS_SHA1_PASS":                       20900,
+		"BITSHARES_V0_X_SHA512_SHA512_BIN_PASS":                  21000,
+		"SHA1_MD5_PASS_SALT_MODE_21100":                          21100,
+		"MD5_SHA1_SALT_MD5_PASS":                                 21200,
+		"MD5_SALT_SHA1_SALT_PASS":                                21300,
+		"MD5_SALT1_SHA1_SALT2_PASS":                              21310,
+		"SHA256_SHA256_BIN_PASS":                                 21400,
+		"SHA256_SALT_SHA256_BIN_PASS":                            21420,
+		"SOLARWINDS_ORION":                                       21500,
+		"SOLARWINDS_ORION_V2":                                    21501,
+		"WEB2PY_PBKDF2_SHA512":                                   21600,
+		"ELECTRUM_WALLET_SALT_TYPE_4":                            21700,
+		"ELECTRUM_WALLET_SALT_TYPE_5":                            21800,
+		"MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_21900":                21900,
+		"BITLOCKER":                                              22100,
+		"SHA256_SALT_PASS_SALT":                                  22300,
+		"TELEGRAM_MOBILE_APP_PASSCODE_SHA256":                    22301,
+		"AES_CRYPT_SHA256":                                       22400,
+		"MULTIBIT_CLASSIC_KEY_MD5":                               22500,
+		"TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA1":              22600,
+		"MULTIBIT_HD_SCRYPT":                                     22700,
+		"SIMPLA_CMS_MD5_SALT_PASS_MD5_PASS":                      22800,
+		"RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_0":                      22911,
+		"RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_6":                      22921,
+		"RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_1_3":                    22931,
+		"RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_4":                      22941,
+		"RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_5":                      22951,
+		"SECUREZIP_AES_128":                                      23001,
+		"SECUREZIP_AES_192":                                      23002,
+		"SECUREZIP_AES_256":                                      23003,
+		"APPLE_KEYCHAIN":                                         23100,
+		"XMPP_SCRAM_PBKDF2_SHA1":                                 23200,
+		"APPLE_IWORK":                                            23300,
+		"BITWARDEN":                                              23400,
+		"AXCRYPT_2_AES_128":                                      23500,
+		"AXCRYPT_2_AES_256":                                      23600,
+		"RAR3_P_UNCOMPRESSED":                                    23700,
+		"RAR3_P_COMPRESSED":                                      23800,
+		"BESTCRYPT_V3_VOLUME_ENCRYPTION":                         23900,
+		"BESTCRYPT_V4_VOLUME_ENCRYPTION":                         24000,
+		"MONGODB_SERVERKEY_SCRAM_SHA_1":                          24100,
+		"MONGODB_SERVERKEY_SCRAM_SHA_256":                        24200,
+		"SHA1_SALT_SHA1_PASS_SALT":                               24300,
+		"PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA1_3DES_AES":          24410,
+		"PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA256_3DES_AES":        24420,
+		"TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA512":            24500,
+		"SQLCIPHER":                                              24600,
+		"STUFFIT5":                                               24700,
+		"UMBRACO_HMAC_SHA1":                                      24800,
+		"DAHUA_AUTHENTICATION_MD5":                               24900,
+		"BESDER_AUTHENTICATION_MD5":                              24901,
+		"MS_OFFICE_2016_SHEETPROTECTION":                         25300,
+		"PDF_1_4_1_6_ACROBAT_5_8_USER_AND_OWNER_PASS":            25400,
+		"STARGAZER_STELLAR_WALLET_XLM":                           25500,
+		"BCRYPT_MD5_PASS":                                        25600,
+		"BCRYPT_SHA1_PASS":                                       25800,
+		"KNX_IP_SECURE_DEVICE_AUTHENTICATION_CODE":               25900,
+		"MOZILLA_KEY3_DB":                                        26000,
+		"MOZILLA_KEY4_DB":                                        26100,
+		"OPENEDGE_PROGRESS_ENCODE":                               26200,
+		"FORTIGATE256_FORTIOS256":                                26300,
+		"IPHONE_PASSCODE_UID_KEY_SYSTEM_KEYBAG":                  26500,
+		"METAMASK_WALLET_NEEDS_ALL_DATA_CHECKS_AES_GCM_TAG":      26600,
+		"METAMASK_WALLET_SHORT_HASH_PLAINTEXT_CHECK":             26610,
+		"RUBY_ON_RAILS_RESTFUL_AUTH_ONE_ROUND_NO_SITEKEY":        27200,
+		"VMWARE_VMX_PBKDF2_HMAC_SHA1_AES_256_CBC":                27400,
+		"VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_128_XTS":              27500,
+		"VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_256_XTS":              27600,
+		"MULTIBIT_CLASSIC_WALLET_SCRYPT":                         27700,
+		"EXODUS_DESKTOP_WALLET_SCRYPT":                           28200,
+		"TEAMSPEAK_3_CHANNEL_HASH":                               28300,
+		"BCRYPT_SHA512_PASS":                                     28400,
+		"BITCOIN_WIF_PRIVATE_KEY_P2PKH_COMPRESSED":               28501,
+		"BITCOIN_WIF_PRIVATE_KEY_P2PKH_UNCOMPRESSED":             28502,
+		"BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED":       28503,
+		"BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED":     28504,
+		"BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED":         28505,
+		"BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED":       28506,
+		"POSTGRESQL_SCRAM_SHA_256":                               28600,
+		"AMAZON_AWS_SIGNATURE_VERSION_4":                         28700,
+		"SHA1_SALT_SHA1_UTF16LE_USERNAME_UTF16LE_PASS":           29000,
+		"TRUECRYPT_RIPEMD160_XTS_512_BIT":                        29311,
+		"TRUECRYPT_RIPEMD160_XTS_1024_BIT":                       29312,
+		"TRUECRYPT_RIPEMD160_XTS_1536_BIT":                       29313,
+		"TRUECRYPT_SHA512_XTS_512_BIT":                           29321,
+		"TRUECRYPT_SHA512_XTS_1024_BIT":                          29322,
+		"TRUECRYPT_SHA512_XTS_1536_BIT":                          29323,
+		"TRUECRYPT_WHIRLPOOL_XTS_512_BIT":                        29331,
+		"TRUECRYPT_WHIRLPOOL_XTS_1024_BIT":                       29332,
+		"TRUECRYPT_WHIRLPOOL_XTS_1536_BIT":                       29333,
+		"TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE":              29341,
+		"TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE":             29342,
+		"TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE":             29343,
+		"VERACRYPT_RIPEMD160_XTS_512_BIT":                        29411,
+		"VERACRYPT_RIPEMD160_XTS_1024_BIT":                       29412,
+		"VERACRYPT_RIPEMD160_XTS_1536_BIT":                       29413,
+		"VERACRYPT_SHA512_XTS_512_BIT":                           29421,
+		"VERACRYPT_SHA512_XTS_1024_BIT":                          29422,
+		"VERACRYPT_SHA512_XTS_1536_BIT":                          29423,
+		"VERACRYPT_WHIRLPOOL_XTS_512_BIT":                        29431,
+		"VERACRYPT_WHIRLPOOL_XTS_1024_BIT":                       29432,
+		"VERACRYPT_WHIRLPOOL_XTS_1536_BIT":                       29433,
+		"VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE":              29441,
+		"VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE":             29442,
+		"VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE":             29443,
+		"VERACRYPT_SHA256_XTS_512_BIT":                           29451,
+		"VERACRYPT_SHA256_XTS_1024_BIT":                          29452,
+		"VERACRYPT_SHA256_XTS_1536_BIT":                          29453,
+		"VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE":                 29461,
+		"VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE":                29462,
+		"VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE":                29463,
+		"VERACRYPT_STREEBOG_512_XTS_512_BIT":                     29471,
+		"VERACRYPT_STREEBOG_512_XTS_1024_BIT":                    29472,
+		"VERACRYPT_STREEBOG_512_XTS_1536_BIT":                    29473,
+		"VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE":           29481,
+		"VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE":          29482,
+		"VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE":          29483,
+		"LUKS_V1_SHA_1_AES":                                      29511,
+		"LUKS_V1_SHA_1_SERPENT":                                  29512,
+		"LUKS_V1_SHA_1_TWOFISH":                                  29513,
+		"LUKS_V1_SHA_256_AES":                                    29521,
+		"LUKS_V1_SHA_256_SERPENT":                                29522,
+		"LUKS_V1_SHA_256_TWOFISH":                                29523,
+		"LUKS_V1_SHA_512_AES":                                    29531,
+		"LUKS_V1_SHA_512_SERPENT":                                29532,
+		"LUKS_V1_SHA_512_TWOFISH":                                29533,
+		"LUKS_V1_RIPEMD_160_AES":                                 29541,
+		"LUKS_V1_RIPEMD_160_SERPENT":                             29542,
+		"LUKS_V1_RIPEMD_160_TWOFISH":                             29543,
+		"TERRA_STATION_WALLET_AES256_CBC_PBKDF2_PASS":            29600,
+		"KEEPASS_KDBX_V2_V3_KEYFILE_ONLY":                        29700,
+		"BISQ_WALLET_SCRYPT":                                     29800,
+		"ENCSECURITY_DATAVAULT_PBKDF2_NO_KEYCHAIN":               29910,
+		"ENCSECURITY_DATAVAULT_PBKDF2_KEYCHAIN":                  29920,
+		"ENCSECURITY_DATAVAULT_MD5_NO_KEYCHAIN":                  29930,
+		"ENCSECURITY_DATAVAULT_MD5_KEYCHAIN":                     29940,
+		"PYTHON_WERKZEUG_MD5_HMAC_MD5_KEY_SALT":                  30000,
+		"PYTHON_WERKZEUG_SHA256_HMAC_SHA256_KEY_SALT":            30120,
+		"DANE_RFC7929_RFC8162_SHA2_256":                          30420,
+		"MD5_MD5_SALT_MD5_MD5_PASS":                              30500,
+		"BCRYPT_SHA256_PASS":                                     30600,
+		"BCRYPT_HMAC_SHA256_PASS":                                30601,
+		"ANOPE_IRC_SERVICES_ENC_SHA256":                          30700,
+		"BITCOIN_RAW_PRIVATE_KEY_P2PKH_COMPRESSED":               30901,
+		"BITCOIN_RAW_PRIVATE_KEY_P2PKH_UNCOMPRESSED":             30902,
+		"BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED":       30903,
+		"BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED":     30904,
+		"BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED":         30905,
+		"BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED":       30906,
+		"BLAKE2S_256":                                            31000,
+		"SHANGMI_3_SM3":                                          31100,
+		"VEEAM_VBK":                                              31200,
+		"MS_SNTP":                                                31300,
+		"SECURECRT_MASTERPASSPHRASE_V2":                          31400,
+		"DOMAIN_CACHED_CREDENTIALS_DCC_MS_CACHE_NT":              31500,
+		"DOMAIN_CACHED_CREDENTIALS_2_DCC2_MS_CACHE_2_NT":         31600,
+		"MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_31700":                31700,
+		"HASHCAT_1PASSWORD_MOBILEKEYCHAIN_1PASSWORD_8":           31800,
+		"METAMASK_MOBILE_WALLET":                                 31900,
+		"NETIQ_SSPR_MD5":                                         32000,
+		"NETIQ_SSPR_SHA1":                                        32010,
+		"NETIQ_SSPR_SHA_1_WITH_SALT":                             32020,
+		"NETIQ_SSPR_SHA_256_WITH_SALT":                           32030,
+		"ADOBE_AEM_SSPR_SHA_256_WITH_SALT":                       32031,
+		"NETIQ_SSPR_SHA_512_WITH_SALT":                           32040,
+		"ADOBE_AEM_SSPR_SHA_512_WITH_SALT":                       32041,
+		"NETIQ_SSPR_PBKDF2WITHHMACSHA1":                          32050,
+		"NETIQ_SSPR_PBKDF2WITHHMACSHA256":                        32060,
+		"NETIQ_SSPR_PBKDF2WITHHMACSHA512":                        32070,
+		"KERBEROS_5_ETYPE_17_AS_REP":                             32100,
+		"KERBEROS_5_ETYPE_18_AS_REP":                             32200,
+		"EMPIRE_CMS_ADMIN_PASSWORD":                              32300,
+		"SHA512_SHA512_PASS_SALT":                                32410,
+		"SHA512_SHA512_BIN_PASS_SALT":                            32420,
+		"DOGECHAIN_INFO_WALLET":                                  32500,
+		"CUBECART_WHIRLPOOL_SALT_PASS_SALT":                      32600,
+		"KREMLIN_ENCRYPT_3_0_W_NEWDES":                           32700,
+		"MD5_SHA1_MD5_PASS":                                      32800,
+		"PBKDF1_SHA1":                                            32900,
+		"MD5_SALT1_PASS_SALT2":                                   33000,
+		"MD5_SALT_MD5_PASS_SALT_MODE_33100":                      33100,
+		"HMAC_BLAKE2S_KEY_PASS":                                  33300,
+		"MEGA_NZ_PASSWORD_PROTECTED_LINK_PBKDF2_HMAC_SHA512":     33400,
+		"RC4_40_BIT_DROPN":                                       33500,
+		"RC4_72_BIT_DROPN":                                       33501,
+		"RC4_104_BIT_DROPN":                                      33502,
+		"RIPEMD_320":                                             33600,
+		"HMAC_RIPEMD320_KEY_PASS":                                33650,
+		"HMAC_RIPEMD320_KEY_SALT":                                33660,
+		"MICROSOFT_ONLINE_ACCOUNT_PBKDF2_HMAC_SHA256_AES256":     33700,
+		"WBB4_WOLTLAB_BURNING_BOARD_BCRYPT_BCRYPT_PASS":          33800,
+		"CITRIX_NETSCALER_PBKDF2_HMAC_SHA256":                    33900,
+		"ARGON2":                                                 34000,
+		"LUKS_V2_ARGON2_SHA_256_AES":                             34100,
+		"MURMURHASH64A":                                          34200,
+		"MURMURHASH64A_ZERO_SEED":                                34201,
+		"MURMURHASH64A_TRUNCATED_ZERO_SEED":                      34211,
+		"KEEPASS_ARGON2_KDBX_V4":                                 34300,
+		"KEEPASS_AESKDF_KDBX_V4":                                 34301,
+		"SHA224_SHA224_PASS":                                     34400,
+		"SHA224_SHA1_PASS":                                       34500,
+		"MD6_256":                                                34600,
+		"BLOCKCHAIN_MY_WALLET_LEGACY_WALLETS":                    34700,
+		"BLAKE2B_256_MODE_34800":                                 34800,
+		"BLAKE2B_256_PASS_SALT":                                  34810,
+		"BLAKE2B_256_SALT_PASS":                                  34820,
+		"SAP_CODVN_H_PWDSALTEDHASH_ISSHA512":                     35000,
+		"SM3CRYPT_SM3_SM3_UNIX":                                  35100,
+		"AS_400_SSHA1":                                           35200,
+		"KERBEROS_5_ETYPE_23_TGS_REP_NT":                         35300,
+		"KERBEROS_5_ETYPE_23_AS_REP_NT":                          35400,
+		"WORDPRESS_BCRYPT_HMAC_SHA384_PASS":                      35500,
+		"GOST12512CRYPT_GOST12512HASH_UNIX":                      35600,
+		"PHPASS_MD5_PASS":                                        35700,
+		"SYMFONY_LEGACY_SHA256":                                  35800,
+		"YESCRYPT":                                               36100,
+		"GOST_YESCRYPT":                                          36200,
+		"SCRYPTCRYPT_SCRYPT_UNIX":                                36300,
+		"KDE_KWALLET_4_13_PBKDF2_HMAC_SHA512_BLOWFISH":           36400,
+		"KDE_KWALLET_4_13_SHA_1_BLOWFISH":                        36410,
+		"ARGON2ID_BRIDGED_REFERENCE_IMPLEMENTATION_TUNINGS":      70000,
+		"SCRYPT_BRIDGED_SCRYPT_JANE_SMIX":                        70100,
+		"SCRYPT_BRIDGED_SCRYPT_YESCRYPT":                         70200,
+		"GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_FREE_THREADING": 72000,
+		"GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_WITH_GIL":       73000,
+		"GENERIC_HASH_BRIDGED_RUST":                              74000,
+		"PLAINTEXT":                                              99999,
 	}
 )
 
@@ -15985,7 +17379,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x11HTTPC2SegmentType\x12\b\n" +
 	"\x04POLL\x10\x00\x12\v\n" +
 	"\aSESSION\x10\x01\x12\t\n" +
-	"\x05CLOSE\x10\x02*\x9e\x16\n" +
+	"\x05CLOSE\x10\x02*ב\x01\n" +
 	"\bHashType\x12\a\n" +
 	"\x03MD5\x10\x00\x12\b\n" +
 	"\x03MD4\x10\x84\a\x12\b\n" +
@@ -16135,7 +17529,482 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"MACOS_10_8\x10\xbc7\x12\f\n" +
 	"\aINVALID\x10\x8fN\x12\x10\n" +
 	"\vBCRYPT_UNIX\x10\x80\x19\x12\x16\n" +
-	"\x11SHA512_CRYPT_UNIX\x10\x88\x0e*2\n" +
+	"\x11SHA512_CRYPT_UNIX\x10\x88\x0e\x12\x11\n" +
+	"\rJOOMLA_2_5_18\x10\v\x12\x0e\n" +
+	"\n" +
+	"POSTGRESQL\x10\f\x12\x1a\n" +
+	"\x16OSCOMMERCE_XT_COMMERCE\x10\x15\x12\"\n" +
+	"\x1eJUNIPER_NETSCREEN_SSG_SCREENOS\x10\x16\x12\t\n" +
+	"\x05SKYPE\x10\x17\x12\x15\n" +
+	"\x11SOLARWINDS_SERV_U\x10\x18\x12\x19\n" +
+	"\x15MD5_UTF16LE_PASS_SALT\x10\x1e\x12\x19\n" +
+	"\x15MD5_SALT_UTF16LE_PASS\x10(\x12\x15\n" +
+	"\x11HMAC_MD5_KEY_PASS\x102\x12\x15\n" +
+	"\x11HMAC_MD5_KEY_SALT\x10<\x12)\n" +
+	"%NSLDAP_SHA_1_BASE64_NETSCAPE_LDAP_SHA\x10e\x12\x12\n" +
+	"\x0eSHA1_PASS_SALT\x10n\x12,\n" +
+	"(NSLDAPS_SSHA_1_BASE64_NETSCAPE_LDAP_SSHA\x10o\x12\x1b\n" +
+	"\x17ORACLE_S_TYPE_ORACLE_11\x10p\x12\x12\n" +
+	"\x0eSHA1_SALT_PASS\x10x\x12\"\n" +
+	"\x1eSMF_SIMPLE_MACHINES_FORUM_V1_1\x10y\x12'\n" +
+	"#MACOS_V10_4_MACOS_V10_5_MACOS_V10_6\x10z\x12\x10\n" +
+	"\fDJANGO_SHA_1\x10|\x12\v\n" +
+	"\aARUBAOS\x10}\x12\x1b\n" +
+	"\x16SHA1_UTF16LE_PASS_SALT\x10\x82\x01\x12\x0f\n" +
+	"\n" +
+	"MSSQL_2000\x10\x83\x01\x12\x0f\n" +
+	"\n" +
+	"MSSQL_2005\x10\x84\x01\x12\x0f\n" +
+	"\n" +
+	"PEOPLESOFT\x10\x85\x01\x12\x1b\n" +
+	"\x16SHA1_SALT_UTF16LE_PASS\x10\x8c\x01\x12!\n" +
+	"\x1cEPISERVER_6_X_NET_4_MODE_141\x10\x8d\x01\x12\x17\n" +
+	"\x12HMAC_SHA1_KEY_PASS\x10\x96\x01\x12\x17\n" +
+	"\x12HMAC_SHA1_KEY_SALT\x10\xa0\x01\x12\r\n" +
+	"\bMYSQL323\x10\xc8\x01\x12\x14\n" +
+	"\x0fMYSQL4_1_MYSQL5\x10\xac\x02\x12&\n" +
+	"!MD5CRYPT_MD5_UNIX_CISCO_IOS_1_MD5\x10\xf4\x03\x12\x10\n" +
+	"\vJUNIPER_IVE\x10\xf5\x03\x12\x15\n" +
+	"\x10SHA224_PASS_SALT\x10\x9e\n" +
+	"\x12\x15\n" +
+	"\x10SHA224_SALT_PASS\x10\xa8\n" +
+	"\x12\x15\n" +
+	"\x10SHA256_PASS_SALT\x10\x82\v\x12!\n" +
+	"\x1cSSHA_256_BASE64_LDAP_SSHA256\x10\x83\v\x12\x15\n" +
+	"\x10SHA256_SALT_PASS\x10\x8c\v\x12\x10\n" +
+	"\vHMAILSERVER\x10\x8d\v\x12\x1d\n" +
+	"\x18SHA256_UTF16LE_PASS_SALT\x10\x96\v\x12\x1d\n" +
+	"\x18SHA256_SALT_UTF16LE_PASS\x10\xa0\v\x12\"\n" +
+	"\x1dEPISERVER_6_X_NET_4_MODE_1441\x10\xa1\v\x12\x19\n" +
+	"\x14HMAC_SHA256_KEY_PASS\x10\xaa\v\x12\x19\n" +
+	"\x14HMAC_SHA256_KEY_SALT\x10\xb4\v\x12&\n" +
+	"!DESCRYPT_DES_UNIX_TRADITIONAL_DES\x10\xdc\v\x12$\n" +
+	"\x1fAPACHE_APR1_MD5_MD5APR1_MD5_APR\x10\xc0\f\x12\x15\n" +
+	"\x10SHA512_PASS_SALT\x10\xae\r\x12!\n" +
+	"\x1cSSHA_512_BASE64_LDAP_SSHA512\x10\xaf\r\x12\x15\n" +
+	"\x10SHA512_SALT_PASS\x10\xb8\r\x12\x10\n" +
+	"\vMACOS_V10_7\x10\xba\r\x12\x1d\n" +
+	"\x18SHA512_UTF16LE_PASS_SALT\x10\xc2\r\x12\x14\n" +
+	"\x0fMSSQL_2012_2014\x10\xc3\r\x12\x1d\n" +
+	"\x18SHA512_SALT_UTF16LE_PASS\x10\xcc\r\x12\x19\n" +
+	"\x14HMAC_SHA512_KEY_PASS\x10\xd6\r\x12\x19\n" +
+	"\x14HMAC_SHA512_KEY_SALT\x10\xe0\r\x12\v\n" +
+	"\x06STDOUT\x10\xd0\x0f\x12\x11\n" +
+	"\fMD5_MD5_PASS\x10\xa8\x14\x12\x1f\n" +
+	"\x1aVBULLETIN_V3_8_5_MODE_2611\x10\xb3\x14\x12\t\n" +
+	"\x04PHPS\x10\xb4\x14\x12\x16\n" +
+	"\x11MD5_MD5_PASS_SALT\x10\xc6\x14\x12\x1f\n" +
+	"\x1aVBULLETIN_V3_8_5_MODE_2711\x10\x97\x15\x12'\n" +
+	"\"MYBB_1_2_IPB2_INVISION_POWER_BOARD\x10\xfb\x15\x12\x1b\n" +
+	"\x16ORACLE_H_TYPE_ORACLE_7\x10\x9c\x18\x12\x15\n" +
+	"\x10MD5_MD5_MD5_PASS\x10\xac\x1b\x12\x1a\n" +
+	"\x15MD5_MD5_MD5_PASS_SALT\x10\x9a\x1c\x12\x15\n" +
+	"\x10MEDIAWIKI_B_TYPE\x10\xff\x1c\x12(\n" +
+	"#MD5_SALT1_STRTOUPPER_MD5_SALT2_PASS\x10\x92\x1d\x12\x1a\n" +
+	"\x15MD5_MD5_PASS_MD5_SALT\x10\xc6\x1e\x12\x1b\n" +
+	"\x16MD5_SALT_MD5_SALT_PASS\x10\xaa\x1f\x12%\n" +
+	" MD5_SALT_MD5_PASS_SALT_MODE_4110\x10\x8e \x12\x1c\n" +
+	"\x17MD5_STRTOUPPER_MD5_PASS\x10\xcc!\x12\x12\n" +
+	"\rMD5_SHA1_PASS\x10\xb0\"\x12!\n" +
+	"\x1cMD5_SHA1_PASS_SALT_MODE_4410\x10\xba\"\x12!\n" +
+	"\x1cMD5_SHA1_PASS_SALT_MODE_4420\x10\xc4\"\x12\x17\n" +
+	"\x12MD5_SHA1_SALT_PASS\x10\xce\"\x12\x13\n" +
+	"\x0eSHA1_SHA1_PASS\x10\x94#\x12\x18\n" +
+	"\x13SHA1_SHA1_PASS_SALT\x10\x9e#\x12\x18\n" +
+	"\x13SHA1_SALT_SHA1_PASS\x10\xa8#\x12\f\n" +
+	"\aREDMINE\x10\xa9#\x12\n" +
+	"\n" +
+	"\x05PUNBB\x10\xaa#\x12\x12\n" +
+	"\rSHA1_MD5_PASS\x10\xdc$\x12!\n" +
+	"\x1cSHA1_MD5_PASS_SALT_MODE_4710\x10\xe6$\x12\x1e\n" +
+	"\x19HUAWEI_SHA1_MD5_PASS_SALT\x10\xe7$\x12\x18\n" +
+	"\x13SHA1_SALT_PASS_SALT\x10\xa4&\x12\x1d\n" +
+	"\x18SHA1_SHA1_SALT_PASS_SALT\x10\x88'\x12\x15\n" +
+	"\x10PASSWORD_SAFE_V3\x10\xd0(\x12\x1c\n" +
+	"\x17CISCO_IOS_TYPE_4_SHA256\x10\xc4,\x12%\n" +
+	" CISCO_ISE_HASHED_PASSWORD_SHA256\x10\xd8,\x12\x1c\n" +
+	"\x17HMAC_RIPEMD160_KEY_PASS\x10\xa2/\x12\x1c\n" +
+	"\x17HMAC_RIPEMD160_KEY_SALT\x10\xac/\x12+\n" +
+	"&TRUECRYPT_RIPEMD160_XTS_512_BIT_LEGACY\x10\xc30\x12,\n" +
+	"'TRUECRYPT_RIPEMD160_XTS_1024_BIT_LEGACY\x10\xc40\x12,\n" +
+	"'TRUECRYPT_RIPEMD160_XTS_1536_BIT_LEGACY\x10\xc50\x12(\n" +
+	"#TRUECRYPT_SHA512_XTS_512_BIT_LEGACY\x10\xcd0\x12)\n" +
+	"$TRUECRYPT_SHA512_XTS_1024_BIT_LEGACY\x10\xce0\x12)\n" +
+	"$TRUECRYPT_SHA512_XTS_1536_BIT_LEGACY\x10\xcf0\x12+\n" +
+	"&TRUECRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY\x10\xd70\x12,\n" +
+	"'TRUECRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY\x10\xd80\x12,\n" +
+	"'TRUECRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY\x10\xd90\x125\n" +
+	"0TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY\x10\xe10\x126\n" +
+	"1TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY\x10\xe20\x126\n" +
+	"1TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY\x10\xe30\x12$\n" +
+	"\x1fHASHCAT_1PASSWORD_AGILEKEYCHAIN\x10\xc83\x12\x1e\n" +
+	"\x19LASTPASS_LASTPASS_SNIFFED\x10\x905\x12\x16\n" +
+	"\x11FORTIGATE_FORTIOS\x10\xd86\x12\x18\n" +
+	"\x13IPMI2_RAKP_HMAC_MD5\x10\xb69\x12\x1e\n" +
+	"\x19SHA256CRYPT_5_SHA256_UNIX\x10\xe89\x12\x18\n" +
+	"\x13MYSQL_A_SHA256CRYPT\x10\xe99\x12\x16\n" +
+	"\x11SAP_CODVN_B_BCODE\x10\x94<\x12*\n" +
+	"%SAP_CODVN_B_BCODE_FROM_RFC_READ_TABLE\x10\x95<\x12\x1b\n" +
+	"\x16SAP_CODVN_F_G_PASSCODE\x10\xf8<\x12/\n" +
+	"*SAP_CODVN_F_G_PASSCODE_FROM_RFC_READ_TABLE\x10\xf9<\x12\f\n" +
+	"\aDRUPAL7\x10\xdc=\x12\x0f\n" +
+	"\n" +
+	"SYBASE_ASE\x10\xc0>\x12$\n" +
+	"\x1fHASHCAT_1PASSWORD_CLOUDKEYCHAIN\x10\x88@\x12\x11\n" +
+	"\fDNSSEC_NSEC3\x10\xec@\x12\x1f\n" +
+	"\x1aWBB3_WOLTLAB_BURNING_BOARD\x10\xd0A\x12\x0f\n" +
+	"\n" +
+	"AS_400_DES\x10\xb5B\x12\x19\n" +
+	"\x14LOTUS_NOTES_DOMINO_5\x10\x98C\x12\x19\n" +
+	"\x14LOTUS_NOTES_DOMINO_6\x10\xfcC\x12\x14\n" +
+	"\x0fANDROID_FDE_4_3\x10\xe0D\x12\x15\n" +
+	"\x10PASSWORD_SAFE_V2\x10\xa8F\x12\x19\n" +
+	"\x14LOTUS_NOTES_DOMINO_8\x10\x8cG\x12\x13\n" +
+	"\x0eMS_OFFICE_2007\x10\xb8I\x12\x13\n" +
+	"\x0eMS_OFFICE_2010\x10\x9cJ\x12\x13\n" +
+	"\x0eMS_OFFICE_2013\x10\x80K\x12\x1f\n" +
+	"\x1aMS_OFFICE_2003_0_1_MD5_RC4\x10\xe4K\x12*\n" +
+	"%MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_1\x10\xeeK\x12*\n" +
+	"%MS_OFFICE_2003_0_1_MD5_RC4_COLLIDER_2\x10\xf8K\x12 \n" +
+	"\x1bMS_OFFICE_2003_3_4_SHA1_RC4\x10\xc8L\x12)\n" +
+	"$MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_1\x10\xd2L\x12)\n" +
+	"$MS_OFFICE_2003_3_SHA1_RC4_COLLIDER_2\x10\xdcL\x12\x19\n" +
+	"\x14DJANGO_PBKDF2_SHA256\x10\x90N\x12&\n" +
+	"!SAP_CODVN_H_PWDSALTEDHASH_ISSHA_1\x10\xbcP\x12\x1c\n" +
+	"\x17PDF_1_1_1_3_ACROBAT_2_4\x10\xa0Q\x12'\n" +
+	"\"PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_1\x10\xaaQ\x12'\n" +
+	"\"PDF_1_1_1_3_ACROBAT_2_4_COLLIDER_2\x10\xb4Q\x12\x1c\n" +
+	"\x17PDF_1_4_1_6_ACROBAT_5_8\x10\x84R\x12%\n" +
+	" PDF_1_3_1_6_ACROBAT_4_8_W_RC4_40\x10\x8eR\x12\x1e\n" +
+	"\x19PDF_1_7_LEVEL_3_ACROBAT_9\x10\xe8R\x12\"\n" +
+	"\x1dPDF_1_7_LEVEL_8_ACROBAT_10_11\x10\xccS\x12\x15\n" +
+	"\x10SHA384_PASS_SALT\x10\xbaT\x12\x15\n" +
+	"\x10SHA384_SALT_PASS\x10\xc4T\x12\x1d\n" +
+	"\x18SHA384_UTF16LE_PASS_SALT\x10\xceT\x12\x1d\n" +
+	"\x18SHA384_SALT_UTF16LE_PASS\x10\xd8T\x12*\n" +
+	"%REDHAT_389_DS_LDAP_PBKDF2_HMAC_SHA256\x10\x95U\x12\x0f\n" +
+	"\n" +
+	"PRESTASHOP\x10\xf8U\x12\x18\n" +
+	"\x13POSTGRESQL_CRAM_MD5\x10\xdcV\x12\x14\n" +
+	"\x0fMYSQL_CRAM_SHA1\x10\xc0W\x12 \n" +
+	"\x1bBITCOIN_LITECOIN_WALLET_DAT\x10\xa4X\x12\x12\n" +
+	"\rHASHCAT_7_ZIP\x10\xd0Z\x12*\n" +
+	"%HMAC_STREEBOG_256_KEY_PASS_BIG_ENDIAN\x10\xe6[\x12*\n" +
+	"%HMAC_STREEBOG_256_KEY_SALT_BIG_ENDIAN\x10\xf0[\x12*\n" +
+	"%HMAC_STREEBOG_512_KEY_PASS_BIG_ENDIAN\x10\xca\\\x12*\n" +
+	"%HMAC_STREEBOG_512_KEY_SALT_BIG_ENDIAN\x10\xd4\\\x12\x1f\n" +
+	"\x1aATLASSIAN_PBKDF2_HMAC_SHA1\x10\xe1]\x12\x1b\n" +
+	"\x16APACHE_SHIRO_1_SHA_512\x10\xf6^\x12\r\n" +
+	"\bECRYPTFS\x10\xa8_\x12\x1c\n" +
+	"\x17ORACLE_T_TYPE_ORACLE_12\x10\x8c`\x12\f\n" +
+	"\aRAR3_HP\x10\xd4a\x12\x12\n" +
+	"\rCOLDFUSION_10\x10\xb8b\x12\x19\n" +
+	"\x14BLOCKCHAIN_MY_WALLET\x10\x9cc\x12\x1c\n" +
+	"\x17ANDROID_FDE_SAMSUNG_DEK\x10\xe4d\x12\t\n" +
+	"\x04RAR5\x10\xc8e\x12\x0e\n" +
+	"\tAXCRYPT_1\x10\x90g\x12\x1d\n" +
+	"\x18AXCRYPT_1_IN_MEMORY_SHA1\x10\xf4g\x12\x17\n" +
+	"\x12KEEPASS_KDBX_V2_V3\x10\xd8h\x12\x18\n" +
+	"\x13PEOPLESOFT_PS_TOKEN\x10\xbci\x12\v\n" +
+	"\x06WINZIP\x10\xa0j\x12+\n" +
+	"&VERACRYPT_RIPEMD160_XTS_512_BIT_LEGACY\x10\x8fk\x12,\n" +
+	"'VERACRYPT_RIPEMD160_XTS_1024_BIT_LEGACY\x10\x90k\x12,\n" +
+	"'VERACRYPT_RIPEMD160_XTS_1536_BIT_LEGACY\x10\x91k\x12(\n" +
+	"#VERACRYPT_SHA512_XTS_512_BIT_LEGACY\x10\x99k\x12)\n" +
+	"$VERACRYPT_SHA512_XTS_1024_BIT_LEGACY\x10\x9ak\x12)\n" +
+	"$VERACRYPT_SHA512_XTS_1536_BIT_LEGACY\x10\x9bk\x12+\n" +
+	"&VERACRYPT_WHIRLPOOL_XTS_512_BIT_LEGACY\x10\xa3k\x12,\n" +
+	"'VERACRYPT_WHIRLPOOL_XTS_1024_BIT_LEGACY\x10\xa4k\x12,\n" +
+	"'VERACRYPT_WHIRLPOOL_XTS_1536_BIT_LEGACY\x10\xa5k\x125\n" +
+	"0VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE_LEGACY\x10\xadk\x126\n" +
+	"1VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE_LEGACY\x10\xaek\x126\n" +
+	"1VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE_LEGACY\x10\xafk\x12(\n" +
+	"#VERACRYPT_SHA256_XTS_512_BIT_LEGACY\x10\xb7k\x12)\n" +
+	"$VERACRYPT_SHA256_XTS_1024_BIT_LEGACY\x10\xb8k\x12)\n" +
+	"$VERACRYPT_SHA256_XTS_1536_BIT_LEGACY\x10\xb9k\x122\n" +
+	"-VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE_LEGACY\x10\xc1k\x123\n" +
+	".VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE_LEGACY\x10\xc2k\x12\x10\n" +
+	"\vRACF_KDFAES\x10\xf8n\x12\f\n" +
+	"\aSHA1_CX\x10\xc0p\x12\x13\n" +
+	"\x0eLUKS_V1_LEGACY\x10\x88r\x12\"\n" +
+	"\x1dITUNES_BACKUP_10_0_MODE_14700\x10\xecr\x12\"\n" +
+	"\x1dITUNES_BACKUP_10_0_MODE_14800\x10\xd0s\x12\x1c\n" +
+	"\x17FILEZILLA_SERVER_0_9_55\x10\x98u\x12\x1d\n" +
+	"\x18JUNIPER_NETBSD_SHA1CRYPT\x10\xfcu\x12\x1c\n" +
+	"\x17BLOCKCHAIN_MY_WALLET_V2\x10\xe0v\x12)\n" +
+	"$JKS_JAVA_KEY_STORE_PRIVATE_KEYS_SHA1\x10\x8cy\x12'\n" +
+	"\"ETHEREUM_WALLET_PBKDF2_HMAC_SHA256\x10\xf0y\x12\x1b\n" +
+	"\x16ETHEREUM_WALLET_SCRYPT\x10\xd4z\x12\r\n" +
+	"\bTRIPCODE\x10\x80}\x12\x17\n" +
+	"\x12APPLE_SECURE_NOTES\x10\xc8~\x120\n" +
+	"+ETHEREUM_PRE_SALE_WALLET_PBKDF2_HMAC_SHA256\x10\xac\x7f\x12\x16\n" +
+	"\x10CRAM_MD5_DOVECOT\x10\x90\x80\x01\x127\n" +
+	"1PERL_MOJOLICIOUS_SESSION_COOKIE_HMAC_SHA256_V9_19\x10\xf5\x80\x01\x12#\n" +
+	"\x1dELECTRUM_WALLET_SALT_TYPE_1_3\x10\u0601\x01\x12\x11\n" +
+	"\vFILEVAULT_2\x10\xbc\x82\x01\x12\x13\n" +
+	"\rANSIBLE_VAULT\x10\x84\x84\x01\x12&\n" +
+	" GPG_AES_128_AES_256_SHA_512_PASS\x10\xfc\x84\x01\x12&\n" +
+	" GPG_AES_128_AES_256_SHA_256_PASS\x10\x86\x85\x01\x12\x1a\n" +
+	"\x14GPG_CAST5_SHA_1_PASS\x10\x90\x85\x01\x12 \n" +
+	"\x1aGPG_AES_OCB_128_SHA_1_PASS\x10\x9a\x85\x01\x12\x16\n" +
+	"\x10PKZIP_COMPRESSED\x10\xb0\x86\x01\x12\x18\n" +
+	"\x12PKZIP_UNCOMPRESSED\x10\xba\x86\x01\x12!\n" +
+	"\x1bPKZIP_COMPRESSED_MULTI_FILE\x10Ć\x01\x12\x1c\n" +
+	"\x16PKZIP_MIXED_MULTI_FILE\x10Ɇ\x01\x12*\n" +
+	"$PKZIP_MIXED_MULTI_FILE_CHECKSUM_ONLY\x10Ά\x01\x12\x14\n" +
+	"\x0eTOTP_HMAC_SHA1\x10\xb4\x8d\x01\x12\x1c\n" +
+	"\x16APPLE_FILE_SYSTEM_APFS\x10\xfc\x8e\x01\x12.\n" +
+	"(OPEN_DOCUMENT_FORMAT_ODF_1_2_SHA_256_AES\x10\xe0\x8f\x01\x12\x17\n" +
+	"\x11SHA1_MD5_MD5_PASS\x10Đ\x01\x121\n" +
+	"+OPEN_DOCUMENT_FORMAT_ODF_1_1_SHA_1_BLOWFISH\x10\xa8\x91\x01\x121\n" +
+	"+BLOCKCHAIN_MY_WALLET_SECOND_PASSWORD_SHA256\x10\xf0\x92\x01\x12\x14\n" +
+	"\x0eANDROID_BACKUP\x10ԓ\x01\x12\x1d\n" +
+	"\x17QNX_7_ETC_SHADOW_SHA512\x10\x8a\x96\x01\x12\x1b\n" +
+	"\x15SHA1_SALT1_PASS_SALT2\x10\xe4\x96\x01\x12*\n" +
+	"$RUBY_ON_RAILS_RESTFUL_AUTHENTICATION\x10\xac\x98\x01\x12$\n" +
+	"\x1eDISKCRYPTOR_SHA512_XTS_512_BIT\x10\xab\x9c\x01\x12%\n" +
+	"\x1fDISKCRYPTOR_SHA512_XTS_1024_BIT\x10\xac\x9c\x01\x12%\n" +
+	"\x1fDISKCRYPTOR_SHA512_XTS_1536_BIT\x10\xad\x9c\x01\x12\"\n" +
+	"\x1cPYTHON_PASSLIB_PBKDF2_SHA512\x10\xe8\x9d\x01\x12\"\n" +
+	"\x1cPYTHON_PASSLIB_PBKDF2_SHA256\x10̞\x01\x12 \n" +
+	"\x1aPYTHON_PASSLIB_PBKDF2_SHA1\x10\xb0\x9f\x01\x12\x16\n" +
+	"\x10PKZIP_MASTER_KEY\x10\x94\xa0\x01\x12*\n" +
+	"$PKZIP_MASTER_KEY_6_BYTE_OPTIMIZATION\x10\x9e\xa0\x01\x12-\n" +
+	"'ORACLE_TRANSPORTATION_MANAGEMENT_SHA256\x10\xf8\xa0\x01\x12(\n" +
+	"\"SHA256_SHA256_PASS_SALT_MODE_20710\x10\xe6\xa1\x01\x12\x13\n" +
+	"\rAUTHME_SHA256\x10\xe7\xa1\x01\x12.\n" +
+	"(RSA_SECURITY_ANALYTICS_NETWITNESS_SHA256\x10\xe8\xa1\x01\x12\x1d\n" +
+	"\x17SHA256_SALT_SHA256_PASS\x10\xf0\xa1\x01\x12(\n" +
+	"\"SHA256_SHA256_PASS_SALT_MODE_20730\x10\xfa\xa1\x01\x12\x15\n" +
+	"\x0fSHA256_MD5_PASS\x10\xc0\xa2\x01\x12&\n" +
+	" MD5_SHA1_PASS_MD5_PASS_SHA1_PASS\x10\xa4\xa3\x01\x12+\n" +
+	"%BITSHARES_V0_X_SHA512_SHA512_BIN_PASS\x10\x88\xa4\x01\x12#\n" +
+	"\x1dSHA1_MD5_PASS_SALT_MODE_21100\x10\xec\xa4\x01\x12\x1c\n" +
+	"\x16MD5_SHA1_SALT_MD5_PASS\x10Х\x01\x12\x1d\n" +
+	"\x17MD5_SALT_SHA1_SALT_PASS\x10\xb4\xa6\x01\x12\x1f\n" +
+	"\x19MD5_SALT1_SHA1_SALT2_PASS\x10\xbe\xa6\x01\x12\x1c\n" +
+	"\x16SHA256_SHA256_BIN_PASS\x10\x98\xa7\x01\x12!\n" +
+	"\x1bSHA256_SALT_SHA256_BIN_PASS\x10\xac\xa7\x01\x12\x16\n" +
+	"\x10SOLARWINDS_ORION\x10\xfc\xa7\x01\x12\x19\n" +
+	"\x13SOLARWINDS_ORION_V2\x10\xfd\xa7\x01\x12\x1a\n" +
+	"\x14WEB2PY_PBKDF2_SHA512\x10\xe0\xa8\x01\x12!\n" +
+	"\x1bELECTRUM_WALLET_SALT_TYPE_4\x10ĩ\x01\x12!\n" +
+	"\x1bELECTRUM_WALLET_SALT_TYPE_5\x10\xa8\xaa\x01\x12-\n" +
+	"'MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_21900\x10\x8c\xab\x01\x12\x0f\n" +
+	"\tBITLOCKER\x10Ԭ\x01\x12\x1b\n" +
+	"\x15SHA256_SALT_PASS_SALT\x10\x9c\xae\x01\x12)\n" +
+	"#TELEGRAM_MOBILE_APP_PASSCODE_SHA256\x10\x9d\xae\x01\x12\x16\n" +
+	"\x10AES_CRYPT_SHA256\x10\x80\xaf\x01\x12\x1e\n" +
+	"\x18MULTIBIT_CLASSIC_KEY_MD5\x10\xe4\xaf\x01\x12/\n" +
+	")TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA1\x10Ȱ\x01\x12\x18\n" +
+	"\x12MULTIBIT_HD_SCRYPT\x10\xac\xb1\x01\x12'\n" +
+	"!SIMPLA_CMS_MD5_SALT_PASS_MD5_PASS\x10\x90\xb2\x01\x12'\n" +
+	"!RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_0\x10\xff\xb2\x01\x12'\n" +
+	"!RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_6\x10\x89\xb3\x01\x12)\n" +
+	"#RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_1_3\x10\x93\xb3\x01\x12'\n" +
+	"!RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_4\x10\x9d\xb3\x01\x12'\n" +
+	"!RSA_DSA_EC_OPENSSH_PRIVATE_KEYS_5\x10\xa7\xb3\x01\x12\x17\n" +
+	"\x11SECUREZIP_AES_128\x10ٳ\x01\x12\x17\n" +
+	"\x11SECUREZIP_AES_192\x10ڳ\x01\x12\x17\n" +
+	"\x11SECUREZIP_AES_256\x10۳\x01\x12\x14\n" +
+	"\x0eAPPLE_KEYCHAIN\x10\xbc\xb4\x01\x12\x1c\n" +
+	"\x16XMPP_SCRAM_PBKDF2_SHA1\x10\xa0\xb5\x01\x12\x11\n" +
+	"\vAPPLE_IWORK\x10\x84\xb6\x01\x12\x0f\n" +
+	"\tBITWARDEN\x10\xe8\xb6\x01\x12\x17\n" +
+	"\x11AXCRYPT_2_AES_128\x10̷\x01\x12\x17\n" +
+	"\x11AXCRYPT_2_AES_256\x10\xb0\xb8\x01\x12\x19\n" +
+	"\x13RAR3_P_UNCOMPRESSED\x10\x94\xb9\x01\x12\x17\n" +
+	"\x11RAR3_P_COMPRESSED\x10\xf8\xb9\x01\x12$\n" +
+	"\x1eBESTCRYPT_V3_VOLUME_ENCRYPTION\x10ܺ\x01\x12$\n" +
+	"\x1eBESTCRYPT_V4_VOLUME_ENCRYPTION\x10\xc0\xbb\x01\x12#\n" +
+	"\x1dMONGODB_SERVERKEY_SCRAM_SHA_1\x10\xa4\xbc\x01\x12%\n" +
+	"\x1fMONGODB_SERVERKEY_SCRAM_SHA_256\x10\x88\xbd\x01\x12\x1e\n" +
+	"\x18SHA1_SALT_SHA1_PASS_SALT\x10\xec\xbd\x01\x123\n" +
+	"-PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA1_3DES_AES\x10ھ\x01\x125\n" +
+	"/PKCS_8_PRIVATE_KEYS_PBKDF2_HMAC_SHA256_3DES_AES\x10\xe4\xbe\x01\x121\n" +
+	"+TELEGRAM_DESKTOP_V2_1_14_PBKDF2_HMAC_SHA512\x10\xb4\xbf\x01\x12\x0f\n" +
+	"\tSQLCIPHER\x10\x98\xc0\x01\x12\x0e\n" +
+	"\bSTUFFIT5\x10\xfc\xc0\x01\x12\x17\n" +
+	"\x11UMBRACO_HMAC_SHA1\x10\xe0\xc1\x01\x12\x1e\n" +
+	"\x18DAHUA_AUTHENTICATION_MD5\x10\xc4\xc2\x01\x12\x1f\n" +
+	"\x19BESDER_AUTHENTICATION_MD5\x10\xc5\xc2\x01\x12$\n" +
+	"\x1eMS_OFFICE_2016_SHEETPROTECTION\x10\xd4\xc5\x01\x121\n" +
+	"+PDF_1_4_1_6_ACROBAT_5_8_USER_AND_OWNER_PASS\x10\xb8\xc6\x01\x12\"\n" +
+	"\x1cSTARGAZER_STELLAR_WALLET_XLM\x10\x9c\xc7\x01\x12\x15\n" +
+	"\x0fBCRYPT_MD5_PASS\x10\x80\xc8\x01\x12\x16\n" +
+	"\x10BCRYPT_SHA1_PASS\x10\xc8\xc9\x01\x12.\n" +
+	"(KNX_IP_SECURE_DEVICE_AUTHENTICATION_CODE\x10\xac\xca\x01\x12\x15\n" +
+	"\x0fMOZILLA_KEY3_DB\x10\x90\xcb\x01\x12\x15\n" +
+	"\x0fMOZILLA_KEY4_DB\x10\xf4\xcb\x01\x12\x1e\n" +
+	"\x18OPENEDGE_PROGRESS_ENCODE\x10\xd8\xcc\x01\x12\x1d\n" +
+	"\x17FORTIGATE256_FORTIOS256\x10\xbc\xcd\x01\x12+\n" +
+	"%IPHONE_PASSCODE_UID_KEY_SYSTEM_KEYBAG\x10\x84\xcf\x01\x127\n" +
+	"1METAMASK_WALLET_NEEDS_ALL_DATA_CHECKS_AES_GCM_TAG\x10\xe8\xcf\x01\x120\n" +
+	"*METAMASK_WALLET_SHORT_HASH_PLAINTEXT_CHECK\x10\xf2\xcf\x01\x125\n" +
+	"/RUBY_ON_RAILS_RESTFUL_AUTH_ONE_ROUND_NO_SITEKEY\x10\xc0\xd4\x01\x12-\n" +
+	"'VMWARE_VMX_PBKDF2_HMAC_SHA1_AES_256_CBC\x10\x88\xd6\x01\x12/\n" +
+	")VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_128_XTS\x10\xec\xd6\x01\x12/\n" +
+	")VIRTUALBOX_PBKDF2_HMAC_SHA256_AES_256_XTS\x10\xd0\xd7\x01\x12$\n" +
+	"\x1eMULTIBIT_CLASSIC_WALLET_SCRYPT\x10\xb4\xd8\x01\x12\"\n" +
+	"\x1cEXODUS_DESKTOP_WALLET_SCRYPT\x10\xa8\xdc\x01\x12\x1e\n" +
+	"\x18TEAMSPEAK_3_CHANNEL_HASH\x10\x8c\xdd\x01\x12\x18\n" +
+	"\x12BCRYPT_SHA512_PASS\x10\xf0\xdd\x01\x12.\n" +
+	"(BITCOIN_WIF_PRIVATE_KEY_P2PKH_COMPRESSED\x10\xd5\xde\x01\x120\n" +
+	"*BITCOIN_WIF_PRIVATE_KEY_P2PKH_UNCOMPRESSED\x10\xd6\xde\x01\x126\n" +
+	"0BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED\x10\xd7\xde\x01\x128\n" +
+	"2BITCOIN_WIF_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED\x10\xd8\xde\x01\x124\n" +
+	".BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED\x10\xd9\xde\x01\x126\n" +
+	"0BITCOIN_WIF_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED\x10\xda\xde\x01\x12\x1e\n" +
+	"\x18POSTGRESQL_SCRAM_SHA_256\x10\xb8\xdf\x01\x12$\n" +
+	"\x1eAMAZON_AWS_SIGNATURE_VERSION_4\x10\x9c\xe0\x01\x122\n" +
+	",SHA1_SALT_SHA1_UTF16LE_USERNAME_UTF16LE_PASS\x10\xc8\xe2\x01\x12%\n" +
+	"\x1fTRUECRYPT_RIPEMD160_XTS_512_BIT\x10\xff\xe4\x01\x12&\n" +
+	" TRUECRYPT_RIPEMD160_XTS_1024_BIT\x10\x80\xe5\x01\x12&\n" +
+	" TRUECRYPT_RIPEMD160_XTS_1536_BIT\x10\x81\xe5\x01\x12\"\n" +
+	"\x1cTRUECRYPT_SHA512_XTS_512_BIT\x10\x89\xe5\x01\x12#\n" +
+	"\x1dTRUECRYPT_SHA512_XTS_1024_BIT\x10\x8a\xe5\x01\x12#\n" +
+	"\x1dTRUECRYPT_SHA512_XTS_1536_BIT\x10\x8b\xe5\x01\x12%\n" +
+	"\x1fTRUECRYPT_WHIRLPOOL_XTS_512_BIT\x10\x93\xe5\x01\x12&\n" +
+	" TRUECRYPT_WHIRLPOOL_XTS_1024_BIT\x10\x94\xe5\x01\x12&\n" +
+	" TRUECRYPT_WHIRLPOOL_XTS_1536_BIT\x10\x95\xe5\x01\x12/\n" +
+	")TRUECRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE\x10\x9d\xe5\x01\x120\n" +
+	"*TRUECRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE\x10\x9e\xe5\x01\x120\n" +
+	"*TRUECRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE\x10\x9f\xe5\x01\x12%\n" +
+	"\x1fVERACRYPT_RIPEMD160_XTS_512_BIT\x10\xe3\xe5\x01\x12&\n" +
+	" VERACRYPT_RIPEMD160_XTS_1024_BIT\x10\xe4\xe5\x01\x12&\n" +
+	" VERACRYPT_RIPEMD160_XTS_1536_BIT\x10\xe5\xe5\x01\x12\"\n" +
+	"\x1cVERACRYPT_SHA512_XTS_512_BIT\x10\xed\xe5\x01\x12#\n" +
+	"\x1dVERACRYPT_SHA512_XTS_1024_BIT\x10\xee\xe5\x01\x12#\n" +
+	"\x1dVERACRYPT_SHA512_XTS_1536_BIT\x10\xef\xe5\x01\x12%\n" +
+	"\x1fVERACRYPT_WHIRLPOOL_XTS_512_BIT\x10\xf7\xe5\x01\x12&\n" +
+	" VERACRYPT_WHIRLPOOL_XTS_1024_BIT\x10\xf8\xe5\x01\x12&\n" +
+	" VERACRYPT_WHIRLPOOL_XTS_1536_BIT\x10\xf9\xe5\x01\x12/\n" +
+	")VERACRYPT_RIPEMD160_XTS_512_BIT_BOOT_MODE\x10\x81\xe6\x01\x120\n" +
+	"*VERACRYPT_RIPEMD160_XTS_1024_BIT_BOOT_MODE\x10\x82\xe6\x01\x120\n" +
+	"*VERACRYPT_RIPEMD160_XTS_1536_BIT_BOOT_MODE\x10\x83\xe6\x01\x12\"\n" +
+	"\x1cVERACRYPT_SHA256_XTS_512_BIT\x10\x8b\xe6\x01\x12#\n" +
+	"\x1dVERACRYPT_SHA256_XTS_1024_BIT\x10\x8c\xe6\x01\x12#\n" +
+	"\x1dVERACRYPT_SHA256_XTS_1536_BIT\x10\x8d\xe6\x01\x12,\n" +
+	"&VERACRYPT_SHA256_XTS_512_BIT_BOOT_MODE\x10\x95\xe6\x01\x12-\n" +
+	"'VERACRYPT_SHA256_XTS_1024_BIT_BOOT_MODE\x10\x96\xe6\x01\x12-\n" +
+	"'VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE\x10\x97\xe6\x01\x12(\n" +
+	"\"VERACRYPT_STREEBOG_512_XTS_512_BIT\x10\x9f\xe6\x01\x12)\n" +
+	"#VERACRYPT_STREEBOG_512_XTS_1024_BIT\x10\xa0\xe6\x01\x12)\n" +
+	"#VERACRYPT_STREEBOG_512_XTS_1536_BIT\x10\xa1\xe6\x01\x122\n" +
+	",VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE\x10\xa9\xe6\x01\x123\n" +
+	"-VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE\x10\xaa\xe6\x01\x123\n" +
+	"-VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE\x10\xab\xe6\x01\x12\x17\n" +
+	"\x11LUKS_V1_SHA_1_AES\x10\xc7\xe6\x01\x12\x1b\n" +
+	"\x15LUKS_V1_SHA_1_SERPENT\x10\xc8\xe6\x01\x12\x1b\n" +
+	"\x15LUKS_V1_SHA_1_TWOFISH\x10\xc9\xe6\x01\x12\x19\n" +
+	"\x13LUKS_V1_SHA_256_AES\x10\xd1\xe6\x01\x12\x1d\n" +
+	"\x17LUKS_V1_SHA_256_SERPENT\x10\xd2\xe6\x01\x12\x1d\n" +
+	"\x17LUKS_V1_SHA_256_TWOFISH\x10\xd3\xe6\x01\x12\x19\n" +
+	"\x13LUKS_V1_SHA_512_AES\x10\xdb\xe6\x01\x12\x1d\n" +
+	"\x17LUKS_V1_SHA_512_SERPENT\x10\xdc\xe6\x01\x12\x1d\n" +
+	"\x17LUKS_V1_SHA_512_TWOFISH\x10\xdd\xe6\x01\x12\x1c\n" +
+	"\x16LUKS_V1_RIPEMD_160_AES\x10\xe5\xe6\x01\x12 \n" +
+	"\x1aLUKS_V1_RIPEMD_160_SERPENT\x10\xe6\xe6\x01\x12 \n" +
+	"\x1aLUKS_V1_RIPEMD_160_TWOFISH\x10\xe7\xe6\x01\x121\n" +
+	"+TERRA_STATION_WALLET_AES256_CBC_PBKDF2_PASS\x10\xa0\xe7\x01\x12%\n" +
+	"\x1fKEEPASS_KDBX_V2_V3_KEYFILE_ONLY\x10\x84\xe8\x01\x12\x18\n" +
+	"\x12BISQ_WALLET_SCRYPT\x10\xe8\xe8\x01\x12.\n" +
+	"(ENCSECURITY_DATAVAULT_PBKDF2_NO_KEYCHAIN\x10\xd6\xe9\x01\x12+\n" +
+	"%ENCSECURITY_DATAVAULT_PBKDF2_KEYCHAIN\x10\xe0\xe9\x01\x12+\n" +
+	"%ENCSECURITY_DATAVAULT_MD5_NO_KEYCHAIN\x10\xea\xe9\x01\x12(\n" +
+	"\"ENCSECURITY_DATAVAULT_MD5_KEYCHAIN\x10\xf4\xe9\x01\x12+\n" +
+	"%PYTHON_WERKZEUG_MD5_HMAC_MD5_KEY_SALT\x10\xb0\xea\x01\x121\n" +
+	"+PYTHON_WERKZEUG_SHA256_HMAC_SHA256_KEY_SALT\x10\xa8\xeb\x01\x12#\n" +
+	"\x1dDANE_RFC7929_RFC8162_SHA2_256\x10\xd4\xed\x01\x12\x1f\n" +
+	"\x19MD5_MD5_SALT_MD5_MD5_PASS\x10\xa4\xee\x01\x12\x18\n" +
+	"\x12BCRYPT_SHA256_PASS\x10\x88\xef\x01\x12\x1d\n" +
+	"\x17BCRYPT_HMAC_SHA256_PASS\x10\x89\xef\x01\x12#\n" +
+	"\x1dANOPE_IRC_SERVICES_ENC_SHA256\x10\xec\xef\x01\x12.\n" +
+	"(BITCOIN_RAW_PRIVATE_KEY_P2PKH_COMPRESSED\x10\xb5\xf1\x01\x120\n" +
+	"*BITCOIN_RAW_PRIVATE_KEY_P2PKH_UNCOMPRESSED\x10\xb6\xf1\x01\x126\n" +
+	"0BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_COMPRESSED\x10\xb7\xf1\x01\x128\n" +
+	"2BITCOIN_RAW_PRIVATE_KEY_P2WPKH_BECH32_UNCOMPRESSED\x10\xb8\xf1\x01\x124\n" +
+	".BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_COMPRESSED\x10\xb9\xf1\x01\x126\n" +
+	"0BITCOIN_RAW_PRIVATE_KEY_P2SH_P2WPKH_UNCOMPRESSED\x10\xba\xf1\x01\x12\x11\n" +
+	"\vBLAKE2S_256\x10\x98\xf2\x01\x12\x13\n" +
+	"\rSHANGMI_3_SM3\x10\xfc\xf2\x01\x12\x0f\n" +
+	"\tVEEAM_VBK\x10\xe0\xf3\x01\x12\r\n" +
+	"\aMS_SNTP\x10\xc4\xf4\x01\x12#\n" +
+	"\x1dSECURECRT_MASTERPASSPHRASE_V2\x10\xa8\xf5\x01\x12/\n" +
+	")DOMAIN_CACHED_CREDENTIALS_DCC_MS_CACHE_NT\x10\x8c\xf6\x01\x124\n" +
+	".DOMAIN_CACHED_CREDENTIALS_2_DCC2_MS_CACHE_2_NT\x10\xf0\xf6\x01\x12-\n" +
+	"'MD5_MD5_MD5_PASS_SALT1_SALT2_MODE_31700\x10\xd4\xf7\x01\x122\n" +
+	",HASHCAT_1PASSWORD_MOBILEKEYCHAIN_1PASSWORD_8\x10\xb8\xf8\x01\x12\x1c\n" +
+	"\x16METAMASK_MOBILE_WALLET\x10\x9c\xf9\x01\x12\x14\n" +
+	"\x0eNETIQ_SSPR_MD5\x10\x80\xfa\x01\x12\x15\n" +
+	"\x0fNETIQ_SSPR_SHA1\x10\x8a\xfa\x01\x12 \n" +
+	"\x1aNETIQ_SSPR_SHA_1_WITH_SALT\x10\x94\xfa\x01\x12\"\n" +
+	"\x1cNETIQ_SSPR_SHA_256_WITH_SALT\x10\x9e\xfa\x01\x12&\n" +
+	" ADOBE_AEM_SSPR_SHA_256_WITH_SALT\x10\x9f\xfa\x01\x12\"\n" +
+	"\x1cNETIQ_SSPR_SHA_512_WITH_SALT\x10\xa8\xfa\x01\x12&\n" +
+	" ADOBE_AEM_SSPR_SHA_512_WITH_SALT\x10\xa9\xfa\x01\x12#\n" +
+	"\x1dNETIQ_SSPR_PBKDF2WITHHMACSHA1\x10\xb2\xfa\x01\x12%\n" +
+	"\x1fNETIQ_SSPR_PBKDF2WITHHMACSHA256\x10\xbc\xfa\x01\x12%\n" +
+	"\x1fNETIQ_SSPR_PBKDF2WITHHMACSHA512\x10\xc6\xfa\x01\x12 \n" +
+	"\x1aKERBEROS_5_ETYPE_17_AS_REP\x10\xe4\xfa\x01\x12 \n" +
+	"\x1aKERBEROS_5_ETYPE_18_AS_REP\x10\xc8\xfb\x01\x12\x1f\n" +
+	"\x19EMPIRE_CMS_ADMIN_PASSWORD\x10\xac\xfc\x01\x12\x1d\n" +
+	"\x17SHA512_SHA512_PASS_SALT\x10\x9a\xfd\x01\x12!\n" +
+	"\x1bSHA512_SHA512_BIN_PASS_SALT\x10\xa4\xfd\x01\x12\x1b\n" +
+	"\x15DOGECHAIN_INFO_WALLET\x10\xf4\xfd\x01\x12'\n" +
+	"!CUBECART_WHIRLPOOL_SALT_PASS_SALT\x10\xd8\xfe\x01\x12\"\n" +
+	"\x1cKREMLIN_ENCRYPT_3_0_W_NEWDES\x10\xbc\xff\x01\x12\x17\n" +
+	"\x11MD5_SHA1_MD5_PASS\x10\xa0\x80\x02\x12\x11\n" +
+	"\vPBKDF1_SHA1\x10\x84\x81\x02\x12\x1a\n" +
+	"\x14MD5_SALT1_PASS_SALT2\x10\xe8\x81\x02\x12'\n" +
+	"!MD5_SALT_MD5_PASS_SALT_MODE_33100\x10̂\x02\x12\x1b\n" +
+	"\x15HMAC_BLAKE2S_KEY_PASS\x10\x94\x84\x02\x128\n" +
+	"2MEGA_NZ_PASSWORD_PROTECTED_LINK_PBKDF2_HMAC_SHA512\x10\xf8\x84\x02\x12\x16\n" +
+	"\x10RC4_40_BIT_DROPN\x10܅\x02\x12\x16\n" +
+	"\x10RC4_72_BIT_DROPN\x10݅\x02\x12\x17\n" +
+	"\x11RC4_104_BIT_DROPN\x10ޅ\x02\x12\x10\n" +
+	"\n" +
+	"RIPEMD_320\x10\xc0\x86\x02\x12\x1d\n" +
+	"\x17HMAC_RIPEMD320_KEY_PASS\x10\xf2\x86\x02\x12\x1d\n" +
+	"\x17HMAC_RIPEMD320_KEY_SALT\x10\xfc\x86\x02\x128\n" +
+	"2MICROSOFT_ONLINE_ACCOUNT_PBKDF2_HMAC_SHA256_AES256\x10\xa4\x87\x02\x123\n" +
+	"-WBB4_WOLTLAB_BURNING_BOARD_BCRYPT_BCRYPT_PASS\x10\x88\x88\x02\x12)\n" +
+	"#CITRIX_NETSCALER_PBKDF2_HMAC_SHA256\x10\xec\x88\x02\x12\f\n" +
+	"\x06ARGON2\x10Љ\x02\x12 \n" +
+	"\x1aLUKS_V2_ARGON2_SHA_256_AES\x10\xb4\x8a\x02\x12\x13\n" +
+	"\rMURMURHASH64A\x10\x98\x8b\x02\x12\x1d\n" +
+	"\x17MURMURHASH64A_ZERO_SEED\x10\x99\x8b\x02\x12'\n" +
+	"!MURMURHASH64A_TRUNCATED_ZERO_SEED\x10\xa3\x8b\x02\x12\x1c\n" +
+	"\x16KEEPASS_ARGON2_KDBX_V4\x10\xfc\x8b\x02\x12\x1c\n" +
+	"\x16KEEPASS_AESKDF_KDBX_V4\x10\xfd\x8b\x02\x12\x18\n" +
+	"\x12SHA224_SHA224_PASS\x10\xe0\x8c\x02\x12\x16\n" +
+	"\x10SHA224_SHA1_PASS\x10č\x02\x12\r\n" +
+	"\aMD6_256\x10\xa8\x8e\x02\x12)\n" +
+	"#BLOCKCHAIN_MY_WALLET_LEGACY_WALLETS\x10\x8c\x8f\x02\x12\x1c\n" +
+	"\x16BLAKE2B_256_MODE_34800\x10\xf0\x8f\x02\x12\x1b\n" +
+	"\x15BLAKE2B_256_PASS_SALT\x10\xfa\x8f\x02\x12\x1b\n" +
+	"\x15BLAKE2B_256_SALT_PASS\x10\x84\x90\x02\x12(\n" +
+	"\"SAP_CODVN_H_PWDSALTEDHASH_ISSHA512\x10\xb8\x91\x02\x12\x1b\n" +
+	"\x15SM3CRYPT_SM3_SM3_UNIX\x10\x9c\x92\x02\x12\x12\n" +
+	"\fAS_400_SSHA1\x10\x80\x93\x02\x12$\n" +
+	"\x1eKERBEROS_5_ETYPE_23_TGS_REP_NT\x10\xe4\x93\x02\x12#\n" +
+	"\x1dKERBEROS_5_ETYPE_23_AS_REP_NT\x10Ȕ\x02\x12'\n" +
+	"!WORDPRESS_BCRYPT_HMAC_SHA384_PASS\x10\xac\x95\x02\x12'\n" +
+	"!GOST12512CRYPT_GOST12512HASH_UNIX\x10\x90\x96\x02\x12\x15\n" +
+	"\x0fPHPASS_MD5_PASS\x10\xf4\x96\x02\x12\x1b\n" +
+	"\x15SYMFONY_LEGACY_SHA256\x10ؗ\x02\x12\x0e\n" +
+	"\bYESCRYPT\x10\x84\x9a\x02\x12\x13\n" +
+	"\rGOST_YESCRYPT\x10\xe8\x9a\x02\x12\x1d\n" +
+	"\x17SCRYPTCRYPT_SCRYPT_UNIX\x10̛\x02\x122\n" +
+	",KDE_KWALLET_4_13_PBKDF2_HMAC_SHA512_BLOWFISH\x10\xb0\x9c\x02\x12%\n" +
+	"\x1fKDE_KWALLET_4_13_SHA_1_BLOWFISH\x10\xba\x9c\x02\x127\n" +
+	"1ARGON2ID_BRIDGED_REFERENCE_IMPLEMENTATION_TUNINGS\x10\xf0\xa2\x04\x12%\n" +
+	"\x1fSCRYPT_BRIDGED_SCRYPT_JANE_SMIX\x10ԣ\x04\x12$\n" +
+	"\x1eSCRYPT_BRIDGED_SCRYPT_YESCRYPT\x10\xb8\xa4\x04\x12<\n" +
+	"6GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_FREE_THREADING\x10\xc0\xb2\x04\x126\n" +
+	"0GENERIC_HASH_BRIDGED_PYTHON_INTERPRETER_WITH_GIL\x10\xa8\xba\x04\x12\x1f\n" +
+	"\x19GENERIC_HASH_BRIDGED_RUST\x10\x90\xc2\x04\x12\x0f\n" +
+	"\tPLAINTEXT\x10\x9f\x8d\x06*2\n" +
 	"\x06States\x12\b\n" +
 	"\x04IDLE\x10\x00\x12\f\n" +
 	"\bCRACKING\x10\x01\x12\x10\n" +
