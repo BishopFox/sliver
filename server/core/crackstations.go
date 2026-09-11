@@ -24,6 +24,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -35,10 +36,11 @@ var (
 
 func NewCrackstation(station *clientpb.Crackstation) *Crackstation {
 	return &Crackstation{
-		HostUUID:   station.HostUUID,
-		Station:    station,
-		Events:     make(chan *clientpb.Event, 8),
-		statusLock: &sync.RWMutex{},
+		HostUUID:    station.HostUUID,
+		Station:     station,
+		Events:      make(chan *clientpb.Event, 8),
+		stationLock: &sync.RWMutex{},
+		statusLock:  &sync.RWMutex{},
 	}
 }
 
@@ -47,30 +49,58 @@ type Crackstation struct {
 	Station  *clientpb.Crackstation
 	Events   chan *clientpb.Event
 
-	status     *clientpb.CrackstationStatus
-	statusLock *sync.RWMutex
+	stationLock *sync.RWMutex
+	status      *clientpb.CrackstationStatus
+	statusLock  *sync.RWMutex
 }
 
 func (c *Crackstation) UpdateStatus(status *clientpb.CrackstationStatus) {
 	c.statusLock.Lock()
 	defer c.statusLock.Unlock()
-	c.status = status
+	if status == nil {
+		c.status = nil
+		return
+	}
+	c.status = proto.Clone(status).(*clientpb.CrackstationStatus)
 }
 
 func (c *Crackstation) GetStatus() *clientpb.CrackstationStatus {
 	c.statusLock.RLock()
 	defer c.statusLock.RUnlock()
-	return c.status
+	if c.status == nil {
+		return nil
+	}
+	return proto.Clone(c.status).(*clientpb.CrackstationStatus)
+}
+
+// Snapshot returns an isolated copy of the crackstation and its current status.
+func (c *Crackstation) Snapshot() *clientpb.Crackstation {
+	c.stationLock.RLock()
+	defer c.stationLock.RUnlock()
+	station := proto.Clone(c.Station).(*clientpb.Crackstation)
+	station.Status = c.GetStatus()
+	return station
+}
+
+// UpdateBenchmarks replaces the crackstation's benchmark results.
+func (c *Crackstation) UpdateBenchmarks(benchmarks map[int32]uint64) {
+	c.stationLock.Lock()
+	defer c.stationLock.Unlock()
+	c.Station.Benchmarks = make(map[int32]uint64, len(benchmarks))
+	for hashType, rate := range benchmarks {
+		c.Station.Benchmarks[hashType] = rate
+	}
 }
 
 func AddCrackstation(crack *Crackstation) error {
-	_, loaded := crackers.LoadOrStore(crack.Station.HostUUID, crack)
+	station := crack.Snapshot()
+	_, loaded := crackers.LoadOrStore(station.HostUUID, crack)
 	if loaded {
 		return ErrDuplicateHosts
 	}
 	EventBroker.Publish(Event{
 		EventType: consts.CrackstationConnected,
-		Data:      []byte(crack.Station.HostUUID),
+		Data:      []byte(station.HostUUID),
 	})
 	return nil
 }
@@ -87,7 +117,7 @@ func AllCrackstations() []*clientpb.Crackstation {
 	externalCrackers := []*clientpb.Crackstation{}
 	crackers.Range(func(key, value interface{}) bool {
 		crackStation := value.(*Crackstation)
-		externalCrackers = append(externalCrackers, crackStation.Station)
+		externalCrackers = append(externalCrackers, crackStation.Snapshot())
 		return true
 	})
 	return externalCrackers

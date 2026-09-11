@@ -129,6 +129,15 @@ var hashTypes = map[string]string{
 	"DCC":                          "Domain Cached Credentials (DCC), MS Cache",
 	"DCC2":                         "Domain Cached Credentials 2 (DCC2), MS Cache 2",
 
+	"VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE_LEGACY":       "VeraCrypt SHA256 + XTS 1536 bit + boot-mode (legacy)",
+	"VERACRYPT_STREEBOG_512_XTS_512_BIT_LEGACY":            "VeraCrypt Streebog-512 + XTS 512 bit (legacy)",
+	"VERACRYPT_STREEBOG_512_XTS_1024_BIT_LEGACY":           "VeraCrypt Streebog-512 + XTS 1024 bit (legacy)",
+	"VERACRYPT_STREEBOG_512_XTS_1536_BIT_LEGACY":           "VeraCrypt Streebog-512 + XTS 1536 bit (legacy)",
+	"VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY":  "VeraCrypt Streebog-512 + XTS 512 bit + boot-mode (legacy)",
+	"VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY": "VeraCrypt Streebog-512 + XTS 1024 bit + boot-mode (legacy)",
+	"VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY": "VeraCrypt Streebog-512 + XTS 1536 bit + boot-mode (legacy)",
+	"OPENCART": "OpenCart",
+
 	// ...
 
 	"MACOS_10_8": "macOS v10.8+ (PBKDF2-SHA512)",

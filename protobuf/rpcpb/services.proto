@@ -126,6 +126,8 @@ service SliverRPC {
 
   // *** Crackstation ***
   rpc Crack(clientpb.CrackCommand) returns (clientpb.CrackResponse);
+  rpc CrackJobs(commonpb.Empty) returns (clientpb.CrackJobs);
+  rpc CrackJobByID(clientpb.CrackJob) returns (clientpb.CrackJob);
   rpc CrackstationRegister(clientpb.Crackstation)
       returns (stream clientpb.Event);
   rpc CrackstationTrigger(clientpb.Event) returns (commonpb.Empty);

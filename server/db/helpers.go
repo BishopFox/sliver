@@ -28,6 +28,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1274,7 +1275,7 @@ func GetCrackTaskByID(id string) (*models.CrackTask, error) {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.CrackTask{}
-	err := Session().Where(&models.CrackTask{ID: taskID}).Preload("Command").Find(&task).Error
+	err := Session().Where(&models.CrackTask{ID: taskID}).Preload("Command").First(&task).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1288,7 +1289,7 @@ func GetByCrackFileByID(id string) (*models.CrackFile, error) {
 		return nil, ErrRecordNotFound
 	}
 	crackFile := &models.CrackFile{}
-	err := Session().Where(&models.CrackFile{ID: crackFileID}).Preload("Chunks").Find(&crackFile).Error
+	err := Session().Where(&models.CrackFile{ID: crackFileID}).Preload("Chunks").First(&crackFile).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1311,7 +1312,7 @@ func CrackFilesByType(fileType clientpb.CrackFileType) ([]*models.CrackFile, err
 
 func AllCrackFiles() ([]*models.CrackFile, error) {
 	crackFiles := []*models.CrackFile{}
-	err := Session().Preload("Chunks").Find(&crackFiles).Error
+	err := Session().Where("is_complete = ?", true).Preload("Chunks").Find(&crackFiles).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1344,7 +1345,17 @@ func CrackFilesDiskUsage() (int64, error) {
 	}
 	sum := int64(0)
 	for _, crackFile := range crackFiles {
-		sum += crackFile.UncompressedSize
+		if crackFile.UncompressedSize < 0 || crackFile.CompressedSize < 0 {
+			return -1, fmt.Errorf("crack file %s has a negative size", crackFile.ID)
+		}
+		charge := crackFile.UncompressedSize
+		if crackFile.CompressedSize > charge {
+			charge = crackFile.CompressedSize
+		}
+		if sum > math.MaxInt64-charge {
+			return -1, errors.New("crack file disk usage exceeds int64 capacity")
+		}
+		sum += charge
 	}
 	return sum, nil
 }

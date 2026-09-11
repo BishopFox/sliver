@@ -110,6 +110,8 @@ func ComprehensiveRPCDispositions() []RPCDisposition {
 		"GetCertificateInfo",
 		"GetCertificateAuthorityInfo",
 		"Crack",
+		"CrackJobs",
+		"CrackJobByID",
 		"CrackstationRegister",
 		"CrackstationTrigger",
 		"CrackstationBenchmark",

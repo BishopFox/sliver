@@ -109,8 +109,16 @@ const (
 	CrackstationDisconnected = "crackstation-disconnected"
 
 	// Crack Events - Events consumed by crackstations.
-	CrackBenchmark   = "crack-benchmark"
-	CrackStatusEvent = "crack-status"
+	Crack                  = "crack"
+	CrackKeyspace          = "crack-keyspace"
+	CrackQuery             = "crack-query"
+	CrackBenchmark         = "crack-benchmark"
+	CrackFileUpdated       = "crack-file-updated"
+	CrackStatusEvent       = "crack-status"
+	CrackTaskStatus        = "crack-task-status"
+	CrackJobCreated        = "crack-job-created"
+	CrackJobUpdated        = "crack-job-updated"
+	CredentialCrackedEvent = "credential-cracked"
 
 	// WireGuardNewPeer - New Wireguard peer added.
 	WireGuardNewPeer            = "wireguard-newpeer"
