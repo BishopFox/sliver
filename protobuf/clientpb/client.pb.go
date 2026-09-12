@@ -4102,6 +4102,7 @@ type ImplantConfig struct {
 	TrafficEncodersEnabled bool             `protobuf:"varint,152,opt,name=TrafficEncodersEnabled,proto3" json:"TrafficEncodersEnabled,omitempty"`
 	TrafficEncoders        []string         `protobuf:"bytes,153,rep,name=TrafficEncoders,proto3" json:"TrafficEncoders,omitempty"`
 	Extension              string           `protobuf:"bytes,154,opt,name=Extension,proto3" json:"Extension,omitempty"`
+	ServiceName            string           `protobuf:"bytes,156,opt,name=ServiceName,proto3" json:"ServiceName,omitempty"`
 	Assets                 []*commonpb.File `protobuf:"bytes,200,rep,name=Assets,proto3" json:"Assets,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
@@ -4476,6 +4477,13 @@ func (x *ImplantConfig) GetTrafficEncoders() []string {
 func (x *ImplantConfig) GetExtension() string {
 	if x != nil {
 		return x.Extension
+	}
+	return ""
+}
+
+func (x *ImplantConfig) GetServiceName() string {
+	if x != nil {
+		return x.ServiceName
 	}
 	return ""
 }
@@ -16139,7 +16147,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aHeaders\x18\x06 \x01(\rR\aHeaders\x12\x16\n" +
 	"\x06Thread\x18\a \x01(\bR\x06Thread\x12\x18\n" +
 	"\aUnicode\x18\b \x01(\bR\aUnicode\x12\x10\n" +
-	"\x03OEP\x18\t \x01(\rR\x03OEP\"\x8e\x0f\n" +
+	"\x03OEP\x18\t \x01(\rR\x03OEP\"\xb1\x0f\n" +
 	"\rImplantConfig\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12<\n" +
 	"\rImplantBuilds\x18\x02 \x03(\v2\x16.clientpb.ImplantBuildR\rImplantBuilds\x12*\n" +
@@ -16196,7 +16204,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\fNetGoEnabled\x18\x97\x01 \x01(\bR\fNetGoEnabled\x127\n" +
 	"\x16TrafficEncodersEnabled\x18\x98\x01 \x01(\bR\x16TrafficEncodersEnabled\x12)\n" +
 	"\x0fTrafficEncoders\x18\x99\x01 \x03(\tR\x0fTrafficEncoders\x12\x1d\n" +
-	"\tExtension\x18\x9a\x01 \x01(\tR\tExtension\x12'\n" +
+	"\tExtension\x18\x9a\x01 \x01(\tR\tExtension\x12!\n" +
+	"\vServiceName\x18\x9c\x01 \x01(\tR\vServiceName\x12'\n" +
 	"\x06Assets\x18\xc8\x01 \x03(\v2\x0e.commonpb.FileR\x06AssetsJ\x06\b\x9b\x01\x10\x9c\x01R\tSpoofData\";\n" +
 	"\x11SpoofMetadataFile\x12\x12\n" +
 	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x12\n" +
