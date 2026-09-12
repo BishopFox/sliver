@@ -453,6 +453,13 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 		case consts.BeaconTaskResultEvent:
 			con.triggerBeaconTaskCallback(event.Data)
 
+		case consts.ConsoleGenericEvent:
+			level := event.Level
+			if level == "" {
+				level = "info"
+			}
+			con.emitConsoleNotification(level, false, string(event.Data))
+
 		}
 
 		con.triggerReactions(event)

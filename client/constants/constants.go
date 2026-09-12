@@ -130,6 +130,9 @@ const (
 
 	// ClientToastEvent - Local-only event used to surface console notifications inside TUIs.
 	ClientToastEvent = "client-toast"
+
+	//Console generic events
+	ConsoleGenericEvent = "console-generic"
 )
 
 // Commands.
