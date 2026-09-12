@@ -27,6 +27,7 @@ func (client *crackTopRPCTestClient) CrackTop(ctx context.Context, request *comm
 	return client.call(ctx, request)
 }
 
+//nolint:gocyclo // This test intentionally validates every field in one complete lean-snapshot conversion.
 func TestLoadCrackTopSnapshotUsesOneRPCAndConvertsLeanSnapshot(t *testing.T) {
 	hashMode := uint32(5600)
 	wire := &clientpb.CrackTopSnapshot{
@@ -216,6 +217,7 @@ func TestLoadCrackTopSnapshotUsesOneRPCAndConvertsLeanSnapshot(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // This test intentionally covers the full loader-to-dashboard telemetry path.
 func TestLoadCrackTopSnapshotFeedsDashboardTelemetry(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0)
 	client := &crackTopRPCTestClient{

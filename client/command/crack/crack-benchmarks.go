@@ -32,8 +32,8 @@ const (
 	crackBenchmarkMetadataValueWidth = 48
 )
 
-// CrackBenchmarksCmd displays benchmark results persisted by the server.
-func CrackBenchmarksCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
+// BenchmarksCmd displays benchmark results persisted by the server.
+func BenchmarksCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 	ctx, cancel := crackCommandContext(cmd.Context(), cmd)
 	defer cancel()
 

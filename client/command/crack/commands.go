@@ -55,7 +55,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Short: "Show cached crackstation benchmark results",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			CrackBenchmarksCmd(cmd, con, args)
+			BenchmarksCmd(cmd, con, args)
 		},
 	}
 	flags.Bind("", false, crackBenchmarksCmd, func(f *pflag.FlagSet) {

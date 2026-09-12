@@ -273,6 +273,7 @@ func buildCrackTopDashboard(snapshot *crackTopSnapshot) crackTopDashboard {
 	return dashboard
 }
 
+//nolint:gocyclo // Job telemetry combines task state, liveness, progress, and device metrics in one aggregation pass.
 func crackTopJobTelemetry(
 	job *clientpb.CrackJob,
 	stations map[string]*clientpb.Crackstation,

@@ -329,7 +329,7 @@ func (rpc *Server) Crackstations(ctx context.Context, req *commonpb.Empty) (*cli
 
 // CrackstationBenchmarks returns every benchmark snapshot cached by the
 // server, including snapshots for crackstations that are currently offline.
-func (rpc *Server) CrackstationBenchmarks(ctx context.Context, req *commonpb.Empty) (*clientpb.CrackBenchmarkSnapshots, error) {
+func (rpc *Server) CrackstationBenchmarks(ctx context.Context, _ *commonpb.Empty) (*clientpb.CrackBenchmarkSnapshots, error) {
 	var crackstations []models.Crackstation
 	if err := db.Session().WithContext(ctx).Preload("Benchmarks").Find(&crackstations).Error; err != nil {
 		crackRPCLog.Errorf("Failed to query cached crackstation benchmarks: %s", err)

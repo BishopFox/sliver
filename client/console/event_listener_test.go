@@ -36,11 +36,12 @@ func TestRemoveEventListenerUnblocksInFlightDispatchAndClosesReceiver(t *testing
 		t.Fatal("removed listener remains registered")
 	}
 
-	for range events {
+	for event := range events {
+		_ = event
 	}
 }
 
-func TestConcurrentEventDispatchAndRemovalDoesNotPanic(t *testing.T) {
+func TestConcurrentEventDispatchAndRemovalDoesNotPanic(_ *testing.T) {
 	for iteration := 0; iteration < 1_000; iteration++ {
 		con := &SliverClient{EventListeners: &sync.Map{}}
 		listenerID, events := con.CreateEventListener()
@@ -51,7 +52,8 @@ func TestConcurrentEventDispatchAndRemovalDoesNotPanic(t *testing.T) {
 		}()
 		con.RemoveEventListener(listenerID)
 		<-dispatchDone
-		for range events {
+		for event := range events {
+			_ = event
 		}
 	}
 }

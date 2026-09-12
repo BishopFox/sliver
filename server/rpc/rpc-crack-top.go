@@ -330,6 +330,7 @@ func crackTopStationToProtobuf(station *clientpb.Crackstation) *clientpb.CrackTo
 	return result
 }
 
+//nolint:gocyclo // Status parsing validates independent optional Hashcat telemetry fields in one pass.
 func parseCrackTopStatus(raw []byte, result *clientpb.CrackTopTask) {
 	if result == nil || len(bytes.TrimSpace(raw)) == 0 {
 		return

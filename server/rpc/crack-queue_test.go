@@ -480,6 +480,7 @@ func TestKeyspaceCompletionCreatesWeightedRangeShardsAndPreservesParent(t *testi
 	}
 }
 
+//nolint:gocyclo // Typed and legacy keyspace results share one completion-lifecycle contract.
 func TestKeyspaceCompletionAcceptsTypedAndLegacyCanonicalResults(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -540,6 +541,7 @@ func TestKeyspaceCompletionAcceptsTypedAndLegacyCanonicalResults(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Each malformed result exercises the same task/job terminal-failure contract.
 func TestInvalidTerminalKeyspaceResultFailsTaskAndJobWithoutShards(t *testing.T) {
 	diagnostic := append([]byte("\x1b[31mOpenCL\\m00000.cl\r\nmissing\x00 "), bytes.Repeat([]byte("x"), maxCrackTaskDiagnosticBytes+256)...)
 	tests := []struct {

@@ -896,6 +896,7 @@ func (m *crackTopModel) renderJobsPane(width, height int) string {
 	return crackTopPanel(width, height, border, strings.Join(lines, "\n"))
 }
 
+//nolint:gocyclo // Worker rendering keeps responsive layout and telemetry-state formatting together.
 func (m *crackTopModel) renderWorkersPane(width, height int) string {
 	innerWidth := max(1, width-4)
 	innerHeight := max(1, height-2)

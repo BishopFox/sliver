@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+//nolint:gocyclo // Active-job inclusion, bounded history, ordering, and redaction form one snapshot contract.
 func TestCrackTopIncludesEveryActiveJobAndBoundsHistory(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	base := time.Now().UTC().Add(-24 * time.Hour).Truncate(time.Second)
@@ -234,6 +235,7 @@ func TestCrackTopReturnsLeanTelemetryCountsAndConnectedStations(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The cases jointly verify status availability, parsing, and progress trust boundaries.
 func TestCrackTopStatusAvailabilityAndParseErrors(t *testing.T) {
 	missing := crackTopTaskToProtobuf(&models.CrackTask{}, "")
 	if missing.GetStatusAvailable() || missing.GetStatusParseError() {

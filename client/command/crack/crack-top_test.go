@@ -110,6 +110,7 @@ func crackTopWorkerRowIDs(rows []crackTopWorkerRow) []string {
 	return ids
 }
 
+//nolint:gocyclo // This test intentionally validates weighted progress and all aggregated worker metrics together.
 func TestBuildCrackTopDashboardWeightsUnequalShardsAndAggregatesDeviceRates(t *testing.T) {
 	dashboard := buildCrackTopDashboard(crackTopLiveTestSnapshot())
 	if len(dashboard.Jobs) != 1 {
@@ -804,6 +805,7 @@ func crackTopSnapshotMessageFromRefresh(t *testing.T, command tea.Cmd) crackTopS
 	return crackTopSnapshotMsg{}
 }
 
+//nolint:gocyclo // This test intentionally exercises the refresh state machine across all coalescing cases.
 func TestCrackTopRefreshCoalescesAndRejectsStalePollGeneration(t *testing.T) {
 	loads := 0
 	snapshot := crackTopLiveTestSnapshot()
@@ -881,6 +883,7 @@ func TestWaitForCrackTopEventRecognizesRefreshEventsAndClosure(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // This test intentionally covers the complete event-refresh rearm and coalescing lifecycle.
 func TestCrackTopEventRefreshRearmsListenerAndCoalesces(t *testing.T) {
 	listener := make(chan *clientpb.Event, 1)
 	model := newCrackTopModel(context.Background(), func(context.Context) (*crackTopSnapshot, error) {
@@ -968,6 +971,7 @@ func crackTopRunModelCommands(t *testing.T, model *crackTopModel, command tea.Cm
 	return model
 }
 
+//nolint:gocyclo // This test intentionally follows the interactive filter through apply and cancel transitions.
 func TestCrackTopHuhFilterAppliesAndEscapeCancels(t *testing.T) {
 	model := newCrackTopModel(context.Background(), nil, nil, time.Second)
 	model.dashboard = crackTopDashboard{Jobs: []crackTopJobRow{
