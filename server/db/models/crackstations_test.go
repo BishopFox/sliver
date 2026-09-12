@@ -271,6 +271,12 @@ func TestCrackTopPollingIndexes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open SQLite database: %v", err)
 	}
+	sqlDB, err := database.DB()
+	if err != nil {
+		t.Fatalf("get database connection: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
 	if err := database.AutoMigrate(&CrackJob{}, &CrackTask{}, &CrackCommand{}); err != nil {
 		t.Fatalf("migrate crack top models: %v", err)
 	}
