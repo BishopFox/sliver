@@ -1,4 +1,4 @@
-package crack
+package top
 
 import (
 	"context"
@@ -35,6 +35,8 @@ const (
 	crackTopWideWidth       = 104
 	crackTopHeaderHeight    = 5
 	crackTopFooterHeight    = 1
+	crackTopOverviewWidth   = crackTopDefaultWidth
+	crackTopOverviewHeight  = 30
 	crackTopMinimumInterval = 250 * time.Millisecond
 	crackTopEventDebounce   = 500 * time.Millisecond
 	crackTopToastDuration   = 5 * time.Second
@@ -160,6 +162,8 @@ type crackTopModel struct {
 	eventCancel         context.CancelFunc
 	snapshot            *crackTopSnapshot
 	dashboard           crackTopDashboard
+	history             []crackTopHistorySample
+	journal             []crackTopJournalEntry
 	lastError           string
 	eventStreamClosed   bool
 	selectedJobID       string
@@ -361,18 +365,33 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	case crackTopSnapshotMsg:
 		m.refreshing = false
+		previousError := m.lastError
+		hadSnapshot := m.snapshot != nil
 		if msg.snapshot != nil {
+			previousDashboard := m.dashboard
 			m.suppressDeletedJobs(msg.snapshot)
 			m.applyJobStatusOverrides(msg.snapshot)
 			m.snapshot = mergeCrackTopSnapshot(m.snapshot, msg.snapshot)
 			m.dashboard = buildCrackTopDashboard(m.snapshot)
+			m.recordDashboardObservation(previousDashboard, hadSnapshot, m.snapshot.RefreshedAt)
 			m.normalizeJobSelection()
 			m.normalizeWorkerSelection()
 		}
 		if msg.err != nil {
 			m.lastError = crackTopWarningText(msg.err.Error())
+			if msg.snapshot == nil {
+				m.recordRefreshFailure(time.Now(), previousError == "")
+			}
 		} else {
 			m.lastError = ""
+			if previousError != "" && msg.snapshot != nil && hadSnapshot {
+				m.appendJournal(crackTopJournalEntry{
+					at:      m.snapshot.RefreshedAt,
+					level:   "success",
+					label:   "LIVE",
+					message: "snapshot refresh restored",
+				})
+			}
 		}
 		if m.refreshQueued {
 			m.refreshQueued = false
@@ -434,6 +453,7 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			return m, m.showToast("error", fmt.Sprintf("Failed to %s crack job %s: server returned no job state", msg.action, crackTopShortID(msg.jobID)))
 		}
+		m.recordJobAction(msg)
 		return m, tea.Batch(
 			m.showToast("success", fmt.Sprintf("%s crack job %s", crackTopJobActionPastTense(msg.action), crackTopShortID(msg.jobID))),
 			m.requestRefresh(),
@@ -546,6 +566,15 @@ func (m *crackTopModel) View() tea.View {
 		message := fmt.Sprintf("crack top needs at least %dx%d; terminal is %dx%d", crackTopMinWidth, crackTopMinHeight, width, height)
 		message = crackTopFitLine(m.styles.warning.Render(message), width)
 		content := lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, message)
+		return crackTopView(content)
+	}
+	if width >= crackTopOverviewWidth && height >= crackTopOverviewHeight {
+		content := m.renderOverview(width, height)
+		if m.filterForm != nil {
+			content = m.renderFilterModal(content, width, height)
+		} else if m.pendingJobAction.jobID != "" {
+			content = m.renderJobActionModal(content, width, height)
+		}
 		return crackTopView(content)
 	}
 	header := m.renderHeader(width)
@@ -1243,6 +1272,13 @@ func (m *crackTopModel) renderHeader(width int) string {
 		activity = m.spinner.View() + " refreshing"
 	} else if m.snapshot != nil && !m.snapshot.RefreshedAt.IsZero() {
 		activity = "updated " + m.snapshot.RefreshedAt.Local().Format("15:04:05")
+		if m.lastError != "" {
+			activity = "last snapshot " + m.snapshot.RefreshedAt.Local().Format("15:04:05")
+		} else if m.authoritativeSnapshotPending() {
+			activity = "job state live • task data syncing"
+		}
+	} else if m.lastError != "" {
+		activity = "no snapshot"
 	} else {
 		activity = "waiting for data"
 	}
@@ -1262,31 +1298,43 @@ func (m *crackTopModel) renderHeader(width int) string {
 	if !m.dashboard.ClusterComplete && m.dashboard.ExpectedWorkers > 0 {
 		clusterRate += fmt.Sprintf(" (%d/%d live)", m.dashboard.ReportingWorkers, m.dashboard.ExpectedWorkers)
 	}
-	metrics := fmt.Sprintf(
-		"ACTIVE %d   JOBS %d loaded   WORKERS %d/%d online   CLUSTER %s   RECOVERED %d",
-		m.dashboard.ActiveJobs,
-		len(m.dashboard.Jobs),
-		m.dashboard.OnlineWorkers,
-		totalWorkers,
-		clusterRate,
-		m.dashboard.Recovered,
-	)
+	metrics := "ACTIVE —   JOBS —   WORKERS —   CLUSTER —   RECOVERED —"
+	if m.snapshot != nil {
+		metrics = fmt.Sprintf(
+			"ACTIVE %d   JOBS %d loaded   WORKERS %d/%d online   CLUSTER %s   RECOVERED %d",
+			m.dashboard.ActiveJobs,
+			len(m.dashboard.Jobs),
+			m.dashboard.OnlineWorkers,
+			totalWorkers,
+			clusterRate,
+			m.dashboard.Recovered,
+		)
+		if m.lastError != "" || m.authoritativeSnapshotPending() {
+			metrics = "LAST " + metrics
+		}
+	}
 	lineTwo := crackTopFitLine(m.styles.normal.Render(metrics), innerWidth)
 
 	progressLabel := "GLOBAL "
-	progressText := " awaiting keyspace"
-	if m.dashboard.ProgressKnown {
+	progressText := " awaiting first snapshot"
+	progressKnown := m.snapshot != nil && m.lastError == "" && !m.authoritativeSnapshotPending() && m.dashboard.ProgressKnown
+	if m.lastError != "" {
+		progressText = " current data unavailable"
+	} else if m.authoritativeSnapshotPending() {
+		progressText = " task data syncing"
+	} else if progressKnown {
 		progressText = fmt.Sprintf(" %5.1f%%", m.dashboard.Progress*100)
-	} else if m.dashboard.ActiveJobs == 0 {
+	} else if m.snapshot != nil && m.dashboard.ActiveJobs == 0 {
 		progressText = " no active jobs"
-	} else {
+	} else if m.snapshot != nil {
+		progressText = " awaiting keyspace"
 		if m.dashboard.ProgressJobs > 0 {
 			progressText = fmt.Sprintf(" %d/%d jobs ready", m.dashboard.ProgressJobs, m.dashboard.ActiveJobs)
 		}
 	}
 	progressWidth := max(6, innerWidth-ansi.StringWidth(progressLabel)-ansi.StringWidth(progressText))
 	bar := m.renderUnknownProgress(progressWidth)
-	if m.dashboard.ProgressKnown {
+	if progressKnown {
 		bar = m.renderProgressBar(progressWidth, m.dashboard.Progress, clientpb.CrackJobStatus_IN_PROGRESS)
 	}
 	lineThree := crackTopFitLine(m.styles.heading.Render(progressLabel)+bar+m.styles.muted.Render(progressText), innerWidth)
@@ -1304,6 +1352,11 @@ func (m *crackTopModel) renderJobsPane(width, height int) string {
 	capacity := max(1, (innerHeight-1)/2)
 	start, end := crackTopVisibleRange(len(jobs), m.jobCursor, capacity)
 	header := fmt.Sprintf("JOBS  %d shown  •  all active + recent history  •  filter: %s", len(jobs), m.filter)
+	if m.authoritativeSnapshotPending() {
+		header = fmt.Sprintf("JOBS  %d shown  •  TASK DATA LAST/SYNCING  •  filter: %s", len(jobs), m.filter)
+	} else if m.lastError != "" && m.snapshot != nil {
+		header = fmt.Sprintf("JOBS  %d shown  •  LAST SNAPSHOT  •  filter: %s", len(jobs), m.filter)
+	}
 	if len(jobs) > capacity {
 		header += fmt.Sprintf("  •  %d-%d", start+1, end)
 	}
@@ -1313,7 +1366,7 @@ func (m *crackTopModel) renderJobsPane(width, height int) string {
 	}
 	for index := start; index < end; index++ {
 		row := jobs[index]
-		selected := row.ID == m.selectedJobID
+		selected := row.ID == m.selectedJobID && m.focus == crackTopFocusJobs
 		cursor := "  "
 		idStyle := m.styles.primary
 		if selected {
@@ -1374,6 +1427,11 @@ func (m *crackTopModel) renderWorkersPane(width, height int) string {
 	capacity := max(1, (innerHeight-1)/2)
 	start, end := crackTopVisibleRange(len(workers), m.workerCursor, capacity)
 	header := fmt.Sprintf("CRACKSTATIONS  %d online", m.dashboard.OnlineWorkers)
+	if m.authoritativeSnapshotPending() {
+		header += "  •  LAST SNAPSHOT/SYNCING"
+	} else if m.lastError != "" && m.snapshot != nil {
+		header += "  •  LAST SNAPSHOT"
+	}
 	if len(workers) > capacity {
 		header += fmt.Sprintf("  •  %d-%d/%d", start+1, end, len(workers))
 	}
@@ -1385,7 +1443,7 @@ func (m *crackTopModel) renderWorkersPane(width, height int) string {
 		worker := workers[index]
 		cursor := "  "
 		identityStyle := m.styles.primary
-		if worker.ID == m.selectedWorkerID {
+		if worker.ID == m.selectedWorkerID && m.focus == crackTopFocusWorkers {
 			cursor = m.styles.selected.Render("› ")
 			identityStyle = m.styles.selected
 		}
@@ -1409,6 +1467,13 @@ func (m *crackTopModel) renderWorkersPane(width, height int) string {
 		lines = append(lines, crackTopFitLine(first, innerWidth))
 
 		details := make([]string, 0, 5)
+		if !worker.LastSeen.IsZero() {
+			seen := "telemetry "
+			if worker.TelemetryLive {
+				seen = "seen "
+			}
+			details = append(details, seen+worker.LastSeen.Local().Format("15:04:05"))
+		}
 		if worker.JobID != "" {
 			details = append(details, "job "+crackTopShortID(worker.JobID))
 		} else if worker.Online && strings.EqualFold(state, "IDLE") {
@@ -1417,20 +1482,13 @@ func (m *crackTopModel) renderWorkersPane(width, height int) string {
 			details = append(details, "status unavailable")
 		}
 		if worker.Devices > 0 {
-			details = append(details, fmt.Sprintf("%d devices", worker.Devices))
+			details = append(details, fmt.Sprintf("%d dev", worker.Devices))
 		}
 		if worker.HasTemp {
-			details = append(details, fmt.Sprintf("%.0f C", worker.Temperature))
+			details = append(details, fmt.Sprintf("%.0f°C", worker.Temperature))
 		}
 		if worker.HasUtil {
 			details = append(details, fmt.Sprintf("%.0f%% util", worker.Utilization))
-		}
-		if !worker.LastSeen.IsZero() {
-			seen := "last telemetry "
-			if worker.TelemetryLive {
-				seen = "seen "
-			}
-			details = append(details, seen+worker.LastSeen.Local().Format("15:04:05"))
 		}
 		if len(details) == 0 {
 			details = append(details, "no live device telemetry")
@@ -1555,7 +1613,7 @@ func crackTopPanel(width, height int, border color.Color, content string) string
 		Width(width).
 		Height(height).
 		Padding(0, 1).
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(border).
 		Render(strings.Join(lines, "\n"))
 }
