@@ -128,6 +128,7 @@ service SliverRPC {
   rpc Crack(clientpb.CrackCommand) returns (clientpb.CrackResponse);
   rpc CrackJobs(commonpb.Empty) returns (clientpb.CrackJobs);
   rpc CrackJobByID(clientpb.CrackJob) returns (clientpb.CrackJob);
+  rpc CrackTop(commonpb.Empty) returns (clientpb.CrackTopSnapshot);
   rpc CrackstationRegister(clientpb.Crackstation)
       returns (stream clientpb.Event);
   rpc CrackstationTrigger(clientpb.Event) returns (commonpb.Empty);
@@ -308,4 +309,8 @@ service SliverRPC {
 
   // *** Events ***
   rpc Events(commonpb.Empty) returns (stream clientpb.Event);
+
+  // *** Cached Crackstation Benchmarks ***
+  rpc CrackstationBenchmarks(commonpb.Empty)
+      returns (clientpb.CrackBenchmarkSnapshots);
 }

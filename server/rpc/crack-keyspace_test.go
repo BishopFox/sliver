@@ -526,6 +526,9 @@ func TestStandaloneCrackKeyspaceResultValidation(t *testing.T) {
 	if _, err := standaloneCrackKeyspaceResult(&clientpb.CrackTask{Keyspace: "01"}); err == nil {
 		t.Fatal("noncanonical keyspace update was accepted")
 	}
+	if _, err := standaloneCrackKeyspaceResult(&clientpb.CrackTask{Keyspace: " 1 "}); err == nil {
+		t.Fatal("whitespace-padded keyspace update was accepted")
+	}
 	if err := validateStandaloneCrackTaskUpdate(&clientpb.CrackTask{RecoveredJSON: []byte("[]")}); err == nil {
 		t.Fatal("recovered results were accepted for a keyspace-only task")
 	}

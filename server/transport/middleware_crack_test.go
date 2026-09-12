@@ -9,6 +9,12 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/db/models"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -203,6 +209,66 @@ func TestSanitizeAuditRequestRemovesCrackCommandAndChunkContentsWithoutMutation(
 	}
 }
 
+func TestCrackstationBenchmarksRequiresFullOperatorPermission(t *testing.T) {
+	interceptor := permissionsUnaryServerInterceptor()
+	info := &grpc.UnaryServerInfo{FullMethod: rpcpb.SliverRPC_CrackstationBenchmarks_FullMethodName}
+	handlerCalled := false
+	handler := func(context.Context, interface{}) (interface{}, error) {
+		handlerCalled = true
+		return &commonpb.Empty{}, nil
+	}
+
+	crackstationCtx := context.WithValue(context.Background(), Operator, &models.Operator{
+		Name: "restricted-crackstation", PermissionCrackstation: true,
+	})
+	if _, err := interceptor(crackstationCtx, &commonpb.Empty{}, info, handler); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("restricted crackstation benchmark-list error = %v, want PermissionDenied", err)
+	}
+	if handlerCalled {
+		t.Fatal("restricted crackstation benchmark-list request reached handler")
+	}
+
+	operatorCtx := context.WithValue(context.Background(), Operator, &models.Operator{
+		Name: "full-operator", PermissionAll: true,
+	})
+	if _, err := interceptor(operatorCtx, &commonpb.Empty{}, info, handler); err != nil {
+		t.Fatalf("full operator benchmark-list error = %v", err)
+	}
+	if !handlerCalled {
+		t.Fatal("full operator benchmark-list request did not reach handler")
+	}
+}
+
+func TestCrackTopRequiresFullOperatorPermission(t *testing.T) {
+	interceptor := permissionsUnaryServerInterceptor()
+	info := &grpc.UnaryServerInfo{FullMethod: rpcpb.SliverRPC_CrackTop_FullMethodName}
+	handlerCalled := false
+	handler := func(context.Context, interface{}) (interface{}, error) {
+		handlerCalled = true
+		return &clientpb.CrackTopSnapshot{}, nil
+	}
+
+	crackstationCtx := context.WithValue(context.Background(), Operator, &models.Operator{
+		Name: "restricted-crackstation", PermissionCrackstation: true,
+	})
+	if _, err := interceptor(crackstationCtx, &commonpb.Empty{}, info, handler); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("restricted crackstation crack-top error = %v, want PermissionDenied", err)
+	}
+	if handlerCalled {
+		t.Fatal("restricted crackstation crack-top request reached handler")
+	}
+
+	operatorCtx := context.WithValue(context.Background(), Operator, &models.Operator{
+		Name: "full-operator", PermissionAll: true,
+	})
+	if _, err := interceptor(operatorCtx, &commonpb.Empty{}, info, handler); err != nil {
+		t.Fatalf("full operator crack-top error = %v", err)
+	}
+	if !handlerCalled {
+		t.Fatal("full operator crack-top request did not reach handler")
+	}
+}
+
 func TestCrackPayloadLoggingDecidersAlwaysSuppressSensitiveRPCs(t *testing.T) {
 	originalUnary := serverConfig.Logs.GRPCUnaryPayloads
 	originalStream := serverConfig.Logs.GRPCStreamPayloads
@@ -215,6 +281,7 @@ func TestCrackPayloadLoggingDecidersAlwaysSuppressSensitiveRPCs(t *testing.T) {
 	for _, method := range []string{
 		"/rpcpb.SliverRPC/Crack",
 		"/rpcpb.SliverRPC/CrackJobByID",
+		"/rpcpb.SliverRPC/CrackTop",
 		"/rpcpb.SliverRPC/CrackTaskByID",
 		"/rpcpb.SliverRPC/CrackTaskUpdate",
 		"/rpcpb.SliverRPC/CrackstationTrigger",
@@ -231,6 +298,7 @@ func TestCrackPayloadLoggingDecidersAlwaysSuppressSensitiveRPCs(t *testing.T) {
 	for _, method := range []string{
 		"/rpcpb.SliverRPC/CrackJobs",
 		"/rpcpb.SliverRPC/CrackFilesList",
+		"/rpcpb.SliverRPC/CrackstationBenchmarks",
 		"/rpcpb.SliverRPC/Crackstations",
 	} {
 		if !deciderUnary(context.Background(), method, nil) {

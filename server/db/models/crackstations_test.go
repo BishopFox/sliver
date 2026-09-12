@@ -266,6 +266,62 @@ func TestCrackCommandSQLiteRepeatedFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCrackTopPollingIndexes(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "crack-top-indexes.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open SQLite database: %v", err)
+	}
+	sqlDB, err := database.DB()
+	if err != nil {
+		t.Fatalf("get database connection: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	if err := database.AutoMigrate(&CrackJob{}, &CrackTask{}, &CrackCommand{}); err != nil {
+		t.Fatalf("migrate crack top models: %v", err)
+	}
+
+	type indexColumn struct {
+		Seq  int
+		Name string
+	}
+	var jobColumns []indexColumn
+	if err := database.Raw("PRAGMA index_info('idx_crack_jobs_top')").Scan(&jobColumns).Error; err != nil {
+		t.Fatalf("inspect crack job polling index: %v", err)
+	}
+	jobIndexNames := make([]string, 0, len(jobColumns))
+	for _, column := range jobColumns {
+		jobIndexNames = append(jobIndexNames, column.Name)
+	}
+	if want := []string{"completed_at", "created_at"}; !reflect.DeepEqual(jobIndexNames, want) {
+		t.Fatalf("crack job polling index columns = %#v, want %#v", jobIndexNames, want)
+	}
+
+	var taskColumns []indexColumn
+	if err := database.Raw("PRAGMA index_info('idx_crack_tasks_job')").Scan(&taskColumns).Error; err != nil {
+		t.Fatalf("inspect crack task polling index: %v", err)
+	}
+	taskIndexNames := make([]string, 0, len(taskColumns))
+	for _, column := range taskColumns {
+		taskIndexNames = append(taskIndexNames, column.Name)
+	}
+	if want := []string{"crack_job_id", "state"}; !reflect.DeepEqual(taskIndexNames, want) {
+		t.Fatalf("crack task polling index columns = %#v, want %#v", taskIndexNames, want)
+	}
+
+	var commandColumns []indexColumn
+	if err := database.Raw("PRAGMA index_info('idx_crack_commands_job')").Scan(&commandColumns).Error; err != nil {
+		t.Fatalf("inspect crack command polling index: %v", err)
+	}
+	commandIndexNames := make([]string, 0, len(commandColumns))
+	for _, column := range commandColumns {
+		commandIndexNames = append(commandIndexNames, column.Name)
+	}
+	if want := []string{"crack_job_id"}; !reflect.DeepEqual(commandIndexNames, want) {
+		t.Fatalf("crack command polling index columns = %#v, want %#v", commandIndexNames, want)
+	}
+}
+
 //nolint:gocyclo // The migration test compares every legacy scalar slice with its restored representation.
 func TestCrackCommandLegacyScalarSlicesSurviveMigration(t *testing.T) {
 	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "legacy-crack-command.db")), &gorm.Config{})

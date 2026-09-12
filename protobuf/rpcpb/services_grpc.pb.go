@@ -92,6 +92,7 @@ const (
 	SliverRPC_Crack_FullMethodName                            = "/rpcpb.SliverRPC/Crack"
 	SliverRPC_CrackJobs_FullMethodName                        = "/rpcpb.SliverRPC/CrackJobs"
 	SliverRPC_CrackJobByID_FullMethodName                     = "/rpcpb.SliverRPC/CrackJobByID"
+	SliverRPC_CrackTop_FullMethodName                         = "/rpcpb.SliverRPC/CrackTop"
 	SliverRPC_CrackstationRegister_FullMethodName             = "/rpcpb.SliverRPC/CrackstationRegister"
 	SliverRPC_CrackstationTrigger_FullMethodName              = "/rpcpb.SliverRPC/CrackstationTrigger"
 	SliverRPC_CrackstationBenchmark_FullMethodName            = "/rpcpb.SliverRPC/CrackstationBenchmark"
@@ -217,6 +218,7 @@ const (
 	SliverRPC_CloseTunnel_FullMethodName                      = "/rpcpb.SliverRPC/CloseTunnel"
 	SliverRPC_TunnelData_FullMethodName                       = "/rpcpb.SliverRPC/TunnelData"
 	SliverRPC_Events_FullMethodName                           = "/rpcpb.SliverRPC/Events"
+	SliverRPC_CrackstationBenchmarks_FullMethodName           = "/rpcpb.SliverRPC/CrackstationBenchmarks"
 )
 
 // SliverRPCClient is the client API for SliverRPC service.
@@ -312,6 +314,7 @@ type SliverRPCClient interface {
 	Crack(ctx context.Context, in *clientpb.CrackCommand, opts ...grpc.CallOption) (*clientpb.CrackResponse, error)
 	CrackJobs(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackJobs, error)
 	CrackJobByID(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error)
+	CrackTop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackTopSnapshot, error)
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (grpc.ServerStreamingClient[clientpb.Event], error)
 	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	CrackstationBenchmark(ctx context.Context, in *clientpb.CrackBenchmark, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -449,6 +452,8 @@ type SliverRPCClient interface {
 	TunnelData(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[sliverpb.TunnelData, sliverpb.TunnelData], error)
 	// *** Events ***
 	Events(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[clientpb.Event], error)
+	// *** Cached Crackstation Benchmarks ***
+	CrackstationBenchmarks(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackBenchmarkSnapshots, error)
 }
 
 type sliverRPCClient struct {
@@ -1165,6 +1170,16 @@ func (c *sliverRPCClient) CrackJobByID(ctx context.Context, in *clientpb.CrackJo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(clientpb.CrackJob)
 	err := c.cc.Invoke(ctx, SliverRPC_CrackJobByID_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackTop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackTopSnapshot, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.CrackTopSnapshot)
+	err := c.cc.Invoke(ctx, SliverRPC_CrackTop_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2445,6 +2460,16 @@ func (c *sliverRPCClient) Events(ctx context.Context, in *commonpb.Empty, opts .
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SliverRPC_EventsClient = grpc.ServerStreamingClient[clientpb.Event]
 
+func (c *sliverRPCClient) CrackstationBenchmarks(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackBenchmarkSnapshots, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.CrackBenchmarkSnapshots)
+	err := c.cc.Invoke(ctx, SliverRPC_CrackstationBenchmarks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SliverRPCServer is the server API for SliverRPC service.
 // All implementations must embed UnimplementedSliverRPCServer
 // for forward compatibility.
@@ -2538,6 +2563,7 @@ type SliverRPCServer interface {
 	Crack(context.Context, *clientpb.CrackCommand) (*clientpb.CrackResponse, error)
 	CrackJobs(context.Context, *commonpb.Empty) (*clientpb.CrackJobs, error)
 	CrackJobByID(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error)
+	CrackTop(context.Context, *commonpb.Empty) (*clientpb.CrackTopSnapshot, error)
 	CrackstationRegister(*clientpb.Crackstation, grpc.ServerStreamingServer[clientpb.Event]) error
 	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	CrackstationBenchmark(context.Context, *clientpb.CrackBenchmark) (*commonpb.Empty, error)
@@ -2675,6 +2701,8 @@ type SliverRPCServer interface {
 	TunnelData(grpc.BidiStreamingServer[sliverpb.TunnelData, sliverpb.TunnelData]) error
 	// *** Events ***
 	Events(*commonpb.Empty, grpc.ServerStreamingServer[clientpb.Event]) error
+	// *** Cached Crackstation Benchmarks ***
+	CrackstationBenchmarks(context.Context, *commonpb.Empty) (*clientpb.CrackBenchmarkSnapshots, error)
 	mustEmbedUnimplementedSliverRPCServer()
 }
 
@@ -2894,6 +2922,9 @@ func (UnimplementedSliverRPCServer) CrackJobs(context.Context, *commonpb.Empty) 
 }
 func (UnimplementedSliverRPCServer) CrackJobByID(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error) {
 	return nil, status.Error(codes.Unimplemented, "method CrackJobByID not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackTop(context.Context, *commonpb.Empty) (*clientpb.CrackTopSnapshot, error) {
+	return nil, status.Error(codes.Unimplemented, "method CrackTop not implemented")
 }
 func (UnimplementedSliverRPCServer) CrackstationRegister(*clientpb.Crackstation, grpc.ServerStreamingServer[clientpb.Event]) error {
 	return status.Error(codes.Unimplemented, "method CrackstationRegister not implemented")
@@ -3269,6 +3300,9 @@ func (UnimplementedSliverRPCServer) TunnelData(grpc.BidiStreamingServer[sliverpb
 }
 func (UnimplementedSliverRPCServer) Events(*commonpb.Empty, grpc.ServerStreamingServer[clientpb.Event]) error {
 	return status.Error(codes.Unimplemented, "method Events not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackstationBenchmarks(context.Context, *commonpb.Empty) (*clientpb.CrackBenchmarkSnapshots, error) {
+	return nil, status.Error(codes.Unimplemented, "method CrackstationBenchmarks not implemented")
 }
 func (UnimplementedSliverRPCServer) mustEmbedUnimplementedSliverRPCServer() {}
 func (UnimplementedSliverRPCServer) testEmbeddedByValue()                   {}
@@ -4529,6 +4563,24 @@ func _SliverRPC_CrackJobByID_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).CrackJobByID(ctx, req.(*clientpb.CrackJob))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackTop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackTop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_CrackTop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackTop(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6747,6 +6799,24 @@ func _SliverRPC_Events_Handler(srv interface{}, stream grpc.ServerStream) error 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SliverRPC_EventsServer = grpc.ServerStreamingServer[clientpb.Event]
 
+func _SliverRPC_CrackstationBenchmarks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackstationBenchmarks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_CrackstationBenchmarks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackstationBenchmarks(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SliverRPC_ServiceDesc is the grpc.ServiceDesc for SliverRPC service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -7025,6 +7095,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CrackJobByID",
 			Handler:    _SliverRPC_CrackJobByID_Handler,
+		},
+		{
+			MethodName: "CrackTop",
+			Handler:    _SliverRPC_CrackTop_Handler,
 		},
 		{
 			MethodName: "CrackstationTrigger",
@@ -7509,6 +7583,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseTunnel",
 			Handler:    _SliverRPC_CloseTunnel_Handler,
+		},
+		{
+			MethodName: "CrackstationBenchmarks",
+			Handler:    _SliverRPC_CrackstationBenchmarks_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

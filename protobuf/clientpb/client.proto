@@ -1994,6 +1994,8 @@ message CrackCommand {
   bool IncludeCrackedCredentials = 172;
   // Optional exact crackstation HostUUID or name for synchronous query modes.
   string Crackstation = 173;
+  // CrackBenchmark Event.Data control only; this is not Hashcat's --force option.
+  bool IgnoreLocalCache = 174;
 }
 
 message CrackJob {
@@ -2013,6 +2015,77 @@ message CrackJob {
 }
 
 message CrackJobs { repeated CrackJob Jobs = 1; }
+
+// CrackTopDevice is a parsed, target-free subset of one Hashcat device status.
+message CrackTopDevice {
+  string ID = 1;
+  uint64 Speed = 2;
+  bool SpeedAvailable = 3;
+  double Temperature = 4;
+  bool TemperatureAvailable = 5;
+  double Utilization = 6;
+  bool UtilizationAvailable = 7;
+}
+
+// CrackTopTask contains only task scheduling metadata and parsed telemetry.
+message CrackTopTask {
+  string ID = 1;
+  string HostUUID = 2;
+  int64 CreatedAt = 3;
+  int64 StartedAt = 4;
+  int64 CompletedAt = 5;
+  CrackTaskKind Kind = 6;
+  CrackTaskState State = 7;
+  uint32 Attempt = 8;
+  int64 LeaseExpiresAt = 9;
+  int64 UpdatedAt = 10;
+  int64 LastHeartbeatAt = 11;
+  uint64 ShardSkip = 12;
+  uint64 ShardLimit = 13;
+  string ProgressCurrent = 14;
+  string ProgressTotal = 15;
+  repeated CrackTopDevice Devices = 16;
+  bool StatusAvailable = 17;
+  bool StatusParseError = 18;
+  // ProgressExact is true only when ProgressCurrent/ProgressTotal are an
+  // exact shard-local fraction. Hash rates and device telemetry remain usable
+  // when progress semantics are unknown.
+  bool ProgressExact = 19;
+}
+
+// CrackTopJob is the lean job summary used by the full-screen dashboard.
+message CrackTopJob {
+  string ID = 1;
+  string CreatedAt = 2;
+  string CompletedAt = 3;
+  CrackJobStatus Status = 4;
+  int64 UpdatedAt = 5;
+  uint64 ResultCount = 6;
+  CrackAttackMode AttackMode = 7;
+  HashType HashType = 8;
+  optional uint32 HashMode = 9;
+  repeated CrackTopTask Tasks = 10;
+}
+
+// CrackTopStation is a lean view of one currently connected crackstation.
+message CrackTopStation {
+  string ID = 1;
+  string Name = 2;
+  string HostUUID = 3;
+  States State = 4;
+  string CurrentCrackJobID = 5;
+  bool IsSyncing = 6;
+  bool StatusAvailable = 7;
+}
+
+// CrackTopSnapshot is a point-in-time, operator-facing view of distributed
+// cracking activity. ObservedAt is a Unix timestamp recorded by the server
+// after assembling the snapshot.
+message CrackTopSnapshot {
+  repeated CrackTopJob Jobs = 1;
+  repeated CrackTopStation Crackstations = 2;
+  int64 ObservedAt = 3;
+}
 
 message CrackResult {
   string ID = 1;
@@ -2279,4 +2352,21 @@ message CrackQueryResult {
   string HashcatVersion = 4;
   string Value = 5;
   string Stderr = 6;
+}
+
+message CrackBenchmarkSnapshot {
+  string Name = 1;
+  string HostUUID = 2;
+  string OperatorName = 3;
+  string CurrentHashcatVersion = 4;
+  string BenchmarkHashcatVersion = 5;
+  uint32 BenchmarkSchemaVersion = 6;
+  int64 BenchmarkedAt = 7;
+  bool Online = 8;
+  bool Fresh = 9;
+  map<int32, uint64> Benchmarks = 10;
+}
+
+message CrackBenchmarkSnapshots {
+  repeated CrackBenchmarkSnapshot Snapshots = 1;
 }

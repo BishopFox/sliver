@@ -861,6 +861,9 @@ func standaloneCrackQueryValue(mode clientpb.CrackQueryMode, req *clientpb.Crack
 	switch mode {
 	case clientpb.CrackQueryMode_CRACK_QUERY_KEYSPACE:
 		value := strings.TrimSpace(req.Keyspace)
+		if req.Keyspace != "" && value != req.Keyspace {
+			return "", errors.New("invalid keyspace result")
+		}
 		if value == "" {
 			value = stdout
 		} else if stdout != "" && stdout != value {

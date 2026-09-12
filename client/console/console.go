@@ -69,6 +69,57 @@ type (
 	BeaconTaskCallback func(*clientpb.BeaconTask)
 )
 
+type consoleEventListener struct {
+	events  chan *clientpb.Event
+	done    chan struct{}
+	mu      sync.Mutex
+	closed  bool
+	senders sync.WaitGroup
+}
+
+func newConsoleEventListener() *consoleEventListener {
+	return &consoleEventListener{
+		events: make(chan *clientpb.Event, 100),
+		done:   make(chan struct{}),
+	}
+}
+
+func (listener *consoleEventListener) send(event *clientpb.Event) {
+	if listener == nil {
+		return
+	}
+	listener.mu.Lock()
+	if listener.closed {
+		listener.mu.Unlock()
+		return
+	}
+	listener.senders.Add(1)
+	listener.mu.Unlock()
+	defer listener.senders.Done()
+
+	select {
+	case listener.events <- event:
+	case <-listener.done:
+	}
+}
+
+func (listener *consoleEventListener) close() {
+	if listener == nil {
+		return
+	}
+	listener.mu.Lock()
+	if listener.closed {
+		listener.mu.Unlock()
+		return
+	}
+	listener.closed = true
+	close(listener.done)
+	listener.mu.Unlock()
+
+	listener.senders.Wait()
+	close(listener.events)
+}
+
 type SliverClient struct {
 	App                      *console.Console
 	Rpc                      rpcpb.SliverRPCClient
@@ -461,10 +512,10 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 
 // CreateEventListener - creates a new event listener and returns its ID.
 func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) {
-	listener := make(chan *clientpb.Event, 100)
+	listener := newConsoleEventListener()
 	listenerID := uuid.NewV4()
 	con.EventListeners.Store(listenerID.String(), listener)
-	return listenerID.String(), listener
+	return listenerID.String(), listener.events
 }
 
 // SuppressEventNotifications redirects console event messages to local listeners instead of stdout.
@@ -531,14 +582,13 @@ func (con *SliverClient) emitConsoleNotification(level string, emphasized bool, 
 func (con *SliverClient) RemoveEventListener(listenerID string) {
 	value, ok := con.EventListeners.LoadAndDelete(listenerID)
 	if ok {
-		close(value.(chan *clientpb.Event))
+		value.(*consoleEventListener).close()
 	}
 }
 
 func (con *SliverClient) triggerEventListeners(event *clientpb.Event) {
 	con.EventListeners.Range(func(key, value interface{}) bool {
-		listener := value.(chan *clientpb.Event)
-		listener <- event // Do not block while sending the event to the listener
+		value.(*consoleEventListener).send(event)
 		return true
 	})
 }
