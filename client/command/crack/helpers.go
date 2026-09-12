@@ -22,8 +22,28 @@ type crackJobCompletionEntry struct {
 //
 //nolint:revive // Keep the established exported completer name for compatibility.
 func CrackJobIDCompleter(con *console.SliverClient) carapace.Action {
+	return crackJobIDCompleter(con, nil)
+}
+
+func crackTerminalJobIDCompleter(con *console.SliverClient) carapace.Action {
+	return crackJobIDCompleter(con, crackJobTerminal)
+}
+
+func crackJobPausable(job *clientpb.CrackJob) bool {
+	return job != nil && job.GetStatus() == clientpb.CrackJobStatus_IN_PROGRESS
+}
+
+func crackJobResumable(job *clientpb.CrackJob) bool {
+	return job != nil && job.GetStatus() == clientpb.CrackJobStatus_PAUSED
+}
+
+func crackJobCancellable(job *clientpb.CrackJob) bool {
+	return crackJobPausable(job) || crackJobResumable(job)
+}
+
+func crackJobIDCompleter(con *console.SliverClient, include func(*clientpb.CrackJob) bool) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		entries, err := crackJobCompletionEntries(con)
+		entries, err := crackJobCompletionEntriesFiltered(con, include)
 		if err != nil {
 			return carapace.ActionMessage("failed to fetch crack jobs: %s", err.Error())
 		}
@@ -37,6 +57,14 @@ func CrackJobIDCompleter(con *console.SliverClient) carapace.Action {
 }
 
 func registerCrackJobIDCompletion(cmd *cobra.Command, con *console.SliverClient) {
+	registerCrackJobIDCompletionFiltered(cmd, con, nil)
+}
+
+func registerCrackTerminalJobIDCompletion(cmd *cobra.Command, con *console.SliverClient) {
+	registerCrackJobIDCompletionFiltered(cmd, con, crackJobTerminal)
+}
+
+func registerCrackJobIDCompletionFiltered(cmd *cobra.Command, con *console.SliverClient, include func(*clientpb.CrackJob) bool) {
 	if cmd == nil || cmd.ValidArgsFunction != nil {
 		return
 	}
@@ -46,7 +74,7 @@ func registerCrackJobIDCompletion(cmd *cobra.Command, con *console.SliverClient)
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
 
-		entries, err := crackJobCompletionEntries(con)
+		entries, err := crackJobCompletionEntriesFiltered(con, include)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
@@ -61,6 +89,10 @@ func registerCrackJobIDCompletion(cmd *cobra.Command, con *console.SliverClient)
 }
 
 func crackJobCompletionEntries(con *console.SliverClient) ([]crackJobCompletionEntry, error) {
+	return crackJobCompletionEntriesFiltered(con, nil)
+}
+
+func crackJobCompletionEntriesFiltered(con *console.SliverClient, include func(*clientpb.CrackJob) bool) ([]crackJobCompletionEntry, error) {
 	if con == nil || con.Rpc == nil {
 		return nil, nil
 	}
@@ -74,7 +106,7 @@ func crackJobCompletionEntries(con *console.SliverClient) ([]crackJobCompletionE
 
 	entries := make([]crackJobCompletionEntry, 0, len(jobs.GetJobs()))
 	for _, job := range jobs.GetJobs() {
-		if job == nil || strings.TrimSpace(job.GetID()) == "" {
+		if job == nil || strings.TrimSpace(job.GetID()) == "" || (include != nil && !include(job)) {
 			continue
 		}
 		entries = append(entries, crackJobCompletionEntry{

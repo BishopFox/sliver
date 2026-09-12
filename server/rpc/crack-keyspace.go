@@ -528,6 +528,11 @@ func selectableCrackstationsWithCapabilityLocked(ctx context.Context, selector s
 			busyHosts[entry.task.HostUUID] = struct{}{}
 		}
 	}
+	for hostUUID, drain := range crackstationDrains {
+		if drain != nil && drain.station == core.GetCrackstation(hostUUID) {
+			busyHosts[hostUUID] = struct{}{}
+		}
+	}
 
 	snapshots := core.AllCrackstations()
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].HostUUID < snapshots[j].HostUUID })

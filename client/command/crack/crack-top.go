@@ -49,6 +49,21 @@ var (
 )
 
 type crackTopFetchFunc func(context.Context) (*crackTopSnapshot, error)
+type crackTopJobActionFunc func(context.Context, string) (*clientpb.CrackJob, error)
+
+type crackTopJobAction string
+
+const (
+	crackTopJobActionDelete crackTopJobAction = "delete"
+	crackTopJobActionPause  crackTopJobAction = "pause"
+	crackTopJobActionResume crackTopJobAction = "resume"
+	crackTopJobActionCancel crackTopJobAction = "cancel"
+)
+
+type crackTopPendingJobAction struct {
+	action crackTopJobAction
+	jobID  string
+}
 
 type crackTopSnapshotMsg struct {
 	snapshot *crackTopSnapshot
@@ -75,6 +90,21 @@ type crackTopToastExpiredMsg struct {
 	generation uint64
 }
 
+type crackTopJobActionCompletedMsg struct {
+	action    crackTopJobAction
+	jobID     string
+	status    clientpb.CrackJobStatus
+	updatedAt int64
+	hasStatus bool
+	err       error
+}
+
+type crackTopJobStatusOverride struct {
+	status                       clientpb.CrackJobStatus
+	updatedAt                    int64
+	equalVersionDisagreementSeen bool
+}
+
 type crackTopWindowPollMsg struct {
 	width  int
 	height int
@@ -93,6 +123,7 @@ const (
 const (
 	crackTopFilterAll       crackTopFilter = "all"
 	crackTopFilterActive    crackTopFilter = "active"
+	crackTopFilterPaused    crackTopFilter = "paused"
 	crackTopFilterCompleted crackTopFilter = "completed"
 	crackTopFilterFailed    crackTopFilter = "failed"
 )
@@ -109,6 +140,7 @@ type crackTopStyles struct {
 	danger     lipgloss.Style
 	selected   lipgloss.Style
 	filterCard lipgloss.Style
+	actionCard lipgloss.Style
 }
 
 type crackTopModel struct {
@@ -138,6 +170,11 @@ type crackTopModel struct {
 	filter              crackTopFilter
 	filterDraft         crackTopFilter
 	filterForm          *huh.Form
+	jobActions          map[crackTopJobAction]crackTopJobActionFunc
+	pendingJobAction    crackTopPendingJobAction
+	runningJobAction    crackTopPendingJobAction
+	deletedJobIDs       map[string]struct{}
+	jobStatusOverrides  map[string]crackTopJobStatusOverride
 	toast               string
 	toastLevel          string
 	toastGeneration     uint64
@@ -162,7 +199,10 @@ func CrackTopCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 		return
 	}
 
-	timeoutSeconds, _ := cmd.Flags().GetInt64("timeout")
+	timeoutSeconds, timeoutErr := cmd.Flags().GetInt64("timeout")
+	if timeoutErr != nil {
+		timeoutSeconds, _ = cmd.InheritedFlags().GetInt64("timeout")
+	}
 	perCallTimeout := time.Duration(0)
 	if timeoutSeconds > 0 {
 		perCallTimeout = time.Duration(timeoutSeconds) * time.Second
@@ -179,6 +219,29 @@ func CrackTopCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 		return loadCrackTopSnapshot(fetchCtx, con.Rpc, perCallTimeout, time.Time{})
 	}
 	model := newCrackTopModel(ctx, fetch, listener, pollInterval)
+	model.jobActions = map[crackTopJobAction]crackTopJobActionFunc{
+		crackTopJobActionDelete: func(actionCtx context.Context, jobID string) (*clientpb.CrackJob, error) {
+			actionCtx, actionCancel := crackTopCallContext(actionCtx, perCallTimeout)
+			defer actionCancel()
+			_, err := con.Rpc.CrackJobDelete(actionCtx, &clientpb.CrackJob{ID: jobID})
+			return nil, err
+		},
+		crackTopJobActionPause: func(actionCtx context.Context, jobID string) (*clientpb.CrackJob, error) {
+			actionCtx, actionCancel := crackTopCallContext(actionCtx, perCallTimeout)
+			defer actionCancel()
+			return con.Rpc.CrackJobPause(actionCtx, &clientpb.CrackJob{ID: jobID})
+		},
+		crackTopJobActionResume: func(actionCtx context.Context, jobID string) (*clientpb.CrackJob, error) {
+			actionCtx, actionCancel := crackTopCallContext(actionCtx, perCallTimeout)
+			defer actionCancel()
+			return con.Rpc.CrackJobResume(actionCtx, &clientpb.CrackJob{ID: jobID})
+		},
+		crackTopJobActionCancel: func(actionCtx context.Context, jobID string) (*clientpb.CrackJob, error) {
+			actionCtx, actionCancel := crackTopCallContext(actionCtx, perCallTimeout)
+			defer actionCancel()
+			return con.Rpc.CrackJobCancel(actionCtx, &clientpb.CrackJob{ID: jobID})
+		},
+	}
 	width, height := crackTopTerminalSize()
 	options := []tea.ProgramOption{
 		tea.WithContext(ctx),
@@ -197,6 +260,13 @@ func CrackTopCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 		!errors.Is(err, tea.ErrProgramKilled) {
 		con.PrintErrorf("Crack top TUI error: %s\n", err)
 	}
+}
+
+func crackTopCallContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout > 0 {
+		return context.WithTimeout(ctx, timeout)
+	}
+	return context.WithCancel(ctx)
 }
 
 func newCrackTopModel(ctx context.Context, fetch crackTopFetchFunc, listener <-chan *clientpb.Event, pollInterval time.Duration) *crackTopModel {
@@ -240,6 +310,9 @@ func newCrackTopStyles() crackTopStyles {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(clienttheme.Primary()).
 			Padding(1, 2),
+		actionCard: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			Padding(1, 2),
 	}
 }
 
@@ -260,6 +333,12 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = max(1, msg.Width)
 		m.height = max(1, msg.Height)
+		if (m.width < crackTopMinWidth || m.height < crackTopMinHeight) && m.pendingJobAction.jobID != "" {
+			// The compact-size warning replaces the entire dashboard, including
+			// confirmation modals. Never leave a hidden destructive prompt
+			// actionable while the operator cannot see it.
+			m.pendingJobAction = crackTopPendingJobAction{}
+		}
 		if m.filterForm != nil {
 			m.resizeFilterForm()
 			updated, command := m.filterForm.Update(msg)
@@ -283,6 +362,8 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case crackTopSnapshotMsg:
 		m.refreshing = false
 		if msg.snapshot != nil {
+			m.suppressDeletedJobs(msg.snapshot)
+			m.applyJobStatusOverrides(msg.snapshot)
 			m.snapshot = mergeCrackTopSnapshot(m.snapshot, msg.snapshot)
 			m.dashboard = buildCrackTopDashboard(m.snapshot)
 			m.normalizeJobSelection()
@@ -333,18 +414,29 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.startRefresh()
 
 	case crackTopToastMsg:
-		m.toast = crackTopWarningText(msg.message)
-		m.toastLevel = strings.ToLower(strings.TrimSpace(msg.level))
-		m.toastGeneration++
-		generation := m.toastGeneration
-		if m.toastCancel != nil {
-			m.toastCancel()
-		}
-		toastCtx, cancel := context.WithCancel(m.ctx)
-		m.toastCancel = cancel
 		return m, tea.Batch(
 			waitForCrackTopEventCmd(m.listener),
-			crackTopTimerCmd(toastCtx, crackTopToastDuration, crackTopToastExpiredMsg{generation: generation}),
+			m.showToast(msg.level, msg.message),
+		)
+
+	case crackTopJobActionCompletedMsg:
+		if msg.action != m.runningJobAction.action || msg.jobID != m.runningJobAction.jobID {
+			return m, nil
+		}
+		m.runningJobAction = crackTopPendingJobAction{}
+		if msg.err != nil {
+			return m, m.showToast("error", fmt.Sprintf("Failed to %s crack job %s: %s", msg.action, crackTopShortID(msg.jobID), msg.err))
+		}
+		if msg.action == crackTopJobActionDelete {
+			m.removeJob(msg.jobID)
+		} else if msg.hasStatus {
+			m.overrideJobStatus(msg.jobID, msg.status, msg.updatedAt)
+		} else {
+			return m, m.showToast("error", fmt.Sprintf("Failed to %s crack job %s: server returned no job state", msg.action, crackTopShortID(msg.jobID)))
+		}
+		return m, tea.Batch(
+			m.showToast("success", fmt.Sprintf("%s crack job %s", crackTopJobActionPastTense(msg.action), crackTopShortID(msg.jobID))),
+			m.requestRefresh(),
 		)
 
 	case crackTopToastExpiredMsg:
@@ -374,6 +466,15 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
+		}
+		if m.pendingJobAction.jobID != "" {
+			switch msg.String() {
+			case "y", "Y":
+				return m, m.confirmJobAction()
+			case "n", "N", "esc":
+				m.pendingJobAction = crackTopPendingJobAction{}
+			}
+			return m, nil
 		}
 		if m.filterForm != nil && msg.String() == "esc" {
 			m.filterForm = nil
@@ -424,6 +525,14 @@ func (m *crackTopModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case "f":
 		return m, m.openFilter()
+	case "d", "delete":
+		return m, m.openJobAction(crackTopJobActionDelete, true)
+	case "p":
+		return m, m.openJobAction(crackTopJobActionPause, true)
+	case "u":
+		return m, m.openJobAction(crackTopJobActionResume, false)
+	case "c":
+		return m, m.openJobAction(crackTopJobActionCancel, true)
 	case "r":
 		return m, m.requestRefresh()
 	}
@@ -469,6 +578,8 @@ func (m *crackTopModel) View() tea.View {
 	content := lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 	if m.filterForm != nil {
 		content = m.renderFilterModal(content, width, height)
+	} else if m.pendingJobAction.jobID != "" {
+		content = m.renderJobActionModal(content, width, height)
 	}
 	return crackTopView(content)
 }
@@ -541,6 +652,308 @@ func (m *crackTopModel) scheduleEventRefresh() tea.Cmd {
 	return crackTopTimerCmd(timerCtx, delay, crackTopEventRefreshMsg{generation: generation})
 }
 
+func (m *crackTopModel) showToast(level, message string) tea.Cmd {
+	m.toast = crackTopWarningText(message)
+	m.toastLevel = strings.ToLower(strings.TrimSpace(level))
+	m.toastGeneration++
+	generation := m.toastGeneration
+	if m.toastCancel != nil {
+		m.toastCancel()
+	}
+	toastCtx, cancel := context.WithCancel(m.ctx)
+	m.toastCancel = cancel
+	return crackTopTimerCmd(toastCtx, crackTopToastDuration, crackTopToastExpiredMsg{generation: generation})
+}
+
+func (m *crackTopModel) openJobAction(action crackTopJobAction, confirm bool) tea.Cmd {
+	if m.width < crackTopMinWidth || m.height < crackTopMinHeight {
+		// View renders only the compact-size warning at these dimensions, so a
+		// confirmation could not be shown safely.
+		return nil
+	}
+	if m.runningJobAction.jobID != "" {
+		return m.showToast("warning", fmt.Sprintf(
+			"Cannot %s another crack job while a %s operation is in progress for job %s",
+			action,
+			m.runningJobAction.action,
+			crackTopShortID(m.runningJobAction.jobID),
+		))
+	}
+	if m.focus != crackTopFocusJobs {
+		return m.showToast("warning", fmt.Sprintf("Select the jobs pane before trying to %s a crack job", action))
+	}
+	job, ok := m.selectedJob()
+	if !ok {
+		return m.showToast("warning", "No crack job is selected")
+	}
+	if warning := crackTopJobActionEligibilityWarning(action, job.Status); warning != "" {
+		return m.showToast("warning", warning)
+	}
+	if m.jobActions[action] == nil {
+		return m.showToast("error", fmt.Sprintf("Crack job %s is unavailable", action))
+	}
+	pending := crackTopPendingJobAction{action: action, jobID: job.ID}
+	if confirm {
+		m.pendingJobAction = pending
+		return nil
+	}
+	return m.startJobAction(pending)
+}
+
+func (m *crackTopModel) selectedJob() (crackTopJobRow, bool) {
+	for _, job := range m.filteredJobs() {
+		if job.ID == m.selectedJobID {
+			return job, true
+		}
+	}
+	return crackTopJobRow{}, false
+}
+
+func crackTopJobStatusDeletable(status clientpb.CrackJobStatus) bool {
+	switch status {
+	case clientpb.CrackJobStatus_COMPLETED, clientpb.CrackJobStatus_FAILED, clientpb.CrackJobStatus_CANCELLED:
+		return true
+	default:
+		return false
+	}
+}
+
+func crackTopJobActionEligibilityWarning(action crackTopJobAction, status clientpb.CrackJobStatus) string {
+	switch action {
+	case crackTopJobActionDelete:
+		if !crackTopJobStatusDeletable(status) {
+			return "Only completed, failed, or cancelled crack jobs can be deleted"
+		}
+	case crackTopJobActionPause:
+		if status != clientpb.CrackJobStatus_IN_PROGRESS {
+			return "Only in-progress crack jobs can be paused"
+		}
+	case crackTopJobActionResume:
+		if status != clientpb.CrackJobStatus_PAUSED {
+			return "Only paused crack jobs can be resumed"
+		}
+	case crackTopJobActionCancel:
+		if status != clientpb.CrackJobStatus_IN_PROGRESS && status != clientpb.CrackJobStatus_PAUSED {
+			return "Only in-progress or paused crack jobs can be cancelled"
+		}
+	default:
+		return "Unknown crack job action"
+	}
+	return ""
+}
+
+func (m *crackTopModel) confirmJobAction() tea.Cmd {
+	pending := m.pendingJobAction
+	m.pendingJobAction = crackTopPendingJobAction{}
+	return m.startJobAction(pending)
+}
+
+func (m *crackTopModel) startJobAction(pending crackTopPendingJobAction) tea.Cmd {
+	actionJob := m.jobActions[pending.action]
+	if pending.jobID == "" || actionJob == nil {
+		return nil
+	}
+	m.runningJobAction = pending
+	if m.toastCancel != nil {
+		m.toastCancel()
+		m.toastCancel = nil
+	}
+	m.toast = ""
+	m.toastLevel = ""
+	ctx := m.ctx
+	return func() tea.Msg {
+		job, err := actionJob(ctx, pending.jobID)
+		if err == nil {
+			err = crackTopValidateJobActionResult(pending, job)
+		}
+		message := crackTopJobActionCompletedMsg{action: pending.action, jobID: pending.jobID, err: err}
+		if err == nil && job != nil {
+			message.status = job.GetStatus()
+			message.updatedAt = job.GetUpdatedAt()
+			message.hasStatus = true
+		}
+		return message
+	}
+}
+
+func crackTopValidateJobActionResult(pending crackTopPendingJobAction, job *clientpb.CrackJob) error {
+	if pending.action == crackTopJobActionDelete {
+		return nil
+	}
+	if job == nil {
+		return errors.New("server returned no job state")
+	}
+	if job.GetID() != pending.jobID {
+		return fmt.Errorf("server returned state for unexpected job %q", crackTopWarningText(job.GetID()))
+	}
+	if job.GetUpdatedAt() <= 0 {
+		return errors.New("server returned job state without an update timestamp")
+	}
+	expected := clientpb.CrackJobStatus_IN_PROGRESS
+	switch pending.action {
+	case crackTopJobActionPause:
+		expected = clientpb.CrackJobStatus_PAUSED
+	case crackTopJobActionCancel:
+		expected = clientpb.CrackJobStatus_CANCELLED
+	case crackTopJobActionResume:
+		expected = clientpb.CrackJobStatus_IN_PROGRESS
+	default:
+		return fmt.Errorf("unknown crack job action %q", pending.action)
+	}
+	if job.GetStatus() != expected {
+		return fmt.Errorf("server returned unexpected job status %s (want %s)", job.GetStatus(), expected)
+	}
+	return nil
+}
+
+func crackTopJobActionPastTense(action crackTopJobAction) string {
+	switch action {
+	case crackTopJobActionDelete:
+		return "Deleted"
+	case crackTopJobActionPause:
+		return "Paused"
+	case crackTopJobActionResume:
+		return "Resumed"
+	case crackTopJobActionCancel:
+		return "Cancelled"
+	default:
+		return "Updated"
+	}
+}
+
+func crackTopJobActionPresentParticiple(action crackTopJobAction) string {
+	switch action {
+	case crackTopJobActionDelete:
+		return "deleting"
+	case crackTopJobActionPause:
+		return "pausing"
+	case crackTopJobActionResume:
+		return "resuming"
+	case crackTopJobActionCancel:
+		return "cancelling"
+	default:
+		return "updating"
+	}
+}
+
+func (m *crackTopModel) removeJob(jobID string) {
+	if m.deletedJobIDs == nil {
+		m.deletedJobIDs = map[string]struct{}{}
+	}
+	m.deletedJobIDs[jobID] = struct{}{}
+	if m.snapshot == nil {
+		return
+	}
+	removeCrackTopJobFromSnapshot(m.snapshot, jobID)
+	m.dashboard = buildCrackTopDashboard(m.snapshot)
+	m.normalizeJobSelection()
+	m.normalizeWorkerSelection()
+}
+
+func (m *crackTopModel) suppressDeletedJobs(snapshot *crackTopSnapshot) {
+	if snapshot == nil || len(m.deletedJobIDs) == 0 {
+		return
+	}
+	for jobID := range m.deletedJobIDs {
+		found := false
+		for _, job := range snapshot.Jobs {
+			if job != nil && job.GetID() == jobID {
+				found = true
+				break
+			}
+		}
+		if found {
+			removeCrackTopJobFromSnapshot(snapshot, jobID)
+		} else {
+			delete(m.deletedJobIDs, jobID)
+		}
+	}
+}
+
+func (m *crackTopModel) overrideJobStatus(jobID string, status clientpb.CrackJobStatus, updatedAt int64) {
+	if m.jobStatusOverrides == nil {
+		m.jobStatusOverrides = map[string]crackTopJobStatusOverride{}
+	}
+	m.jobStatusOverrides[jobID] = crackTopJobStatusOverride{status: status, updatedAt: updatedAt}
+	if m.snapshot == nil {
+		return
+	}
+	for _, job := range m.snapshot.Jobs {
+		if job == nil || job.GetID() != jobID {
+			continue
+		}
+		job.Status = status
+		if updatedAt > job.GetUpdatedAt() {
+			job.UpdatedAt = updatedAt
+		}
+		break
+	}
+	m.dashboard = buildCrackTopDashboard(m.snapshot)
+	m.normalizeJobSelection()
+	m.normalizeWorkerSelection()
+}
+
+// An action can complete while a snapshot requested before the action is still
+// in flight. Keep the authoritative RPC result visible until a snapshot either
+// observes that state or advances beyond the action that produced it.
+func (m *crackTopModel) applyJobStatusOverrides(snapshot *crackTopSnapshot) {
+	if snapshot == nil || len(m.jobStatusOverrides) == 0 {
+		return
+	}
+	for jobID, override := range m.jobStatusOverrides {
+		found := false
+		for _, job := range snapshot.Jobs {
+			if job == nil || job.GetID() != jobID {
+				continue
+			}
+			found = true
+			if job.GetStatus() == override.status || job.GetUpdatedAt() > override.updatedAt {
+				delete(m.jobStatusOverrides, jobID)
+				break
+			}
+			// UpdatedAt is second-resolution on the wire. One equal-version
+			// disagreement can be the snapshot that was already in flight when the
+			// action completed; a repeated disagreement is authoritative evidence
+			// of another lifecycle action in that same second.
+			if job.GetUpdatedAt() == override.updatedAt {
+				if override.equalVersionDisagreementSeen {
+					delete(m.jobStatusOverrides, jobID)
+					break
+				}
+				override.equalVersionDisagreementSeen = true
+				m.jobStatusOverrides[jobID] = override
+			}
+			job.Status = override.status
+			if override.updatedAt > job.GetUpdatedAt() {
+				job.UpdatedAt = override.updatedAt
+			}
+			break
+		}
+		if !found {
+			delete(m.jobStatusOverrides, jobID)
+		}
+	}
+}
+
+func removeCrackTopJobFromSnapshot(snapshot *crackTopSnapshot, jobID string) {
+	if snapshot == nil {
+		return
+	}
+	jobs := make([]*clientpb.CrackJob, 0, len(snapshot.Jobs))
+	for _, job := range snapshot.Jobs {
+		if job == nil || job.GetID() != jobID {
+			jobs = append(jobs, job)
+			continue
+		}
+		for _, task := range job.GetTasks() {
+			if task != nil {
+				delete(snapshot.taskTelemetry, task.GetID())
+			}
+		}
+	}
+	snapshot.Jobs = jobs
+}
+
 func crackTopTimerCmd(ctx context.Context, delay time.Duration, message tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		timer := time.NewTimer(max(time.Millisecond, delay))
@@ -609,7 +1022,9 @@ func (m *crackTopModel) filteredJobs() []crackTopJobRow {
 		matches := false
 		switch m.filter {
 		case crackTopFilterActive:
-			matches = row.Status == clientpb.CrackJobStatus_IN_PROGRESS
+			matches = row.Status == clientpb.CrackJobStatus_IN_PROGRESS || row.Status == clientpb.CrackJobStatus_PAUSED
+		case crackTopFilterPaused:
+			matches = row.Status == clientpb.CrackJobStatus_PAUSED
 		case crackTopFilterCompleted:
 			matches = row.Status == clientpb.CrackJobStatus_COMPLETED
 		case crackTopFilterFailed:
@@ -722,7 +1137,8 @@ func (m *crackTopModel) openFilter() tea.Cmd {
 		Description("Choose which loaded crack jobs appear. Use / to search.").
 		Options(
 			huh.NewOption("All loaded jobs", crackTopFilterAll),
-			huh.NewOption("Active", crackTopFilterActive),
+			huh.NewOption("Active or paused", crackTopFilterActive),
+			huh.NewOption("Paused", crackTopFilterPaused),
 			huh.NewOption("Completed", crackTopFilterCompleted),
 			huh.NewOption("Failed or cancelled", crackTopFilterFailed),
 		).
@@ -756,6 +1172,60 @@ func (m *crackTopModel) renderFilterModal(background string, width, height int) 
 		m.styles.muted.Render("enter apply  •  esc cancel  •  / search"),
 	)
 	card := m.styles.filterCard.Render(content)
+	card = crackTopFitBlock(card, width, height)
+	left := max(0, (width-lipgloss.Width(card))/2)
+	top := max(0, (height-lipgloss.Height(card))/2)
+	compositor := lipgloss.NewCompositor(
+		lipgloss.NewLayer(background).Z(0),
+		lipgloss.NewLayer(card).X(left).Y(top).Z(1),
+	)
+	return lipgloss.NewCanvas(width, height).Compose(compositor).Render()
+}
+
+func (m *crackTopModel) renderJobActionModal(background string, width, height int) string {
+	prompt := m.pendingJobAction
+	contentWidth := max(18, min(68, width-8))
+	title := "Update crack job?"
+	description := "Apply this action to the selected crack job?"
+	warning := ""
+	confirm := "y confirm"
+	titleStyle := m.styles.warning
+	border := clienttheme.Warning()
+	switch prompt.action {
+	case crackTopJobActionDelete:
+		title = "Delete crack job?"
+		description = "Permanently delete this terminal job and all stored tasks and results?"
+		warning = "This cannot be undone."
+		confirm = "y delete"
+		titleStyle = m.styles.danger
+		border = clienttheme.Danger()
+	case crackTopJobActionPause:
+		title = "Pause crack job?"
+		description = "Pause this job and release its current crackstation work?"
+		warning = "An in-flight task attempt may restart when the job is resumed."
+		confirm = "y pause"
+	case crackTopJobActionCancel:
+		title = "Cancel crack job?"
+		description = "Stop this job and release all assigned crackstation work?"
+		warning = "Cancelled jobs cannot be resumed."
+		confirm = "y cancel"
+		titleStyle = m.styles.danger
+		border = clienttheme.Danger()
+	}
+	lines := []string{
+		titleStyle.Render(title),
+		m.styles.normal.Width(contentWidth).Render(description),
+		m.styles.primary.Render(prompt.jobID),
+	}
+	if warning != "" {
+		lines = append(lines, m.styles.warning.Render(warning))
+	}
+	lines = append(lines, m.styles.muted.Render(confirm+"  •  n/esc cancel"))
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		lines...,
+	)
+	card := m.styles.actionCard.BorderForeground(border).Width(contentWidth).Render(content)
 	card = crackTopFitBlock(card, width, height)
 	left := max(0, (width-lipgloss.Width(card))/2)
 	top := max(0, (height-lipgloss.Height(card))/2)
@@ -975,7 +1445,7 @@ func (m *crackTopModel) renderWorkersPane(width, height int) string {
 }
 
 func (m *crackTopModel) renderFooter(width int) string {
-	message := "tab pane  •  ↑/k ↓/j select  •  g/G first/last  •  f filter  •  r refresh  •  q quit"
+	message := "tab pane  •  ↑/k ↓/j  •  p pause  •  u resume  •  c cancel  •  d delete  •  f filter  •  r refresh  •  q quit"
 	style := m.styles.muted
 	if m.toast != "" {
 		message = m.toast
@@ -992,6 +1462,14 @@ func (m *crackTopModel) renderFooter(width int) string {
 		default:
 			style = m.styles.primary
 		}
+	} else if m.runningJobAction.jobID != "" {
+		progress := crackTopJobActionPresentParticiple(m.runningJobAction.action)
+		message = fmt.Sprintf(
+			"%s crack job %s…",
+			strings.ToUpper(progress[:1])+progress[1:],
+			crackTopShortID(m.runningJobAction.jobID),
+		)
+		style = m.styles.warning
 	} else if m.lastError != "" {
 		retained := "no snapshot available"
 		if m.snapshot != nil {
@@ -1012,6 +1490,8 @@ func (m *crackTopModel) renderJobStatus(status clientpb.CrackJobStatus) string {
 		return m.styles.danger.Render(text)
 	case clientpb.CrackJobStatus_CANCELLED:
 		return m.styles.muted.Render(text)
+	case clientpb.CrackJobStatus_PAUSED:
+		return m.styles.secondary.Render(text)
 	default:
 		return m.styles.warning.Render(text)
 	}
@@ -1043,6 +1523,8 @@ func (m *crackTopModel) renderProgressBar(width int, fraction float64, status cl
 		fill = clienttheme.Danger()
 	case clientpb.CrackJobStatus_CANCELLED:
 		fill = clienttheme.DefaultMod(500)
+	case clientpb.CrackJobStatus_PAUSED:
+		fill = clienttheme.Secondary()
 	}
 	bar := progress.New(
 		progress.WithWidth(max(1, width)),

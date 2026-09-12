@@ -99,11 +99,61 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", true, crackJobCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.Bind("", false, crackJobCmd, func(f *pflag.FlagSet) {
 		f.BoolP("watch", "w", false, "watch until the job reaches a terminal state")
 		f.Duration("poll-interval", time.Second, "job status polling interval")
 	})
 	carapace.Gen(crackJobCmd).PositionalCompletion(CrackJobIDCompleter(con).Usage("crack job ID (leave empty to select)"))
 	registerCrackJobIDCompletion(crackJobCmd, con)
+
+	crackJobCancelCmd := &cobra.Command{
+		Use:   consts.CancelStr + " [id]",
+		Short: "Cancel an active or paused hash cracking job",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackJobCancelCmd(cmd, con, args)
+		},
+	}
+	carapace.Gen(crackJobCancelCmd).PositionalCompletion(crackJobIDCompleter(con, crackJobCancellable).Usage("active or paused crack job ID (leave empty to select)"))
+	registerCrackJobIDCompletionFiltered(crackJobCancelCmd, con, crackJobCancellable)
+	crackJobCmd.AddCommand(crackJobCancelCmd)
+
+	crackJobPauseCmd := &cobra.Command{
+		Use:   "pause [id]",
+		Short: "Pause an active hash cracking job",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackJobPauseCmd(cmd, con, args)
+		},
+	}
+	carapace.Gen(crackJobPauseCmd).PositionalCompletion(crackJobIDCompleter(con, crackJobPausable).Usage("active crack job ID (leave empty to select)"))
+	registerCrackJobIDCompletionFiltered(crackJobPauseCmd, con, crackJobPausable)
+	crackJobCmd.AddCommand(crackJobPauseCmd)
+
+	crackJobResumeCmd := &cobra.Command{
+		Use:   "resume [id]",
+		Short: "Resume a paused hash cracking job",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackJobResumeCmd(cmd, con, args)
+		},
+	}
+	carapace.Gen(crackJobResumeCmd).PositionalCompletion(crackJobIDCompleter(con, crackJobResumable).Usage("paused crack job ID (leave empty to select)"))
+	registerCrackJobIDCompletionFiltered(crackJobResumeCmd, con, crackJobResumable)
+	crackJobCmd.AddCommand(crackJobResumeCmd)
+
+	crackJobRmCmd := &cobra.Command{
+		Use:   consts.RmStr + " [id]",
+		Short: "Remove a completed, failed, or cancelled hash cracking job",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackJobRmCmd(cmd, con, args)
+		},
+	}
+	carapace.Gen(crackJobRmCmd).PositionalCompletion(crackTerminalJobIDCompleter(con).Usage("terminal crack job ID (leave empty to select)"))
+	registerCrackTerminalJobIDCompletion(crackJobRmCmd, con)
+	crackJobCmd.AddCommand(crackJobRmCmd)
 	crackCmd.AddCommand(crackJobCmd)
 
 	wordlistsCmd := &cobra.Command{

@@ -13,6 +13,14 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+func TestCrackTopJobCancellationOverridesFailedTaskFallback(t *testing.T) {
+	now := time.Now()
+	job := &models.CrackJob{ID: models.NewUUID(), CompletedAt: now, CancelledAt: now}
+	if got := crackTopJobToProtobuf(job, true).GetStatus(); got != clientpb.CrackJobStatus_CANCELLED {
+		t.Fatalf("cancelled job with failed task status = %s, want CANCELLED", got)
+	}
+}
+
 //nolint:gocyclo // Active-job inclusion, bounded history, ordering, and redaction form one snapshot contract.
 func TestCrackTopIncludesEveryActiveJobAndBoundsHistory(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
@@ -29,6 +37,8 @@ func TestCrackTopIncludesEveryActiveJobAndBoundsHistory(t *testing.T) {
 		}
 		activeIDs[activeJobs[index].ID.String()] = struct{}{}
 	}
+	activeJobs[0].PausedAt = base.Add(time.Hour)
+	pausedID := activeJobs[0].ID.String()
 	if err := database.Omit("Tasks", "Command", "Results").Create(&activeJobs).Error; err != nil {
 		t.Fatalf("create active crack jobs: %v", err)
 	}
@@ -79,6 +89,11 @@ func TestCrackTopIncludesEveryActiveJobAndBoundsHistory(t *testing.T) {
 	for id := range activeIDs {
 		if _, ok := seen[id]; !ok {
 			t.Fatalf("active job %s was omitted", id)
+		}
+	}
+	for _, job := range snapshot.GetJobs() {
+		if job.GetID() == pausedID && job.GetStatus() != clientpb.CrackJobStatus_PAUSED {
+			t.Fatalf("paused active job status = %s, want PAUSED", job.GetStatus())
 		}
 	}
 	for index, job := range historyJobs {

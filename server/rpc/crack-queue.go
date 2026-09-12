@@ -45,6 +45,7 @@ var (
 	crackQueueMu              sync.Mutex
 	crackQueueReapOnce        sync.Once
 	crackQueueReaperStarter   = startCrackQueueReaper
+	crackstationDrains        = map[string]*crackstationDrain{}
 	schedulableCrackTaskKinds = []int32{
 		int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
 		int32(clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE),
@@ -78,6 +79,49 @@ type crackTaskAssignment struct {
 	HostUUID   string `json:"host_uuid"`
 	Attempt    uint32 `json:"attempt"`
 	LeaseToken string `json:"lease_token"`
+}
+
+// crackTaskCancelRequest identifies one exact revoked attempt for the
+// best-effort cancellation event. Future crackstations can return the same
+// payload as an explicit acknowledgement after stopping that attempt.
+type crackTaskCancelRequest struct {
+	TaskID     string `json:"task_id"`
+	CrackJobID string `json:"crack_job_id"`
+	HostUUID   string `json:"host_uuid"`
+	Attempt    uint32 `json:"attempt"`
+	LeaseToken string `json:"lease_token"`
+	Action     string `json:"action"`
+}
+
+type crackTaskCancelDispatch struct {
+	request crackTaskCancelRequest
+	station *core.Crackstation
+}
+
+func validateCrackTaskCancelRequest(request crackTaskCancelRequest) error {
+	if models.ParseUUIDOrNil(request.TaskID) == models.NilUUID() ||
+		models.ParseUUIDOrNil(request.CrackJobID) == models.NilUUID() ||
+		models.ParseUUIDOrNil(request.HostUUID) == models.NilUUID() ||
+		request.Attempt == 0 || request.LeaseToken == "" ||
+		(request.Action != string(crackJobLifecyclePause) && request.Action != string(crackJobLifecycleCancel)) {
+		return errors.New("invalid crack task cancellation acknowledgement")
+	}
+	return nil
+}
+
+// crackstationDrain quarantines a runtime station after the server revokes a
+// leased/running attempt. The station remains unavailable until that exact
+// attempt observes revocation followed by two IDLE reports, an exact explicit
+// acknowledgement arrives, or the owning connection disconnects. This keeps a
+// delayed pre-assignment IDLE report from creating overlapping Hashcat work.
+type crackstationDrain struct {
+	station          *core.Crackstation
+	taskID           string
+	jobID            string
+	attempt          uint32
+	token            string
+	revocationSeen   bool
+	idleObservations uint8
 }
 
 type recoveredCrackResult struct {
@@ -224,6 +268,30 @@ func scheduleCrackTasks() error {
 	return scheduleCrackTasksLocked(time.Now())
 }
 
+func resetCrackTaskForRetryUpdates(now time.Time) map[string]interface{} {
+	return map[string]interface{}{
+		"state":              int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
+		"crackstation_id":    models.NilUUID(),
+		"lease_token":        "",
+		"lease_expires_at":   time.Time{},
+		"last_heartbeat_at":  time.Time{},
+		"started_at":         time.Time{},
+		"completed_at":       time.Time{},
+		"err":                "",
+		"stdout":             []byte(nil),
+		"stderr":             []byte(nil),
+		"exit_code":          int32(0),
+		"stdout_truncated":   false,
+		"stderr_truncated":   false,
+		"stdout_total_bytes": uint64(0),
+		"stderr_total_bytes": uint64(0),
+		"keyspace":           "",
+		"latest_status_json": []byte(nil),
+		"recovered_json":     []byte(nil),
+		"updated_at":         now,
+	}
+}
+
 //nolint:gocyclo // Reaping, task selection, leasing, dispatch, and rollback form one queue-lock transaction.
 func scheduleCrackTasksLocked(now time.Time) error {
 	reapStandaloneCrackKeyspaceTasksLocked(now)
@@ -233,22 +301,7 @@ func scheduleCrackTasksLocked(now time.Time) error {
 			int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
 			int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
 		}, now).
-		Updates(map[string]interface{}{
-			"state":              int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
-			"crackstation_id":    models.NilUUID(),
-			"lease_token":        "",
-			"lease_expires_at":   time.Time{},
-			"last_heartbeat_at":  time.Time{},
-			"started_at":         time.Time{},
-			"completed_at":       time.Time{},
-			"err":                "",
-			"stdout":             []byte(nil),
-			"stderr":             []byte(nil),
-			"exit_code":          int32(0),
-			"latest_status_json": []byte(nil),
-			"recovered_json":     []byte(nil),
-			"updated_at":         now,
-		}).Error; err != nil {
+		Updates(resetCrackTaskForRetryUpdates(now)).Error; err != nil {
 		return err
 	}
 
@@ -273,10 +326,22 @@ func scheduleCrackTasksLocked(now time.Time) error {
 			}
 			return err
 		}
-		if !crackstationBenchmarksFresh(dbCrackstation, station.HashcatVersion) {
-			continue
-		}
 		if runtimeStation := core.GetCrackstation(station.HostUUID); runtimeStation != nil {
+			if drain := crackstationDrains[station.HostUUID]; drain != nil && drain.station != runtimeStation {
+				// A replacement connection cannot still be running the revoked
+				// attempt owned by the prior runtime object.
+				delete(crackstationDrains, station.HostUUID)
+			}
+			runtimeSnapshot := runtimeStation.Snapshot()
+			if core.GetCrackstation(station.HostUUID) != runtimeStation || !standaloneCrackstationIsIdle(runtimeSnapshot) {
+				continue
+			}
+			if !crackstationBenchmarksFresh(dbCrackstation, runtimeSnapshot.HashcatVersion) {
+				continue
+			}
+			if drain := crackstationDrains[station.HostUUID]; drain != nil && drain.station == runtimeStation {
+				continue
+			}
 			available[station.HostUUID] = runtimeStation
 		}
 	}
@@ -297,6 +362,8 @@ func scheduleCrackTasksLocked(now time.Time) error {
 		Joins("JOIN crack_jobs ON crack_jobs.id = crack_tasks.crack_job_id").
 		Where("crack_tasks.state = ? AND crack_tasks.kind IN ?", int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED), schedulableCrackTaskKinds).
 		Where("crack_jobs.completed_at = ?", time.Time{}).
+		Where("(crack_jobs.paused_at IS NULL OR crack_jobs.paused_at = ?)", time.Time{}).
+		Where("(crack_jobs.cancelled_at IS NULL OR crack_jobs.cancelled_at = ?)", time.Time{}).
 		Order("crack_tasks.created_at asc").Order("crack_tasks.id asc").Find(&queued).Error; err != nil {
 		return err
 	}
@@ -324,12 +391,15 @@ func scheduleCrackTasksLocked(now time.Time) error {
 			break
 		}
 		task := &queued[index]
+		if crackTaskHasActiveDrainLocked(task.ID.String()) {
+			continue
+		}
 		hashType := effectiveCrackHashType(&task.Command)
 		requiredHashcatVersion := jobVersions[task.CrackJobID]
 		hostUUID := task.CrackstationID.String()
 		station := available[hostUUID]
 		if station != nil {
-			supported, err := crackstationSupportsHashType(dbSession, hostUUID, hashType, requiredHashcatVersion)
+			supported, err := crackstationSupportsHashType(dbSession, station, hashType, requiredHashcatVersion)
 			if err != nil {
 				return err
 			}
@@ -341,7 +411,7 @@ func scheduleCrackTasksLocked(now time.Time) error {
 		if station == nil {
 			hostUUID = ""
 			for candidate := range available {
-				supported, err := crackstationSupportsHashType(dbSession, candidate, hashType, requiredHashcatVersion)
+				supported, err := crackstationSupportsHashType(dbSession, available[candidate], hashType, requiredHashcatVersion)
 				if err != nil {
 					return err
 				}
@@ -352,6 +422,14 @@ func scheduleCrackTasksLocked(now time.Time) error {
 			station = available[hostUUID]
 		}
 		if station == nil {
+			continue
+		}
+		if core.GetCrackstation(hostUUID) != station || !standaloneCrackstationIsIdle(station.Snapshot()) {
+			delete(available, hostUUID)
+			continue
+		}
+		if drain := crackstationDrains[hostUUID]; drain != nil && drain.station == station {
+			delete(available, hostUUID)
 			continue
 		}
 
@@ -371,6 +449,16 @@ func scheduleCrackTasksLocked(now time.Time) error {
 			return result.Error
 		}
 		if result.RowsAffected != 1 {
+			continue
+		}
+		if core.GetCrackstation(hostUUID) != station || !standaloneCrackstationIsIdle(station.Snapshot()) ||
+			(crackstationDrains[hostUUID] != nil && crackstationDrains[hostUUID].station == station) {
+			if err := dbSession.Model(&models.CrackTask{}).
+				Where("id = ? AND lease_token = ?", task.ID, leaseToken).
+				Updates(resetCrackTaskForRetryUpdates(now)).Error; err != nil {
+				return err
+			}
+			delete(available, hostUUID)
 			continue
 		}
 		assignmentData, err := json.Marshal(crackTaskAssignment{
@@ -400,8 +488,28 @@ func scheduleCrackTasksLocked(now time.Time) error {
 	return nil
 }
 
+// crackTaskHasActiveDrainLocked prevents a paused task from being re-leased to
+// another station while its revoked attempt may still be running. The caller
+// must hold crackQueueMu.
+func crackTaskHasActiveDrainLocked(taskID string) bool {
+	for _, drain := range crackstationDrains {
+		if drain != nil && drain.taskID == taskID {
+			return true
+		}
+	}
+	return false
+}
+
 func requeueCrackstationTasks(hostUUID string) error {
 	return requeueCrackstationTasksForConnection(hostUUID, nil)
+}
+
+func resetCrackstationDurableTasksLocked(hostID models.UUID, now time.Time) error {
+	return db.Session().Model(&models.CrackTask{}).
+		Where("crackstation_id = ? AND kind IN ? AND state IN ?", hostID, schedulableCrackTaskKinds, []int32{
+			int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+			int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+		}).Updates(resetCrackTaskForRetryUpdates(now)).Error
 }
 
 func requeueCrackstationTasksForConnection(hostUUID string, disconnected *core.Crackstation) error {
@@ -411,40 +519,204 @@ func requeueCrackstationTasksForConnection(hostUUID string, disconnected *core.C
 	}
 	crackQueueMu.Lock()
 	defer crackQueueMu.Unlock()
+	clearCrackstationDrainForConnectionLocked(hostUUID, disconnected)
 	failStandaloneCrackKeyspaceTasksForStationLocked(disconnected)
+	if disconnected != nil {
+		if current := core.GetCrackstation(hostUUID); current != nil && current != disconnected {
+			// Fresh registration atomically recovered the old host leases. A late
+			// cleanup from the prior connection must not reset new assignments.
+			return nil
+		}
+	}
 	now := time.Now()
-	if err := db.Session().Model(&models.CrackTask{}).
-		Where("crackstation_id = ? AND kind IN ? AND state IN ?", hostID, schedulableCrackTaskKinds, []int32{
-			int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
-			int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
-		}).Updates(map[string]interface{}{
-		"state":              int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
-		"crackstation_id":    models.NilUUID(),
-		"lease_token":        "",
-		"lease_expires_at":   time.Time{},
-		"last_heartbeat_at":  time.Time{},
-		"started_at":         time.Time{},
-		"completed_at":       time.Time{},
-		"err":                "",
-		"stdout":             []byte(nil),
-		"stderr":             []byte(nil),
-		"exit_code":          int32(0),
-		"latest_status_json": []byte(nil),
-		"recovered_json":     []byte(nil),
-		"updated_at":         now,
-	}).Error; err != nil {
+	if err := resetCrackstationDurableTasksLocked(hostID, now); err != nil {
 		return err
 	}
 	return scheduleCrackTasksLocked(now)
 }
 
-func crackstationSupportsHashType(tx *gorm.DB, hostUUID string, hashType int32, requiredHashcatVersion string) (bool, error) {
+// addAndRecoverCrackstation makes publishing a fresh runtime, clearing any
+// quarantine inherited from the removed connection, and resetting old durable
+// leases one queue-atomic operation. This leaves no window for lifecycle code
+// to bind an old lease to the new runtime pointer.
+func addAndRecoverCrackstation(station *core.Crackstation) error {
+	if station == nil {
+		return errors.New("missing crackstation")
+	}
+	hostID := models.ParseUUIDOrNil(station.HostUUID)
+	if hostID == models.NilUUID() {
+		return errors.New("invalid crackstation host uuid")
+	}
+	crackQueueMu.Lock()
+	defer crackQueueMu.Unlock()
+	if err := core.AddCrackstation(station); err != nil {
+		return err
+	}
+	clearCrackstationDrainForFreshConnectionLocked(station)
+	now := time.Now()
+	if err := resetCrackstationDurableTasksLocked(hostID, now); err != nil {
+		core.RemoveCrackstation(station.HostUUID)
+		return err
+	}
+	if err := scheduleCrackTasksLocked(now); err != nil {
+		core.RemoveCrackstation(station.HostUUID)
+		return err
+	}
+	return nil
+}
+
+// registerCrackstationDrainsLocked binds each revoked attempt to its exact
+// runtime connection. The caller must hold crackQueueMu.
+func registerCrackstationDrainsLocked(dispatches []crackTaskCancelDispatch) {
+	for _, dispatch := range dispatches {
+		if dispatch.station == nil || dispatch.request.HostUUID == "" {
+			continue
+		}
+		crackstationDrains[dispatch.request.HostUUID] = &crackstationDrain{
+			station: dispatch.station,
+			taskID:  dispatch.request.TaskID,
+			jobID:   dispatch.request.CrackJobID,
+			attempt: dispatch.request.Attempt,
+			token:   dispatch.request.LeaseToken,
+		}
+	}
+}
+
+// observeCrackstationDrainStatusLocked releases only a drain owned by the same
+// runtime connection. After an exact revoked attempt observes Aborted, two
+// consecutive IDLE reports are required because one pre-task IDLE RPC may
+// already be in flight. Busy, syncing, and current-job reports reset the count.
+// The caller must hold crackQueueMu.
+func observeCrackstationDrainStatusLocked(station *core.Crackstation) bool {
+	if station == nil {
+		return false
+	}
+	drain := crackstationDrains[station.HostUUID]
+	if drain == nil || drain.station != station {
+		return false
+	}
+	snapshot := station.Snapshot()
+	if !standaloneCrackstationIsIdle(snapshot) {
+		drain.idleObservations = 0
+		return false
+	}
+	if !drain.revocationSeen {
+		return false
+	}
+	drain.idleObservations++
+	if drain.idleObservations < 2 {
+		return false
+	}
+	delete(crackstationDrains, station.HostUUID)
+	return true
+}
+
+// acknowledgeCrackstationDrainLocked handles an explicit acknowledgement from
+// an updated crackstation that stopped an attempt before it ever became busy.
+// The caller must hold crackQueueMu.
+func acknowledgeCrackstationDrainLocked(station *core.Crackstation, request crackTaskCancelRequest) bool {
+	if station == nil {
+		return false
+	}
+	drain := crackstationDrains[request.HostUUID]
+	if drain == nil || drain.station != station || drain.taskID != request.TaskID || drain.jobID != request.CrackJobID ||
+		drain.attempt != request.Attempt || drain.token != request.LeaseToken {
+		return false
+	}
+	delete(crackstationDrains, request.HostUUID)
+	return true
+}
+
+func markCrackstationDrainRevocationSeenLocked(hostUUID, taskID string, attempt uint32, leaseToken string) bool {
+	if hostUUID == "" || taskID == "" || attempt == 0 || leaseToken == "" {
+		return false
+	}
+	drain := crackstationDrains[hostUUID]
+	if !crackstationDrainMatchesAttemptLocked(drain, hostUUID, taskID, attempt, leaseToken) {
+		return false
+	}
+	drain.revocationSeen = true
+	return true
+}
+
+func crackstationDrainMatchesAttemptLocked(drain *crackstationDrain, hostUUID, taskID string, attempt uint32, leaseToken string) bool {
+	return drain != nil && drain.station == core.GetCrackstation(hostUUID) && drain.taskID == taskID &&
+		drain.attempt == attempt && drain.token == leaseToken
+}
+
+func revokedCrackTaskAttempt(request *clientpb.CrackTask) bool {
+	if request == nil {
+		return false
+	}
+	crackQueueMu.Lock()
+	defer crackQueueMu.Unlock()
+	return crackstationDrainMatchesAttemptLocked(crackstationDrains[request.HostUUID], request.HostUUID, request.ID, request.Attempt, request.LeaseToken)
+}
+
+func observeRevokedCrackTaskAttempt(request *clientpb.CrackTask) bool {
+	if request == nil {
+		return false
+	}
+	crackQueueMu.Lock()
+	defer crackQueueMu.Unlock()
+	return markCrackstationDrainRevocationSeenLocked(request.HostUUID, request.ID, request.Attempt, request.LeaseToken)
+}
+
+// clearCrackstationDrainForConnectionLocked prevents a late disconnect from an
+// old connection from releasing a drain owned by its replacement. The caller
+// must hold crackQueueMu.
+func clearCrackstationDrainForConnectionLocked(hostUUID string, disconnected *core.Crackstation) {
+	if disconnected == nil {
+		return
+	}
+	drain := crackstationDrains[hostUUID]
+	if drain != nil && drain.station == disconnected {
+		delete(crackstationDrains, hostUUID)
+	}
+}
+
+// clearCrackstationDrainForFreshConnectionLocked drops quarantine inherited
+// from a connection that was already removed. It is safe only within the same
+// queue critical section that successfully added this fresh runtime and before
+// lifecycle scheduling can observe it.
+func clearCrackstationDrainForFreshConnectionLocked(station *core.Crackstation) {
+	if station != nil {
+		delete(crackstationDrains, station.HostUUID)
+	}
+}
+
+// dispatchCrackTaskCancellations delivers stop requests without holding the
+// queue mutex. Delivery is intentionally best-effort: the revoked lease and
+// station drain are the correctness boundary if a stream is full or an older
+// crackstation does not implement the event.
+func dispatchCrackTaskCancellations(dispatches []crackTaskCancelDispatch) {
+	for _, dispatch := range dispatches {
+		if dispatch.station == nil {
+			continue
+		}
+		data, err := json.Marshal(dispatch.request)
+		if err != nil {
+			crackCommandRPCLog.Warnf("Failed to encode crack task cancellation for %s: %s", dispatch.request.TaskID, err)
+			continue
+		}
+		select {
+		case dispatch.station.Events <- &clientpb.Event{EventType: consts.CrackTaskCancel, Data: data}:
+		default:
+			crackCommandRPCLog.Warnf("Crackstation %s event queue is full; attempt %s/%d remains quarantined until idle", dispatch.request.HostUUID, dispatch.request.TaskID, dispatch.request.Attempt)
+		}
+	}
+}
+
+func crackstationSupportsHashType(tx *gorm.DB, runtimeCrackstation *core.Crackstation, hashType int32, requiredHashcatVersion string) (bool, error) {
+	if runtimeCrackstation == nil {
+		return false, nil
+	}
+	hostUUID := runtimeCrackstation.HostUUID
 	id := models.ParseUUIDOrNil(hostUUID)
 	if id == models.NilUUID() {
 		return false, nil
 	}
-	runtimeCrackstation := core.GetCrackstation(hostUUID)
-	if runtimeCrackstation == nil {
+	if core.GetCrackstation(hostUUID) != runtimeCrackstation {
 		return false, nil
 	}
 	actualHashcatVersion := normalizeHashcatVersion(runtimeCrackstation.Snapshot().HashcatVersion)
@@ -992,6 +1264,7 @@ func updateCrackTaskStatus(event crackTaskStatusEvent) error {
 		int32(clientpb.CrackTaskState_CRACK_TASK_LEASED), int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
 	}).First(task).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			markCrackstationDrainRevocationSeenLocked(event.HostUUID, event.TaskID, event.Attempt, event.LeaseToken)
 			return errStaleCrackTaskAttempt
 		}
 		return err
@@ -1010,6 +1283,7 @@ func updateCrackTaskStatus(event crackTaskStatusEvent) error {
 		return result.Error
 	}
 	if result.RowsAffected != 1 {
+		markCrackstationDrainRevocationSeenLocked(event.HostUUID, event.TaskID, event.Attempt, event.LeaseToken)
 		return errStaleCrackTaskAttempt
 	}
 	event.ObservedAt = observedAt

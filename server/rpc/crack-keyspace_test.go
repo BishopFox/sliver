@@ -230,9 +230,10 @@ func TestStandaloneCrackKeyspaceLifecycleUsesExistingWorkerProtocol(t *testing.T
 func TestSelectIdleCrackstationForStandaloneKeyspace(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
 	resetStandaloneCrackKeyspaceTasksForTest(t)
+	resetCrackstationDrainsForTest(t)
 
 	noStatus := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", nil)
-	_ = noStatus
+	noStatus.UpdateStatus(nil)
 	cracking := addQueueTestStation(t, database, "22222222-2222-4222-8222-222222222222", nil)
 	setStandaloneKeyspaceTestStatus(cracking, cracking.HostUUID, clientpb.States_CRACKING, false, "")
 	syncing := addQueueTestStation(t, database, "33333333-3333-4333-8333-333333333333", nil)
@@ -262,6 +263,18 @@ func TestSelectIdleCrackstationForStandaloneKeyspace(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create active durable task: %v", err)
 	}
+	crackQueueMu.Lock()
+	crackstationDrains[firstIdle.HostUUID] = &crackstationDrain{
+		station: firstIdle,
+		taskID:  models.NewUUID().String(),
+		attempt: 1,
+		token:   "draining-attempt",
+	}
+	selectedByID, selectorErr := selectableCrackstationsLocked(context.Background(), firstIdle.HostUUID)
+	crackQueueMu.Unlock()
+	if !errors.Is(selectorErr, errSelectedCrackstationUnavailable) || len(selectedByID) != 0 {
+		t.Fatalf("selected quarantined crackstation = %#v, %v; want unavailable", selectedByID, selectorErr)
+	}
 
 	crackQueueMu.Lock()
 	selected, err := selectIdleCrackstationLocked(context.Background())
@@ -269,8 +282,8 @@ func TestSelectIdleCrackstationForStandaloneKeyspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("select idle crackstation: %v", err)
 	}
-	if selected == nil || selected.HostUUID != firstIdle.HostUUID {
-		t.Fatalf("selected host = %#v, want %q", selected, firstIdle.HostUUID)
+	if selected == nil || selected.HostUUID != secondIdle.HostUUID {
+		t.Fatalf("selected host = %#v, want %q", selected, secondIdle.HostUUID)
 	}
 }
 

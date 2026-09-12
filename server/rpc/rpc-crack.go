@@ -45,6 +45,17 @@ import (
 var (
 	crackCommandRPCLog     = log.NamedLogger("rpc", "crack")
 	errInvalidCrackCommand = errors.New("invalid crack command")
+	errActiveCrackJob      = errors.New("cannot delete an active crack job")
+	errTerminalCrackJob    = errors.New("crack job is already terminal")
+	errCrackJobNotPaused   = errors.New("crack job is not paused")
+)
+
+type crackJobLifecycleAction string
+
+const (
+	crackJobLifecycleCancel crackJobLifecycleAction = "cancel"
+	crackJobLifecyclePause  crackJobLifecycleAction = "pause"
+	crackJobLifecycleResume crackJobLifecycleAction = "resume"
 )
 
 func managedCrackFileURI(crackFile *models.CrackFile) string {
@@ -812,4 +823,281 @@ func (rpc *Server) CrackJobByID(ctx context.Context, req *clientpb.CrackJob) (*c
 		task.LeaseToken = ""
 	}
 	return response, nil
+}
+
+func lifecycleCrackJobID(req *clientpb.CrackJob) (models.UUID, error) {
+	if req == nil {
+		return models.NilUUID(), status.Error(codes.InvalidArgument, "missing crack job")
+	}
+	jobID := models.ParseUUIDOrNil(req.ID)
+	if jobID == models.NilUUID() {
+		return models.NilUUID(), status.Error(codes.InvalidArgument, "invalid crack job id")
+	}
+	return jobID, nil
+}
+
+func loadLifecycleCrackJobSummary(tx *gorm.DB, id models.UUID) (*models.CrackJob, error) {
+	job := &models.CrackJob{}
+	err := tx.Select("id", "created_at", "updated_at", "completed_at", "paused_at", "cancelled_at", "err").
+		First(job, "id = ?", id).Error
+	return job, err
+}
+
+// lifecycleCrackJobSummary deliberately returns only bounded status metadata.
+// A lifecycle mutation must not preload or serialize task output, recovered
+// plaintexts, hashes, or command payloads merely to confirm its new state.
+func lifecycleCrackJobSummary(job *models.CrackJob) *clientpb.CrackJob {
+	response := &clientpb.CrackJob{
+		ID:        job.ID.String(),
+		CreatedAt: job.CreatedAt.UTC().Format(time.RFC3339),
+		Status:    job.Status(),
+	}
+	if !job.UpdatedAt.IsZero() {
+		response.UpdatedAt = job.UpdatedAt.Unix()
+	}
+	if !job.CompletedAt.IsZero() {
+		response.CompletedAt = job.CompletedAt.UTC().Format(time.RFC3339)
+	}
+	return response
+}
+
+func lifecycleCrackTaskDispatch(task *models.CrackTask, action crackJobLifecycleAction) crackTaskCancelDispatch {
+	hostUUID := task.CrackstationID.String()
+	return crackTaskCancelDispatch{
+		request: crackTaskCancelRequest{
+			TaskID:     task.ID.String(),
+			CrackJobID: task.CrackJobID.String(),
+			HostUUID:   hostUUID,
+			Attempt:    task.Attempt,
+			LeaseToken: task.LeaseToken,
+			Action:     string(action),
+		},
+		station: core.GetCrackstation(hostUUID),
+	}
+}
+
+// transitionCrackJob applies one operator lifecycle mutation while holding the
+// queue mutex. Remote station delivery happens only after the durable state and
+// drain quarantine have committed and the mutex has been released.
+func (rpc *Server) transitionCrackJob(ctx context.Context, req *clientpb.CrackJob, action crackJobLifecycleAction) (*clientpb.CrackJob, error) {
+	jobID, err := lifecycleCrackJobID(req)
+	if err != nil {
+		return nil, err
+	}
+
+	dispatches := []crackTaskCancelDispatch{}
+	changed := false
+	var response *clientpb.CrackJob
+	crackQueueMu.Lock()
+	now := time.Now()
+	loadResponse := func(tx *gorm.DB) error {
+		job, err := loadLifecycleCrackJobSummary(tx, jobID)
+		if err != nil {
+			return err
+		}
+		response = lifecycleCrackJobSummary(job)
+		return nil
+	}
+	err = db.Session().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		job := &models.CrackJob{}
+		if err := tx.First(job, "id = ?", jobID).Error; err != nil {
+			return err
+		}
+
+		switch action {
+		case crackJobLifecyclePause:
+			if !job.CompletedAt.IsZero() {
+				return errTerminalCrackJob
+			}
+			if job.PausedAt.IsZero() {
+				if err := tx.Model(job).Updates(map[string]interface{}{"paused_at": now, "updated_at": now}).Error; err != nil {
+					return err
+				}
+				changed = true
+			}
+		case crackJobLifecycleResume:
+			if !job.CompletedAt.IsZero() {
+				return errTerminalCrackJob
+			}
+			if job.PausedAt.IsZero() {
+				return errCrackJobNotPaused
+			}
+			if err := tx.Model(job).Updates(map[string]interface{}{"paused_at": time.Time{}, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			changed = true
+		case crackJobLifecycleCancel:
+			if !job.CancelledAt.IsZero() {
+				return loadResponse(tx)
+			}
+			if !job.CompletedAt.IsZero() {
+				return errTerminalCrackJob
+			}
+			if err := tx.Model(job).Updates(map[string]interface{}{
+				"paused_at": time.Time{}, "cancelled_at": now, "completed_at": now, "updated_at": now,
+			}).Error; err != nil {
+				return err
+			}
+			changed = true
+		default:
+			return errors.New("invalid crack job lifecycle action")
+		}
+
+		if action == crackJobLifecycleResume {
+			return loadResponse(tx)
+		}
+		var active []models.CrackTask
+		if err := tx.Where("crack_job_id = ? AND state IN ?", jobID, []int32{
+			int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
+			int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+			int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+		}).Find(&active).Error; err != nil {
+			return err
+		}
+		for index := range active {
+			state := clientpb.CrackTaskState(active[index].State)
+			if state == clientpb.CrackTaskState_CRACK_TASK_LEASED || state == clientpb.CrackTaskState_CRACK_TASK_RUNNING {
+				dispatches = append(dispatches, lifecycleCrackTaskDispatch(&active[index], action))
+			}
+		}
+
+		if action == crackJobLifecyclePause {
+			if err := tx.Model(&models.CrackTask{}).
+				Where("crack_job_id = ? AND state IN ?", jobID, []int32{
+					int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+					int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+				}).Updates(resetCrackTaskForRetryUpdates(now)).Error; err != nil {
+				return err
+			}
+			return loadResponse(tx)
+		}
+		if err := tx.Model(&models.CrackTask{}).
+			Where("crack_job_id = ? AND state IN ?", jobID, []int32{
+				int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
+				int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+				int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+			}).Updates(map[string]interface{}{
+			"state":             int32(clientpb.CrackTaskState_CRACK_TASK_CANCELLED),
+			"lease_token":       "",
+			"lease_expires_at":  time.Time{},
+			"last_heartbeat_at": time.Time{},
+			"completed_at":      now,
+			"updated_at":        now,
+		}).Error; err != nil {
+			return err
+		}
+		return loadResponse(tx)
+	})
+	if err == nil {
+		registerCrackstationDrainsLocked(dispatches)
+	}
+	crackQueueMu.Unlock()
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, status.Error(codes.NotFound, "crack job not found")
+	}
+	if errors.Is(err, errTerminalCrackJob) || errors.Is(err, errCrackJobNotPaused) {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	if err != nil {
+		crackCommandRPCLog.Errorf("Failed to %s crack job %s: %s", action, jobID, err)
+		return nil, status.Errorf(codes.Internal, "failed to %s crack job", action)
+	}
+	if response == nil {
+		return nil, status.Error(codes.Internal, "failed to summarize crack job lifecycle state")
+	}
+
+	dispatchCrackTaskCancellations(dispatches)
+	if changed {
+		core.EventBroker.Publish(core.Event{EventType: consts.CrackJobUpdated, Data: []byte(jobID.String())})
+	}
+	if err := scheduleCrackTasks(); err != nil {
+		crackCommandRPCLog.Warnf("Crack job %s lifecycle action %s committed but follow-up scheduling failed: %s", jobID, action, err)
+	}
+	return response, nil
+}
+
+// CrackJobCancel permanently cancels all unfinished work for a distributed job.
+func (rpc *Server) CrackJobCancel(ctx context.Context, req *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+	return rpc.transitionCrackJob(ctx, req, crackJobLifecycleCancel)
+}
+
+// CrackJobPause revokes active attempts and leaves their tasks queued behind a
+// durable scheduling gate until CrackJobResume is called.
+func (rpc *Server) CrackJobPause(ctx context.Context, req *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+	return rpc.transitionCrackJob(ctx, req, crackJobLifecyclePause)
+}
+
+// CrackJobResume clears the scheduling gate and makes queued work eligible for
+// assignment again.
+func (rpc *Server) CrackJobResume(ctx context.Context, req *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+	return rpc.transitionCrackJob(ctx, req, crackJobLifecycleResume)
+}
+
+// CrackJobDelete deletes a terminal distributed cracking job and its durable
+// task, command, result, and credential-association records. The referenced
+// credentials and managed crack files are intentionally preserved.
+func (rpc *Server) CrackJobDelete(ctx context.Context, req *clientpb.CrackJob) (*commonpb.Empty, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing crack job")
+	}
+	jobID := models.ParseUUIDOrNil(req.ID)
+	if jobID == models.NilUUID() {
+		return nil, status.Error(codes.InvalidArgument, "invalid crack job id")
+	}
+
+	crackQueueMu.Lock()
+	defer crackQueueMu.Unlock()
+
+	err := db.Session().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		job := &models.CrackJob{}
+		if err := tx.Select("id", "completed_at").First(job, "id = ?", jobID).Error; err != nil {
+			return err
+		}
+		if job.CompletedAt.IsZero() {
+			return errActiveCrackJob
+		}
+
+		var taskIDs []models.UUID
+		if err := tx.Model(&models.CrackTask{}).Where("crack_job_id = ?", jobID).Pluck("id", &taskIDs).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("crack_job_id = ?", jobID).Delete(&models.CrackResult{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("crack_job_id = ?", jobID).Delete(&models.CrackJobCredential{}).Error; err != nil {
+			return err
+		}
+		commands := tx.Where("crack_job_id = ?", jobID)
+		if len(taskIDs) != 0 {
+			commands = commands.Or("crack_task_id IN ?", taskIDs)
+		}
+		if err := commands.Delete(&models.CrackCommand{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("crack_job_id = ?", jobID).Delete(&models.CrackTask{}).Error; err != nil {
+			return err
+		}
+		deleted := tx.Where("id = ?", jobID).Delete(&models.CrackJob{})
+		if deleted.Error != nil {
+			return deleted.Error
+		}
+		if deleted.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, status.Error(codes.NotFound, "crack job not found")
+	}
+	if errors.Is(err, errActiveCrackJob) {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	if err != nil {
+		crackCommandRPCLog.Errorf("Failed to delete crack job %s: %s", jobID, err)
+		return nil, status.Error(codes.Internal, "failed to delete crack job")
+	}
+
+	core.EventBroker.Publish(core.Event{EventType: consts.CrackJobUpdated, Data: []byte(jobID.String())})
+	return &commonpb.Empty{}, nil
 }

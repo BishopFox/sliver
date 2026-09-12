@@ -140,6 +140,8 @@ type CrackJob struct {
 	CreatedAt    time.Time `gorm:"->;<-:create;index:idx_crack_jobs_top,priority:2"`
 	UpdatedAt    time.Time
 	CompletedAt  time.Time `gorm:"index:idx_crack_jobs_top,priority:1"`
+	PausedAt     time.Time
+	CancelledAt  time.Time
 	Err          string
 	ResultFileID string
 	Keyspace     string
@@ -156,6 +158,12 @@ type CrackJob struct {
 }
 
 func (c *CrackJob) Status() clientpb.CrackJobStatus {
+	if !c.CancelledAt.IsZero() {
+		return clientpb.CrackJobStatus_CANCELLED
+	}
+	if !c.PausedAt.IsZero() && c.CompletedAt.IsZero() {
+		return clientpb.CrackJobStatus_PAUSED
+	}
 	if c.CompletedAt.IsZero() {
 		return clientpb.CrackJobStatus_IN_PROGRESS
 	}
@@ -165,6 +173,11 @@ func (c *CrackJob) Status() clientpb.CrackJobStatus {
 	for _, task := range c.Tasks {
 		if clientpb.CrackTaskState(task.State) == clientpb.CrackTaskState_CRACK_TASK_FAILED {
 			return clientpb.CrackJobStatus_FAILED
+		}
+	}
+	for _, task := range c.Tasks {
+		if clientpb.CrackTaskState(task.State) == clientpb.CrackTaskState_CRACK_TASK_CANCELLED {
+			return clientpb.CrackJobStatus_CANCELLED
 		}
 	}
 	return clientpb.CrackJobStatus_COMPLETED

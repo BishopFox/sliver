@@ -100,7 +100,7 @@ func (rpc *Server) CrackTop(ctx context.Context, _ *commonpb.Empty) (*clientpb.C
 
 func loadCrackTopJobs(dbSession *gorm.DB, predicate string, completedAt time.Time, includeTasks bool, limit int) ([]models.CrackJob, error) {
 	query := dbSession.
-		Select("id", "created_at", "updated_at", "completed_at", "err", "hashcat_version").
+		Select("id", "created_at", "updated_at", "completed_at", "paused_at", "cancelled_at", "err", "hashcat_version").
 		Where(predicate, completedAt).
 		Preload("Command", func(commandQuery *gorm.DB) *gorm.DB {
 			return commandQuery.Select("id", "crack_job_id", "attack_mode", "hash_type", "hash_mode")
@@ -181,7 +181,7 @@ func crackTopFailedTaskJobs(dbSession *gorm.DB, jobs []models.CrackJob) (map[mod
 
 func crackTopJobToProtobuf(job *models.CrackJob, hasFailedTask bool) *clientpb.CrackTopJob {
 	jobStatus := job.Status()
-	if !job.CompletedAt.IsZero() && job.Err == "" && hasFailedTask {
+	if jobStatus != clientpb.CrackJobStatus_CANCELLED && !job.CompletedAt.IsZero() && job.Err == "" && hasFailedTask {
 		jobStatus = clientpb.CrackJobStatus_FAILED
 	}
 	result := &clientpb.CrackTopJob{

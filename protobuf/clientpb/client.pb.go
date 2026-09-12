@@ -2169,6 +2169,7 @@ const (
 	CrackJobStatus_COMPLETED   CrackJobStatus = 1
 	CrackJobStatus_FAILED      CrackJobStatus = 2
 	CrackJobStatus_CANCELLED   CrackJobStatus = 3
+	CrackJobStatus_PAUSED      CrackJobStatus = 4
 )
 
 // Enum value maps for CrackJobStatus.
@@ -2178,12 +2179,14 @@ var (
 		1: "COMPLETED",
 		2: "FAILED",
 		3: "CANCELLED",
+		4: "PAUSED",
 	}
 	CrackJobStatus_value = map[string]int32{
 		"IN_PROGRESS": 0,
 		"COMPLETED":   1,
 		"FAILED":      2,
 		"CANCELLED":   3,
+		"PAUSED":      4,
 	}
 )
 
@@ -18815,13 +18818,15 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x06States\x12\b\n" +
 	"\x04IDLE\x10\x00\x12\f\n" +
 	"\bCRACKING\x10\x01\x12\x10\n" +
-	"\fINITIALIZING\x10\x02*K\n" +
+	"\fINITIALIZING\x10\x02*W\n" +
 	"\x0eCrackJobStatus\x12\x0f\n" +
 	"\vIN_PROGRESS\x10\x00\x12\r\n" +
 	"\tCOMPLETED\x10\x01\x12\n" +
 	"\n" +
 	"\x06FAILED\x10\x02\x12\r\n" +
-	"\tCANCELLED\x10\x03*\x8a\x01\n" +
+	"\tCANCELLED\x10\x03\x12\n" +
+	"\n" +
+	"\x06PAUSED\x10\x04*\x8a\x01\n" +
 	"\rCrackTaskKind\x12\x1a\n" +
 	"\x16CRACK_TASK_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CRACK_TASK_CRACK\x10\x01\x12\x17\n" +

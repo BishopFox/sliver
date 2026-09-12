@@ -161,7 +161,7 @@ func buildCrackTopDashboard(snapshot *crackTopSnapshot) crackTopDashboard {
 		row, samples, progress := crackTopJobTelemetry(job, stations, snapshot.RefreshedAt, snapshot.taskTelemetry)
 		dashboard.Jobs = append(dashboard.Jobs, row)
 		dashboard.Recovered = saturatingUint64Add(dashboard.Recovered, row.Results)
-		if !crackJobTerminal(job) {
+		if job.GetStatus() == clientpb.CrackJobStatus_IN_PROGRESS {
 			dashboard.ActiveJobs++
 			if row.ProgressComplete {
 				dashboard.ProgressJobs++
@@ -358,11 +358,13 @@ func crackTopJobTelemetry(
 		row.ProgressKnown = true
 		row.ProgressComplete = true
 	}
-	for hostID, sample := range samples {
-		if crackTopTaskSampleIsLive(sample, stations[hostID], now) && sample.rateKnown {
-			row.Rate = saturatingUint64Add(row.Rate, sample.rate)
-			row.RateKnown = true
-			row.Reporting++
+	if job.GetStatus() == clientpb.CrackJobStatus_IN_PROGRESS {
+		for hostID, sample := range samples {
+			if crackTopTaskSampleIsLive(sample, stations[hostID], now) && sample.rateKnown {
+				row.Rate = saturatingUint64Add(row.Rate, sample.rate)
+				row.RateKnown = true
+				row.Reporting++
+			}
 		}
 	}
 	return row, samples, progress

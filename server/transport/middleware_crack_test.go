@@ -65,7 +65,7 @@ func TestSanitizeAuditRequestRemovesCrackTaskSecretsWithoutMutation(t *testing.T
 	}
 }
 
-func TestSanitizeAuditRequestClearsTaskStatusEventDataOnly(t *testing.T) {
+func TestSanitizeAuditRequestClearsSensitiveCrackstationEventDataOnly(t *testing.T) {
 	data := []byte(`{"task_id":"task-id","attempt":4,"lease_token":"secret-token","status":{"hash":"secret-hash","target":"secret-target","plaintext":"secret-plaintext"}}`)
 	event := &clientpb.Event{EventType: consts.CrackTaskStatus, Data: data}
 	original := proto.Clone(event).(*clientpb.Event)
@@ -83,6 +83,11 @@ func TestSanitizeAuditRequestClearsTaskStatusEventDataOnly(t *testing.T) {
 	if strings.Contains(string(serialized), "secret") || strings.Contains(string(serialized), base64.StdEncoding.EncodeToString(data)) {
 		t.Fatalf("sanitized event leaked data: %s", serialized)
 	}
+	ack := &clientpb.Event{EventType: consts.CrackTaskCancelAck, Data: []byte("secret-cancellation-identity")}
+	sanitizedAck := sanitizeAuditRequest("/rpcpb.SliverRPC/CrackstationTrigger", ack).(*clientpb.Event)
+	if len(sanitizedAck.Data) != 0 || !proto.Equal(ack, &clientpb.Event{EventType: consts.CrackTaskCancelAck, Data: []byte("secret-cancellation-identity")}) {
+		t.Fatalf("cancellation acknowledgement was not safely sanitized: %#v", sanitizedAck)
+	}
 
 	unrelated := &clientpb.Event{EventType: consts.CrackStatusEvent, Data: []byte("coarse-status")}
 	if got := sanitizeAuditRequest("/rpcpb.SliverRPC/CrackstationTrigger", unrelated); got != unrelated {
@@ -91,6 +96,37 @@ func TestSanitizeAuditRequestClearsTaskStatusEventDataOnly(t *testing.T) {
 	job := &clientpb.CrackJob{ID: "job-id"}
 	if got := sanitizeAuditRequest("/rpcpb.SliverRPC/CrackJobByID", job); got != job {
 		t.Fatal("unrelated request was cloned or changed")
+	}
+}
+
+func TestSanitizeAuditRequestLimitsCrackJobLifecycleMutationsToID(t *testing.T) {
+	request := &clientpb.CrackJob{
+		ID:      "job-id",
+		Err:     "secret-job-error",
+		Command: &clientpb.CrackCommand{Hashes: []string{"secret-hash"}},
+		Tasks: []*clientpb.CrackTask{{
+			LeaseToken: "secret-lease-token",
+			Stdout:     []byte("secret-stdout"),
+		}},
+		Results: []*clientpb.CrackResult{{Hash: "secret-result-hash", Plaintext: []byte("secret-plaintext")}},
+	}
+	original := proto.Clone(request).(*clientpb.CrackJob)
+	for _, method := range []string{
+		"/rpcpb.SliverRPC/CrackJobCancel",
+		"/rpcpb.SliverRPC/CrackJobPause",
+		"/rpcpb.SliverRPC/CrackJobResume",
+		"/rpcpb.SliverRPC/CrackJobDelete",
+	} {
+		sanitized, ok := sanitizeAuditRequest(method, request).(*clientpb.CrackJob)
+		if !ok {
+			t.Fatalf("sanitized %s request has unexpected type", method)
+		}
+		if !proto.Equal(request, original) {
+			t.Fatalf("audit sanitization mutated the %s request", method)
+		}
+		if !proto.Equal(sanitized, &clientpb.CrackJob{ID: request.ID}) {
+			t.Fatalf("sanitized %s request = %#v", method, sanitized)
+		}
 	}
 }
 
@@ -269,6 +305,43 @@ func TestCrackTopRequiresFullOperatorPermission(t *testing.T) {
 	}
 }
 
+func TestCrackJobLifecycleMutationsRequireFullOperatorPermission(t *testing.T) {
+	interceptor := permissionsUnaryServerInterceptor()
+	request := &clientpb.CrackJob{ID: "job-id"}
+	for _, method := range []string{
+		rpcpb.SliverRPC_CrackJobCancel_FullMethodName,
+		rpcpb.SliverRPC_CrackJobPause_FullMethodName,
+		rpcpb.SliverRPC_CrackJobResume_FullMethodName,
+		rpcpb.SliverRPC_CrackJobDelete_FullMethodName,
+	} {
+		handlerCalled := false
+		handler := func(context.Context, interface{}) (interface{}, error) {
+			handlerCalled = true
+			return &commonpb.Empty{}, nil
+		}
+		info := &grpc.UnaryServerInfo{FullMethod: method}
+		crackstationCtx := context.WithValue(context.Background(), Operator, &models.Operator{
+			Name: "restricted-crackstation", PermissionCrackstation: true,
+		})
+		if _, err := interceptor(crackstationCtx, request, info, handler); status.Code(err) != codes.PermissionDenied {
+			t.Fatalf("restricted crackstation %s error = %v, want PermissionDenied", method, err)
+		}
+		if handlerCalled {
+			t.Fatalf("restricted crackstation %s request reached handler", method)
+		}
+
+		operatorCtx := context.WithValue(context.Background(), Operator, &models.Operator{
+			Name: "full-operator", PermissionAll: true,
+		})
+		if _, err := interceptor(operatorCtx, request, info, handler); err != nil {
+			t.Fatalf("full operator %s error = %v", method, err)
+		}
+		if !handlerCalled {
+			t.Fatalf("full operator %s request did not reach handler", method)
+		}
+	}
+}
+
 func TestCrackPayloadLoggingDecidersAlwaysSuppressSensitiveRPCs(t *testing.T) {
 	originalUnary := serverConfig.Logs.GRPCUnaryPayloads
 	originalStream := serverConfig.Logs.GRPCStreamPayloads
@@ -281,6 +354,10 @@ func TestCrackPayloadLoggingDecidersAlwaysSuppressSensitiveRPCs(t *testing.T) {
 	for _, method := range []string{
 		"/rpcpb.SliverRPC/Crack",
 		"/rpcpb.SliverRPC/CrackJobByID",
+		"/rpcpb.SliverRPC/CrackJobCancel",
+		"/rpcpb.SliverRPC/CrackJobPause",
+		"/rpcpb.SliverRPC/CrackJobResume",
+		"/rpcpb.SliverRPC/CrackJobDelete",
 		"/rpcpb.SliverRPC/CrackTop",
 		"/rpcpb.SliverRPC/CrackTaskByID",
 		"/rpcpb.SliverRPC/CrackTaskUpdate",

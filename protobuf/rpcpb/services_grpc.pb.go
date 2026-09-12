@@ -92,6 +92,10 @@ const (
 	SliverRPC_Crack_FullMethodName                            = "/rpcpb.SliverRPC/Crack"
 	SliverRPC_CrackJobs_FullMethodName                        = "/rpcpb.SliverRPC/CrackJobs"
 	SliverRPC_CrackJobByID_FullMethodName                     = "/rpcpb.SliverRPC/CrackJobByID"
+	SliverRPC_CrackJobCancel_FullMethodName                   = "/rpcpb.SliverRPC/CrackJobCancel"
+	SliverRPC_CrackJobPause_FullMethodName                    = "/rpcpb.SliverRPC/CrackJobPause"
+	SliverRPC_CrackJobResume_FullMethodName                   = "/rpcpb.SliverRPC/CrackJobResume"
+	SliverRPC_CrackJobDelete_FullMethodName                   = "/rpcpb.SliverRPC/CrackJobDelete"
 	SliverRPC_CrackTop_FullMethodName                         = "/rpcpb.SliverRPC/CrackTop"
 	SliverRPC_CrackstationRegister_FullMethodName             = "/rpcpb.SliverRPC/CrackstationRegister"
 	SliverRPC_CrackstationTrigger_FullMethodName              = "/rpcpb.SliverRPC/CrackstationTrigger"
@@ -314,6 +318,10 @@ type SliverRPCClient interface {
 	Crack(ctx context.Context, in *clientpb.CrackCommand, opts ...grpc.CallOption) (*clientpb.CrackResponse, error)
 	CrackJobs(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackJobs, error)
 	CrackJobByID(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error)
+	CrackJobCancel(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error)
+	CrackJobPause(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error)
+	CrackJobResume(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error)
+	CrackJobDelete(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	CrackTop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CrackTopSnapshot, error)
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (grpc.ServerStreamingClient[clientpb.Event], error)
 	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -1170,6 +1178,46 @@ func (c *sliverRPCClient) CrackJobByID(ctx context.Context, in *clientpb.CrackJo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(clientpb.CrackJob)
 	err := c.cc.Invoke(ctx, SliverRPC_CrackJobByID_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackJobCancel(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.CrackJob)
+	err := c.cc.Invoke(ctx, SliverRPC_CrackJobCancel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackJobPause(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.CrackJob)
+	err := c.cc.Invoke(ctx, SliverRPC_CrackJobPause_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackJobResume(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*clientpb.CrackJob, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.CrackJob)
+	err := c.cc.Invoke(ctx, SliverRPC_CrackJobResume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackJobDelete(ctx context.Context, in *clientpb.CrackJob, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, SliverRPC_CrackJobDelete_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2563,6 +2611,10 @@ type SliverRPCServer interface {
 	Crack(context.Context, *clientpb.CrackCommand) (*clientpb.CrackResponse, error)
 	CrackJobs(context.Context, *commonpb.Empty) (*clientpb.CrackJobs, error)
 	CrackJobByID(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error)
+	CrackJobCancel(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error)
+	CrackJobPause(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error)
+	CrackJobResume(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error)
+	CrackJobDelete(context.Context, *clientpb.CrackJob) (*commonpb.Empty, error)
 	CrackTop(context.Context, *commonpb.Empty) (*clientpb.CrackTopSnapshot, error)
 	CrackstationRegister(*clientpb.Crackstation, grpc.ServerStreamingServer[clientpb.Event]) error
 	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
@@ -2922,6 +2974,18 @@ func (UnimplementedSliverRPCServer) CrackJobs(context.Context, *commonpb.Empty) 
 }
 func (UnimplementedSliverRPCServer) CrackJobByID(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error) {
 	return nil, status.Error(codes.Unimplemented, "method CrackJobByID not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackJobCancel(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+	return nil, status.Error(codes.Unimplemented, "method CrackJobCancel not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackJobPause(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+	return nil, status.Error(codes.Unimplemented, "method CrackJobPause not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackJobResume(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+	return nil, status.Error(codes.Unimplemented, "method CrackJobResume not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackJobDelete(context.Context, *clientpb.CrackJob) (*commonpb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CrackJobDelete not implemented")
 }
 func (UnimplementedSliverRPCServer) CrackTop(context.Context, *commonpb.Empty) (*clientpb.CrackTopSnapshot, error) {
 	return nil, status.Error(codes.Unimplemented, "method CrackTop not implemented")
@@ -4563,6 +4627,78 @@ func _SliverRPC_CrackJobByID_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).CrackJobByID(ctx, req.(*clientpb.CrackJob))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackJobCancel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackJob)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackJobCancel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_CrackJobCancel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackJobCancel(ctx, req.(*clientpb.CrackJob))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackJobPause_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackJob)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackJobPause(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_CrackJobPause_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackJobPause(ctx, req.(*clientpb.CrackJob))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackJobResume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackJob)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackJobResume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_CrackJobResume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackJobResume(ctx, req.(*clientpb.CrackJob))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackJobDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackJob)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackJobDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_CrackJobDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackJobDelete(ctx, req.(*clientpb.CrackJob))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -7095,6 +7231,22 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CrackJobByID",
 			Handler:    _SliverRPC_CrackJobByID_Handler,
+		},
+		{
+			MethodName: "CrackJobCancel",
+			Handler:    _SliverRPC_CrackJobCancel_Handler,
+		},
+		{
+			MethodName: "CrackJobPause",
+			Handler:    _SliverRPC_CrackJobPause_Handler,
+		},
+		{
+			MethodName: "CrackJobResume",
+			Handler:    _SliverRPC_CrackJobResume_Handler,
+		},
+		{
+			MethodName: "CrackJobDelete",
+			Handler:    _SliverRPC_CrackJobDelete_Handler,
 		},
 		{
 			MethodName: "CrackTop",

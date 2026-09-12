@@ -226,6 +226,10 @@ func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
 	switch fullMethod {
 	case "/rpcpb.SliverRPC/Crack",
 		"/rpcpb.SliverRPC/CrackJobByID",
+		"/rpcpb.SliverRPC/CrackJobCancel",
+		"/rpcpb.SliverRPC/CrackJobPause",
+		"/rpcpb.SliverRPC/CrackJobResume",
+		"/rpcpb.SliverRPC/CrackJobDelete",
 		"/rpcpb.SliverRPC/CrackTop",
 		"/rpcpb.SliverRPC/CrackTaskByID",
 		"/rpcpb.SliverRPC/CrackTaskUpdate",
@@ -297,6 +301,15 @@ type auditUnaryLogMsg struct {
 
 func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
 	switch fullMethod {
+	case "/rpcpb.SliverRPC/CrackJobCancel",
+		"/rpcpb.SliverRPC/CrackJobPause",
+		"/rpcpb.SliverRPC/CrackJobResume",
+		"/rpcpb.SliverRPC/CrackJobDelete":
+		job, ok := req.(*clientpb.CrackJob)
+		if !ok || job == nil {
+			return req
+		}
+		return &clientpb.CrackJob{ID: job.ID}
 	case "/rpcpb.SliverRPC/Crack":
 		command, ok := req.(*clientpb.CrackCommand)
 		if !ok || command == nil {
@@ -327,7 +340,7 @@ func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
 		return sanitized
 	case "/rpcpb.SliverRPC/CrackstationTrigger":
 		event, ok := req.(*clientpb.Event)
-		if !ok || event == nil || event.EventType != consts.CrackTaskStatus {
+		if !ok || event == nil || (event.EventType != consts.CrackTaskStatus && event.EventType != consts.CrackTaskCancelAck) {
 			return req
 		}
 		sanitized := proto.Clone(event).(*clientpb.Event)

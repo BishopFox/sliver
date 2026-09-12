@@ -116,6 +116,8 @@ const (
 	CrackFileUpdated       = "crack-file-updated"
 	CrackStatusEvent       = "crack-status"
 	CrackTaskStatus        = "crack-task-status"
+	CrackTaskCancel        = "crack-task-cancel"
+	CrackTaskCancelAck     = "crack-task-cancel-ack"
 	CrackJobCreated        = "crack-job-created"
 	CrackJobUpdated        = "crack-job-updated"
 	CredentialCrackedEvent = "credential-cracked"

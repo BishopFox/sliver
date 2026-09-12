@@ -321,6 +321,7 @@ func TestCrackJobStatusStyleUsesSemanticPalette(t *testing.T) {
 		{status: "CRACK_TASK_FAILED", want: console.StyleBoldDanger},
 		{status: "CANCELLED", want: console.StyleBoldGray},
 		{status: "CANCELED", want: console.StyleBoldGray},
+		{status: "PAUSED", want: console.StyleBoldGray},
 		{status: "CRACK_TASK_CANCELLED", want: console.StyleBoldGray},
 		{status: "UNKNOWN", want: console.StyleBold},
 	}

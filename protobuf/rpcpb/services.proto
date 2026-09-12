@@ -128,6 +128,10 @@ service SliverRPC {
   rpc Crack(clientpb.CrackCommand) returns (clientpb.CrackResponse);
   rpc CrackJobs(commonpb.Empty) returns (clientpb.CrackJobs);
   rpc CrackJobByID(clientpb.CrackJob) returns (clientpb.CrackJob);
+  rpc CrackJobCancel(clientpb.CrackJob) returns (clientpb.CrackJob);
+  rpc CrackJobPause(clientpb.CrackJob) returns (clientpb.CrackJob);
+  rpc CrackJobResume(clientpb.CrackJob) returns (clientpb.CrackJob);
+  rpc CrackJobDelete(clientpb.CrackJob) returns (commonpb.Empty);
   rpc CrackTop(commonpb.Empty) returns (clientpb.CrackTopSnapshot);
   rpc CrackstationRegister(clientpb.Crackstation)
       returns (stream clientpb.Event);

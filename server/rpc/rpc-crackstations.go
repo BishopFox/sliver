@@ -423,7 +423,49 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 			crackRPCLog.Errorf("Received status update for unknown crackstation: %s", statusUpdate.Name)
 			return nil, status.Errorf(codes.InvalidArgument, "Unknown crackstation")
 		}
+		crackQueueMu.Lock()
+		if core.GetCrackstation(statusUpdate.HostUUID) != crackStation {
+			crackQueueMu.Unlock()
+			return nil, status.Error(codes.Aborted, "crackstation connection changed during status update")
+		}
+		wasIdle := standaloneCrackstationIsIdle(crackStation.Snapshot())
 		crackStation.UpdateStatus(statusUpdate)
+		isIdle := standaloneCrackstationIsIdle(crackStation.Snapshot())
+		// Registration, benchmark completion, and task completion already
+		// attempt scheduling. Rescan on a transition into IDLE because those
+		// attempts occur before the worker's deferred status update, and on a
+		// completed lifecycle drain handshake. Repeated IDLE heartbeats do not
+		// scan the durable queue.
+		released := observeCrackstationDrainStatusLocked(crackStation)
+		if shouldScheduleAfterCrackstationStatus(wasIdle, isIdle, released) {
+			scheduleErr := scheduleCrackTasksLocked(time.Now())
+			if scheduleErr != nil {
+				crackRPCLog.Warnf("Failed to schedule work after crackstation %s status update: %s", statusUpdate.HostUUID, scheduleErr)
+			}
+		}
+		crackQueueMu.Unlock()
+	case consts.CrackTaskCancelAck:
+		acknowledgement := crackTaskCancelRequest{}
+		if err := json.Unmarshal(req.Data, &acknowledgement); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid crack task cancellation acknowledgement")
+		}
+		if err := validateCrackTaskCancelRequest(acknowledgement); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err := rpc.authorizeCrackstation(ctx, acknowledgement.HostUUID); err != nil {
+			return nil, err
+		}
+		crackStation := core.GetCrackstation(acknowledgement.HostUUID)
+		crackQueueMu.Lock()
+		released := acknowledgeCrackstationDrainLocked(crackStation, acknowledgement)
+		var scheduleErr error
+		if released {
+			scheduleErr = scheduleCrackTasksLocked(time.Now())
+		}
+		crackQueueMu.Unlock()
+		if scheduleErr != nil {
+			crackRPCLog.Warnf("Failed to schedule work after crackstation %s cancellation acknowledgement: %s", acknowledgement.HostUUID, scheduleErr)
+		}
 	case consts.CrackTaskStatus:
 		statusUpdate := crackTaskStatusEvent{}
 		if err := json.Unmarshal(req.Data, &statusUpdate); err != nil {
@@ -453,19 +495,37 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 	return &commonpb.Empty{}, nil
 }
 
+func shouldScheduleAfterCrackstationStatus(wasIdle, isIdle, releasedDrain bool) bool {
+	return releasedDrain || (isIdle && !wasIdle)
+}
+
 func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (*clientpb.CrackTask, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing crack task")
 	}
+	// Lifecycle revocation is tracked independently of the durable task row so
+	// an exact old attempt still receives Aborted if the operator immediately
+	// deletes its now-terminal job. Authenticate before recording that the
+	// worker observed revocation.
+	if handled, err := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+		return nil, err
+	}
+	crackTaskAfterRevocationPrecheck()
 	if task, handled, err := rpc.standaloneCrackTaskByID(ctx, req); handled {
 		return task, err
 	}
 	task, err := db.GetCrackTaskByID(req.ID)
 	if err != nil {
+		if handled, revokedErr := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+			return nil, revokedErr
+		}
 		crackRPCLog.Errorf("Failed to get crack task by ID: %s", err)
 		return nil, status.Errorf(codes.NotFound, "Failed to get crack task by ID")
 	}
 	if req.HostUUID == "" || req.HostUUID != task.CrackstationID.String() || req.Attempt != task.Attempt || req.LeaseToken == "" || req.LeaseToken != task.LeaseToken {
+		if handled, revokedErr := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+			return nil, revokedErr
+		}
 		return nil, status.Error(codes.PermissionDenied, "crack task assignment does not match lease")
 	}
 	if task.CrackstationID == models.NilUUID() {
@@ -473,12 +533,34 @@ func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (
 	}
 	state := clientpb.CrackTaskState(task.State)
 	if (state != clientpb.CrackTaskState_CRACK_TASK_LEASED && state != clientpb.CrackTaskState_CRACK_TASK_RUNNING) || task.LeaseExpiresAt.IsZero() || !task.LeaseExpiresAt.After(time.Now()) {
+		if handled, revokedErr := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+			return nil, revokedErr
+		}
 		return nil, status.Error(codes.Aborted, errStaleCrackTaskAttempt.Error())
 	}
 	if err := rpc.authorizeCrackstation(ctx, task.CrackstationID.String()); err != nil {
 		return nil, err
 	}
+	if observeRevokedCrackTaskAttempt(req) {
+		return nil, status.Error(codes.Aborted, errStaleCrackTaskAttempt.Error())
+	}
 	return task.ToProtobuf(), nil
+}
+
+var crackTaskAfterRevocationPrecheck = func() {}
+var crackTaskBeforeLeasedUpdate = func() {}
+
+func (rpc *Server) rejectRevokedCrackTaskAttempt(ctx context.Context, req *clientpb.CrackTask) (bool, error) {
+	if !revokedCrackTaskAttempt(req) {
+		return false, nil
+	}
+	if err := rpc.authorizeCrackstation(ctx, req.HostUUID); err != nil {
+		return true, err
+	}
+	if observeRevokedCrackTaskAttempt(req) {
+		return true, status.Error(codes.Aborted, errStaleCrackTaskAttempt.Error())
+	}
+	return false, nil
 }
 
 func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask) (*commonpb.Empty, error) {
@@ -488,6 +570,9 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 	taskID := models.ParseUUIDOrNil(req.ID)
 	if taskID == models.NilUUID() {
 		return nil, status.Error(codes.InvalidArgument, "invalid crack task id")
+	}
+	if handled, err := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+		return nil, err
 	}
 	if handled, err := rpc.standaloneCrackTaskUpdate(ctx, req); handled {
 		if err != nil {
@@ -504,20 +589,29 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 
 	persisted, err := db.GetCrackTaskByID(req.ID)
 	if err != nil {
+		if handled, revokedErr := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+			return nil, revokedErr
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, status.Error(codes.NotFound, "crack task not found")
 		}
 		crackRPCLog.Errorf("Failed to query crack task: %s", err)
 		return nil, status.Error(codes.Internal, "failed to query crack task")
 	}
-
 	if persisted.CrackstationID == models.NilUUID() || persisted.CrackstationID.String() != req.HostUUID {
+		if handled, revokedErr := rpc.rejectRevokedCrackTaskAttempt(ctx, req); handled {
+			return nil, revokedErr
+		}
 		return nil, status.Error(codes.PermissionDenied, "crack task is not assigned to host")
 	}
 	if err := rpc.authorizeCrackstation(ctx, req.HostUUID); err != nil {
 		return nil, err
 	}
+	crackTaskBeforeLeasedUpdate()
 	if _, err := updateLeasedCrackTask(req); err != nil {
+		if observeRevokedCrackTaskAttempt(req) {
+			return nil, status.Error(codes.Aborted, errStaleCrackTaskAttempt.Error())
+		}
 		if errors.Is(err, errStaleCrackTaskAttempt) {
 			return nil, status.Error(codes.Aborted, err.Error())
 		}
@@ -624,12 +718,13 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 		return status.Error(codes.Internal, "failed to register crackstation")
 	}
 	crackStation := core.NewCrackstation(req)
-	err = core.AddCrackstation(crackStation)
+	err = addAndRecoverCrackstation(crackStation)
 	if err == core.ErrDuplicateHosts {
 		return status.Error(codes.AlreadyExists, "crackstation already running on host")
 	}
 	if err != nil {
-		return rpcError(err)
+		crackRPCLog.Errorf("Failed to add and recover crackstation %s: %s", req.HostUUID, err)
+		return status.Error(codes.Internal, "failed to recover crackstation tasks")
 	}
 
 	crackRPCLog.Infof("Crackstation %s (%s) connected", req.Name, req.OperatorName)
@@ -667,13 +762,6 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 			return status.Error(codes.ResourceExhausted, "failed to enqueue benchmark request")
 		}
 	}
-	if err := requeueCrackstationTasks(req.HostUUID); err != nil {
-		return status.Error(codes.Internal, "failed to recover crackstation tasks")
-	}
-	if err := scheduleCrackTasks(); err != nil {
-		return status.Error(codes.Internal, "failed to schedule crackstation tasks")
-	}
-
 	// Only forward these event types
 	crackingEvents := []string{
 		consts.CrackFileUpdated,

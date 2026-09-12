@@ -1595,6 +1595,7 @@ enum CrackJobStatus {
   COMPLETED = 1;
   FAILED = 2;
   CANCELLED = 3;
+  PAUSED = 4;
 }
 
 enum CrackTaskKind {

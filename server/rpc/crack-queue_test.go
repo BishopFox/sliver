@@ -95,11 +95,50 @@ func addQueueTestStationVersion(t *testing.T, database *gorm.DB, idText string, 
 		}
 	}
 	station := core.NewCrackstation(&clientpb.Crackstation{HostUUID: id.String(), OperatorName: "queue-test", HashcatVersion: normalizedVersion})
+	station.UpdateStatus(&clientpb.CrackstationStatus{
+		HostUUID: id.String(),
+		State:    clientpb.States_IDLE,
+	})
 	if err := core.AddCrackstation(station); err != nil {
 		t.Fatalf("add crackstation: %v", err)
 	}
 	t.Cleanup(func() { core.RemoveCrackstation(id.String()) })
 	return station
+}
+
+func resetCrackstationDrainsForTest(t *testing.T) {
+	t.Helper()
+	crackQueueMu.Lock()
+	original := crackstationDrains
+	crackstationDrains = map[string]*crackstationDrain{}
+	crackQueueMu.Unlock()
+	t.Cleanup(func() {
+		crackQueueMu.Lock()
+		crackstationDrains = original
+		crackQueueMu.Unlock()
+	})
+}
+
+func TestCrackstationStatusSchedulingEdges(t *testing.T) {
+	tests := []struct {
+		name          string
+		wasIdle       bool
+		isIdle        bool
+		releasedDrain bool
+		want          bool
+	}{
+		{name: "busy to idle", isIdle: true, want: true},
+		{name: "repeated idle", wasIdle: true, isIdle: true, want: false},
+		{name: "busy heartbeat", want: false},
+		{name: "drain released", wasIdle: true, isIdle: true, releasedDrain: true, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := shouldScheduleAfterCrackstationStatus(test.wasIdle, test.isIdle, test.releasedDrain); got != test.want {
+				t.Fatalf("schedule = %v, want %v", got, test.want)
+			}
+		})
+	}
 }
 
 func createQueueTestJob(t *testing.T, database *gorm.DB, command models.CrackCommand) *models.CrackJob {
@@ -210,6 +249,69 @@ func TestSchedulerWaitsForBenchmarkAndLeasesOnlyOneTask(t *testing.T) {
 	}
 }
 
+func TestSchedulerAcceptsLegacyNullLifecycleColumns(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	resetCrackstationDrainsForTest(t)
+	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{int32(clientpb.HashType_MD5): 100})
+	job := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_MD5)})
+	if err := database.Exec("UPDATE crack_jobs SET paused_at = NULL, cancelled_at = NULL WHERE id = ?", job.ID).Error; err != nil {
+		t.Fatalf("set legacy lifecycle columns to NULL: %v", err)
+	}
+	task := &models.CrackTask{
+		CrackJobID: job.ID,
+		Kind:       int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:      int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
+	}
+	if err := database.Create(task).Error; err != nil {
+		t.Fatalf("create legacy queued task: %v", err)
+	}
+	if err := database.Create(&models.CrackCommand{CrackTaskID: task.ID, HashType: int32(clientpb.HashType_MD5)}).Error; err != nil {
+		t.Fatalf("create legacy task command: %v", err)
+	}
+	rpcServer := &Server{}
+	jobs, err := rpcServer.CrackJobs(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("list legacy lifecycle row: %v", err)
+	}
+	foundJob := false
+	for _, listed := range jobs.GetJobs() {
+		if listed.GetID() == job.ID.String() {
+			foundJob = true
+			if listed.GetStatus() != clientpb.CrackJobStatus_IN_PROGRESS {
+				t.Fatalf("legacy listed job status = %s, want IN_PROGRESS", listed.GetStatus())
+			}
+		}
+	}
+	if !foundJob {
+		t.Fatal("legacy lifecycle row was omitted from CrackJobs")
+	}
+	top, err := rpcServer.CrackTop(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("load crack top with legacy lifecycle row: %v", err)
+	}
+	foundJob = false
+	for _, listed := range top.GetJobs() {
+		if listed.GetID() == job.ID.String() {
+			foundJob = true
+			if listed.GetStatus() != clientpb.CrackJobStatus_IN_PROGRESS {
+				t.Fatalf("legacy crack top status = %s, want IN_PROGRESS", listed.GetStatus())
+			}
+		}
+	}
+	if !foundJob {
+		t.Fatal("legacy lifecycle row was omitted from CrackTop")
+	}
+	if err := scheduleCrackTasks(); err != nil {
+		t.Fatalf("schedule legacy lifecycle row: %v", err)
+	}
+	if err := database.First(task, "id = ?", task.ID).Error; err != nil {
+		t.Fatalf("load legacy scheduled task: %v", err)
+	}
+	if task.State != int32(clientpb.CrackTaskState_CRACK_TASK_LEASED) || task.CrackstationID.String() != station.HostUUID {
+		t.Fatalf("legacy NULL lifecycle task was not leased: %#v", task)
+	}
+}
+
 //nolint:gocyclo // The test follows legacy benchmark rejection through freshness repair and task leasing.
 func TestSchedulerRejectsLegacyBenchmarkUntilFreshnessMarkerMatches(t *testing.T) {
 	database := setupCrackstationRPCTestDB(t)
@@ -221,6 +323,7 @@ func TestSchedulerRejectsLegacyBenchmarkUntilFreshnessMarkerMatches(t *testing.T
 		t.Fatalf("create legacy benchmark: %v", err)
 	}
 	station := core.NewCrackstation(&clientpb.Crackstation{HostUUID: hostID.String(), OperatorName: "queue-test", HashcatVersion: "hashcat-v1"})
+	station.UpdateStatus(&clientpb.CrackstationStatus{HostUUID: hostID.String(), State: clientpb.States_IDLE})
 	if err := core.AddCrackstation(station); err != nil {
 		t.Fatalf("add legacy runtime crackstation: %v", err)
 	}
@@ -377,6 +480,7 @@ func TestKeyspaceCompletionSurvivesDisconnectAndPinsHashcatVersion(t *testing.T)
 	}
 
 	replacement := core.NewCrackstation(&clientpb.Crackstation{HostUUID: versionOne.HostUUID, OperatorName: "queue-test", HashcatVersion: "hashcat-v1"})
+	replacement.UpdateStatus(&clientpb.CrackstationStatus{HostUUID: versionOne.HostUUID, State: clientpb.States_IDLE})
 	if err := core.AddCrackstation(replacement); err != nil {
 		t.Fatalf("reconnect matching-version station: %v", err)
 	}
@@ -1919,11 +2023,748 @@ func TestCrackJobStatusDerivesFailureFromTaskState(t *testing.T) {
 	if got := job.Status(); got != clientpb.CrackJobStatus_FAILED {
 		t.Fatalf("job status = %s, want FAILED", got)
 	}
+	legacyMixed := &models.CrackJob{CompletedAt: time.Now(), Tasks: []models.CrackTask{
+		{State: int32(clientpb.CrackTaskState_CRACK_TASK_CANCELLED)},
+		{State: int32(clientpb.CrackTaskState_CRACK_TASK_FAILED)},
+	}}
+	if got := legacyMixed.Status(); got != clientpb.CrackJobStatus_FAILED {
+		t.Fatalf("legacy mixed terminal status = %s, want FAILED", got)
+	}
 	job.CompletedAt = time.Time{}
 	job.Err = "one shard failed"
 	job.Tasks = append(job.Tasks, models.CrackTask{State: int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING)})
 	if got := job.Status(); got != clientpb.CrackJobStatus_IN_PROGRESS {
 		t.Fatalf("mixed running/failed job status = %s, want IN_PROGRESS", got)
+	}
+	job.PausedAt = time.Now()
+	if got := job.Status(); got != clientpb.CrackJobStatus_PAUSED {
+		t.Fatalf("paused job status = %s, want PAUSED", got)
+	}
+	job.CancelledAt = time.Now()
+	job.CompletedAt = time.Now()
+	if got := job.Status(); got != clientpb.CrackJobStatus_CANCELLED {
+		t.Fatalf("cancelled job status = %s, want CANCELLED", got)
+	}
+}
+
+func TestPausedTaskWaitsForRevokedAttemptBeforeResumeDispatch(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	resetCrackstationDrainsForTest(t)
+	rpcServer := &Server{}
+	stationA := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{int32(clientpb.HashType_MD5): 100})
+	stationB := addQueueTestStation(t, database, "22222222-2222-4222-8222-222222222222", map[int32]uint64{int32(clientpb.HashType_MD5): 100})
+	job := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_MD5), Hashes: []string{"hash"}})
+	running := &models.CrackTask{
+		CrackJobID:      job.ID,
+		CrackstationID:  models.ParseUUIDOrNil(stationA.HostUUID),
+		Kind:            int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:           int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+		Attempt:         1,
+		LeaseToken:      "revoked-attempt-token",
+		LeaseExpiresAt:  time.Now().Add(time.Minute),
+		LastHeartbeatAt: time.Now(),
+	}
+	if err := database.Create(running).Error; err != nil {
+		t.Fatalf("create running task: %v", err)
+	}
+	revokedAttempt := running.ToProtobuf()
+	stationA.UpdateStatus(&clientpb.CrackstationStatus{
+		HostUUID:          stationA.HostUUID,
+		State:             clientpb.States_CRACKING,
+		CurrentCrackJobID: job.ID.String(),
+	})
+
+	if _, err := rpcServer.CrackJobPause(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); err != nil {
+		t.Fatalf("pause crack job: %v", err)
+	}
+	select {
+	case event := <-stationA.Events:
+		if event.EventType != consts.CrackTaskCancel {
+			t.Fatalf("pause event = %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("pause did not send revocation event")
+	}
+	if _, err := rpcServer.CrackJobResume(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); err != nil {
+		t.Fatalf("resume crack job: %v", err)
+	}
+	select {
+	case event := <-stationA.Events:
+		t.Fatalf("revoked task was immediately reassigned to station A: %#v", event)
+	case event := <-stationB.Events:
+		t.Fatalf("revoked task was immediately reassigned to station B: %#v", event)
+	default:
+	}
+
+	if _, err := rpcServer.CrackTaskByID(crackstationTestContext("queue-test"), revokedAttempt); status.Code(err) != codes.Aborted {
+		t.Fatalf("revoked task fetch error = %v, want Aborted", err)
+	}
+	idleData, err := proto.Marshal(&clientpb.CrackstationStatus{HostUUID: stationA.HostUUID, State: clientpb.States_IDLE})
+	if err != nil {
+		t.Fatalf("encode idle status: %v", err)
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{EventType: consts.CrackStatusEvent, Data: idleData}); err != nil {
+		t.Fatalf("publish first idle status: %v", err)
+	}
+	select {
+	case event := <-stationA.Events:
+		t.Fatalf("first idle status reassigned revoked task to station A: %#v", event)
+	case event := <-stationB.Events:
+		t.Fatalf("first idle status reassigned revoked task to station B: %#v", event)
+	default:
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{EventType: consts.CrackStatusEvent, Data: idleData}); err != nil {
+		t.Fatalf("publish second idle status: %v", err)
+	}
+
+	var assignmentEvent *clientpb.Event
+	select {
+	case assignmentEvent = <-stationA.Events:
+	case assignmentEvent = <-stationB.Events:
+	case <-time.After(time.Second):
+		t.Fatal("released drain did not dispatch resumed task")
+	}
+	assignment := crackTaskAssignment{}
+	if assignmentEvent.EventType != consts.Crack {
+		t.Fatalf("resumed event = %#v", assignmentEvent)
+	}
+	if err := json.Unmarshal(assignmentEvent.Data, &assignment); err != nil {
+		t.Fatalf("decode resumed assignment: %v", err)
+	}
+	if assignment.TaskID != running.ID.String() || assignment.Attempt != 2 || assignment.LeaseToken == "" || assignment.LeaseToken == running.LeaseToken {
+		t.Fatalf("resumed assignment = %#v", assignment)
+	}
+}
+
+func TestCrackTaskUpdateRacingCancelDeleteMarksDrainRevocationSeen(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	resetCrackstationDrainsForTest(t)
+	rpcServer := &Server{}
+	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{int32(clientpb.HashType_MD5): 100})
+	job := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_MD5), Hashes: []string{"hash"}})
+	running := &models.CrackTask{
+		CrackJobID:      job.ID,
+		CrackstationID:  models.ParseUUIDOrNil(station.HostUUID),
+		Kind:            int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:           int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+		Attempt:         1,
+		LeaseToken:      "cancel-delete-race-token",
+		LeaseExpiresAt:  time.Now().Add(time.Minute),
+		LastHeartbeatAt: time.Now(),
+	}
+	if err := database.Create(running).Error; err != nil {
+		t.Fatalf("create running task: %v", err)
+	}
+	station.UpdateStatus(&clientpb.CrackstationStatus{
+		HostUUID:          station.HostUUID,
+		State:             clientpb.States_CRACKING,
+		CurrentCrackJobID: job.ID.String(),
+	})
+
+	originalHook := crackTaskBeforeLeasedUpdate
+	var lifecycleErr error
+	hookCalled := false
+	crackTaskBeforeLeasedUpdate = func() {
+		if hookCalled {
+			return
+		}
+		hookCalled = true
+		if _, err := rpcServer.CrackJobCancel(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); err != nil {
+			lifecycleErr = err
+			return
+		}
+		_, lifecycleErr = rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: job.ID.String()})
+	}
+	t.Cleanup(func() { crackTaskBeforeLeasedUpdate = originalHook })
+	_, err := rpcServer.CrackTaskUpdate(crackstationTestContext("queue-test"), running.ToProtobuf())
+	crackTaskBeforeLeasedUpdate = originalHook
+	if lifecycleErr != nil {
+		t.Fatalf("cancel/delete from race hook: %v", lifecycleErr)
+	}
+	if !hookCalled {
+		t.Fatal("revocation race hook was not called")
+	}
+	if status.Code(err) != codes.Aborted {
+		t.Fatalf("cancel/delete racing task update error = %v, want Aborted", err)
+	}
+	crackQueueMu.Lock()
+	drain := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if drain == nil || !drain.revocationSeen || drain.idleObservations != 0 {
+		t.Fatalf("racing update did not observe revocation: %#v", drain)
+	}
+
+	idleData, err := proto.Marshal(&clientpb.CrackstationStatus{HostUUID: station.HostUUID, State: clientpb.States_IDLE})
+	if err != nil {
+		t.Fatalf("encode idle status: %v", err)
+	}
+	for index := 0; index < 2; index++ {
+		if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{EventType: consts.CrackStatusEvent, Data: idleData}); err != nil {
+			t.Fatalf("publish idle status %d: %v", index+1, err)
+		}
+	}
+	crackQueueMu.Lock()
+	_, remains := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if remains {
+		t.Fatal("two post-revocation idle reports did not release racing drain")
+	}
+}
+
+//nolint:gocyclo // Pause, idle release, resume, and cancellation form one lifecycle contract.
+func TestCrackJobPauseResumeCancelLifecycle(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	resetCrackstationDrainsForTest(t)
+	rpcServer := &Server{}
+
+	if _, err := rpcServer.CrackJobPause(t.Context(), nil); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("nil pause error = %v, want InvalidArgument", err)
+	}
+	if _, err := rpcServer.CrackJobCancel(t.Context(), &clientpb.CrackJob{ID: "invalid"}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("invalid cancel error = %v, want InvalidArgument", err)
+	}
+	if _, err := rpcServer.CrackJobResume(t.Context(), &clientpb.CrackJob{ID: models.NewUUID().String()}); status.Code(err) != codes.NotFound {
+		t.Fatalf("missing resume error = %v, want NotFound", err)
+	}
+
+	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{int32(clientpb.HashType_MD5): 100})
+	job := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_MD5), Hashes: []string{"hash"}})
+	running := &models.CrackTask{
+		CrackJobID:      job.ID,
+		CrackstationID:  models.ParseUUIDOrNil(station.HostUUID),
+		Kind:            int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:           int32(clientpb.CrackTaskState_CRACK_TASK_RUNNING),
+		Attempt:         1,
+		LeaseToken:      "pause-token",
+		LeaseExpiresAt:  time.Now().Add(time.Minute),
+		LastHeartbeatAt: time.Now(),
+		StartedAt:       time.Now().Add(-time.Minute),
+	}
+	if err := database.Create(running).Error; err != nil {
+		t.Fatalf("create running task: %v", err)
+	}
+	queued := &models.CrackTask{
+		CrackJobID: job.ID,
+		CreatedAt:  time.Now().Add(time.Minute),
+		Kind:       int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:      int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED),
+	}
+	if err := database.Create(queued).Error; err != nil {
+		t.Fatalf("create queued task: %v", err)
+	}
+	station.UpdateStatus(&clientpb.CrackstationStatus{
+		HostUUID:          station.HostUUID,
+		State:             clientpb.States_CRACKING,
+		CurrentCrackJobID: job.ID.String(),
+	})
+
+	paused, err := rpcServer.CrackJobPause(t.Context(), &clientpb.CrackJob{ID: job.ID.String()})
+	if err != nil {
+		t.Fatalf("pause crack job: %v", err)
+	}
+	if paused.Status != clientpb.CrackJobStatus_PAUSED || paused.CompletedAt != "" {
+		t.Fatalf("paused job = %#v", paused)
+	}
+	if paused.ID != job.ID.String() || paused.Command != nil || len(paused.Tasks) != 0 || len(paused.Results) != 0 {
+		t.Fatalf("pause response was not a bounded lifecycle summary: %#v", paused)
+	}
+
+	var pauseEvent *clientpb.Event
+	select {
+	case pauseEvent = <-station.Events:
+	case <-time.After(time.Second):
+		t.Fatal("pause did not emit a task cancellation event")
+	}
+	if pauseEvent.EventType != consts.CrackTaskCancel {
+		t.Fatalf("pause event type = %q, want %q", pauseEvent.EventType, consts.CrackTaskCancel)
+	}
+	pauseRequest := crackTaskCancelRequest{}
+	if err := json.Unmarshal(pauseEvent.Data, &pauseRequest); err != nil {
+		t.Fatalf("decode pause request: %v", err)
+	}
+	if pauseRequest.TaskID != running.ID.String() || pauseRequest.CrackJobID != job.ID.String() ||
+		pauseRequest.HostUUID != station.HostUUID || pauseRequest.Attempt != 1 ||
+		pauseRequest.LeaseToken != "pause-token" || pauseRequest.Action != string(crackJobLifecyclePause) {
+		t.Fatalf("pause request = %#v", pauseRequest)
+	}
+
+	var pausedJob models.CrackJob
+	if err := database.First(&pausedJob, "id = ?", job.ID).Error; err != nil {
+		t.Fatalf("load paused job: %v", err)
+	}
+	if pausedJob.PausedAt.IsZero() || !pausedJob.CompletedAt.IsZero() || !pausedJob.CancelledAt.IsZero() {
+		t.Fatalf("persisted paused job = %#v", pausedJob)
+	}
+	var pausedTask models.CrackTask
+	if err := database.First(&pausedTask, "id = ?", running.ID).Error; err != nil {
+		t.Fatalf("load paused task: %v", err)
+	}
+	if pausedTask.State != int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED) || pausedTask.CrackstationID != models.NilUUID() ||
+		pausedTask.LeaseToken != "" || !pausedTask.LeaseExpiresAt.IsZero() || !pausedTask.StartedAt.IsZero() {
+		t.Fatalf("paused task = %#v", pausedTask)
+	}
+	revokedRequest := running.ToProtobuf()
+	heartbeatData, err := json.Marshal(crackTaskStatusEvent{
+		TaskID:     running.ID.String(),
+		HostUUID:   station.HostUUID,
+		Attempt:    running.Attempt,
+		LeaseToken: running.LeaseToken,
+		Status:     json.RawMessage(`{"progress":1}`),
+	})
+	if err != nil {
+		t.Fatalf("encode revoked heartbeat: %v", err)
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{
+		EventType: consts.CrackTaskStatus,
+		Data:      heartbeatData,
+	}); status.Code(err) != codes.Aborted {
+		t.Fatalf("revoked pause heartbeat error = %v, want Aborted", err)
+	}
+	if _, err := rpcServer.CrackTaskByID(crackstationTestContext("queue-test"), revokedRequest); status.Code(err) != codes.Aborted {
+		t.Fatalf("revoked pause fetch error = %v, want Aborted", err)
+	}
+	if _, err := rpcServer.CrackTaskUpdate(crackstationTestContext("queue-test"), revokedRequest); status.Code(err) != codes.Aborted {
+		t.Fatalf("revoked pause update error = %v, want Aborted", err)
+	}
+	if _, err := updateLeasedCrackTask(running.ToProtobuf()); !errors.Is(err, errStaleCrackTaskAttempt) {
+		t.Fatalf("revoked pause attempt error = %v, want stale attempt", err)
+	}
+	crackQueueMu.Lock()
+	drain := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if drain == nil || drain.station != station || drain.taskID != running.ID.String() || drain.attempt != 1 || !drain.revocationSeen || drain.idleObservations != 0 {
+		t.Fatalf("pause drain = %#v", drain)
+	}
+
+	busyStatusData, err := proto.Marshal(&clientpb.CrackstationStatus{
+		HostUUID:          station.HostUUID,
+		State:             clientpb.States_CRACKING,
+		CurrentCrackJobID: job.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("encode busy status: %v", err)
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{
+		EventType: consts.CrackStatusEvent,
+		Data:      busyStatusData,
+	}); err != nil {
+		t.Fatalf("publish post-pause busy status: %v", err)
+	}
+	statusData, err := proto.Marshal(&clientpb.CrackstationStatus{HostUUID: station.HostUUID, State: clientpb.States_IDLE})
+	if err != nil {
+		t.Fatalf("encode idle status: %v", err)
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{
+		EventType: consts.CrackStatusEvent,
+		Data:      statusData,
+	}); err != nil {
+		t.Fatalf("publish first idle status: %v", err)
+	}
+	crackQueueMu.Lock()
+	drain = crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if drain == nil || drain.idleObservations != 1 {
+		t.Fatalf("first idle status released drain: %#v", drain)
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{
+		EventType: consts.CrackStatusEvent,
+		Data:      statusData,
+	}); err != nil {
+		t.Fatalf("publish second idle status: %v", err)
+	}
+	crackQueueMu.Lock()
+	_, draining := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if draining {
+		t.Fatal("idle status did not clear station drain")
+	}
+	select {
+	case event := <-station.Events:
+		t.Fatalf("paused job was scheduled after idle status: %#v", event)
+	default:
+	}
+
+	resumed, err := rpcServer.CrackJobResume(t.Context(), &clientpb.CrackJob{ID: job.ID.String()})
+	if err != nil {
+		t.Fatalf("resume crack job: %v", err)
+	}
+	if resumed.Status != clientpb.CrackJobStatus_IN_PROGRESS {
+		t.Fatalf("resumed job status = %s, want IN_PROGRESS", resumed.Status)
+	}
+	var assignmentEvent *clientpb.Event
+	select {
+	case assignmentEvent = <-station.Events:
+	case <-time.After(time.Second):
+		t.Fatal("resume did not dispatch queued work")
+	}
+	if assignmentEvent.EventType != consts.Crack {
+		t.Fatalf("resume assignment event = %#v", assignmentEvent)
+	}
+	assignment := crackTaskAssignment{}
+	if err := json.Unmarshal(assignmentEvent.Data, &assignment); err != nil {
+		t.Fatalf("decode resumed assignment: %v", err)
+	}
+	if assignment.Attempt != 2 || assignment.LeaseToken == "" || assignment.LeaseToken == "pause-token" {
+		t.Fatalf("resumed assignment = %#v", assignment)
+	}
+	station.UpdateStatus(&clientpb.CrackstationStatus{
+		HostUUID:          station.HostUUID,
+		State:             clientpb.States_CRACKING,
+		CurrentCrackJobID: job.ID.String(),
+	})
+
+	cancelled, err := rpcServer.CrackJobCancel(t.Context(), &clientpb.CrackJob{ID: job.ID.String()})
+	if err != nil {
+		t.Fatalf("cancel crack job: %v", err)
+	}
+	if cancelled.Status != clientpb.CrackJobStatus_CANCELLED || cancelled.CompletedAt == "" {
+		t.Fatalf("cancelled job = %#v", cancelled)
+	}
+	var cancelEvent *clientpb.Event
+	select {
+	case cancelEvent = <-station.Events:
+	case <-time.After(time.Second):
+		t.Fatal("cancel did not emit a task cancellation event")
+	}
+	if cancelEvent.EventType != consts.CrackTaskCancel {
+		t.Fatalf("cancel event type = %q, want %q", cancelEvent.EventType, consts.CrackTaskCancel)
+	}
+	cancelRequest := crackTaskCancelRequest{}
+	if err := json.Unmarshal(cancelEvent.Data, &cancelRequest); err != nil {
+		t.Fatalf("decode cancel request: %v", err)
+	}
+	if cancelRequest.TaskID != assignment.TaskID || cancelRequest.Attempt != assignment.Attempt ||
+		cancelRequest.LeaseToken != assignment.LeaseToken || cancelRequest.Action != string(crackJobLifecycleCancel) {
+		t.Fatalf("cancel request = %#v, assignment = %#v", cancelRequest, assignment)
+	}
+
+	var cancelledTasks []models.CrackTask
+	if err := database.Where("crack_job_id = ?", job.ID).Find(&cancelledTasks).Error; err != nil {
+		t.Fatalf("load cancelled tasks: %v", err)
+	}
+	for _, task := range cancelledTasks {
+		if task.State != int32(clientpb.CrackTaskState_CRACK_TASK_CANCELLED) || task.CompletedAt.IsZero() ||
+			task.LeaseToken != "" {
+			t.Fatalf("cancelled task = %#v", task)
+		}
+	}
+	if repeated, err := rpcServer.CrackJobCancel(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); err != nil || repeated.Status != clientpb.CrackJobStatus_CANCELLED {
+		t.Fatalf("repeated cancel = %#v, err=%v", repeated, err)
+	}
+	if _, err := rpcServer.CrackJobPause(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("pause cancelled job error = %v, want FailedPrecondition", err)
+	}
+	if _, err := rpcServer.CrackJobResume(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("resume cancelled job error = %v, want FailedPrecondition", err)
+	}
+
+	// Deleting a newly-cancelled job removes its task row, but the exact old
+	// worker attempt must still observe revocation through the in-memory drain.
+	if _, err := rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); err != nil {
+		t.Fatalf("delete cancelled job: %v", err)
+	}
+	cancelledAttempt := &clientpb.CrackTask{
+		ID:         assignment.TaskID,
+		HostUUID:   station.HostUUID,
+		Attempt:    assignment.Attempt,
+		LeaseToken: assignment.LeaseToken,
+	}
+	if _, err := rpcServer.CrackTaskByID(crackstationTestContext("queue-test"), cancelledAttempt); status.Code(err) != codes.Aborted {
+		t.Fatalf("deleted cancellation fetch error = %v, want Aborted", err)
+	}
+	if _, err := rpcServer.CrackTaskUpdate(crackstationTestContext("queue-test"), cancelledAttempt); status.Code(err) != codes.Aborted {
+		t.Fatalf("deleted cancellation update error = %v, want Aborted", err)
+	}
+}
+
+func TestCrackstationDrainConnectionOwnershipAndDisconnectRelease(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	resetCrackstationDrainsForTest(t)
+	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", nil)
+	replacement := core.NewCrackstation(&clientpb.Crackstation{HostUUID: station.HostUUID})
+
+	crackQueueMu.Lock()
+	crackstationDrains[station.HostUUID] = &crackstationDrain{station: replacement, taskID: "replacement-task", attempt: 2}
+	clearCrackstationDrainForConnectionLocked(station.HostUUID, station)
+	owned := crackstationDrains[station.HostUUID]
+	clearCrackstationDrainForConnectionLocked(station.HostUUID, replacement)
+	_, remains := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if owned == nil || owned.station != replacement {
+		t.Fatal("old connection cleared replacement drain")
+	}
+	if remains {
+		t.Fatal("owning connection did not clear its drain")
+	}
+
+	crackQueueMu.Lock()
+	crackstationDrains[station.HostUUID] = &crackstationDrain{station: station, taskID: "disconnect-task", attempt: 3}
+	crackQueueMu.Unlock()
+	core.RemoveCrackstation(station.HostUUID)
+	if err := requeueCrackstationTasksForConnection(station.HostUUID, station); err != nil {
+		t.Fatalf("release disconnected crackstation: %v", err)
+	}
+	crackQueueMu.Lock()
+	_, remains = crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if remains {
+		t.Fatal("disconnect did not clear the owning station drain")
+	}
+
+	job := createQueueTestJob(t, database, models.CrackCommand{})
+	oldLease := &models.CrackTask{
+		CrackJobID:      job.ID,
+		CrackstationID:  models.ParseUUIDOrNil(station.HostUUID),
+		Kind:            int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:           int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+		Attempt:         4,
+		LeaseToken:      "old-lease-token",
+		LeaseExpiresAt:  time.Now().Add(time.Minute),
+		LastHeartbeatAt: time.Now(),
+	}
+	if err := database.Create(oldLease).Error; err != nil {
+		t.Fatalf("create old connection lease: %v", err)
+	}
+	// Even a same-pointer drain seeded before publication is inherited state:
+	// Add, clear, and durable recovery are one queue critical section.
+	crackQueueMu.Lock()
+	crackstationDrains[station.HostUUID] = &crackstationDrain{
+		station: replacement,
+		taskID:  oldLease.ID.String(),
+		attempt: oldLease.Attempt,
+		token:   oldLease.LeaseToken,
+	}
+	crackQueueMu.Unlock()
+	if err := addAndRecoverCrackstation(replacement); err != nil {
+		t.Fatalf("add and recover replacement crackstation: %v", err)
+	}
+	crackQueueMu.Lock()
+	_, remains = crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if remains {
+		t.Fatal("fresh connection inherited a pre-publication drain")
+	}
+	if err := database.First(oldLease, "id = ?", oldLease.ID).Error; err != nil {
+		t.Fatalf("load recovered old lease: %v", err)
+	}
+	if oldLease.State != int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED) || oldLease.CrackstationID != models.NilUUID() || oldLease.LeaseToken != "" {
+		t.Fatalf("old lease was not recovered atomically: %#v", oldLease)
+	}
+
+	newLease := &models.CrackTask{
+		CrackJobID:      job.ID,
+		CrackstationID:  models.ParseUUIDOrNil(replacement.HostUUID),
+		Kind:            int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:           int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+		Attempt:         1,
+		LeaseToken:      "replacement-lease-token",
+		LeaseExpiresAt:  time.Now().Add(time.Minute),
+		LastHeartbeatAt: time.Now(),
+	}
+	if err := database.Create(newLease).Error; err != nil {
+		t.Fatalf("create replacement lease: %v", err)
+	}
+	crackQueueMu.Lock()
+	crackstationDrains[station.HostUUID] = &crackstationDrain{station: station, taskID: "late-old-drain", attempt: 5}
+	crackQueueMu.Unlock()
+	if err := requeueCrackstationTasksForConnection(station.HostUUID, station); err != nil {
+		t.Fatalf("run late old-connection cleanup: %v", err)
+	}
+	if err := database.First(newLease, "id = ?", newLease.ID).Error; err != nil {
+		t.Fatalf("load replacement lease: %v", err)
+	}
+	if newLease.State != int32(clientpb.CrackTaskState_CRACK_TASK_LEASED) || newLease.LeaseToken != "replacement-lease-token" {
+		t.Fatalf("late old disconnect reset replacement lease: %#v", newLease)
+	}
+	crackQueueMu.Lock()
+	_, remains = crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if remains {
+		t.Fatal("late old disconnect did not clear its own drain")
+	}
+}
+
+func TestCrackstationDrainIgnoresDelayedIdleUntilExactAcknowledgement(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	resetCrackstationDrainsForTest(t)
+	station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", nil)
+	rpcServer := &Server{}
+	request := crackTaskCancelRequest{
+		TaskID:     models.NewUUID().String(),
+		CrackJobID: models.NewUUID().String(),
+		HostUUID:   station.HostUUID,
+		Attempt:    7,
+		LeaseToken: "exact-revoked-token",
+		Action:     string(crackJobLifecyclePause),
+	}
+	dispatch := crackTaskCancelDispatch{request: request, station: station}
+	crackQueueMu.Lock()
+	registerCrackstationDrainsLocked([]crackTaskCancelDispatch{dispatch})
+	crackQueueMu.Unlock()
+	dispatchCrackTaskCancellations([]crackTaskCancelDispatch{dispatch})
+
+	var stopEvent *clientpb.Event
+	select {
+	case stopEvent = <-station.Events:
+	case <-time.After(time.Second):
+		t.Fatal("stop request was not dispatched")
+	}
+	if stopEvent.EventType != consts.CrackTaskCancel {
+		t.Fatalf("stop event type = %q", stopEvent.EventType)
+	}
+	revokedAttempt := &clientpb.CrackTask{
+		ID:         request.TaskID,
+		HostUUID:   request.HostUUID,
+		Attempt:    request.Attempt,
+		LeaseToken: request.LeaseToken,
+	}
+	if _, err := rpcServer.CrackTaskByID(crackstationTestContext("not-the-owner"), revokedAttempt); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("unauthorized revoked fetch error = %v, want PermissionDenied", err)
+	}
+	if _, err := rpcServer.CrackTaskUpdate(crackstationTestContext("not-the-owner"), revokedAttempt); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("unauthorized revoked update error = %v, want PermissionDenied", err)
+	}
+	crackQueueMu.Lock()
+	drain := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if drain == nil || drain.revocationSeen {
+		t.Fatalf("unauthorized request changed drain: %#v", drain)
+	}
+	idleData, err := proto.Marshal(&clientpb.CrackstationStatus{HostUUID: station.HostUUID, State: clientpb.States_IDLE})
+	if err != nil {
+		t.Fatalf("encode delayed idle status: %v", err)
+	}
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{
+		EventType: consts.CrackStatusEvent,
+		Data:      idleData,
+	}); err != nil {
+		t.Fatalf("publish delayed idle status: %v", err)
+	}
+	crackQueueMu.Lock()
+	drain = crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if drain == nil || drain.revocationSeen || drain.idleObservations != 0 {
+		t.Fatalf("delayed idle prematurely released or changed drain: %#v", drain)
+	}
+
+	if _, err := rpcServer.CrackstationTrigger(crackstationTestContext("queue-test"), &clientpb.Event{
+		EventType: consts.CrackTaskCancelAck,
+		Data:      stopEvent.Data,
+	}); err != nil {
+		t.Fatalf("acknowledge stopped task: %v", err)
+	}
+	crackQueueMu.Lock()
+	_, remains := crackstationDrains[station.HostUUID]
+	crackQueueMu.Unlock()
+	if remains {
+		t.Fatal("exact cancellation acknowledgement did not release drain")
+	}
+}
+
+//nolint:gocyclo // Validation, lifecycle gating, ownership boundaries, and event publication form one deletion contract.
+func TestCrackJobDeleteValidatesLifecycleAndDeletesOwnedRecords(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	rpcServer := &Server{}
+
+	if _, err := rpcServer.CrackJobDelete(t.Context(), nil); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("nil job delete error = %v, want InvalidArgument", err)
+	}
+	if _, err := rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: "not-a-uuid"}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("invalid job delete error = %v, want InvalidArgument", err)
+	}
+	missingID := models.NewUUID()
+	if _, err := rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: missingID.String()}); status.Code(err) != codes.NotFound {
+		t.Fatalf("missing job delete error = %v, want NotFound", err)
+	}
+
+	credential := &models.Credential{Hash: "hash", HashType: int32(clientpb.HashType_MD5)}
+	if err := database.Create(credential).Error; err != nil {
+		t.Fatalf("create source credential: %v", err)
+	}
+	crackFile := &models.CrackFile{Name: "preserved-wordlist", Type: int32(clientpb.CrackFileType_WORDLIST), IsComplete: true}
+	if err := database.Create(crackFile).Error; err != nil {
+		t.Fatalf("create managed crack file: %v", err)
+	}
+	job := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_MD5), Hashes: []string{"hash"}})
+	task := &models.CrackTask{
+		CrackJobID: job.ID,
+		Kind:       int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK),
+		State:      int32(clientpb.CrackTaskState_CRACK_TASK_COMPLETED),
+	}
+	if err := database.Create(task).Error; err != nil {
+		t.Fatalf("create crack task: %v", err)
+	}
+	if err := database.Create(&models.CrackCommand{CrackTaskID: task.ID, HashType: int32(clientpb.HashType_MD5)}).Error; err != nil {
+		t.Fatalf("create task command: %v", err)
+	}
+	if err := database.Create(&models.CrackResult{
+		CrackJobID: job.ID, CrackTaskID: task.ID, CredentialID: credential.ID,
+		Hash: "hash", Plaintext: []byte("plaintext"), Fingerprint: strings.Repeat("d", 64),
+	}).Error; err != nil {
+		t.Fatalf("create crack result: %v", err)
+	}
+	if err := database.Create(&models.CrackJobCredential{CrackJobID: job.ID, CredentialID: credential.ID}).Error; err != nil {
+		t.Fatalf("create job credential association: %v", err)
+	}
+
+	if _, err := rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("active job delete error = %v, want FailedPrecondition", err)
+	}
+	var activeJobCount int64
+	if err := database.Model(&models.CrackJob{}).Where("id = ?", job.ID).Count(&activeJobCount).Error; err != nil || activeJobCount != 1 {
+		t.Fatalf("active job count after rejected delete = %d, err=%v", activeJobCount, err)
+	}
+
+	unrelatedJob := createQueueTestJob(t, database, models.CrackCommand{HashType: int32(clientpb.HashType_SHA1), Hashes: []string{"other"}})
+	unrelatedTask := &models.CrackTask{CrackJobID: unrelatedJob.ID, Kind: int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK), State: int32(clientpb.CrackTaskState_CRACK_TASK_QUEUED)}
+	if err := database.Create(unrelatedTask).Error; err != nil {
+		t.Fatalf("create unrelated task: %v", err)
+	}
+	if err := database.Create(&models.CrackCommand{CrackTaskID: unrelatedTask.ID, HashType: int32(clientpb.HashType_SHA1)}).Error; err != nil {
+		t.Fatalf("create unrelated task command: %v", err)
+	}
+	if err := database.Model(&models.CrackJob{}).Where("id = ?", job.ID).Update("completed_at", time.Now()).Error; err != nil {
+		t.Fatalf("complete crack job: %v", err)
+	}
+
+	events := core.EventBroker.Subscribe()
+	defer core.EventBroker.Unsubscribe(events)
+	if _, err := rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); err != nil {
+		t.Fatalf("delete terminal crack job: %v", err)
+	}
+	select {
+	case event := <-events:
+		if event.EventType != consts.CrackJobUpdated || string(event.Data) != job.ID.String() {
+			t.Fatalf("crack job delete event = %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("crack job deletion did not publish an update event")
+	}
+
+	assertCount := func(name string, model interface{}, query string, want int64, args ...interface{}) {
+		t.Helper()
+		var count int64
+		if err := database.Model(model).Where(query, args...).Count(&count).Error; err != nil {
+			t.Fatalf("count %s: %v", name, err)
+		}
+		if count != want {
+			t.Fatalf("%s count = %d, want %d", name, count, want)
+		}
+	}
+	assertCount("deleted job", &models.CrackJob{}, "id = ?", 0, job.ID)
+	assertCount("deleted tasks", &models.CrackTask{}, "crack_job_id = ?", 0, job.ID)
+	assertCount("deleted commands", &models.CrackCommand{}, "crack_job_id = ? OR crack_task_id = ?", 0, job.ID, task.ID)
+	assertCount("deleted results", &models.CrackResult{}, "crack_job_id = ?", 0, job.ID)
+	assertCount("deleted job credential associations", &models.CrackJobCredential{}, "crack_job_id = ?", 0, job.ID)
+	assertCount("preserved credential", &models.Credential{}, "id = ?", 1, credential.ID)
+	assertCount("preserved crack file", &models.CrackFile{}, "id = ?", 1, crackFile.ID)
+	assertCount("unrelated job", &models.CrackJob{}, "id = ?", 1, unrelatedJob.ID)
+	assertCount("unrelated task", &models.CrackTask{}, "id = ?", 1, unrelatedTask.ID)
+	assertCount("unrelated parent command", &models.CrackCommand{}, "crack_job_id = ?", 1, unrelatedJob.ID)
+	assertCount("unrelated task command", &models.CrackCommand{}, "crack_task_id = ?", 1, unrelatedTask.ID)
+
+	if _, err := rpcServer.CrackJobDelete(t.Context(), &clientpb.CrackJob{ID: job.ID.String()}); status.Code(err) != codes.NotFound {
+		t.Fatalf("repeated job delete error = %v, want NotFound", err)
 	}
 }
 

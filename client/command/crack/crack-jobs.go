@@ -46,6 +46,20 @@ import (
 )
 
 type crackJobFetcher func(context.Context, string) (*clientpb.CrackJob, error)
+type crackJobDeleteFunc func(context.Context, *clientpb.CrackJob) (*commonpb.Empty, error)
+type crackJobConfirmFunc func(string) (bool, error)
+type crackJobMutationFunc func(context.Context, *clientpb.CrackJob) (*clientpb.CrackJob, error)
+
+type crackJobLifecycleAction struct {
+	name                   string
+	pastTense              string
+	noEligibleJobsMessage  string
+	eligible               func(*clientpb.CrackJob) bool
+	eligibilityDescription string
+	expectedStatus         clientpb.CrackJobStatus
+	confirmationPrompt     func(*clientpb.CrackJob) string
+	mutate                 crackJobMutationFunc
+}
 
 var errNoCrackJobs = errors.New("no crack jobs")
 
@@ -128,6 +142,407 @@ func CrackJobCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
+// CrackJobCancelCmd permanently stops an active or paused cracking job.
+//
+//nolint:revive // Keep the established exported command-handler name for compatibility.
+func CrackJobCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	runCrackJobLifecycleCmd(cmd, con, args, newCrackJobCancelAction(
+		func(parent context.Context, job *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+			ctx, cancel := crackCommandContext(parent, cmd)
+			defer cancel()
+			return con.Rpc.CrackJobCancel(ctx, job)
+		},
+	))
+}
+
+// CrackJobPauseCmd pauses an active cracking job, allowing its crackstations to
+// accept other work.
+//
+//nolint:revive // Keep the established exported command-handler name for compatibility.
+func CrackJobPauseCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	runCrackJobLifecycleCmd(cmd, con, args, newCrackJobPauseAction(
+		func(parent context.Context, job *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+			ctx, cancel := crackCommandContext(parent, cmd)
+			defer cancel()
+			return con.Rpc.CrackJobPause(ctx, job)
+		},
+	))
+}
+
+// CrackJobResumeCmd makes a paused cracking job eligible for scheduling again.
+//
+//nolint:revive // Keep the established exported command-handler name for compatibility.
+func CrackJobResumeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	runCrackJobLifecycleCmd(cmd, con, args, newCrackJobResumeAction(
+		func(parent context.Context, job *clientpb.CrackJob) (*clientpb.CrackJob, error) {
+			ctx, cancel := crackCommandContext(parent, cmd)
+			defer cancel()
+			return con.Rpc.CrackJobResume(ctx, job)
+		},
+	))
+}
+
+func newCrackJobCancelAction(mutate crackJobMutationFunc) crackJobLifecycleAction {
+	return crackJobLifecycleAction{
+		name:                   "cancel",
+		pastTense:              "cancelled",
+		noEligibleJobsMessage:  "No cancellable crack jobs",
+		eligible:               crackJobCancellable,
+		eligibilityDescription: "in-progress or paused jobs",
+		expectedStatus:         clientpb.CrackJobStatus_CANCELLED,
+		confirmationPrompt:     crackJobCancelPrompt,
+		mutate:                 mutate,
+	}
+}
+
+func newCrackJobPauseAction(mutate crackJobMutationFunc) crackJobLifecycleAction {
+	return crackJobLifecycleAction{
+		name:                   "pause",
+		pastTense:              "paused",
+		noEligibleJobsMessage:  "No pausable crack jobs",
+		eligible:               crackJobPausable,
+		eligibilityDescription: "in-progress jobs",
+		expectedStatus:         clientpb.CrackJobStatus_PAUSED,
+		confirmationPrompt:     crackJobPausePrompt,
+		mutate:                 mutate,
+	}
+}
+
+func newCrackJobResumeAction(mutate crackJobMutationFunc) crackJobLifecycleAction {
+	return crackJobLifecycleAction{
+		name:                   "resume",
+		pastTense:              "resumed",
+		noEligibleJobsMessage:  "No resumable crack jobs",
+		eligible:               crackJobResumable,
+		eligibilityDescription: "paused jobs",
+		expectedStatus:         clientpb.CrackJobStatus_IN_PROGRESS,
+		mutate:                 mutate,
+	}
+}
+
+func runCrackJobLifecycleCmd(
+	cmd *cobra.Command,
+	con *console.SliverClient,
+	args []string,
+	action crackJobLifecycleAction,
+) {
+	jobID, err := resolveCrackJobID(args, func() (*clientpb.CrackJobs, error) {
+		ctx, cancel := crackCommandContext(cmd.Context(), cmd)
+		defer cancel()
+		jobs, err := con.Rpc.CrackJobs(ctx, &commonpb.Empty{})
+		if err != nil || jobs == nil {
+			return jobs, err
+		}
+		return &clientpb.CrackJobs{Jobs: filterCrackJobs(jobs.GetJobs(), action.eligible)}, nil
+	}, forms.CrackJobSelectForm)
+	if errors.Is(err, errNoCrackJobs) {
+		con.PrintInfof("%s\n", action.noEligibleJobsMessage)
+		return
+	}
+	if errors.Is(err, forms.ErrUserAborted) {
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	fetchCtx, fetchCancel := crackCommandContext(cmd.Context(), cmd)
+	job, err := con.Rpc.CrackJobByID(fetchCtx, &clientpb.CrackJob{ID: jobID})
+	fetchCancel()
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	updated, changed, err := applyFetchedCrackJobLifecycleAction(cmd.Context(), jobID, job, action, promptCrackJobConfirmation)
+	if errors.Is(err, forms.ErrUserAborted) {
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if changed {
+		con.PrintInfof("Crack job %s status: %s\n", safeCrackCell(strings.TrimSpace(updated.GetID())), safeCrackCell(updated.GetStatus().String()))
+	}
+}
+
+func applyFetchedCrackJobLifecycleAction(
+	ctx context.Context,
+	requestedID string,
+	job *clientpb.CrackJob,
+	action crackJobLifecycleAction,
+	confirm crackJobConfirmFunc,
+) (*clientpb.CrackJob, bool, error) {
+	if err := validateFetchedCrackJobID(requestedID, job); err != nil {
+		return nil, false, err
+	}
+	return applyCrackJobLifecycleAction(ctx, job, action, confirm)
+}
+
+func applyCrackJobLifecycleAction(
+	ctx context.Context,
+	job *clientpb.CrackJob,
+	action crackJobLifecycleAction,
+	confirm crackJobConfirmFunc,
+) (*clientpb.CrackJob, bool, error) {
+	if job == nil {
+		return nil, false, errors.New("server returned an empty crack job")
+	}
+	jobID := strings.TrimSpace(job.GetID())
+	if jobID == "" {
+		return nil, false, errors.New("crack job ID cannot be empty")
+	}
+	if action.name == "" || action.pastTense == "" || action.eligible == nil || action.eligibilityDescription == "" {
+		return nil, false, errors.New("crack job lifecycle action is incomplete")
+	}
+	if !action.eligible(job) {
+		status := safeCrackCell(job.GetStatus().String())
+		if status == "" {
+			status = "UNKNOWN"
+		}
+		return nil, false, fmt.Errorf("crack job %s is %s; only %s can be %s",
+			safeCrackCell(jobID), status, action.eligibilityDescription, action.pastTense)
+	}
+	if action.confirmationPrompt != nil {
+		if confirm == nil {
+			return nil, false, fmt.Errorf("crack job %s confirmation is unavailable", action.name)
+		}
+		confirmed, err := confirm(action.confirmationPrompt(job))
+		if err != nil {
+			return nil, false, err
+		}
+		if !confirmed {
+			return nil, false, nil
+		}
+	}
+	if action.mutate == nil {
+		return nil, false, fmt.Errorf("crack job %s operation is unavailable", action.name)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	updated, err := action.mutate(ctx, &clientpb.CrackJob{ID: jobID})
+	if err != nil {
+		return nil, false, err
+	}
+	if updated == nil {
+		return nil, false, fmt.Errorf("server returned an empty crack job after %s", action.name)
+	}
+	updatedID := strings.TrimSpace(updated.GetID())
+	if updatedID == "" {
+		return nil, false, fmt.Errorf("server returned a crack job without an ID after %s", action.name)
+	}
+	if updatedID != jobID {
+		return nil, false, fmt.Errorf("server returned crack job %s after %s request for %s",
+			safeCrackCell(updatedID), action.name, safeCrackCell(jobID))
+	}
+	if updated.GetUpdatedAt() <= 0 {
+		return nil, false, fmt.Errorf("server returned crack job state without an update timestamp after %s", action.name)
+	}
+	if updated.GetStatus() != action.expectedStatus {
+		return nil, false, fmt.Errorf("server returned unexpected crack job status %s after %s (want %s)",
+			safeCrackCell(updated.GetStatus().String()), action.name, safeCrackCell(action.expectedStatus.String()))
+	}
+	return updated, true, nil
+}
+
+func promptCrackJobConfirmation(prompt string) (bool, error) {
+	confirmed := false
+	if err := forms.Confirm(prompt, &confirmed); err != nil {
+		return false, err
+	}
+	return confirmed, nil
+}
+
+func crackJobCancelPrompt(job *clientpb.CrackJob) string {
+	return fmt.Sprintf(
+		"Cancel crack job %q (%s)? Unfinished work will be discarded.",
+		safeCrackCell(strings.TrimSpace(job.GetID())),
+		safeCrackCell(job.GetStatus().String()),
+	)
+}
+
+func crackJobPausePrompt(job *clientpb.CrackJob) string {
+	return fmt.Sprintf(
+		"Pause crack job %q (%s)? Running attempts may be stopped and restarted from the beginning of their shards when resumed.",
+		safeCrackCell(strings.TrimSpace(job.GetID())),
+		safeCrackCell(job.GetStatus().String()),
+	)
+}
+
+// CrackJobRmCmd permanently removes one terminal cracking job and its related
+// tasks and results.
+//
+//nolint:revive // Keep the established exported command-handler name for compatibility.
+func CrackJobRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	jobID, err := resolveCrackJobID(args, func() (*clientpb.CrackJobs, error) {
+		ctx, cancel := crackCommandContext(cmd.Context(), cmd)
+		defer cancel()
+		jobs, err := con.Rpc.CrackJobs(ctx, &commonpb.Empty{})
+		if err != nil || jobs == nil {
+			return jobs, err
+		}
+		return &clientpb.CrackJobs{Jobs: terminalCrackJobs(jobs.GetJobs())}, nil
+	}, forms.CrackJobSelectForm)
+	if errors.Is(err, errNoCrackJobs) {
+		con.PrintInfof("No removable crack jobs\n")
+		return
+	}
+	if errors.Is(err, forms.ErrUserAborted) {
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	fetchCtx, fetchCancel := crackCommandContext(cmd.Context(), cmd)
+	job, err := con.Rpc.CrackJobByID(fetchCtx, &clientpb.CrackJob{ID: jobID})
+	fetchCancel()
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	removed, err := removeFetchedCrackJob(cmd.Context(), jobID, job, promptCrackJobRemoval, func(parent context.Context, job *clientpb.CrackJob) (*commonpb.Empty, error) {
+		deleteCtx, deleteCancel := crackCommandContext(parent, cmd)
+		defer deleteCancel()
+		return con.Rpc.CrackJobDelete(deleteCtx, job)
+	})
+	if errors.Is(err, forms.ErrUserAborted) {
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if removed {
+		con.PrintInfof("Removed crack job %s\n", safeCrackCell(job.GetID()))
+	}
+}
+
+func removeFetchedCrackJob(
+	ctx context.Context,
+	requestedID string,
+	job *clientpb.CrackJob,
+	confirm crackJobConfirmFunc,
+	deleteJob crackJobDeleteFunc,
+) (bool, error) {
+	if err := validateFetchedCrackJobID(requestedID, job); err != nil {
+		return false, err
+	}
+	return removeCrackJob(ctx, job, confirm, deleteJob)
+}
+
+func validateFetchedCrackJobID(requestedID string, job *clientpb.CrackJob) error {
+	requestedID = strings.TrimSpace(requestedID)
+	if requestedID == "" {
+		return errors.New("requested crack job ID cannot be empty")
+	}
+	if job == nil {
+		return errors.New("server returned an empty crack job")
+	}
+	returnedID := strings.TrimSpace(job.GetID())
+	if returnedID == "" {
+		return errors.New("server returned a crack job without an ID")
+	}
+	if returnedID != requestedID {
+		return fmt.Errorf("server returned crack job %s for request %s",
+			safeCrackCell(returnedID), safeCrackCell(requestedID))
+	}
+	return nil
+}
+
+func promptCrackJobRemoval(prompt string) (bool, error) {
+	confirmed := false
+	if err := forms.Confirm(prompt, &confirmed); err != nil {
+		return false, err
+	}
+	return confirmed, nil
+}
+
+func removeCrackJob(
+	ctx context.Context,
+	job *clientpb.CrackJob,
+	confirm crackJobConfirmFunc,
+	deleteJob crackJobDeleteFunc,
+) (bool, error) {
+	if job == nil {
+		return false, errors.New("server returned an empty crack job")
+	}
+	jobID := strings.TrimSpace(job.GetID())
+	if jobID == "" {
+		return false, errors.New("crack job ID cannot be empty")
+	}
+	if !crackJobTerminal(job) {
+		status := safeCrackCell(job.GetStatus().String())
+		if status == "" {
+			status = "UNKNOWN"
+		}
+		return false, fmt.Errorf("crack job %s is %s; only completed, failed, or cancelled jobs can be removed",
+			safeCrackCell(jobID), status)
+	}
+	if confirm == nil {
+		return false, errors.New("crack job removal confirmation is unavailable")
+	}
+	confirmed, err := confirm(crackJobRemovalPrompt(job))
+	if err != nil {
+		return false, err
+	}
+	if !confirmed {
+		return false, nil
+	}
+	if deleteJob == nil {
+		return false, errors.New("crack job remover is unavailable")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_, err = deleteJob(ctx, &clientpb.CrackJob{ID: jobID})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func crackJobRemovalPrompt(job *clientpb.CrackJob) string {
+	if job == nil {
+		return "Permanently delete this crack job?"
+	}
+	taskCount := len(job.GetTasks())
+	resultCount := job.GetResultCount()
+	return fmt.Sprintf(
+		"Permanently delete crack job %q (%s), including %d %s and %d %s?",
+		safeCrackCell(strings.TrimSpace(job.GetID())),
+		safeCrackCell(job.GetStatus().String()),
+		taskCount,
+		pluralCrackJobRemovalItem(uint64(taskCount), "task"),
+		resultCount,
+		pluralCrackJobRemovalItem(resultCount, "result"),
+	)
+}
+
+func pluralCrackJobRemovalItem(count uint64, singular string) string {
+	if count == 1 {
+		return singular
+	}
+	return singular + "s"
+}
+
+func terminalCrackJobs(jobs []*clientpb.CrackJob) []*clientpb.CrackJob {
+	return filterCrackJobs(jobs, crackJobTerminal)
+}
+
+func filterCrackJobs(jobs []*clientpb.CrackJob, include func(*clientpb.CrackJob) bool) []*clientpb.CrackJob {
+	filtered := make([]*clientpb.CrackJob, 0, len(jobs))
+	for _, job := range jobs {
+		if job != nil && include != nil && include(job) {
+			filtered = append(filtered, job)
+		}
+	}
+	return filtered
+}
+
 func resolveCrackJobID(
 	args []string,
 	listJobs func() (*clientpb.CrackJobs, error),
@@ -181,7 +596,10 @@ func crackCommandContext(parent context.Context, cmd *cobra.Command) (context.Co
 	if parent == nil {
 		parent = context.Background()
 	}
-	timeoutSeconds, _ := cmd.Flags().GetInt64("timeout")
+	timeoutSeconds, err := cmd.Flags().GetInt64("timeout")
+	if err != nil {
+		timeoutSeconds, _ = cmd.InheritedFlags().GetInt64("timeout")
+	}
 	if timeoutSeconds <= 0 {
 		return parent, func() {}
 	}
@@ -246,7 +664,7 @@ func crackJobStatusStyle(status string) console.TextStyle {
 		return console.StyleBoldSuccess
 	case strings.HasSuffix(status, "FAILED"):
 		return console.StyleBoldDanger
-	case strings.HasSuffix(status, "CANCELLED"), strings.HasSuffix(status, "CANCELED"):
+	case strings.HasSuffix(status, "CANCELLED"), strings.HasSuffix(status, "CANCELED"), strings.HasSuffix(status, "PAUSED"):
 		return console.StyleBoldGray
 	case status == "IN_PROGRESS", strings.HasSuffix(status, "RUNNING"), strings.HasSuffix(status, "LEASED"):
 		return console.StyleBoldWarning
