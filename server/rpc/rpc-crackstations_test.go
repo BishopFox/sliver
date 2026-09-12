@@ -48,6 +48,26 @@ func newCrackstationRegisterTestStream(ctx context.Context) *crackstationRegiste
 	}
 }
 
+func waitCrackstationBenchmarkRequest(t *testing.T, stream *crackstationRegisterTestStream) *clientpb.CrackCommand {
+	t.Helper()
+	for {
+		select {
+		case event := <-stream.events:
+			if event.EventType != consts.CrackBenchmark {
+				continue
+			}
+			command := &clientpb.CrackCommand{}
+			if err := proto.Unmarshal(event.Data, command); err != nil {
+				t.Fatalf("decode benchmark request: %v", err)
+			}
+			return command
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for benchmark request")
+			return nil
+		}
+	}
+}
+
 func (stream *crackstationRegisterTestStream) Send(event *clientpb.Event) error {
 	select {
 	case <-stream.ctx.Done():
@@ -587,6 +607,9 @@ func TestCrackstationRegisterSignalsReadyThenBenchmarksOnlyUntilRecorded(t *test
 	if action := waitAction(firstStream); action != "crack-benchmark" {
 		t.Fatalf("third registration action = %q, want crack-benchmark", action)
 	}
+	if request := waitCrackstationBenchmarkRequest(t, firstStream); request.IgnoreLocalCache {
+		t.Fatal("first registration with no server benchmarks requested local-cache bypass")
+	}
 	if _, err := rpcServer.CrackstationBenchmark(firstStream.Context(), &clientpb.CrackBenchmark{
 		HostUUID: hostUUID, SchemaVersion: crackBenchmarkSchemaVersion, HashcatVersion: "hashcat-v1",
 		Benchmarks: map[int32]uint64{
@@ -633,6 +656,9 @@ func TestCrackstationRegisterSignalsReadyThenBenchmarksOnlyUntilRecorded(t *test
 	if action := waitAction(thirdStream); action != "crack-benchmark" {
 		t.Fatalf("version-change registration third action = %q, want crack-benchmark", action)
 	}
+	if request := waitCrackstationBenchmarkRequest(t, thirdStream); !request.IgnoreLocalCache {
+		t.Fatal("version-stale server benchmarks did not request local-cache bypass")
+	}
 	waitDone(thirdCancel, thirdDone)
 
 	fourthStream, fourthCancel, fourthDone := runRegistration()
@@ -644,6 +670,9 @@ func TestCrackstationRegisterSignalsReadyThenBenchmarksOnlyUntilRecorded(t *test
 	}
 	if action := waitAction(fourthStream); action != "crack-benchmark" {
 		t.Fatalf("unrecorded refresh third action = %q, want crack-benchmark", action)
+	}
+	if request := waitCrackstationBenchmarkRequest(t, fourthStream); !request.IgnoreLocalCache {
+		t.Fatal("unrecorded stale server benchmarks did not request local-cache bypass")
 	}
 	if _, err := rpcServer.CrackstationBenchmark(fourthStream.Context(), &clientpb.CrackBenchmark{
 		HostUUID: hostUUID, SchemaVersion: crackBenchmarkSchemaVersion, HashcatVersion: "hashcat-v2",
@@ -714,6 +743,9 @@ func TestCrackstationRegisterRefreshesLegacyNonemptyBenchmarks(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatalf("timed out waiting for %q", want)
 		}
+	}
+	if request := waitCrackstationBenchmarkRequest(t, stream); !request.IgnoreLocalCache {
+		t.Fatal("legacy nonempty server benchmarks did not request local-cache bypass")
 	}
 	cancel()
 	select {

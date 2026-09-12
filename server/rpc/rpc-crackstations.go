@@ -653,8 +653,16 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	}
 	if !crackstationBenchmarksFresh(dbCrackstation, req.HashcatVersion) {
 		crackRPCLog.Infof("Benchmark information for '%s' is missing or stale, requesting benchmark...", req.Name)
+		benchmarkRequest, err := proto.Marshal(&clientpb.CrackCommand{
+			// Stored-but-stale server results require a fresh local run. When the
+			// server has no results, the crackstation may reuse its local cache.
+			IgnoreLocalCache: len(dbCrackstation.Benchmarks) > 0,
+		})
+		if err != nil {
+			return status.Error(codes.Internal, "failed to encode benchmark request")
+		}
 		select {
-		case crackStation.Events <- &clientpb.Event{EventType: consts.CrackBenchmark}:
+		case crackStation.Events <- &clientpb.Event{EventType: consts.CrackBenchmark, Data: benchmarkRequest}:
 		default:
 			return status.Error(codes.ResourceExhausted, "failed to enqueue benchmark request")
 		}

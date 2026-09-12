@@ -1994,6 +1994,8 @@ message CrackCommand {
   bool IncludeCrackedCredentials = 172;
   // Optional exact crackstation HostUUID or name for synchronous query modes.
   string Crackstation = 173;
+  // CrackBenchmark Event.Data control only; this is not Hashcat's --force option.
+  bool IgnoreLocalCache = 174;
 }
 
 message CrackJob {

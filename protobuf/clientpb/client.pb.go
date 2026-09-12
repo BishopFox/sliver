@@ -12655,9 +12655,11 @@ type CrackCommand struct {
 	CredentialCollection      string   `protobuf:"bytes,171,opt,name=CredentialCollection,proto3" json:"CredentialCollection,omitempty"`
 	IncludeCrackedCredentials bool     `protobuf:"varint,172,opt,name=IncludeCrackedCredentials,proto3" json:"IncludeCrackedCredentials,omitempty"`
 	// Optional exact crackstation HostUUID or name for synchronous query modes.
-	Crackstation  string `protobuf:"bytes,173,opt,name=Crackstation,proto3" json:"Crackstation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Crackstation string `protobuf:"bytes,173,opt,name=Crackstation,proto3" json:"Crackstation,omitempty"`
+	// CrackBenchmark Event.Data control only; this is not Hashcat's --force option.
+	IgnoreLocalCache bool `protobuf:"varint,174,opt,name=IgnoreLocalCache,proto3" json:"IgnoreLocalCache,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CrackCommand) Reset() {
@@ -13895,6 +13897,13 @@ func (x *CrackCommand) GetCrackstation() string {
 		return x.Crackstation
 	}
 	return ""
+}
+
+func (x *CrackCommand) GetIgnoreLocalCache() bool {
+	if x != nil {
+		return x.IgnoreLocalCache
+	}
+	return false
 }
 
 type CrackJob struct {
@@ -17673,7 +17682,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"PCIAddressB\x15\n" +
 	"\x13_BackendDeviceAliasB\x16\n" +
 	"\x14_PreferredThreadSizeB\x10\n" +
-	"\x0e_MemoryUnified\"\xe99\n" +
+	"\x0e_MemoryUnified\"\x96:\n" +
 	"\fCrackCommand\x129\n" +
 	"\n" +
 	"AttackMode\x18\x01 \x01(\x0e2\x19.clientpb.CrackAttackModeR\n" +
@@ -17860,7 +17869,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\rCredentialIDs\x18\xaa\x01 \x03(\tR\rCredentialIDs\x123\n" +
 	"\x14CredentialCollection\x18\xab\x01 \x01(\tR\x14CredentialCollection\x12=\n" +
 	"\x19IncludeCrackedCredentials\x18\xac\x01 \x01(\bR\x19IncludeCrackedCredentials\x12#\n" +
-	"\fCrackstation\x18\xad\x01 \x01(\tR\fCrackstationB\x14\n" +
+	"\fCrackstation\x18\xad\x01 \x01(\tR\fCrackstation\x12+\n" +
+	"\x10IgnoreLocalCache\x18\xae\x01 \x01(\bR\x10IgnoreLocalCacheB\x14\n" +
 	"\x12_VeracryptPimStartB\x13\n" +
 	"\x11_VeracryptPimStopB\x0f\n" +
 	"\r_BenchmarkMaxB\x0e\n" +
