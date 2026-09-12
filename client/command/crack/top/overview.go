@@ -233,9 +233,6 @@ func (m *crackTopModel) renderOverviewTopBar(width int) string {
 		focus = "WORKERS FOCUS"
 	}
 	left := m.styles.title.Render("CRACK TOP") + "  " + activeTab + " " + m.styles.primary.Render(focus)
-	if m.refreshing {
-		left += "  " + m.styles.warning.Render("REFRESHING")
-	}
 	right := m.styles.muted.Render("tab focus   p/u/c/d job   f filter   r refresh   q quit")
 	return crackTopPadLine(crackTopJoinEdges(left, right, width), width)
 }
@@ -243,13 +240,6 @@ func (m *crackTopModel) renderOverviewTopBar(width int) string {
 func (m *crackTopModel) renderOverviewFooter(width int) string {
 	if m.toast != "" || m.runningJobAction.jobID != "" {
 		return m.renderFooter(width)
-	}
-	if m.refreshing {
-		message := "REFRESHING live snapshot • waiting for first data"
-		if m.snapshot != nil {
-			message = "REFRESHING live snapshot • timestamped panels remain visible"
-		}
-		return crackTopPadLine(m.styles.warning.Render(message), width)
 	}
 	if m.lastError != "" {
 		return m.renderFooter(width)
@@ -417,10 +407,7 @@ func (m *crackTopModel) renderOverviewDiagnosticsCard(width, height int) string 
 	border := clienttheme.Success()
 	syncing := m.authoritativeSnapshotPending()
 	if syncing {
-		status = m.styles.warning.Render("SYNC") + "   action confirmed • refreshing data"
-		border = clienttheme.Warning()
-	} else if m.refreshing {
-		status = m.styles.warning.Render("REFRESH") + "   live snapshot in flight"
+		status = m.styles.warning.Render("SYNC") + "   action confirmed • task data pending"
 		border = clienttheme.Warning()
 	} else if issues > 0 {
 		status = m.styles.warning.Render("WARN") + fmt.Sprintf("   %d live data issue(s)", issues)
@@ -886,12 +873,25 @@ func crackTopChartSpan(points []crackTopChartPoint) string {
 	return fmt.Sprintf("%s/%d samples", crackTopDurationLabel(last.Sub(first)), len(points))
 }
 
+type crackTopPlotEdge uint8
+
+const (
+	crackTopPlotUp crackTopPlotEdge = 1 << iota
+	crackTopPlotDown
+	crackTopPlotLeft
+	crackTopPlotRight
+)
+
 func crackTopRenderPlot(points []crackTopChartPoint, width, height int, fixedMaximum float64) string {
 	width = max(1, width)
 	height = max(1, height)
 	grid := make([][]rune, height)
+	edges := make([][]crackTopPlotEdge, height)
+	samples := make([][]bool, height)
 	for row := range grid {
 		grid[row] = []rune(strings.Repeat(" ", width))
+		edges[row] = make([]crackTopPlotEdge, width)
+		samples[row] = make([]bool, width)
 	}
 	if height > 2 {
 		for column := range grid[height/2] {
@@ -929,22 +929,73 @@ func crackTopRenderPlot(points []crackTopChartPoint, width, height int, fixedMax
 		x := offset + index
 		fraction := max(0, min(1, point.value/maximum))
 		y := height - 1 - int(math.Round(fraction*float64(height-1)))
+		samples[y][x] = true
 		if previousKnown && x == previousX+1 {
-			if y == previousY {
-				grid[y][x] = '─'
-			} else {
-				start, end := min(y, previousY), max(y, previousY)
-				for row := start; row <= end; row++ {
-					grid[row][x] = '│'
+			edges[previousY][previousX] |= crackTopPlotRight
+			edges[previousY][x] |= crackTopPlotLeft
+			if y < previousY {
+				edges[previousY][x] |= crackTopPlotUp
+				for row := previousY - 1; row > y; row-- {
+					edges[row][x] |= crackTopPlotUp | crackTopPlotDown
 				}
-				grid[y][x] = '●'
+				edges[y][x] |= crackTopPlotDown
+			} else if y > previousY {
+				edges[previousY][x] |= crackTopPlotDown
+				for row := previousY + 1; row < y; row++ {
+					edges[row][x] |= crackTopPlotUp | crackTopPlotDown
+				}
+				edges[y][x] |= crackTopPlotUp
 			}
-		} else {
-			grid[y][x] = '●'
 		}
 		previousX, previousY, previousKnown = x, y, true
 	}
+	for row := range grid {
+		for column := range grid[row] {
+			if edges[row][column] != 0 {
+				grid[row][column] = crackTopPlotEdgeGlyph(edges[row][column])
+			} else if samples[row][column] {
+				grid[row][column] = '●'
+			}
+		}
+	}
 	return crackTopRuneGrid(grid)
+}
+
+func crackTopPlotEdgeGlyph(edge crackTopPlotEdge) rune {
+	switch edge {
+	case crackTopPlotUp:
+		return '╵'
+	case crackTopPlotDown:
+		return '╷'
+	case crackTopPlotLeft:
+		return '╴'
+	case crackTopPlotRight:
+		return '╶'
+	case crackTopPlotUp | crackTopPlotDown:
+		return '│'
+	case crackTopPlotLeft | crackTopPlotRight:
+		return '─'
+	case crackTopPlotUp | crackTopPlotRight:
+		return '└'
+	case crackTopPlotUp | crackTopPlotLeft:
+		return '┘'
+	case crackTopPlotDown | crackTopPlotRight:
+		return '┌'
+	case crackTopPlotDown | crackTopPlotLeft:
+		return '┐'
+	case crackTopPlotUp | crackTopPlotDown | crackTopPlotRight:
+		return '├'
+	case crackTopPlotUp | crackTopPlotDown | crackTopPlotLeft:
+		return '┤'
+	case crackTopPlotDown | crackTopPlotLeft | crackTopPlotRight:
+		return '┬'
+	case crackTopPlotUp | crackTopPlotLeft | crackTopPlotRight:
+		return '┴'
+	case crackTopPlotUp | crackTopPlotDown | crackTopPlotLeft | crackTopPlotRight:
+		return '┼'
+	default:
+		return '●'
+	}
 }
 
 func crackTopRuneGrid(grid [][]rune) string {

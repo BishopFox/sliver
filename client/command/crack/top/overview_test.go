@@ -196,7 +196,7 @@ func TestCrackTopOverviewMarksRetainedSnapshotMetricsUnavailableAfterRefreshFail
 	}
 }
 
-func TestCrackTopOverviewShowsRefreshInFlight(t *testing.T) {
+func TestCrackTopOverviewRefreshInFlightIsSilent(t *testing.T) {
 	model := newCrackTopModel(t.Context(), nil, nil, time.Second)
 	model.width = 150
 	model.height = 40
@@ -208,11 +208,26 @@ func TestCrackTopOverviewShowsRefreshInFlight(t *testing.T) {
 	top := ansi.Strip(model.renderOverviewTopBar(model.width))
 	diagnostics := ansi.Strip(model.renderOverviewDiagnosticsCard(50, crackTopOverviewSummaryHeight))
 	footer := ansi.Strip(model.renderOverviewFooter(model.width))
-	if !strings.Contains(top, "REFRESHING") || !strings.Contains(diagnostics, "REFRESH") || !strings.Contains(diagnostics, "live snapshot in flight") || !strings.Contains(footer, "REFRESHING live snapshot") {
-		t.Fatalf("refresh in flight is not visible across the overview:\ntop: %s\ndiagnostics:\n%s\nfooter: %s", top, diagnostics, footer)
+	header := ansi.Strip(model.renderHeader(model.width))
+	for name, rendered := range map[string]string{
+		"top bar":     top,
+		"diagnostics": diagnostics,
+		"footer":      footer,
+		"header":      header,
+	} {
+		lower := strings.ToLower(rendered)
+		if strings.Contains(lower, "refreshing") || strings.Contains(lower, "live snapshot in flight") {
+			t.Errorf("%s exposed an in-flight refresh:\n%s", name, rendered)
+		}
 	}
-	if strings.Contains(diagnostics, "OK   LIVE DATA COMPLETE") {
-		t.Fatalf("refresh in flight was presented as settled:\n%s", diagnostics)
+	if !strings.Contains(diagnostics, "OK   LIVE DATA COMPLETE") {
+		t.Errorf("silent refresh changed snapshot diagnostics:\n%s", diagnostics)
+	}
+	if !strings.Contains(footer, "JOBS focus") {
+		t.Errorf("silent refresh displaced the normal footer:\n%s", footer)
+	}
+	if !strings.Contains(header, "updated ") {
+		t.Errorf("silent refresh hid the current snapshot timestamp:\n%s", header)
 	}
 }
 
@@ -276,8 +291,66 @@ func TestCrackTopPlotPreservesUnknownGapAndBounds(t *testing.T) {
 	if len(top) != width {
 		t.Fatalf("plot top row width = %d runes, want %d: %q", len(top), width, lines[0])
 	}
-	if top[0] != '●' || top[1] != '─' || top[2] != ' ' || top[3] != '●' {
+	if top[0] != '╶' || top[1] != '╴' || top[2] != ' ' || top[3] != '●' {
 		t.Fatalf("plot did not preserve the unknown sample as a visible gap: %q", lines[0])
+	}
+}
+
+func TestCrackTopPlotConnectsVerticalTransitions(t *testing.T) {
+	testCases := []struct {
+		name   string
+		points []crackTopChartPoint
+		height int
+		want   string
+	}{
+		{
+			name: "rising",
+			points: []crackTopChartPoint{
+				{value: 0, known: true},
+				{value: 50, known: true},
+				{value: 100, known: true},
+			},
+			height: 3,
+			want:   "  ╷\n·┌┘\n╶┘·",
+		},
+		{
+			name: "falling",
+			points: []crackTopChartPoint{
+				{value: 100, known: true},
+				{value: 50, known: true},
+				{value: 0, known: true},
+			},
+			height: 3,
+			want:   "╶┐ \n·└┐\n··╵",
+		},
+		{
+			name: "flat",
+			points: []crackTopChartPoint{
+				{value: 50, known: true},
+				{value: 50, known: true},
+				{value: 50, known: true},
+			},
+			height: 3,
+			want:   "   \n╶─╴\n···",
+		},
+		{
+			name: "full range rise",
+			points: []crackTopChartPoint{
+				{value: 0, known: true},
+				{value: 100, known: true},
+			},
+			height: 4,
+			want:   " ╷\n │\n·│\n╶┘",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := crackTopRenderPlot(testCase.points, len(testCase.points), testCase.height, 100)
+			if got != testCase.want {
+				t.Fatalf("plot =\n%q\nwant\n%q", got, testCase.want)
+			}
+		})
 	}
 }
 
@@ -403,10 +476,13 @@ func TestCrackTopActionMarksTaskTelemetryStaleUntilAuthoritativeSnapshot(t *test
 		model.renderJobsPane(90, 8),
 		model.renderWorkersPane(59, 8),
 	}, "\n"))
-	for _, expected := range []string{"SYNCING", "TASK DATA LAST", "RECOVERED 7 last snapshot", "QUEUE last 2 run", "last snapshot • syncing", "TASK DATA LAST/SYNCING", "LAST SNAPSHOT/SYNCING"} {
+	for _, expected := range []string{"SYNCING", "TASK DATA LAST", "RECOVERED 7 last snapshot", "task data pending", "QUEUE last 2 run", "last snapshot • syncing", "TASK DATA LAST/SYNCING", "LAST SNAPSHOT/SYNCING"} {
 		if !strings.Contains(plain, expected) {
 			t.Errorf("post-action overview is missing %q:\n%s", expected, plain)
 		}
+	}
+	if strings.Contains(strings.ToLower(plain), "refreshing") {
+		t.Errorf("post-action overview exposed refresh progress:\n%s", plain)
 	}
 
 	stale := crackTopLiveTestSnapshot()

@@ -1268,9 +1268,7 @@ func (m *crackTopModel) renderJobActionModal(background string, width, height in
 func (m *crackTopModel) renderHeader(width int) string {
 	innerWidth := max(1, width-4)
 	activity := ""
-	if m.refreshing {
-		activity = m.spinner.View() + " refreshing"
-	} else if m.snapshot != nil && !m.snapshot.RefreshedAt.IsZero() {
+	if m.snapshot != nil && !m.snapshot.RefreshedAt.IsZero() {
 		activity = "updated " + m.snapshot.RefreshedAt.Local().Format("15:04:05")
 		if m.lastError != "" {
 			activity = "last snapshot " + m.snapshot.RefreshedAt.Local().Format("15:04:05")
