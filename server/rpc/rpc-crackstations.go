@@ -327,6 +327,60 @@ func (rpc *Server) Crackstations(ctx context.Context, req *commonpb.Empty) (*cli
 	return &clientpb.Crackstations{Crackstations: crackstations}, nil
 }
 
+// CrackstationBenchmarks returns every benchmark snapshot cached by the
+// server, including snapshots for crackstations that are currently offline.
+func (rpc *Server) CrackstationBenchmarks(ctx context.Context, req *commonpb.Empty) (*clientpb.CrackBenchmarkSnapshots, error) {
+	var crackstations []models.Crackstation
+	if err := db.Session().WithContext(ctx).Preload("Benchmarks").Find(&crackstations).Error; err != nil {
+		crackRPCLog.Errorf("Failed to query cached crackstation benchmarks: %s", err)
+		return nil, status.Error(codes.Internal, "failed to query cached crackstation benchmarks")
+	}
+	sort.Slice(crackstations, func(i, j int) bool {
+		return crackstations[i].ID.String() < crackstations[j].ID.String()
+	})
+
+	benchmarks := &clientpb.CrackBenchmarkSnapshots{
+		Snapshots: make([]*clientpb.CrackBenchmarkSnapshot, 0, len(crackstations)),
+	}
+	for index := range crackstations {
+		crackstation := &crackstations[index]
+		if len(crackstation.Benchmarks) == 0 {
+			continue
+		}
+
+		hostUUID := crackstation.ID.String()
+		currentHashcatVersion := crackstation.HashcatVersion
+		latestBenchmark := time.Time{}
+		cached := &clientpb.CrackBenchmarkSnapshot{
+			HostUUID:                hostUUID,
+			OperatorName:            crackstation.OperatorName,
+			CurrentHashcatVersion:   currentHashcatVersion,
+			BenchmarkHashcatVersion: crackstation.BenchmarkHashcatVersion,
+			BenchmarkSchemaVersion:  crackstation.BenchmarkSchemaVersion,
+			Benchmarks:              make(map[int32]uint64, len(crackstation.Benchmarks)),
+		}
+		for _, benchmark := range crackstation.Benchmarks {
+			cached.Benchmarks[benchmark.HashType] = benchmark.PerSecondRate
+			if benchmark.CreatedAt.After(latestBenchmark) {
+				latestBenchmark = benchmark.CreatedAt
+			}
+		}
+		if online := core.GetCrackstation(hostUUID); online != nil {
+			snapshot := online.Snapshot()
+			cached.Name = snapshot.Name
+			cached.Online = true
+			currentHashcatVersion = snapshot.HashcatVersion
+			cached.CurrentHashcatVersion = currentHashcatVersion
+		}
+		if !latestBenchmark.IsZero() {
+			cached.BenchmarkedAt = latestBenchmark.Unix()
+		}
+		cached.Fresh = crackstationBenchmarksFresh(crackstation, currentHashcatVersion)
+		benchmarks.Snapshots = append(benchmarks.Snapshots, cached)
+	}
+	return benchmarks, nil
+}
+
 func (rpc *Server) authorizeCrackstation(ctx context.Context, hostUUID string) error {
 	caller := rpc.getClientCommonName(ctx)
 	if caller == "" {

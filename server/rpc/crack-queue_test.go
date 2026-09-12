@@ -480,6 +480,175 @@ func TestKeyspaceCompletionCreatesWeightedRangeShardsAndPreservesParent(t *testi
 	}
 }
 
+func TestKeyspaceCompletionAcceptsTypedAndLegacyCanonicalResults(t *testing.T) {
+	tests := []struct {
+		name     string
+		keyspace string
+		stdout   []byte
+	}{
+		{name: "typed field", keyspace: "10"},
+		{name: "legacy stdout", stdout: []byte("  10\n")},
+		{name: "agreeing field and stdout", keyspace: "10", stdout: []byte("10\n")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			database := setupCrackstationRPCTestDB(t)
+			station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{100: 1})
+			job := createQueueTestJob(t, database, models.CrackCommand{HashType: 100, Hashes: []string{"hash"}})
+			task := &models.CrackTask{
+				CrackJobID: job.ID, CrackstationID: models.ParseUUIDOrNil(station.HostUUID),
+				Kind: int32(clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE), State: int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+				Attempt: 1, LeaseToken: "compatible-keyspace-token", LeaseExpiresAt: time.Now().Add(time.Minute),
+			}
+			if err := database.Create(task).Error; err != nil {
+				t.Fatalf("create keyspace task: %v", err)
+			}
+			if err := database.Create(&models.CrackCommand{CrackTaskID: task.ID, HashType: 100, Keyspace: true}).Error; err != nil {
+				t.Fatalf("create keyspace command: %v", err)
+			}
+			request := task.ToProtobuf()
+			request.State = clientpb.CrackTaskState_CRACK_TASK_COMPLETED
+			request.CompletedAt = time.Now().Unix()
+			request.Keyspace = test.keyspace
+			request.Stdout = append([]byte(nil), test.stdout...)
+			if _, err := updateLeasedCrackTask(request); err != nil {
+				t.Fatalf("complete compatible keyspace task: %v", err)
+			}
+
+			var storedTask models.CrackTask
+			if err := database.First(&storedTask, "id = ?", task.ID).Error; err != nil {
+				t.Fatalf("reload keyspace task: %v", err)
+			}
+			if storedTask.State != int32(clientpb.CrackTaskState_CRACK_TASK_COMPLETED) || storedTask.Keyspace != "10" || storedTask.Err != "" || storedTask.CompletedAt.IsZero() {
+				t.Fatalf("stored compatible keyspace task = %#v", storedTask)
+			}
+			var shardCount int64
+			if err := database.Model(&models.CrackTask{}).Where("crack_job_id = ? AND kind = ?", job.ID, int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK)).Count(&shardCount).Error; err != nil {
+				t.Fatalf("count crack shards: %v", err)
+			}
+			if shardCount != 1 {
+				t.Fatalf("crack shard count = %d, want 1", shardCount)
+			}
+			var storedJob models.CrackJob
+			if err := database.First(&storedJob, "id = ?", job.ID).Error; err != nil {
+				t.Fatalf("reload crack job: %v", err)
+			}
+			if storedJob.Keyspace != "10" || storedJob.Err != "" || !storedJob.CompletedAt.IsZero() {
+				t.Fatalf("stored compatible keyspace job = %#v", storedJob)
+			}
+		})
+	}
+}
+
+func TestInvalidTerminalKeyspaceResultFailsTaskAndJobWithoutShards(t *testing.T) {
+	diagnostic := append([]byte("\x1b[31mOpenCL\\m00000.cl\r\nmissing\x00 "), bytes.Repeat([]byte("x"), maxCrackTaskDiagnosticBytes+256)...)
+	tests := []struct {
+		name      string
+		mutate    func(*clientpb.CrackTask)
+		wantError string
+	}{
+		{
+			name: "nonzero exit preserves safe stderr excerpt",
+			mutate: func(request *clientpb.CrackTask) {
+				request.Stdout = nil
+				request.Stderr = diagnostic
+				request.ExitCode = -1
+			},
+			wantError: "hashcat exited with status -1",
+		},
+		{name: "stdout truncated", mutate: func(request *clientpb.CrackTask) { request.StdoutTruncated = true }, wantError: "output was truncated"},
+		{name: "stderr truncated", mutate: func(request *clientpb.CrackTask) { request.StderrTruncated = true }, wantError: "output was truncated"},
+		{name: "empty", mutate: func(request *clientpb.CrackTask) { request.Stdout = nil }, wantError: "invalid keyspace result"},
+		{name: "noncanonical stdout", mutate: func(request *clientpb.CrackTask) { request.Stdout = []byte("01\n") }, wantError: "invalid keyspace result"},
+		{name: "overflowing stdout", mutate: func(request *clientpb.CrackTask) { request.Stdout = []byte("18446744073709551616\n") }, wantError: "invalid keyspace result"},
+		{
+			name: "noncanonical typed field",
+			mutate: func(request *clientpb.CrackTask) {
+				request.Keyspace = "01"
+				request.Stdout = nil
+			},
+			wantError: "invalid keyspace result",
+		},
+		{
+			name: "whitespace-padded typed field",
+			mutate: func(request *clientpb.CrackTask) {
+				request.Keyspace = " 10 "
+				request.Stdout = nil
+			},
+			wantError: "invalid keyspace result",
+		},
+		{
+			name: "typed field and stdout disagree",
+			mutate: func(request *clientpb.CrackTask) {
+				request.Keyspace = "10"
+				request.Stdout = []byte("11\n")
+			},
+			wantError: "keyspace field and stdout disagree",
+		},
+		{name: "invalid UTF-8", mutate: func(request *clientpb.CrackTask) { request.Stdout = []byte{0xff} }, wantError: "not valid UTF-8"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			database := setupCrackstationRPCTestDB(t)
+			station := addQueueTestStation(t, database, "11111111-1111-4111-8111-111111111111", map[int32]uint64{100: 1})
+			job := createQueueTestJob(t, database, models.CrackCommand{HashType: 100, Hashes: []string{"hash"}})
+			task := &models.CrackTask{
+				CrackJobID: job.ID, CrackstationID: models.ParseUUIDOrNil(station.HostUUID),
+				Kind: int32(clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE), State: int32(clientpb.CrackTaskState_CRACK_TASK_LEASED),
+				Attempt: 1, LeaseToken: "invalid-keyspace-token", LeaseExpiresAt: time.Now().Add(time.Minute),
+			}
+			if err := database.Create(task).Error; err != nil {
+				t.Fatalf("create keyspace task: %v", err)
+			}
+			if err := database.Create(&models.CrackCommand{CrackTaskID: task.ID, HashType: 100, Keyspace: true}).Error; err != nil {
+				t.Fatalf("create keyspace command: %v", err)
+			}
+			request := task.ToProtobuf()
+			request.State = clientpb.CrackTaskState_CRACK_TASK_COMPLETED
+			request.CompletedAt = time.Now().Unix()
+			request.Stdout = []byte("10\n")
+			test.mutate(request)
+			if _, err := updateLeasedCrackTask(request); err != nil {
+				t.Fatalf("invalid terminal keyspace result was not acknowledged: %v", err)
+			}
+
+			var storedTask models.CrackTask
+			if err := database.First(&storedTask, "id = ?", task.ID).Error; err != nil {
+				t.Fatalf("reload failed keyspace task: %v", err)
+			}
+			if storedTask.State != int32(clientpb.CrackTaskState_CRACK_TASK_FAILED) || storedTask.CompletedAt.IsZero() || !storedTask.LeaseExpiresAt.IsZero() || storedTask.Keyspace != "" || !strings.Contains(storedTask.Err, test.wantError) {
+				t.Fatalf("stored failed keyspace task = %#v, want error containing %q", storedTask, test.wantError)
+			}
+			if len(storedTask.Err) > maxCrackTaskDiagnosticBytes+256 {
+				t.Fatalf("stored keyspace error is not bounded: %d bytes", len(storedTask.Err))
+			}
+			if !bytes.Equal(storedTask.Stdout, request.Stdout) || !bytes.Equal(storedTask.Stderr, request.Stderr) {
+				t.Fatal("failed keyspace task did not retain its complete bounded process output")
+			}
+			if test.name == "nonzero exit preserves safe stderr excerpt" {
+				if !strings.Contains(storedTask.Err, "OpenCL\\m00000.cl missing") || strings.ContainsAny(storedTask.Err, "\x1b\r\n\x00") || !strings.HasSuffix(storedTask.Err, "...") {
+					t.Fatalf("unsafe or unhelpful keyspace diagnostic %q", storedTask.Err)
+				}
+			}
+
+			var storedJob models.CrackJob
+			if err := database.First(&storedJob, "id = ?", job.ID).Error; err != nil {
+				t.Fatalf("reload failed crack job: %v", err)
+			}
+			if storedJob.CompletedAt.IsZero() || storedJob.Err != storedTask.Err || storedJob.Keyspace != "" {
+				t.Fatalf("stored failed keyspace job = %#v", storedJob)
+			}
+			var shardCount int64
+			if err := database.Model(&models.CrackTask{}).Where("crack_job_id = ? AND kind = ?", job.ID, int32(clientpb.CrackTaskKind_CRACK_TASK_CRACK)).Count(&shardCount).Error; err != nil {
+				t.Fatalf("count crack shards: %v", err)
+			}
+			if shardCount != 0 {
+				t.Fatalf("invalid keyspace result created %d crack shards", shardCount)
+			}
+		})
+	}
+}
+
 func TestKeyspaceCompletionHandlesEffectiveEmptyRanges(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -966,8 +1135,8 @@ func TestMalformedFailedTaskRecoveryRollsBackTerminalUpdate(t *testing.T) {
 	}
 }
 
-//nolint:gocyclo // Size limits, malformed keyspaces, and rollback share one atomic update boundary.
-func TestCrackTaskUpdateRejectsOversizedAndInvalidKeyspaceAtomically(t *testing.T) {
+//nolint:gocyclo // Size limits, disallowed keyspace fields, and rollback share one atomic update boundary.
+func TestCrackTaskUpdateRejectsOversizedAndDisallowedKeyspaceAtomically(t *testing.T) {
 	legitimateWorkerPayload := &clientpb.CrackTask{
 		Stdout:        make([]byte, maxCrackOutputBytes),
 		Stderr:        make([]byte, maxCrackOutputBytes),
@@ -998,22 +1167,6 @@ func TestCrackTaskUpdateRejectsOversizedAndInvalidKeyspaceAtomically(t *testing.
 				request.Err = strings.Repeat("e", maxCrackTaskErrorBytes+1)
 			},
 			wantErr: "crack task error exceeds size limit",
-		},
-		{
-			name: "overflowing keyspace", kind: clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE,
-			mutate: func(request *clientpb.CrackTask) {
-				request.CompletedAt = time.Now().Unix()
-				request.Keyspace = "18446744073709551616"
-			},
-			wantErr: "invalid crack task keyspace",
-		},
-		{
-			name: "noncanonical keyspace", kind: clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE,
-			mutate: func(request *clientpb.CrackTask) {
-				request.CompletedAt = time.Now().Unix()
-				request.Keyspace = "01"
-			},
-			wantErr: "invalid crack task keyspace",
 		},
 		{
 			name: "crack task keyspace", kind: clientpb.CrackTaskKind_CRACK_TASK_CRACK,

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -36,6 +37,7 @@ const (
 	maxCrackOutputBytes         = 8 << 20
 	maxCrackTaskUpdateBytes     = 32 << 20
 	maxCrackTaskErrorBytes      = 64 << 10
+	maxCrackTaskDiagnosticBytes = 4 << 10
 	maxCrackStatusEventBytes    = maxCrackStatusBytes + (4 << 10)
 )
 
@@ -612,6 +614,56 @@ func crackResultFingerprint(jobID models.UUID, credentialID models.UUID, hash st
 	return hex.EncodeToString(digest.Sum(nil))
 }
 
+// crackTaskDiagnostic turns an untrusted Hashcat diagnostic into a short,
+// single-line string that is safe to persist in the operator-facing task and
+// job errors. The complete bounded stderr remains available on the task.
+func crackTaskDiagnostic(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var result strings.Builder
+	result.Grow(min(len(raw), maxCrackTaskDiagnosticBytes))
+	lastWasSpace := true
+	truncated := false
+	for len(raw) != 0 {
+		r, size := utf8.DecodeRune(raw)
+		raw = raw[size:]
+		if r == utf8.RuneError && size == 1 {
+			r = '?'
+		}
+		if !unicode.IsPrint(r) || unicode.IsSpace(r) {
+			r = ' '
+		}
+		if r == ' ' {
+			if lastWasSpace {
+				continue
+			}
+			lastWasSpace = true
+		} else {
+			lastWasSpace = false
+		}
+		runeBytes := utf8.RuneLen(r)
+		if result.Len()+runeBytes > maxCrackTaskDiagnosticBytes-len("...") {
+			truncated = true
+			break
+		}
+		result.WriteRune(r)
+	}
+	diagnostic := strings.TrimSpace(result.String())
+	if truncated && diagnostic != "" {
+		diagnostic += "..."
+	}
+	return diagnostic
+}
+
+func failedCrackKeyspaceResultError(resultErr error, stderr []byte) string {
+	message := "invalid keyspace task result: " + resultErr.Error()
+	if diagnostic := crackTaskDiagnostic(stderr); diagnostic != "" {
+		message += "; stderr: " + diagnostic
+	}
+	return message
+}
+
 //nolint:gocyclo // Validation, deduplication, persistence, and credential updates intentionally share the caller's transaction.
 func ingestRecoveredResults(tx *gorm.DB, task *models.CrackTask, now time.Time) ([]string, error) {
 	if len(task.RecoveredJSON) == 0 {
@@ -769,12 +821,6 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 	if len(req.RecoveredJSON) > maxCrackRecoveredBytes {
 		return nil, errors.New("crack task recovered results exceed size limit")
 	}
-	if req.Keyspace != "" {
-		keyspace, err := strconv.ParseUint(req.Keyspace, 10, 64)
-		if err != nil || strconv.FormatUint(keyspace, 10) != req.Keyspace {
-			return nil, errors.New("invalid crack task keyspace")
-		}
-	}
 	crackQueueMu.Lock()
 	defer crackQueueMu.Unlock()
 
@@ -795,8 +841,10 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 			return errStaleCrackTaskAttempt
 		}
 		state := req.State
+		taskErr := req.Err
+		keyspaceText := req.Keyspace
 		if req.CompletedAt != 0 {
-			if req.Err != "" {
+			if taskErr != "" {
 				state = clientpb.CrackTaskState_CRACK_TASK_FAILED
 			} else {
 				state = clientpb.CrackTaskState_CRACK_TASK_COMPLETED
@@ -804,8 +852,8 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 		} else if req.StartedAt != 0 {
 			state = clientpb.CrackTaskState_CRACK_TASK_RUNNING
 		}
-		if state == clientpb.CrackTaskState_CRACK_TASK_FAILED && req.Err == "" {
-			req.Err = "crack task failed"
+		if state == clientpb.CrackTaskState_CRACK_TASK_FAILED && taskErr == "" {
+			taskErr = "crack task failed"
 		}
 		persistedState := clientpb.CrackTaskState(task.State)
 		if persistedState != clientpb.CrackTaskState_CRACK_TASK_LEASED && persistedState != clientpb.CrackTaskState_CRACK_TASK_RUNNING {
@@ -814,12 +862,25 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 		if state != clientpb.CrackTaskState_CRACK_TASK_LEASED && state != clientpb.CrackTaskState_CRACK_TASK_RUNNING && state != clientpb.CrackTaskState_CRACK_TASK_COMPLETED && state != clientpb.CrackTaskState_CRACK_TASK_FAILED {
 			return fmt.Errorf("invalid crack task transition to %s", state.String())
 		}
-		if req.Keyspace != "" && (clientpb.CrackTaskKind(task.Kind) != clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE || state != clientpb.CrackTaskState_CRACK_TASK_COMPLETED || req.Err != "") {
+		taskKind := clientpb.CrackTaskKind(task.Kind)
+		if req.Keyspace != "" && (taskKind != clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE || state != clientpb.CrackTaskState_CRACK_TASK_COMPLETED || taskErr != "") {
 			return errors.New("crack task keyspace is only valid on a successfully completed keyspace task")
+		}
+		if taskKind == clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE && state == clientpb.CrackTaskState_CRACK_TASK_COMPLETED {
+			validatedKeyspace, resultErr := standaloneCrackQueryValue(clientpb.CrackQueryMode_CRACK_QUERY_KEYSPACE, req)
+			if resultErr != nil {
+				state = clientpb.CrackTaskState_CRACK_TASK_FAILED
+				taskErr = failedCrackKeyspaceResultError(resultErr, req.Stderr)
+				keyspaceText = ""
+			} else {
+				// New workers report the typed field while legacy workers only have
+				// stdout. Persist one canonical value for either protocol version.
+				keyspaceText = validatedKeyspace
+			}
 		}
 		updates := map[string]interface{}{
 			"state":              int32(state),
-			"err":                req.Err,
+			"err":                taskErr,
 			"stdout":             append([]byte(nil), req.Stdout...),
 			"stderr":             append([]byte(nil), req.Stderr...),
 			"exit_code":          req.ExitCode,
@@ -827,7 +888,7 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 			"stderr_truncated":   req.StderrTruncated,
 			"stdout_total_bytes": req.StdoutTotalBytes,
 			"stderr_total_bytes": req.StderrTotalBytes,
-			"keyspace":           req.Keyspace,
+			"keyspace":           keyspaceText,
 			"latest_status_json": append([]byte(nil), req.LatestStatusJSON...),
 			"updated_at":         now,
 		}
@@ -859,9 +920,9 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 			return errStaleCrackTaskAttempt
 		}
 		task.State = int32(state)
-		task.Err = req.Err
+		task.Err = taskErr
 		task.Stdout = append([]byte(nil), req.Stdout...)
-		task.Keyspace = req.Keyspace
+		task.Keyspace = keyspaceText
 		if len(req.RecoveredJSON) != 0 {
 			task.RecoveredJSON = append([]byte(nil), req.RecoveredJSON...)
 		}
@@ -878,7 +939,7 @@ func updateLeasedCrackTask(req *clientpb.CrackTask) ([]string, error) {
 			}
 		}
 		if terminal {
-			switch clientpb.CrackTaskKind(task.Kind) {
+			switch taskKind {
 			case clientpb.CrackTaskKind_CRACK_TASK_KEYSPACE:
 				if state != clientpb.CrackTaskState_CRACK_TASK_COMPLETED {
 					break

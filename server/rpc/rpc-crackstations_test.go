@@ -16,6 +16,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -368,6 +369,102 @@ func TestCrackstationTriggerRejectsOversizedEnvelopeBeforeParsing(t *testing.T) 
 		if _, err := rpcServer.CrackstationTrigger(t.Context(), event); status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("oversized %q event error = %v, want InvalidArgument", event.EventType, err)
 		}
+	}
+}
+
+func TestCrackstationBenchmarksReturnsCachedOfflineAndOnlineSnapshots(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	offlineID := models.ParseUUIDOrNil("11111111-1111-4111-8111-111111111111")
+	onlineID := models.ParseUUIDOrNil("22222222-2222-4222-8222-222222222222")
+	emptyID := models.ParseUUIDOrNil("33333333-3333-4333-8333-333333333333")
+	stations := []*models.Crackstation{
+		{ID: emptyID, OperatorName: "empty-owner", BenchmarkSchemaVersion: 3, BenchmarkHashcatVersion: "empty-version"},
+		{ID: onlineID, OperatorName: "online-owner", HashcatVersion: "hashcat-online", BenchmarkSchemaVersion: crackBenchmarkSchemaVersion, BenchmarkHashcatVersion: "hashcat-online"},
+		{ID: offlineID, OperatorName: "offline-owner", HashcatVersion: "current-offline", BenchmarkSchemaVersion: 1, BenchmarkHashcatVersion: "measured-offline"},
+	}
+	for _, station := range stations {
+		if err := database.Omit("Tasks", "Benchmarks").Create(station).Error; err != nil {
+			t.Fatalf("create crackstation %s: %v", station.ID, err)
+		}
+	}
+	for _, benchmark := range []struct {
+		model     *models.Benchmark
+		createdAt time.Time
+	}{
+		{model: &models.Benchmark{CrackstationID: onlineID, HashType: int32(clientpb.HashType_NTLM), PerSecondRate: 789}, createdAt: time.Unix(300, 0)},
+		{model: &models.Benchmark{CrackstationID: offlineID, HashType: int32(clientpb.HashType_SHA1), PerSecondRate: 456}, createdAt: time.Unix(200, 0)},
+		{model: &models.Benchmark{CrackstationID: offlineID, HashType: int32(clientpb.HashType_MD5), PerSecondRate: 123}, createdAt: time.Unix(100, 0)},
+	} {
+		if err := database.Create(benchmark.model).Error; err != nil {
+			t.Fatalf("create benchmark: %v", err)
+		}
+		// CreatedAt is create-only in the model, so use SQL here to establish
+		// deterministic historical cache timestamps for the RPC response.
+		if err := database.Exec("UPDATE benchmarks SET created_at = ? WHERE id = ?", benchmark.createdAt, benchmark.model.ID).Error; err != nil {
+			t.Fatalf("set benchmark creation time: %v", err)
+		}
+	}
+
+	runtimeStation := core.NewCrackstation(&clientpb.Crackstation{
+		HostUUID: onlineID.String(), Name: "online-worker", OperatorName: "runtime-owner", HashcatVersion: "hashcat-online",
+	})
+	if err := core.AddCrackstation(runtimeStation); err != nil {
+		t.Fatalf("add online crackstation: %v", err)
+	}
+	t.Cleanup(func() { core.RemoveCrackstation(onlineID.String()) })
+
+	got, err := (&Server{}).CrackstationBenchmarks(t.Context(), &commonpb.Empty{})
+	if err != nil {
+		t.Fatalf("list cached benchmarks: %v", err)
+	}
+	want := &clientpb.CrackBenchmarkSnapshots{Snapshots: []*clientpb.CrackBenchmarkSnapshot{
+		{
+			HostUUID: offlineID.String(), OperatorName: "offline-owner",
+			CurrentHashcatVersion: "current-offline", BenchmarkHashcatVersion: "measured-offline", BenchmarkSchemaVersion: 1,
+			BenchmarkedAt: 200, Online: false, Fresh: false,
+			Benchmarks: map[int32]uint64{int32(clientpb.HashType_MD5): 123, int32(clientpb.HashType_SHA1): 456},
+		},
+		{
+			Name: "online-worker", HostUUID: onlineID.String(), OperatorName: "online-owner",
+			CurrentHashcatVersion: "hashcat-online", BenchmarkHashcatVersion: "hashcat-online", BenchmarkSchemaVersion: crackBenchmarkSchemaVersion,
+			BenchmarkedAt: 300, Online: true, Fresh: true,
+			Benchmarks: map[int32]uint64{int32(clientpb.HashType_NTLM): 789},
+		},
+	}}
+	if !proto.Equal(got, want) {
+		t.Fatalf("cached benchmarks = %#v, want %#v", got, want)
+	}
+}
+
+func TestCrackstationsRemainsOnlineOnlyAndHydratesCachedBenchmarks(t *testing.T) {
+	database := setupCrackstationRPCTestDB(t)
+	onlineID := models.ParseUUIDOrNil("11111111-1111-4111-8111-111111111111")
+	offlineID := models.ParseUUIDOrNil("22222222-2222-4222-8222-222222222222")
+	for _, id := range []models.UUID{onlineID, offlineID} {
+		if err := database.Omit("Tasks", "Benchmarks").Create(&models.Crackstation{ID: id}).Error; err != nil {
+			t.Fatalf("create crackstation %s: %v", id, err)
+		}
+		if err := database.Create(&models.Benchmark{
+			CrackstationID: id, HashType: int32(clientpb.HashType_MD5), PerSecondRate: 101,
+		}).Error; err != nil {
+			t.Fatalf("create crackstation benchmark %s: %v", id, err)
+		}
+	}
+	runtimeStation := core.NewCrackstation(&clientpb.Crackstation{
+		HostUUID: onlineID.String(), Name: "online-worker", Benchmarks: map[int32]uint64{int32(clientpb.HashType_MD5): 999},
+	})
+	if err := core.AddCrackstation(runtimeStation); err != nil {
+		t.Fatalf("add online crackstation: %v", err)
+	}
+	t.Cleanup(func() { core.RemoveCrackstation(onlineID.String()) })
+
+	got, err := (&Server{}).Crackstations(t.Context(), &commonpb.Empty{})
+	if err != nil {
+		t.Fatalf("list online crackstations: %v", err)
+	}
+	if len(got.Crackstations) != 1 || got.Crackstations[0].HostUUID != onlineID.String() ||
+		got.Crackstations[0].Benchmarks[int32(clientpb.HashType_MD5)] != 101 {
+		t.Fatalf("online crackstations = %#v", got.Crackstations)
 	}
 }
 

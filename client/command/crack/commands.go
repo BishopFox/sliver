@@ -50,6 +50,19 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	crackCmd.AddCommand(crackStationsCmd)
 
+	crackBenchmarksCmd := &cobra.Command{
+		Use:   consts.BenchmarksStr,
+		Short: "Show cached crackstation benchmark results",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackBenchmarksCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, crackBenchmarksCmd, func(f *pflag.FlagSet) {
+		f.BoolP("all", "a", false, "show every cached hash mode")
+	})
+	crackCmd.AddCommand(crackBenchmarksCmd)
+
 	crackJobsCmd := &cobra.Command{
 		Use:   "jobs",
 		Short: "List hash cracking jobs",
@@ -62,6 +75,19 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	crackCmd.AddCommand(crackJobsCmd)
+
+	crackTopCmd := &cobra.Command{
+		Use:   "top",
+		Short: "Monitor crack jobs and crackstations in real time",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackTopCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, crackTopCmd, func(f *pflag.FlagSet) {
+		f.Duration("poll-interval", time.Second, "crack job and crackstation refresh interval")
+	})
+	crackCmd.AddCommand(crackTopCmd)
 
 	crackJobCmd := &cobra.Command{
 		Use:   "job [id]",

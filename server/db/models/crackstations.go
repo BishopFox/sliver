@@ -137,9 +137,9 @@ func (c *CrackFileChunk) ToProtobuf() *clientpb.CrackFileChunk {
 // up into multiple crack tasks and distributed to multiple crackstations
 type CrackJob struct {
 	ID           UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt    time.Time `gorm:"->;<-:create;"`
+	CreatedAt    time.Time `gorm:"->;<-:create;index:idx_crack_jobs_top,priority:2"`
 	UpdatedAt    time.Time
-	CompletedAt  time.Time
+	CompletedAt  time.Time `gorm:"index:idx_crack_jobs_top,priority:1"`
 	Err          string
 	ResultFileID string
 	Keyspace     string
@@ -245,7 +245,7 @@ func (CrackJob) FromProtobuf(c *clientpb.CrackJob) *CrackJob {
 // CrackTask - An individual chunk of a job sent to a specific crackstation
 type CrackTask struct {
 	ID               UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CrackJobID       UUID      `gorm:"type:uuid;"`
+	CrackJobID       UUID      `gorm:"type:uuid;index:idx_crack_tasks_job,priority:1"`
 	CrackstationID   UUID      `gorm:"type:uuid;"`
 	CreatedAt        time.Time `gorm:"->;<-:create;"`
 	UpdatedAt        time.Time
@@ -254,7 +254,7 @@ type CrackTask struct {
 	LeaseExpiresAt   time.Time `gorm:"index:idx_crack_task_state_lease"`
 	LastHeartbeatAt  time.Time
 	Kind             int32
-	State            int32 `gorm:"index:idx_crack_task_state_lease"`
+	State            int32 `gorm:"index:idx_crack_task_state_lease;index:idx_crack_tasks_job,priority:2"`
 	Attempt          uint32
 	LeaseToken       string
 	Keyspace         string
@@ -442,7 +442,7 @@ type CrackCommand struct {
 	ID          UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	CrackTaskID UUID      `gorm:"type:uuid;"`
-	CrackJobID  UUID      `gorm:"type:uuid;"`
+	CrackJobID  UUID      `gorm:"type:uuid;index:idx_crack_commands_job"`
 
 	// FLAGS
 	AttackMode             int32

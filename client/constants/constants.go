@@ -334,6 +334,7 @@ const (
 
 	CrackStr         = "crack"
 	StationsStr      = "stations"
+	BenchmarksStr    = "benchmarks"
 	WordlistsStr     = "wordlists"
 	RulesStr         = "rules"
 	Hcstat2Str       = "hcstat2"

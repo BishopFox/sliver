@@ -226,6 +226,7 @@ func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
 	switch fullMethod {
 	case "/rpcpb.SliverRPC/Crack",
 		"/rpcpb.SliverRPC/CrackJobByID",
+		"/rpcpb.SliverRPC/CrackTop",
 		"/rpcpb.SliverRPC/CrackTaskByID",
 		"/rpcpb.SliverRPC/CrackTaskUpdate",
 		"/rpcpb.SliverRPC/CrackstationTrigger",

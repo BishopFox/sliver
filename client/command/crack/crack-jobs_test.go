@@ -21,6 +21,32 @@ func TestCrackJobCommandsAreRegistered(t *testing.T) {
 	if err != nil || jobs == root {
 		t.Fatalf("find crack jobs: command=%v error=%v", jobs, err)
 	}
+	top, _, err := root.Find([]string{"top"})
+	if err != nil || top == root {
+		t.Fatalf("find crack top: command=%v error=%v", top, err)
+	}
+	if top.Use != "top" {
+		t.Fatalf("crack top use = %q, want top", top.Use)
+	}
+	if err := top.Args(top, nil); err != nil {
+		t.Fatalf("crack top rejected no arguments: %v", err)
+	}
+	if err := top.Args(top, []string{"unexpected"}); err == nil {
+		t.Fatal("crack top accepted a positional argument")
+	}
+	pollInterval := top.Flags().Lookup("poll-interval")
+	if pollInterval == nil {
+		t.Fatal("crack top is missing --poll-interval")
+	}
+	if got, err := top.Flags().GetDuration("poll-interval"); err != nil || got != time.Second {
+		t.Fatalf("crack top --poll-interval = %s, %v; want %s", got, err, time.Second)
+	}
+	if top.PersistentFlags().Lookup("poll-interval") != nil || root.PersistentFlags().Lookup("poll-interval") != nil {
+		t.Fatal("--poll-interval must remain local to crack top")
+	}
+	if top.InheritedFlags().Lookup("timeout") == nil {
+		t.Fatal("crack top must inherit --timeout")
+	}
 	job, _, err := root.Find([]string{"job", "job-id"})
 	if err != nil || job == root {
 		t.Fatalf("find crack job: command=%v error=%v", job, err)
