@@ -368,6 +368,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		bindSpoofMetadataFlag(f)
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'archive' (for Go c-archives), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
+		f.String("service-name", "", "service name to register the implant under (service format only)")
 
 		// Shellcode generation options:
 		// - Windows: Donut

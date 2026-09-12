@@ -199,6 +199,7 @@ type ImplantConfig struct {
 	IsSharedLib bool
 	IsService   bool
 	IsShellcode bool
+	ServiceName string
 
 	RunAtLoad bool
 	// Shellcode options (Windows: Donut; macOS/Linux: Compress only)
@@ -276,6 +277,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IsSharedLib:       ic.IsSharedLib,
 		IsService:         ic.IsService,
 		IsShellcode:       ic.IsShellcode,
+		ServiceName:       ic.ServiceName,
 		Format:            ic.Format,
 		WGPeerTunIP:       ic.WGPeerTunIP,
 		WGKeyExchangePort: ic.WGKeyExchangePort,
@@ -503,6 +505,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IsSharedLib = pbConfig.IsSharedLib
 	cfg.IsService = pbConfig.IsService
 	cfg.IsShellcode = pbConfig.IsShellcode
+	cfg.ServiceName = pbConfig.ServiceName
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Exports = strings.Join(pbConfig.Exports, ",")
