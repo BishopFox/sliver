@@ -1,4 +1,4 @@
-package crack
+package top
 
 import (
 	"errors"
@@ -20,6 +20,9 @@ type crackTopDashboard struct {
 	Jobs             []crackTopJobRow
 	Workers          []crackTopWorkerRow
 	ActiveJobs       int
+	QueuedTasks      int
+	LeasedTasks      int
+	RunningTasks     int
 	OnlineWorkers    int
 	Unavailable      int
 	Recovered        uint64
@@ -161,7 +164,23 @@ func buildCrackTopDashboard(snapshot *crackTopSnapshot) crackTopDashboard {
 		row, samples, progress := crackTopJobTelemetry(job, stations, snapshot.RefreshedAt, snapshot.taskTelemetry)
 		dashboard.Jobs = append(dashboard.Jobs, row)
 		dashboard.Recovered = saturatingUint64Add(dashboard.Recovered, row.Results)
-		if job.GetStatus() == clientpb.CrackJobStatus_IN_PROGRESS {
+		jobStatus := job.GetStatus()
+		if jobStatus == clientpb.CrackJobStatus_IN_PROGRESS || jobStatus == clientpb.CrackJobStatus_PAUSED {
+			for _, task := range crackJobTasks(job) {
+				if task == nil {
+					continue
+				}
+				switch task.GetState() {
+				case clientpb.CrackTaskState_CRACK_TASK_QUEUED:
+					dashboard.QueuedTasks++
+				case clientpb.CrackTaskState_CRACK_TASK_LEASED:
+					dashboard.LeasedTasks++
+				case clientpb.CrackTaskState_CRACK_TASK_RUNNING:
+					dashboard.RunningTasks++
+				}
+			}
+		}
+		if jobStatus == clientpb.CrackJobStatus_IN_PROGRESS {
 			dashboard.ActiveJobs++
 			if row.ProgressComplete {
 				dashboard.ProgressJobs++

@@ -1,4 +1,4 @@
-package crack
+package top
 
 import (
 	"context"
@@ -392,7 +392,7 @@ func TestCrackTopHidesStaleAndOfflineDeviceTelemetry(t *testing.T) {
 	model.height = 30
 	model.normalizeJobSelection()
 	plain := ansi.Strip(model.View().Content)
-	for _, hidden := range []string{"111 H/s", "222 H/s", "99 C", "88 C", "95% util", "94% util"} {
+	for _, hidden := range []string{"111 H/s", "222 H/s", "99 C", "88 C", "99°C", "88°C", "95% util", "94% util"} {
 		if strings.Contains(plain, hidden) {
 			t.Errorf("view exposed stale/offline telemetry %q:\n%s", hidden, plain)
 		}
@@ -618,6 +618,7 @@ func TestCrackTopViewIsFullScreenBoundedAndShowsLiveTelemetry(t *testing.T) {
 		width, height int
 	}{
 		{name: "wide", width: 132, height: 36},
+		{name: "overview default", width: crackTopDefaultWidth, height: crackTopDefaultHeight},
 		{name: "narrow", width: 90, height: 28},
 		{name: "minimum", width: crackTopMinWidth, height: crackTopMinHeight},
 		{name: "tiny", width: 31, height: 8},
@@ -663,7 +664,7 @@ func TestCrackTopViewIsFullScreenBoundedAndShowsLiveTelemetry(t *testing.T) {
 		"Beta Rig [worker02]",
 		"2.00 kH/s",
 		"2.50 MH/s",
-		"2 devices",
+		"2 dev",
 	} {
 		if !strings.Contains(plain, expected) {
 			t.Errorf("wide view does not contain %q:\n%s", expected, plain)
@@ -974,6 +975,8 @@ func crackTopRunModelCommands(t *testing.T, model *crackTopModel, command tea.Cm
 //nolint:gocyclo // This test intentionally follows the interactive filter through apply and cancel transitions.
 func TestCrackTopHuhFilterAppliesAndEscapeCancels(t *testing.T) {
 	model := newCrackTopModel(context.Background(), nil, nil, time.Second)
+	model.snapshot = &crackTopSnapshot{RefreshedAt: time.Now()}
+	model.refreshing = false
 	model.dashboard = crackTopDashboard{Jobs: []crackTopJobRow{
 		{ID: "active", Status: clientpb.CrackJobStatus_IN_PROGRESS},
 		{ID: "done", Status: clientpb.CrackJobStatus_COMPLETED},
