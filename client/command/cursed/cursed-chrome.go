@@ -196,13 +196,15 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra
 		args = append(args, cargs...)
 	}
 
+	ppid, _ := cmd.Flags().GetUint32("ppid")
+
 	// Execute the Chrome process with the extra flags
-	// TODO: PPID spoofing, etc.
 	chromeExec, err := con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Request: con.ActiveTarget.Request(cmd),
 		Path:    chromeExePath,
 		Args:    args,
 		Output:  false,
+		PPid:    ppid,
 	})
 	if err != nil {
 		con.Printf("failure!\n")
