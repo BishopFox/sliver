@@ -42,6 +42,7 @@ func (m *crackTopModel) authoritativeSnapshotPending() bool {
 	return m != nil && (len(m.jobStatusOverrides) > 0 || len(m.deletedJobIDs) > 0)
 }
 
+//nolint:gocyclo // Observation recording intentionally evaluates all job, worker, recovery, and telemetry transitions together.
 func (m *crackTopModel) recordDashboardObservation(previous crackTopDashboard, hadSnapshot bool, observedAt time.Time) {
 	if observedAt.IsZero() {
 		observedAt = time.Now()
@@ -433,6 +434,7 @@ func (m *crackTopModel) renderOverviewDiagnosticsCard(width, height int) string 
 	return crackTopOverviewPanel(width, height, border, crackTopFitLines(lines, innerWidth))
 }
 
+//nolint:gocyclo // The three meters intentionally share one snapshot and freshness decision path.
 func (m *crackTopModel) renderOverviewMeters(width, height int) string {
 	widths := crackTopSplitWidths(width, 3, 1)
 	history := m.overviewHistory()
@@ -882,6 +884,7 @@ const (
 	crackTopPlotRight
 )
 
+//nolint:gocyclo // Plot rasterization keeps scaling, gaps, and connected edge composition in one bounded pass.
 func crackTopRenderPlot(points []crackTopChartPoint, width, height int, fixedMaximum float64) string {
 	width = max(1, width)
 	height = max(1, height)
@@ -961,6 +964,7 @@ func crackTopRenderPlot(points []crackTopChartPoint, width, height int, fixedMax
 	return crackTopRuneGrid(grid)
 }
 
+//nolint:gocyclo // The exhaustive switch names every nonzero four-direction edge combination.
 func crackTopPlotEdgeGlyph(edge crackTopPlotEdge) rune {
 	switch edge {
 	case crackTopPlotUp:

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+//nolint:gocyclo // This test validates every derived history field in one complete sample.
 func TestCrackTopHistorySampleFromDashboardDerivesLiveTelemetry(t *testing.T) {
 	at := time.Unix(1_700_000_000, 123)
 	dashboard := crackTopDashboard{

@@ -1,3 +1,4 @@
+// Package top implements the real-time Crack Top terminal dashboard.
 package top
 
 import (

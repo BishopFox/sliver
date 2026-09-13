@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+//nolint:gocyclo // This test validates all history fields across success, gap, failure, and recovery snapshots.
 func TestCrackTopAcceptedSnapshotsAppendRealOverviewHistory(t *testing.T) {
 	model := newCrackTopModel(t.Context(), nil, nil, time.Second)
 	first := crackTopLiveTestSnapshot()
@@ -444,6 +445,7 @@ func TestCrackTopAuthoritativeJobActionIsJournaled(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // This test keeps the complete action-to-authoritative-snapshot freshness transition together.
 func TestCrackTopActionMarksTaskTelemetryStaleUntilAuthoritativeSnapshot(t *testing.T) {
 	model := newCrackTopModel(t.Context(), nil, nil, time.Second)
 	model.width = 150

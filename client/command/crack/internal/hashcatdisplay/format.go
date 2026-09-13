@@ -1,3 +1,4 @@
+// Package hashcatdisplay provides shared Hashcat presentation helpers for crack commands.
 package hashcatdisplay
 
 import "fmt"
