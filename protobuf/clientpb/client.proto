@@ -218,6 +218,7 @@ message ImplantConfig {
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
   string Extension = 154;
+  string ServiceName = 156;
   reserved 155;
   reserved "SpoofData";
 

@@ -405,6 +405,10 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		// Default to exe
 		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
+	serviceName, _ := cmd.Flags().GetString("service-name")
+	if !isService {
+		serviceName = ""
+	}
 
 	targetOSF, _ := cmd.Flags().GetString("os")
 	targetOS := strings.ToLower(targetOSF)
@@ -541,6 +545,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		IsService:   isService,
 		IsShellcode: isShellcode,
 		Exports:     exports,
+		ServiceName: serviceName,
 
 		RunAtLoad:              runAtLoad,
 		NetGoEnabled:           netGo,

