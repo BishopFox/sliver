@@ -84,6 +84,10 @@ type Account interface {
 	// RemoveOneTimeKeys removes the one time keys that the session used from the
 	// Account.  Returns error on failure.  If the Account doesn't have any
 	// matching one time keys then the error will be "BAD_MESSAGE_KEY_ID".
+	//
+	// Note: this must only be called after successfully decrypting a message with the session,
+	// as otherwise an attacker can cause the client to drop any one-time key by sending an
+	// invalid message with a valid one-time key id.
 	RemoveOneTimeKeys(s Session) error
 }
 

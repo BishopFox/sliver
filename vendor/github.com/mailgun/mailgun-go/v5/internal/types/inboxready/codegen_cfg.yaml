@@ -13,8 +13,15 @@ output-options:
     - Alerts
     - Domains # Blocklist Monitoring
     - IP Blocklist Monitoring
+    - Inbox Placement
   prefer-skip-optional-pointer-on-container-types: true
   name-normalizer: ToCamelCaseWithInitialisms
   additional-initialisms:
     - IDs
     - IPs
+    - ACID
+    - DMARC
+    - DKIM
+    - SPF
+    - BCL
+    - SCL

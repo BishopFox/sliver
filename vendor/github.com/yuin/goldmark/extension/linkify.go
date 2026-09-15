@@ -32,7 +32,7 @@ const (
 )
 
 // SetOption implements SetOptioner.
-func (c *LinkifyConfig) SetOption(name parser.OptionName, value interface{}) {
+func (c *LinkifyConfig) SetOption(name parser.OptionName, value any) {
 	switch name {
 	case optLinkifyAllowedProtocols:
 		c.AllowedProtocols = value.([][]byte)
@@ -211,9 +211,10 @@ func (s *linkifyParser) Parse(parent ast.Node, block text.Reader, pc parser.Cont
 		} else if lastChar == ')' {
 			closing := 0
 			for i := m[1] - 1; i >= m[0]; i-- {
-				if line[i] == ')' {
+				switch line[i] {
+				case ')':
 					closing++
-				} else if line[i] == '(' {
+				case '(':
 					closing--
 				}
 			}
@@ -254,7 +255,7 @@ func (s *linkifyParser) Parse(parent ast.Node, block text.Reader, pc parser.Cont
 		}
 		at := bytes.IndexByte(line, '@')
 		m = []int{0, stop, at, stop - 1}
-		if m == nil || bytes.IndexByte(line[m[2]:m[3]], '.') < 0 {
+		if bytes.IndexByte(line[m[2]:m[3]], '.') < 0 {
 			return nil
 		}
 		lastChar := line[m[1]-1]

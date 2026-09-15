@@ -8,6 +8,8 @@ const (
 	AlertsEndpoint         = "alerts"
 	AlertsSettingsEndpoint = AlertsEndpoint + "/settings"
 	AlertsVersion          = 1
+
+	AlertsWebhookSignHeader = "X-Sign"
 )
 
 // channels

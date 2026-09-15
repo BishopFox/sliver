@@ -36,6 +36,14 @@ var (
 	typeOfProtoTimestamp = reflect.TypeOf((*ts.Timestamp)(nil))
 	typeOfVector64       = reflect.TypeOf(Vector64{})
 	typeOfVector32       = reflect.TypeOf(Vector32{})
+	typeOfBSONObjectID   = reflect.TypeOf(BSONObjectID(""))
+	typeOfBSONRegex      = reflect.TypeOf(BSONRegex{})
+	typeOfBSONTimestamp  = reflect.TypeOf(BSONTimestamp{})
+	typeOfBSONDecimal128 = reflect.TypeOf(BSONDecimal128(""))
+	typeOfBSONMinKey     = reflect.TypeOf(BSONMinKey{})
+	typeOfBSONMaxKey     = reflect.TypeOf(BSONMaxKey{})
+	typeOfBSONBinary     = reflect.TypeOf(BSONBinary{})
+	typeOfBSONInt32      = reflect.TypeOf(BSONInt32(0))
 	isZeroerType         = reflect.TypeOf((*isZeroer)(nil)).Elem()
 )
 
@@ -81,6 +89,15 @@ func toProtoValue(v reflect.Value) (pbv *pb.Value, sawTransform bool, err error)
 	case Expression:
 		pbVal, err := exprToProtoValue(x)
 		return pbVal, false, err
+	case AggregateFunction:
+		if x == nil {
+			return nullValue, false, nil
+		}
+		if v := reflect.ValueOf(x); v.Kind() == reflect.Ptr && v.IsNil() {
+			return nullValue, false, nil
+		}
+		pbVal, err := x.toProto()
+		return pbVal, false, err
 	case Vector64:
 		return vectorToProtoValue(x), false, nil
 	case *latlng.LatLng:
@@ -95,6 +112,22 @@ func toProtoValue(v reflect.Value) (pbv *pb.Value, sawTransform bool, err error)
 			return nullValue, false, nil
 		}
 		return &pb.Value{ValueType: &pb.Value_ReferenceValue{ReferenceValue: x.Path}}, false, nil
+	case BSONObjectID:
+		return bsonObjectIDToProtoValue(x), false, nil
+	case BSONRegex:
+		return bsonRegexToProtoValue(x), false, nil
+	case BSONTimestamp:
+		return bsonTimestampToProtoValue(x), false, nil
+	case BSONDecimal128:
+		return bsonDecimal128ToProtoValue(x), false, nil
+	case BSONMinKey:
+		return bsonMinKeyToProtoValue(), false, nil
+	case BSONMaxKey:
+		return bsonMaxKeyToProtoValue(), false, nil
+	case BSONBinary:
+		return bsonBinaryToProtoValue(x), false, nil
+	case BSONInt32:
+		return bsonInt32ToProtoValue(x), false, nil
 		// Do not add bool, string, int, etc. to this switch; leave them in the
 		// reflect-based switch below. Moving them here would drop support for
 		// types whose underlying types are those primitives.
@@ -356,4 +389,121 @@ func isZeroValue(v reflect.Value) bool {
 		return v2.Addr().Interface().(isZeroer).IsZero()
 	}
 	return v.IsZero()
+}
+
+func bsonObjectIDToProtoValue(id BSONObjectID) *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__oid__": stringToProtoValue(id.String()),
+				},
+			},
+		},
+	}
+}
+
+func bsonRegexToProtoValue(r BSONRegex) *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__regex__": {
+						ValueType: &pb.Value_MapValue{
+							MapValue: &pb.MapValue{
+								Fields: map[string]*pb.Value{
+									"pattern": stringToProtoValue(r.Pattern),
+									"options": stringToProtoValue(r.Options),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func bsonTimestampToProtoValue(t BSONTimestamp) *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__request_timestamp__": {
+						ValueType: &pb.Value_MapValue{
+							MapValue: &pb.MapValue{
+								Fields: map[string]*pb.Value{
+									"seconds":   {ValueType: &pb.Value_IntegerValue{IntegerValue: int64(t.Seconds)}},
+									"increment": {ValueType: &pb.Value_IntegerValue{IntegerValue: int64(t.Increment)}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func bsonDecimal128ToProtoValue(d BSONDecimal128) *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__decimal128__": stringToProtoValue(string(d)),
+				},
+			},
+		},
+	}
+}
+
+func bsonMinKeyToProtoValue() *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__min__": nullValue,
+				},
+			},
+		},
+	}
+}
+
+func bsonMaxKeyToProtoValue() *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__max__": nullValue,
+				},
+			},
+		},
+	}
+}
+
+func bsonBinaryToProtoValue(b BSONBinary) *pb.Value {
+	payload := make([]byte, len(b.Data)+1)
+	payload[0] = b.Subtype
+	copy(payload[1:], b.Data)
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__binary__": {ValueType: &pb.Value_BytesValue{BytesValue: payload}},
+				},
+			},
+		},
+	}
+}
+
+func bsonInt32ToProtoValue(i BSONInt32) *pb.Value {
+	return &pb.Value{
+		ValueType: &pb.Value_MapValue{
+			MapValue: &pb.MapValue{
+				Fields: map[string]*pb.Value{
+					"__int__": {ValueType: &pb.Value_IntegerValue{IntegerValue: int64(i)}},
+				},
+			},
+		},
+	}
 }

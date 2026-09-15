@@ -7,7 +7,6 @@
 package pushrules
 
 import (
-	"encoding/gob"
 	"regexp"
 	"strings"
 
@@ -17,11 +16,6 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 )
-
-func init() {
-	gob.Register(PushRuleArray{})
-	gob.Register(PushRuleMap{})
-}
 
 type PushRuleCollection interface {
 	GetMatchingRule(room Room, evt *event.Event) *PushRule

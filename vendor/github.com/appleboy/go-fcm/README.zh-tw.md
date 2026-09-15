@@ -4,6 +4,7 @@
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/appleboy/go-fcm)](https://pkg.go.dev/github.com/appleboy/go-fcm)
 [![Lint and Testing](https://github.com/appleboy/go-fcm/actions/workflows/testing.yml/badge.svg?branch=master)](https://github.com/appleboy/go-fcm/actions/workflows/testing.yml)
+[![Trivy Security Scan](https://github.com/appleboy/go-fcm/actions/workflows/trivy.yml/badge.svg?branch=master)](https://github.com/appleboy/go-fcm/actions/workflows/trivy.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/appleboy/go-fcm)](https://goreportcard.com/report/github.com/appleboy/go-fcm)
 
 > 從 [github.com/edganiukov/fcm](https://github.com/edganiukov/fcm) 分支  

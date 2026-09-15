@@ -4,7 +4,8 @@
 cmd/mailgun/mailgun
 /.env
 
-/internal/types/redocly-mailgun/
-
+/internal/types/inboxready/inboxready.yaml
 /internal/types/inboxready/openapi_3.0.yaml
+
+/internal/types/mailgun/mailgun.yaml
 /internal/types/mailgun/openapi_3.0.yaml

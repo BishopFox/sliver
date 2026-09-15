@@ -12,6 +12,7 @@ import (
 
 // ForwardedMessage represents the payload the server will get on match
 // You can use ExtractForwardRoute() to extract PostForm into the struct, or you can use only the struct and parse the form manually
+// Documentation: https://documentation.mailgun.com/docs/mailgun/user-manual/receive-forward-store/receive-http
 type ForwardedMessage struct {
 	BodyPlain      string            // body-plain
 	From           string            // from
@@ -26,16 +27,39 @@ type ForwardedMessage struct {
 	Token          string            // token
 }
 
+// NotifiedMessage represents the payload the server will get on stored and notified
+// You can use ExtractNotifiedMessage() to extract PostForm into the struct, or you can use only the struct and parse the form manually
+// Documentation: https://documentation.mailgun.com/docs/mailgun/user-manual/receive-forward-store/storing-and-retrieving-messages
+type NotifiedMessage struct {
+	Domain            string                    // domain
+	Recipient         string                    // recipient
+	Sender            string                    // sender
+	From              string                    // from
+	Subject           string                    // subject
+	BodyPlain         string                    // body-plain
+	StrippedText      string                    // stripped-text
+	StrippedSignature string                    // stripped-signature
+	BodyHTML          string                    // body-html
+	StrippedHTML      string                    // stripped-html
+	Attachments       []mtypes.StoredAttachment // attachments
+	MessageURL        string                    // message-url
+	Timestamp         time.Time                 // timestamp
+	Token             string                    // token
+	Signature         string                    // signature
+	MessageHeaders    map[string]string         // message-headers
+	ContentIDMap      map[string]string         // content-id-map
+}
+
 // ExtractForwardedMessage extracts the forward route payload values from a parsed PostForm
 // Example usage:
 //
 //	func Handler(w http.ResponseWriter, r *http.Request) {
-//	err := r.ParseForm()
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	forwardRoute := mailgun.ExtractForwardedMessage(r.PostForm)
-//	fmt.Printf("Forwarded message: %#v", forwardRoute)
+//		err := r.ParseForm()
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//		forwardRoute := mailgun.ExtractForwardedMessage(r.PostForm)
+//		fmt.Printf("Forwarded message: %#v", forwardRoute)
 //	}
 func ExtractForwardedMessage(formValues url.Values) ForwardedMessage {
 	forwardedMessage := ForwardedMessage{}
@@ -71,6 +95,73 @@ func ExtractForwardedMessage(formValues url.Values) ForwardedMessage {
 	forwardedMessage.MessageHeaders = messageHeaders
 
 	return forwardedMessage
+}
+
+// ExtractNotifiedMessage extracts the notified message payload values from a parsed PostForm
+// Example usage:
+//
+//	func Handler(w http.ResponseWriter, r *http.Request) {
+//		err := r.ParseForm()
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//		notifiedMessage := mailgun.ExtractNotifiedMessage(r.PostForm)
+//		fmt.Printf("Notified message: %#v", notifiedMessage)
+//	}
+func ExtractNotifiedMessage(formValues url.Values) NotifiedMessage {
+	notifiedMessage := NotifiedMessage{}
+	notifiedMessage.Domain = formValues.Get("domain")
+	notifiedMessage.Recipient = formValues.Get("recipient")
+	notifiedMessage.Sender = formValues.Get("sender")
+	notifiedMessage.From = formValues.Get("from")
+	notifiedMessage.Subject = formValues.Get("subject")
+	notifiedMessage.BodyPlain = formValues.Get("body-plain")
+	notifiedMessage.StrippedText = formValues.Get("stripped-text")
+	notifiedMessage.StrippedSignature = formValues.Get("stripped-signature")
+	notifiedMessage.BodyHTML = formValues.Get("body-html")
+	notifiedMessage.StrippedHTML = formValues.Get("stripped-html")
+
+	attachmentsStr := formValues.Get("attachments")
+	attachmentsParsed := make([]mtypes.StoredAttachment, 0)
+	err := json.Unmarshal([]byte(attachmentsStr), &attachmentsParsed)
+	if err == nil {
+		notifiedMessage.Attachments = attachmentsParsed
+	}
+
+	notifiedMessage.MessageURL = formValues.Get("message-url")
+
+	timestampStr := formValues.Get("timestamp")
+	timeInt, err := strconv.Atoi(timestampStr)
+	if err != nil {
+		timeInt = 0
+	}
+	notifiedMessage.Timestamp = time.Unix(int64(timeInt), 0)
+
+	notifiedMessage.Token = formValues.Get("token")
+	notifiedMessage.Signature = formValues.Get("signature")
+
+	headersStr := formValues.Get("message-headers")
+	headersParsed := make([][]string, 0)
+	messageHeaders := make(map[string]string)
+	err = json.Unmarshal([]byte(headersStr), &headersParsed)
+	if err == nil {
+		for _, header := range headersParsed {
+			if len(header) < 2 {
+				continue
+			}
+			messageHeaders[header[0]] = header[1]
+		}
+	}
+	notifiedMessage.MessageHeaders = messageHeaders
+
+	contentIDMapStr := formValues.Get("content-id-map")
+	contentIDMapParsed := make(map[string]string)
+	err = json.Unmarshal([]byte(contentIDMapStr), &contentIDMapParsed)
+	if err == nil {
+		notifiedMessage.ContentIDMap = contentIDMapParsed
+	}
+
+	return notifiedMessage
 }
 
 // ListRoutes allows you to iterate through a list of routes returned by the API

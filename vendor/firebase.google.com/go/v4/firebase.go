@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc. All Rights Reserved.
+// Copyright 2017 Google LLC All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"cloud.google.com/go/firestore"
 	"firebase.google.com/go/v4/appcheck"
@@ -31,6 +32,7 @@ import (
 	"firebase.google.com/go/v4/iid"
 	"firebase.google.com/go/v4/internal"
 	"firebase.google.com/go/v4/messaging"
+	"firebase.google.com/go/v4/phonenumberverification"
 	"firebase.google.com/go/v4/remoteconfig"
 	"firebase.google.com/go/v4/storage"
 	"google.golang.org/api/option"
@@ -40,7 +42,7 @@ import (
 var defaultAuthOverrides = make(map[string]interface{})
 
 // Version of the Firebase Go Admin SDK.
-const Version = "4.18.0"
+const Version = "4.21.0"
 
 // firebaseEnvName is the name of the environment variable with the Config.
 const firebaseEnvName = "FIREBASE_CONFIG"
@@ -53,6 +55,8 @@ type App struct {
 	serviceAccountID string
 	storageBucket    string
 	opts             []option.ClientOption
+	fpnvClient       *phonenumberverification.Client
+	fpnvMutex        sync.Mutex
 }
 
 // Config represents the configuration used to initialize an App.
@@ -105,10 +109,16 @@ func (a *App) Storage(ctx context.Context) (*storage.Client, error) {
 // Firestore returns a new firestore.Client instance from the https://godoc.org/cloud.google.com/go/firestore
 // package.
 func (a *App) Firestore(ctx context.Context) (*firestore.Client, error) {
+	return a.FirestoreWithDatabaseID(ctx, firestore.DefaultDatabaseID)
+}
+
+// FirestoreWithDatabaseID returns a new firestore.Client instance with the specified named database from the
+// https://godoc.org/cloud.google.com/go/firestore package.
+func (a *App) FirestoreWithDatabaseID(ctx context.Context, databaseID string) (*firestore.Client, error) {
 	if a.projectID == "" {
 		return nil, errors.New("project id is required to access Firestore")
 	}
-	return firestore.NewClient(ctx, a.projectID, a.opts...)
+	return firestore.NewClientWithDatabase(ctx, a.projectID, databaseID, a.opts...)
 }
 
 // InstanceID returns an instance of iid.Client.
@@ -147,6 +157,31 @@ func (a *App) RemoteConfig(ctx context.Context) (*remoteconfig.Client, error) {
 		Version:   Version,
 	}
 	return remoteconfig.NewClient(ctx, conf)
+}
+
+// PhoneNumberVerification returns an instance of phonenumberverification.Client.
+func (a *App) PhoneNumberVerification(ctx context.Context) (*phonenumberverification.Client, error) {
+	a.fpnvMutex.Lock()
+	defer a.fpnvMutex.Unlock()
+
+	if a.fpnvClient != nil {
+		return a.fpnvClient, nil
+	}
+
+	if a.projectID == "" {
+		return nil, errors.New("project id is required to access phone number verification client")
+	}
+
+	conf := &internal.PhoneNumberVerificationConfig{
+		ProjectID: a.projectID,
+	}
+	client, err := phonenumberverification.NewClient(ctx, conf)
+	if err != nil {
+		return nil, err
+	}
+
+	a.fpnvClient = client
+	return client, nil
 }
 
 // NewApp creates a new App from the provided config and client options.

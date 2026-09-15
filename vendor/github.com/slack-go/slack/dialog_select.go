@@ -19,13 +19,13 @@ const (
 // DialogInputSelect dialog support for select boxes.
 type DialogInputSelect struct {
 	DialogInput
-	Value           string               `json:"value,omitempty"`            //Optional.
-	DataSource      SelectDataSource     `json:"data_source,omitempty"`      //Optional. Allowed values: "users", "channels", "conversations", "external".
-	SelectedOptions []DialogSelectOption `json:"selected_options,omitempty"` //Optional. May hold at most one element, for use with "external" only.
-	Options         []DialogSelectOption `json:"options,omitempty"`          //One of options or option_groups is required.
-	OptionGroups    []DialogOptionGroup  `json:"option_groups,omitempty"`    //Provide up to 100 options.
-	MinQueryLength  int                  `json:"min_query_length,omitempty"` //Optional. minimum characters before query is sent.
-	Hint            string               `json:"hint,omitempty"`             //Optional. Additional hint text.
+	Value           string               `json:"value,omitempty"`            // Optional.
+	DataSource      SelectDataSource     `json:"data_source,omitempty"`      // Optional. Allowed values: "users", "channels", "conversations", "external".
+	SelectedOptions []DialogSelectOption `json:"selected_options,omitempty"` // Optional. May hold at most one element, for use with "external" only.
+	Options         []DialogSelectOption `json:"options,omitempty"`          // One of options or option_groups is required.
+	OptionGroups    []DialogOptionGroup  `json:"option_groups,omitempty"`    // Provide up to 100 options.
+	MinQueryLength  int                  `json:"min_query_length,omitempty"` // Optional. minimum characters before query is sent.
+	Hint            string               `json:"hint,omitempty"`             // Optional. Additional hint text.
 }
 
 // DialogSelectOption is an option for the user to select from the menu

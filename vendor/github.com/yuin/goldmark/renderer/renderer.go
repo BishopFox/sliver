@@ -12,14 +12,14 @@ import (
 
 // A Config struct is a data structure that holds configuration of the Renderer.
 type Config struct {
-	Options       map[OptionName]interface{}
+	Options       map[OptionName]any
 	NodeRenderers util.PrioritizedSlice
 }
 
 // NewConfig returns a new Config.
 func NewConfig() *Config {
 	return &Config{
-		Options:       map[OptionName]interface{}{},
+		Options:       map[OptionName]any{},
 		NodeRenderers: util.PrioritizedSlice{},
 	}
 }
@@ -48,7 +48,7 @@ func WithNodeRenderers(ps ...util.PrioritizedValue) Option {
 
 type withOption struct {
 	name  OptionName
-	value interface{}
+	value any
 }
 
 func (o *withOption) SetConfig(c *Config) {
@@ -57,7 +57,7 @@ func (o *withOption) SetConfig(c *Config) {
 
 // WithOption is a functional option that allow you to set
 // an arbitrary option to the parser.
-func WithOption(name OptionName, value interface{}) Option {
+func WithOption(name OptionName, value any) Option {
 	return &withOption{name, value}
 }
 
@@ -66,7 +66,7 @@ type SetOptioner interface {
 	// SetOption sets given option to the object.
 	// Unacceptable options may be passed.
 	// Thus implementations must ignore unacceptable options.
-	SetOption(name OptionName, value interface{})
+	SetOption(name OptionName, value any)
 }
 
 // NodeRendererFunc is a function that renders a given node.
@@ -95,7 +95,7 @@ type Renderer interface {
 
 type renderer struct {
 	config               *Config
-	options              map[OptionName]interface{}
+	options              map[OptionName]any
 	nodeRendererFuncsTmp map[ast.NodeKind]NodeRendererFunc
 	maxKind              int
 	nodeRendererFuncs    []NodeRendererFunc
@@ -110,7 +110,7 @@ func NewRenderer(options ...Option) Renderer {
 	}
 
 	r := &renderer{
-		options:              map[OptionName]interface{}{},
+		options:              map[OptionName]any{},
 		config:               config,
 		nodeRendererFuncsTmp: map[ast.NodeKind]NodeRendererFunc{},
 	}

@@ -53,6 +53,7 @@ func (c Curve25519KeyPair) B64Encoded() id.Curve25519 {
 
 // SharedSecret returns the shared secret between the key pair and the given public key.
 func (c Curve25519KeyPair) SharedSecret(pubKey Curve25519PublicKey) ([]byte, error) {
+	// Note: the standard library checks that the output is non-zero
 	return c.PrivateKey.SharedSecret(pubKey)
 }
 
@@ -70,7 +71,7 @@ func (c Curve25519KeyPair) PickleLibOlm(encoder *libolmpickle.Encoder) {
 func (c *Curve25519KeyPair) UnpickleLibOlm(decoder *libolmpickle.Decoder) error {
 	if err := c.PublicKey.UnpickleLibOlm(decoder); err != nil {
 		return err
-	} else if privKey, err := decoder.ReadBytes(Curve25519PrivateKeyLength); err != nil {
+	} else if privKey, err := decoder.ReadBytesOrNil(Curve25519PrivateKeyLength); err != nil {
 		return err
 	} else {
 		c.PrivateKey = privKey
@@ -120,7 +121,7 @@ func (c Curve25519PublicKey) PickleLibOlm(encoder *libolmpickle.Encoder) {
 
 // UnpickleLibOlm decodes the unencryted value and populates the public key accordingly. It returns the number of bytes read.
 func (c *Curve25519PublicKey) UnpickleLibOlm(decoder *libolmpickle.Decoder) error {
-	pubkey, err := decoder.ReadBytes(Curve25519PublicKeyLength)
+	pubkey, err := decoder.ReadBytesOrNil(Curve25519PublicKeyLength)
 	*c = pubkey
 	return err
 }

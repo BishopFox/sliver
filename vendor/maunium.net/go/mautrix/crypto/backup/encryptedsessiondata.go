@@ -7,7 +7,6 @@
 package backup
 
 import (
-	"bytes"
 	"crypto/ecdh"
 	"crypto/hmac"
 	"crypto/rand"
@@ -120,7 +119,7 @@ func (esd *EncryptedSessionData[T]) Decrypt(backupKey *MegolmBackupKey) (*T, err
 	}
 
 	// Verify the MAC before decrypting.
-	if !bytes.Equal(calculateCompatMAC(macKey), esd.MAC) {
+	if !hmac.Equal(calculateCompatMAC(macKey), esd.MAC) {
 		return nil, ErrInvalidMAC
 	}
 

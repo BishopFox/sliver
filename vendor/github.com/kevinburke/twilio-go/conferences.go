@@ -3,6 +3,7 @@ package twilio
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"time"
 
@@ -63,9 +64,7 @@ func (c *ConferenceService) GetConferencesInRange(start time.Time, end time.Time
 		panic("start date is after end date")
 	}
 	d := url.Values{}
-	for k, v := range data {
-		d[k] = v
-	}
+	maps.Copy(d, data)
 	d.Del("DateCreated")
 	d.Del("Page") // just in case
 	if start != Epoch {
