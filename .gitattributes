@@ -1,0 +1,4 @@
+# Preserve pinned upstream source and attribution files byte-for-byte.
+client/command/opfor/testdata/corpus/** -text
+client/command/opfor/testdata/corpus/operatorskit/*.cna whitespace=-trailing-space,-blank-at-eof
+vendor/github.com/sliverarmory/opfor/internal/regexp2/ATTRIB whitespace=-trailing-space

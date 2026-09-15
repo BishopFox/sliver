@@ -18,14 +18,17 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 
 	pb "cloud.google.com/go/firestore/apiv1/firestorepb"
 )
 
+// toArrayOfExprOrConstant converts a slice of Go values or an existing Expr into an []Expression.
+// Plain values are wrapped in a Constant.
 func toArrayOfExprOrConstant(val []any) []Expression {
-	exprs := make([]Expression, 0, len(val))
-	for _, v := range val {
-		exprs = append(exprs, toExprOrConstant(v))
+	exprs := make([]Expression, len(val))
+	for i, v := range val {
+		exprs[i] = toExprOrConstant(v)
 	}
 	return exprs
 }
@@ -33,16 +36,6 @@ func toArrayOfExprOrConstant(val []any) []Expression {
 // newFieldAndArrayBooleanExpr creates a new BooleanExpr for functions that operate on a field/expression and an array of values.
 func newFieldAndArrayBooleanExpr(name string, exprOrFieldPath any, values any) BooleanExpression {
 	return &baseBooleanExpression{baseFunction: newBaseFunction(name, []Expression{asFieldExpr(exprOrFieldPath), asArrayFunctionExpr(values)})}
-}
-
-// toExprs converts a plain Go value or an existing Expr into an Expr.
-// Plain values are wrapped in a Constant.
-func toExprs(val []any) []Expression {
-	exprs := make([]Expression, len(val))
-	for i, v := range val {
-		exprs[i] = toExprOrConstant(v)
-	}
-	return exprs
 }
 
 // toExprsFromSlice converts a slice of any type into a slice of Expr, wrapping plain values in Constants.
@@ -118,6 +111,28 @@ func toExprOrConstant(val any) Expression {
 	return ConstantOf(val)
 }
 
+// toExprOrNumericConstant converts a plain Go value or an existing Expr into an Expr.
+// Plain values are wrapped in a Constant.
+func toExprOrNumericConstant(val any) Expression {
+	if expr, ok := val.(Expression); ok {
+		return expr
+	}
+	switch v := val.(type) {
+	case int, int8, int16, int32, int64, uint8, uint16, uint32, float32, float64:
+		return ConstantOf(v)
+	default:
+		return &baseExpression{err: fmt.Errorf("firestore: value must be a int, int8, int16, int32, int64, uint8, uint16, uint32, float32, float64 or Expr, but got %T", val)}
+	}
+}
+
+func newPipelineValueExpression(p *Pipeline) Expression {
+	pbVal, err := p.toProto()
+	if err != nil {
+		return &baseExpression{err: err}
+	}
+	return &baseExpression{pbVal: &pb.Value{ValueType: &pb.Value_PipelineValue{PipelineValue: pbVal}}}
+}
+
 // asFieldExpr converts a plain Go string or FieldPath into a field expression.
 // If the value is already an Expr, it's returned directly.
 func asFieldExpr(val any) Expression {
@@ -131,6 +146,12 @@ func asFieldExpr(val any) Expression {
 	default:
 		return &baseExpression{err: fmt.Errorf("firestore: value must be a string, FieldPath, or Expr, but got %T", val)}
 	}
+}
+
+// leftNumericRightToBaseFunction is a helper for creating binary functions like Add or Eq.
+// It ensures the left operand is a field-like expression and the right is a numeric constant expression.
+func leftNumericRightToBaseFunction(name string, left, right any) *baseFunction {
+	return newBaseFunction(name, []Expression{asFieldExpr(left), toExprOrNumericConstant(right)})
 }
 
 // leftRightToBaseFunction is a helper for creating binary functions like Add or Eq.
@@ -173,7 +194,7 @@ func aliasedAggregatesToMapValue(aggregates []*AliasedAggregate) (*pb.Value, err
 			return nil, fmt.Errorf("firestore: duplicate alias %q in aggregations", agg.alias)
 		}
 
-		base := agg.getBaseAggregateFunction()
+		base := agg.aggregate.getBaseAggregateFunction()
 		if base.err != nil {
 			return nil, fmt.Errorf("firestore: error in aggregate expression for alias %q: %w", agg.alias, base.err)
 		}
@@ -217,4 +238,40 @@ func exprToProtoValue(expr Expression) (*pb.Value, error) {
 		return ConstantOfNull().getBaseExpr().pbVal, nil
 	}
 	return expr.toProto()
+}
+
+func validateTimestampUnit(unit any) Expression {
+	unitValues := []string{"microsecond", "millisecond", "second", "minute", "hour", "day"}
+	if u, ok := unit.(string); ok && !slices.Contains(unitValues, u) {
+		return &baseExpression{
+			err: fmt.Errorf("firestore: unit must be one of 'microsecond', 'millisecond', 'second', 'minute', 'hour', 'day', but got \"%s\"", u),
+		}
+	}
+	return asStringExpr(unit)
+}
+
+func validateTimestampGranularity(granularity any) Expression {
+	granularityValues := []string{"microsecond", "millisecond", "second", "minute", "hour", "day", "week", "week(monday)", "week(tuesday)",
+		"week(wednesday)", "week(thursday)", "week(friday)", "week(saturday)", "week(sunday)",
+		"isoweek", "month", "quarter", "year", "isoyear"}
+	if g, ok := granularity.(string); ok && !slices.Contains(granularityValues, g) {
+		return &baseExpression{
+			err: fmt.Errorf("firestore: granularity must be one of 'microsecond', 'millisecond', 'second', 'minute', 'hour', 'day', 'week', 'week(monday)', 'week(tuesday)',"+
+				" 'week(wednesday)', 'week(thursday)', 'week(friday)', 'week(saturday)', 'week(sunday)', 'isoweek', 'month', 'quarter', 'year', 'isoyear', but got \"%s\"", g),
+		}
+	}
+	return asStringExpr(granularity)
+}
+
+func validateTimestampPart(part any) Expression {
+	partValues := []string{"microsecond", "millisecond", "second", "minute", "hour", "day",
+		"dayofweek", "dayofyear", "week", "week(monday)", "week(tuesday)", "week(wednesday)", "week(thursday)",
+		"week(friday)", "week(saturday)", "week(sunday)", "month", "quarter", "year", "isoweek", "isoyear"}
+	if p, ok := part.(string); ok && !slices.Contains(partValues, p) {
+		return &baseExpression{
+			err: fmt.Errorf("firestore: part must be one of 'microsecond', 'millisecond', 'second', 'minute', 'hour', 'day', 'week', 'dayofweek', 'dayofyear', 'week(monday)', 'week(tuesday)',"+
+				" 'week(wednesday)', 'week(thursday)', 'week(friday)', 'week(saturday)', 'week(sunday)', 'month', 'quarter', 'year', 'isoweek', 'isoyear', but got \"%s\"", p),
+		}
+	}
+	return asStringExpr(part)
 }

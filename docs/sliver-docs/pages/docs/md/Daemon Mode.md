@@ -1,6 +1,6 @@
 Sliver supports running in daemon mode, which automatically starts the multiplayer listener but does not provide an interactive console. To connect to a daemonized server, use [multiplayer mode](/docs?name=Multi-player+Mode) operator configs.
 
-By default, daemon mode starts the same WireGuard-protected multiplayer listener used by the interactive `multiplayer` command. That means the outer listener is UDP on `31337` by default, while the authenticated gRPC/mTLS service stays inside the WireGuard tunnel.
+By default, daemon mode exposes the multiplayer listener directly over TCP gRPC/mTLS on port `31337`. The multiplayer WireGuard wrapper is opt-in with `--enable-wg` or `daemon.enable_wg: true`.
 
 There are two ways to run in daemon mode:
 
@@ -49,7 +49,7 @@ Since daemon mode does not provide an interactive server console, generate opera
 ./sliver-server operator --name zer0cool --lhost 1.2.3.4 --permissions all --save zer0cool.cfg
 ```
 
-The `operator` CLI generates direct multiplayer profiles by default. Add `--enable-wg` when the daemon is running with the WireGuard wrapper.
+The `operator` CLI generates direct multiplayer profiles by default. When the daemon is running with the WireGuard wrapper, add `--enable-wg` while generating the profile. That profile contains `wg.enabled: true`, so `sliver-client` selects WireGuard automatically. Use the client's `--enable-wg` or `--disable-wg` only when you need to override the profile.
 
 ### Shutdown Behavior
 

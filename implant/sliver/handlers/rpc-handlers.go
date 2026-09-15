@@ -201,10 +201,10 @@ func netstatHandler(data []byte, resp RPCResponse) {
 			}
 			entries = append(entries, buildEntries("tcp6", tabs)...)
 		}
-		result.Entries = entries
-		data, err := proto.Marshal(result)
-		resp(data, err)
 	}
+	result.Entries = entries
+	data, err = proto.Marshal(result)
+	resp(data, err)
 }
 
 func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEntry {

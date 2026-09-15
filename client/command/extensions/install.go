@@ -40,7 +40,21 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		con.PrintErrorf("Extension path '%s' does not exist", extLocalPath)
 		return
 	}
-	InstallFromDir(extLocalPath, true, con, strings.HasSuffix(extLocalPath, ".tar.gz"))
+	_ = InstallFromDir(extLocalPath, true, con, strings.HasSuffix(extLocalPath, ".tar.gz"))
+}
+
+func readExtensionManifest(extLocalPath string, isGz bool) ([]byte, error) {
+	if isGz {
+		return util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
+	}
+	return os.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
+}
+
+func extensionPackageID(manifest *ExtensionManifest) string {
+	if manifest.PackageName != "" {
+		return manifest.PackageName
+	}
+	return manifest.Name
 }
 
 // InstallFromDir installs a Sliver extension from either a local directory or gzipped archive.
@@ -54,37 +68,28 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 //   - con: Sliver console client for displaying status and error messages
 //   - isGz: Whether the source is a gzipped archive (true) or directory (false)
 //
-// The function will return early with error messages printed to console if:
+// The function returns errors after printing them to the console if:
 //   - The manifest cannot be read or parsed
 //   - Required directories cannot be created
 //   - File copy operations fail
-//   - User declines overwrite when prompted
-func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.SliverClient, isGz bool) {
-	var manifestData []byte
-	var err error
-
-	if isGz {
-		manifestData, err = util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
-	} else {
-		manifestData, err = os.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
-	}
+//
+// Declining an overwrite prompt cancels the installation without an error.
+func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.SliverClient, isGz bool) error {
+	manifestData, err := readExtensionManifest(extLocalPath, isGz)
 	if err != nil {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
-		return
+		return fmt.Errorf("read %s: %w", ManifestFileName, err)
 	}
 
 	manifestF, err := ParseExtensionManifest(manifestData)
 	if err != nil {
 		con.PrintErrorf("Error parsing %s: %s", ManifestFileName, err)
-		return
+		return fmt.Errorf("parse %s: %w", ManifestFileName, err)
 	}
 
 	// Use package name if available, otherwise use extension name
 	// (Note, for v1 manifests this will actually be command_name)
-	packageID := manifestF.Name
-	if manifestF.PackageName != "" {
-		packageID = manifestF.PackageName
-	}
+	packageID := extensionPackageID(manifestF)
 
 	//create repo path
 	minstallPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(packageID))
@@ -94,7 +99,7 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 			confirm := false
 			_ = forms.Confirm("Overwrite current install?", &confirm)
 			if !confirm {
-				return
+				return nil
 			}
 		}
 		forceRemoveAll(minstallPath)
@@ -103,13 +108,13 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 	err = os.MkdirAll(minstallPath, 0o700)
 	if err != nil {
 		con.PrintErrorf("Error creating extension directory: %s\n", err)
-		return
+		return fmt.Errorf("create extension directory: %w", err)
 	}
 	err = os.WriteFile(filepath.Join(minstallPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to write %s: %s\n", ManifestFileName, err)
 		forceRemoveAll(minstallPath)
-		return
+		return fmt.Errorf("write %s: %w", ManifestFileName, err)
 	}
 
 	for _, manifest := range manifestF.ExtCommand {
@@ -125,7 +130,7 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 					if err != nil {
 						con.PrintErrorf("\nError creating extension directory: %s\n", err)
 						forceRemoveAll(installPath)
-						return
+						return fmt.Errorf("create extension artifact directory: %w", err)
 					}
 					err = util.CopyFile(src, dst)
 					if err != nil {
@@ -135,11 +140,12 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 				if err != nil {
 					con.PrintErrorf("Error installing command: %s\n", err)
 					forceRemoveAll(installPath)
-					return
+					return fmt.Errorf("install extension artifact: %w", err)
 				}
 			}
 		}
 	}
+	return nil
 }
 
 func installArtifact(extGzFilePath string, installPath string, artifactPath string) error {

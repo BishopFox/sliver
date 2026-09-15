@@ -20,6 +20,7 @@ const (
 	SourceLeave
 	SourceAccountData
 	SourceTimeline
+	SourceSticky
 	SourceState
 	SourceEphemeral
 	SourceToDevice

@@ -55,12 +55,12 @@ const (
 )
 
 const (
-	float32Nan         = "\xfa\x7f\xc0\x00\x00"
-	float32PosInfinity = "\xfa\x7f\x80\x00\x00"
-	float32NegInfinity = "\xfa\xff\x80\x00\x00"
-	float64Nan         = "\xfb\x7f\xf8\x00\x00\x00\x00\x00\x00"
-	float64PosInfinity = "\xfb\x7f\xf0\x00\x00\x00\x00\x00\x00"
-	float64NegInfinity = "\xfb\xff\xf0\x00\x00\x00\x00\x00\x00"
+	float32Nan         = "\x7f\xc0\x00\x00"
+	float32PosInfinity = "\x7f\x80\x00\x00"
+	float32NegInfinity = "\xff\x80\x00\x00"
+	float64Nan         = "\x7f\xf8\x00\x00\x00\x00\x00\x00"
+	float64PosInfinity = "\x7f\xf0\x00\x00\x00\x00\x00\x00"
+	float64NegInfinity = "\xff\xf0\x00\x00\x00\x00\x00\x00"
 )
 
 // IntegerTimeFieldFormat indicates the format of timestamp decoded
@@ -72,7 +72,7 @@ var IntegerTimeFieldFormat = time.RFC3339
 var NanoTimeFieldFormat = time.RFC3339Nano
 
 func appendCborTypePrefix(dst []byte, major byte, number uint64) []byte {
-	byteCount := 8
+	var byteCount int
 	var minor byte
 	switch {
 	case number < 256:

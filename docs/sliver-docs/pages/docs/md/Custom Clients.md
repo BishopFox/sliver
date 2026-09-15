@@ -2,18 +2,18 @@ Although the `sliver-client` is the default way to interact with a `sliver-serve
 
 To do so, you can use [sliver-script](https://github.com/moloch--/sliver-script), [sliver-py](https://github.com/moloch--/sliver-py), or write a custom client in another language.
 
-Current Sliver releases generate multiplayer operator configs with a `wg` block by default. The official `sliver-client`, and Go clients that reuse Sliver's `client/assets` plus `client/transport` packages, will automatically bring up that WireGuard wrapper before dialing the in-tunnel gRPC/mTLS service.
+Sliver exposes multiplayer directly over gRPC/mTLS and generates direct operator configs by default. The multiplayer WireGuard wrapper is enabled explicitly on the listener and when the operator profile is generated. A WireGuard-enabled profile records that choice as `wg.enabled: true`.
 
 If you are writing a custom client in another language, you have two options:
 
-- Implement the multiplayer WireGuard wrapper described in [multiplayer mode](/docs?name=Multi-player+Mode), then connect to the in-tunnel gRPC/mTLS service.
-- Keep multiplayer in direct mode by default, or explicitly opt into the wrapper with `multiplayer --enable-wg` or `sliver-server daemon --enable-wg`. Generate matching operator profiles with `new-operator --enable-wg` or `sliver-server operator --enable-wg` when you want the client-side WireGuard wrapper.
+- Use the default direct gRPC/mTLS multiplayer mode, which works with a standard gRPC client and a default operator profile.
+- Implement the multiplayer WireGuard wrapper described in [multiplayer mode](/docs?name=Multi-player+Mode). Opt into it with `multiplayer --enable-wg` or `sliver-server daemon --enable-wg`, generate a matching profile with `new-operator --enable-wg` or `sliver-server operator --enable-wg`, and honor `wg.enabled` when selecting the transport. A legacy profile that has a `wg` block but no `enabled` field should remain direct.
 
 Once connected, the client/server API is still gRPC, so any language with gRPC support can in theory be used to create a custom client.
 
 ## Writing a Go client
 
-This example uses Sliver's Go client libraries, so it works with either a direct multiplayer profile or a WireGuard-enabled profile.
+This example uses Sliver's Go client libraries. `transport.MTLSConnect` automatically follows the selected profile in `transport.MultiplayerConnectAuto` mode: `wg.enabled: true` selects WireGuard, while a missing or disabled marker selects direct gRPC/mTLS. Applications that expose manual transport controls can call `transport.SetMultiplayerConnectMode` with `transport.MultiplayerConnectEnableWG` or `transport.MultiplayerConnectDisableWG` before connecting.
 
 In this example, we will focus on writing a custom Go client that executes a new system command on every new implant that connects to the sliver server.
 

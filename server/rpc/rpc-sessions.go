@@ -91,16 +91,7 @@ func (rpc *Server) CloseSession(ctx context.Context, closeSession *sliverpb.Clos
 	// Make a best effort to tell the implant we're close the connection
 	// but its important we don't block on this as the user may be trying to
 	// close an unhealthy connection to the implant
-	closeWait := make(chan struct{})
-	go func() {
-		select {
-		case session.Connection.Send <- &sliverpb.Envelope{Type: sliverpb.MsgCloseSession}:
-		case <-time.After(time.Second * 3):
-		}
-		closeWait <- struct{}{}
-	}()
-
-	<-closeWait
+	_ = session.Connection.SendEnvelope(&sliverpb.Envelope{Type: sliverpb.MsgCloseSession}, 3*time.Second)
 	core.Sessions.Remove(session.ID)
 
 	return &commonpb.Empty{}, nil

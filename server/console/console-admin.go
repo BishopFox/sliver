@@ -184,6 +184,7 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 
 			dbOperator = &operatorRecord
 			wgConfig = &clientassets.ClientWGConfig{
+				Enabled:          true,
 				ServerPubKey:     serverPubKey,
 				ClientPrivateKey: clientPrivKey,
 				ClientPubKey:     clientPubKey,

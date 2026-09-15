@@ -40,6 +40,9 @@ type StateStore interface {
 	GetJoinRules(ctx context.Context, roomID id.RoomID) (*event.JoinRulesEventContent, error)
 	SetJoinRules(ctx context.Context, roomID id.RoomID, content *event.JoinRulesEventContent) error
 
+	GetHistoryVisibility(ctx context.Context, roomID id.RoomID) (*event.HistoryVisibilityEventContent, error)
+	SetHistoryVisibility(ctx context.Context, roomID id.RoomID, content *event.HistoryVisibilityEventContent) error
+
 	HasFetchedMembers(ctx context.Context, roomID id.RoomID) (bool, error)
 	MarkMembersFetched(ctx context.Context, roomID id.RoomID) error
 	GetAllMembers(ctx context.Context, roomID id.RoomID) (map[id.UserID]*event.MemberEventContent, error)
@@ -78,9 +81,11 @@ func UpdateStateStore(ctx context.Context, store StateStore, evt *event.Event) {
 		err = store.SetCreate(ctx, evt)
 	case *event.JoinRulesEventContent:
 		err = store.SetJoinRules(ctx, evt.RoomID, content)
+	case *event.HistoryVisibilityEventContent:
+		err = store.SetHistoryVisibility(ctx, evt.RoomID, content)
 	default:
 		switch evt.Type {
-		case event.StateMember, event.StatePowerLevels, event.StateEncryption, event.StateCreate:
+		case event.StateMember, event.StatePowerLevels, event.StateEncryption, event.StateCreate, event.StateJoinRules, event.StateHistoryVisibility:
 			zerolog.Ctx(ctx).Warn().
 				Stringer("event_id", evt.ID).
 				Str("event_type", evt.Type.Type).
@@ -106,29 +111,33 @@ func (cli *Client) StateStoreSyncHandler(ctx context.Context, evt *event.Event) 
 }
 
 type MemoryStateStore struct {
-	Registrations  map[id.UserID]bool                                    `json:"registrations"`
-	Members        map[id.RoomID]map[id.UserID]*event.MemberEventContent `json:"memberships"`
-	MembersFetched map[id.RoomID]bool                                    `json:"members_fetched"`
-	PowerLevels    map[id.RoomID]*event.PowerLevelsEventContent          `json:"power_levels"`
-	Encryption     map[id.RoomID]*event.EncryptionEventContent           `json:"encryption"`
-	Create         map[id.RoomID]*event.Event                            `json:"create"`
-	JoinRules      map[id.RoomID]*event.JoinRulesEventContent            `json:"join_rules"`
+	Registrations     map[id.UserID]bool                                    `json:"registrations"`
+	Members           map[id.RoomID]map[id.UserID]*event.MemberEventContent `json:"memberships"`
+	MembersFetched    map[id.RoomID]bool                                    `json:"members_fetched"`
+	PowerLevels       map[id.RoomID]*event.PowerLevelsEventContent          `json:"power_levels"`
+	Encryption        map[id.RoomID]*event.EncryptionEventContent           `json:"encryption"`
+	Create            map[id.RoomID]*event.Event                            `json:"create"`
+	JoinRules         map[id.RoomID]*event.JoinRulesEventContent            `json:"join_rules"`
+	HistoryVisibility map[id.RoomID]*event.HistoryVisibilityEventContent    `json:"history_visibility"`
 
-	registrationsLock sync.RWMutex
-	membersLock       sync.RWMutex
-	powerLevelsLock   sync.RWMutex
-	encryptionLock    sync.RWMutex
-	joinRulesLock     sync.RWMutex
+	registrationsLock     sync.RWMutex
+	membersLock           sync.RWMutex
+	powerLevelsLock       sync.RWMutex
+	encryptionLock        sync.RWMutex
+	joinRulesLock         sync.RWMutex
+	historyVisibilityLock sync.RWMutex
 }
 
 func NewMemoryStateStore() StateStore {
 	return &MemoryStateStore{
-		Registrations:  make(map[id.UserID]bool),
-		Members:        make(map[id.RoomID]map[id.UserID]*event.MemberEventContent),
-		MembersFetched: make(map[id.RoomID]bool),
-		PowerLevels:    make(map[id.RoomID]*event.PowerLevelsEventContent),
-		Encryption:     make(map[id.RoomID]*event.EncryptionEventContent),
-		Create:         make(map[id.RoomID]*event.Event),
+		Registrations:     make(map[id.UserID]bool),
+		Members:           make(map[id.RoomID]map[id.UserID]*event.MemberEventContent),
+		MembersFetched:    make(map[id.RoomID]bool),
+		PowerLevels:       make(map[id.RoomID]*event.PowerLevelsEventContent),
+		Encryption:        make(map[id.RoomID]*event.EncryptionEventContent),
+		Create:            make(map[id.RoomID]*event.Event),
+		JoinRules:         make(map[id.RoomID]*event.JoinRulesEventContent),
+		HistoryVisibility: make(map[id.RoomID]*event.HistoryVisibilityEventContent),
 	}
 }
 
@@ -372,6 +381,19 @@ func (store *MemoryStateStore) GetJoinRules(ctx context.Context, roomID id.RoomI
 	store.joinRulesLock.RLock()
 	defer store.joinRulesLock.RUnlock()
 	return store.JoinRules[roomID], nil
+}
+
+func (store *MemoryStateStore) SetHistoryVisibility(ctx context.Context, roomID id.RoomID, content *event.HistoryVisibilityEventContent) error {
+	store.historyVisibilityLock.Lock()
+	store.HistoryVisibility[roomID] = content
+	store.historyVisibilityLock.Unlock()
+	return nil
+}
+
+func (store *MemoryStateStore) GetHistoryVisibility(ctx context.Context, roomID id.RoomID) (*event.HistoryVisibilityEventContent, error) {
+	store.historyVisibilityLock.RLock()
+	defer store.historyVisibilityLock.RUnlock()
+	return store.HistoryVisibility[roomID], nil
 }
 
 func (store *MemoryStateStore) IsEncrypted(ctx context.Context, roomID id.RoomID) (bool, error) {

@@ -3,8 +3,6 @@ package mtypes
 import (
 	"strconv"
 	"time"
-
-	"github.com/mailgun/errors"
 )
 
 // ISO8601Time Mailgun uses ISO8601 format without timezone for timestamps in the API key endpoints ('2006-01-02T15:04:05'),
@@ -39,10 +37,9 @@ func (t *ISO8601Time) UnmarshalJSON(s []byte) error {
 		return nil
 	}
 
-	var err1 error
-	*t, err1 = NewISO8601Time(q)
-	if err1 != nil {
-		return errors.Errorf("%s", err1)
+	*t, err = NewISO8601Time(q)
+	if err != nil {
+		return err
 	}
 
 	return nil

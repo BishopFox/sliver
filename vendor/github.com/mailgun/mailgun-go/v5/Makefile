@@ -5,9 +5,12 @@ GOPATH=$(shell go env GOPATH)
 # TODO(vtopc): move into mtypes/internal/...?
 TYPES_PATH=./internal/types
 
-GOLANGCI_LINT_VERSION=v1.64.8
-GOLANGCI_LINT_PATH=$(GOPATH)/bin
+GOLANGCI_LINT_VERSION=v2.10.1
+GOLANGCI_LINT_PATH=$(GOPATH)/bin/golangci-lint-v2
 GOLANGCI_LINT=$(GOLANGCI_LINT_PATH)/golangci-lint
+
+OAPI_CODEGEN_VERSION=v2.8.0
+OAPI_CODEGEN=$(GOPATH)/bin/oapi-codegen
 
 NILAWAY = $(GOPATH)/bin/nilaway
 $(NILAWAY):
@@ -42,29 +45,21 @@ $(GOLANGCI_LINT):
 lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run
 
-## Download OpenAPI 3.1 spec files and generate models
+## Downloads OpenAPI 3.1 spec files and generate models
 .PHONY: get-and-gen-models
-get-and-gen-models: get-openapi convert-openapi gen-models
+get-and-gen-models: get-openapi gen-models
 
 .PHONY: get-openapi
 get-openapi:
-	cd $(TYPES_PATH) && git clone --depth 1 git@github.com:mailgun/redocly-mailgun.git
+	# https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun
+	curl -o $(TYPES_PATH)/mailgun/mailgun.yaml https://documentation.mailgun.com/_spec/docs/mailgun/api-reference/send/mailgun.yaml?download
+	# https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/inboxready
+	curl -o $(TYPES_PATH)/inboxready/inboxready.yaml https://documentation.mailgun.com/_spec/docs/inboxready/api-reference/optimize/inboxready.yaml?download
 
-## Downgrade openapi 3.1 to 3.0
-# this is one of the official ways to support OpenAPI 3.1:
-# https://github.com/oapi-codegen/oapi-codegen?tab=readme-ov-file#does-oapi-codegen-support-openapi-31
-# install openapi-down-convert:
-#  npm i -g @apiture/openapi-down-convert
-.PHONY: convert-openapi
-convert-openapi:
-	# Mailgun Send
-	openapi-down-convert --input $(TYPES_PATH)/redocly-mailgun/docs/mailgun/api-reference/openapi-final.yaml --output $(TYPES_PATH)/mailgun/openapi_3.0.yaml
-	# Mailgun Optimize
-	openapi-down-convert --input $(TYPES_PATH)/redocly-mailgun/docs/inboxready/api-reference/openapi-final.yaml --output $(TYPES_PATH)/inboxready/openapi_3.0.yaml
+$(OAPI_CODEGEN):
+	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION)
 
-# TODO(Go1.24): move into tools of go.mod(https://github.com/oapi-codegen/oapi-codegen?tab=readme-ov-file#for-go-124)?
-# install oapi-codegen:
-#  go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.2-0.20250511101814-8ea9351bbd3e
+# TODO(v6): switch to https://github.com/doordash-oss/oapi-codegen-dd instead?
 #
 # ValidateEmailResponse is described here better, than in the OpenAPI documentation, so we are not generating it.
 # TODO(v6?): call gen-mailgun-models
@@ -73,10 +68,10 @@ gen-models: gen-inboxready-models
 
 ## Generate Mailgun Send models
 .PHONY: gen-mailgun-models
-gen-mailgun-models:
-	oapi-codegen -config $(TYPES_PATH)/mailgun/codegen_cfg.yaml $(TYPES_PATH)/mailgun/openapi_3.0.yaml
+gen-mailgun-models: $(OAPI_CODEGEN)
+	$(OAPI_CODEGEN) -config $(TYPES_PATH)/mailgun/codegen_cfg.yaml $(TYPES_PATH)/mailgun/mailgun.yaml
 
 ## Generate Mailgun Optimize models
 .PHONY: gen-inboxready-models
-gen-inboxready-models:
-	oapi-codegen -config $(TYPES_PATH)/inboxready/codegen_cfg.yaml $(TYPES_PATH)/inboxready/openapi_3.0.yaml
+gen-inboxready-models: $(OAPI_CODEGEN)
+	$(OAPI_CODEGEN) -config $(TYPES_PATH)/inboxready/codegen_cfg.yaml $(TYPES_PATH)/inboxready/inboxready.yaml

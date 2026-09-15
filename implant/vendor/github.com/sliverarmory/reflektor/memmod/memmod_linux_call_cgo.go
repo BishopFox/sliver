@@ -1,4 +1,4 @@
-//go:build linux && cgo && (386 || amd64 || arm64)
+//go:build cgo && ((linux && !android && (386 || amd64 || (arm && arm.7) || arm64 || ppc64le || riscv64)) || (freebsd && (amd64 || arm64)))
 
 package memmod
 
@@ -73,12 +73,23 @@ static int reflektor_call_void0_thread(uintptr_t fn) {
 static __thread uintptr_t reflektor_go_tls_slots[REFLEKTOR_GO_TLS_SLOTS][2]
 	__attribute__((tls_model("initial-exec")));
 
+static uintptr_t reflektor_thread_pointer(void) {
+#if defined(__powerpc64__)
+	// The ELFv2 ABI reserves r13 as the thread pointer. GCC does not expose
+	// __builtin_thread_pointer on ppc64le, so read the fixed ABI register.
+	register uintptr_t thread_pointer __asm__("r13");
+	return thread_pointer;
+#else
+	return (uintptr_t)__builtin_thread_pointer();
+#endif
+}
+
 static intptr_t reflektor_go_tls_offset(uintptr_t slot) {
 	if (slot >= REFLEKTOR_GO_TLS_SLOTS) {
 		return INTPTR_MIN;
 	}
 	return (intptr_t)(uintptr_t)&reflektor_go_tls_slots[slot][0] -
-		(intptr_t)(uintptr_t)__builtin_thread_pointer();
+		(intptr_t)reflektor_thread_pointer();
 }
 
 extern char **environ;
@@ -128,6 +139,22 @@ func cCall2(fn, a0, a1 uintptr) uintptr {
 
 func cCall3(fn, a0, a1, a2 uintptr) uintptr {
 	return uintptr(C.reflektor_call3(C.uintptr_t(fn), C.uintptr_t(a0), C.uintptr_t(a1), C.uintptr_t(a2)))
+}
+
+//go:uintptrescapes
+func callExportFunction(fn uintptr, args ...uintptr) uintptr {
+	switch len(args) {
+	case 0:
+		return cCall0(fn)
+	case 1:
+		return cCall1(fn, args[0])
+	case 2:
+		return cCall2(fn, args[0], args[1])
+	case 3:
+		return cCall3(fn, args[0], args[1], args[2])
+	default:
+		panic("validated ELF export argument count is out of range")
+	}
 }
 
 func cCallVoid0(fn uintptr) {

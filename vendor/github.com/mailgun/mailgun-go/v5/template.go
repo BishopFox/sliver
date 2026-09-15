@@ -8,7 +8,7 @@ import (
 	"github.com/mailgun/mailgun-go/v5/mtypes"
 )
 
-// Create a new template which can be used to attach template versions to
+// CreateTemplate creates a new template which can be used to attach template versions to
 func (mg *Client) CreateTemplate(ctx context.Context, domain string, template *mtypes.Template) error {
 	r := newHTTPRequest(generateApiV3UrlWithDomain(mg, templatesEndpoint, domain))
 	r.setClient(mg.HTTPClient())
@@ -59,7 +59,7 @@ func (mg *Client) GetTemplate(ctx context.Context, domain, name string) (mtypes.
 	return resp.Item, nil
 }
 
-// Update the name and description of a template
+// UpdateTemplate updates the name and description of a template
 func (mg *Client) UpdateTemplate(ctx context.Context, domain string, template *mtypes.Template) error {
 	if template.Name == "" {
 		return errors.New("UpdateTemplate() Template.Name cannot be empty")

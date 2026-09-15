@@ -104,15 +104,34 @@ func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDial
 		return multiplayerDialDirect, errors.New("client config is required")
 	}
 
-	switch getMultiplayerConnectMode() {
+	mode := getMultiplayerConnectMode()
+	switch mode {
+	case MultiplayerConnectDisableWG:
+		return multiplayerDialDirect, nil
 	case MultiplayerConnectEnableWG:
 		if err := validateWireGuardConfig(config); err != nil {
 			return multiplayerDialDirect, err
 		}
 		return multiplayerDialWireGuard, nil
+	case MultiplayerConnectAuto:
+		if config.WG == nil || !config.WG.Enabled {
+			return multiplayerDialDirect, nil
+		}
+		if err := validateWireGuardConfig(config); err != nil {
+			return multiplayerDialDirect, err
+		}
+		return multiplayerDialWireGuard, nil
 	default:
-		return multiplayerDialDirect, nil
+		return multiplayerDialDirect, fmt.Errorf("invalid multiplayer connect mode %d", mode)
 	}
+}
+
+// MultiplayerConnectUsesWireGuard reports whether the current mode and
+// operator config select the WireGuard wrapper. Invalid WireGuard configs
+// report false; the initial multiplayer dial returns the validation error.
+func MultiplayerConnectUsesWireGuard(config *assets.ClientConfig) bool {
+	strategy, err := selectMultiplayerDialStrategy(config)
+	return err == nil && strategy == multiplayerDialWireGuard
 }
 
 func directMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {

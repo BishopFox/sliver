@@ -11,8 +11,21 @@ import (
 type MultiplayerConnectMode int
 
 const (
-	MultiplayerConnectDirect MultiplayerConnectMode = iota
+	// MultiplayerConnectAuto follows the explicit WireGuard opt-in recorded in
+	// the operator config.
+	MultiplayerConnectAuto MultiplayerConnectMode = iota
+	// MultiplayerConnectEnableWG forces WireGuard for complete configs,
+	// including legacy configs that predate the explicit opt-in marker.
 	MultiplayerConnectEnableWG
+	// MultiplayerConnectDisableWG forces direct multiplayer mTLS.
+	MultiplayerConnectDisableWG
+
+	// MultiplayerConnectDirect is retained as a source-compatible alias for
+	// callers that explicitly select direct multiplayer mTLS.
+	MultiplayerConnectDirect = MultiplayerConnectDisableWG
+	// MultiplayerConnectRequireWG is retained for source compatibility.
+	// Deprecated: use MultiplayerConnectEnableWG.
+	MultiplayerConnectRequireWG = MultiplayerConnectEnableWG
 )
 
 type connectionCloser interface {
@@ -21,7 +34,7 @@ type connectionCloser interface {
 
 var (
 	multiplayerConnectModeMu sync.RWMutex
-	multiplayerConnectMode   = MultiplayerConnectDirect
+	multiplayerConnectMode   = MultiplayerConnectAuto
 	connClosers              sync.Map // *grpc.ClientConn -> connectionCloser
 )
 

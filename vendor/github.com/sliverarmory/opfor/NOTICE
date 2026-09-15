@@ -1,0 +1,52 @@
+Copyright 2026 The OPFOR Authors
+
+OPFOR is an independent, open-source compatibility implementation. Cobalt
+Strike and Aggressor Script are names used only to describe compatibility.
+OPFOR is not affiliated with, sponsored by, or endorsed by Fortra or the
+Cobalt Strike authors.
+
+The upstream Sleep 2.1 implementation and regression corpus are Copyright
+2002-2020 Raphael Mudge and distributed under the BSD 3-Clause License. Any
+vendored Sleep fixtures retain that license and attribution alongside them.
+
+The Cobalt-Strike/aggressor_script_examples corpus is distributed under the
+Apache License 2.0. Any vendored examples retain its license and attribution.
+
+OPFOR embeds a modified fork of the pure-Go regexp2 v1.12.0
+regular-expression engine under internal/regexp2. The upstream engine is
+Copyright Doug Clark and distributed under the MIT License. OPFOR's
+modifications add distinct Java ASCII and Unicode case-insensitive modes plus
+Unicode-17 extended-grapheme instructions. The upstream license is retained in
+internal/regexp2/LICENSE and
+third_party_licenses/regexp2-MIT.txt; upstream attribution is retained in
+internal/regexp2/ATTRIB.
+
+OPFOR's typed, error-returning TimSort implementation is adapted from the
+MIT-licensed Go implementation by Mike Kroutikov and its maintained
+github.com/psilva261/timsort fork at commit
+790c195bc04e0b7150839446cae66a703631a949. The upstream license is retained
+in third_party_licenses/psilva261-timsort-MIT.txt.
+
+The `opfor` CLI uses Cobra v1.10.2 and mousetrap v1.1.0 under the Apache
+License 2.0 reproduced in LICENSE, plus pflag v1.0.9 under the BSD 3-Clause
+License reproduced in third_party_licenses/pflag-BSD-3-Clause.txt.
+
+OPFOR's modified-ziggurat numerical tables were generated from Oracle's
+`create_ziggurat_tables.c` OpenJDK utility, Copyright 2021 Oracle and/or its
+affiliates, under the BSD 3-Clause License reproduced in
+third_party_licenses/OpenJDK-create_ziggurat_tables-BSD-3-Clause.txt. The
+generator source, commit, and canonical table digest are pinned in
+internal/opfor/objects_portable_random_ziggurat_tables_openjdk.go. The pure-Go
+sampler was adapted from Apache Commons
+RNG, Copyright 2016-2025 The Apache Software Foundation, under the Apache
+License 2.0 reproduced in LICENSE, and specialized against the documented
+OpenJDK behavior. This product includes software developed at The Apache
+Software Foundation (http://www.apache.org/). OPFOR contains no OpenJDK GPL
+implementation source.
+
+OPFOR's generated Java-regex compatibility tables contain data derived from
+Unicode 17.0.0 UnicodeData.txt, Blocks.txt, Scripts.txt, PropList.txt,
+PropertyValueAliases.txt, SpecialCasing.txt, DerivedCoreProperties.txt,
+auxiliary/GraphemeBreakProperty.txt, and emoji/emoji-data.txt. Unicode data is
+Copyright 1991-2025 Unicode, Inc. and distributed under the Unicode License
+v3. The license is retained in third_party_licenses/Unicode-3.0.txt.

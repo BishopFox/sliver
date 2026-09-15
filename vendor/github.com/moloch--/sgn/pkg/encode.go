@@ -1,11 +1,11 @@
 package sgn
 
 import (
+	cryptorand "crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/bits"
-	"math/rand"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -33,11 +33,16 @@ type Encoder struct {
 
 // NewEncoder for creating new encoder structures
 func NewEncoder(arch int) (*Encoder, error) {
+	seed, err := secureRandomByte()
+	if err != nil {
+		return nil, err
+	}
+
 	// Create with default settings
 	encoder := Encoder{
 		ObfuscationLimit: 50,
 		PlainDecoder:     false,
-		Seed:             GetRandomByte(),
+		Seed:             seed,
 		EncodingCount:    1,
 		SaveRegisters:    false,
 	}
@@ -75,59 +80,11 @@ func (encoder *Encoder) GetArchitecture() int {
 // Encode function is the primary encode method for SGN
 // all nessary options and parameters are contained inside the encodder struct
 func (encoder *Encoder) Encode(payload []byte) ([]byte, error) {
-
-	var final []byte
-	if encoder.SaveRegisters {
-		payload = append(payload, SafeRegisterSuffix[encoder.architecture]...)
+	var randomSeed RandomSeed
+	if _, err := cryptorand.Read(randomSeed[:]); err != nil {
+		return nil, fmt.Errorf("read cryptographic randomness: %w", err)
 	}
-
-	// Add garbage instrctions before the un-encoded payload
-	garbage, err := encoder.GenerateGarbageInstructions()
-	if err != nil {
-		return nil, err
-	}
-	payload = append(garbage, payload...)
-	// Apply ADFL cipher to payload
-	cipheredPayload := CipherADFL(payload, encoder.Seed)
-	encodedPayload, err := encoder.AddADFLDecoder(cipheredPayload)
-	if err != nil {
-		return nil, err
-	}
-
-	if encoder.PlainDecoder {
-		final = encodedPayload
-	} else {
-		// Add more garbage instrctions before the decoder stub
-		garbage, err = encoder.GenerateGarbageInstructions()
-		if err != nil {
-			return nil, err
-		}
-		encodedPayload = append(garbage, encodedPayload...)
-		// Calculate schema size
-		schemaSize := ((len(encodedPayload) - len(cipheredPayload)) / (encoder.architecture / 8)) + 1
-		randomSchema := encoder.NewCipherSchema(schemaSize)
-
-		obfuscatedEncodedPayload := encoder.SchemaCipher(encodedPayload, 0, randomSchema)
-		final, err = encoder.AddSchemaDecoder(obfuscatedEncodedPayload, randomSchema)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if encoder.EncodingCount > 1 {
-		encoder.EncodingCount--
-		encoder.Seed = GetRandomByte()
-		final, err = encoder.Encode(final)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if encoder.SaveRegisters {
-		final = append(SafeRegisterPrefix[encoder.architecture], final...)
-	}
-
-	return final, nil
+	return encoder.EncodeWithSeed(payload, randomSeed)
 }
 
 // CipherADFL (Additive Feedback Loop) performs a additive feedback xor operation
@@ -154,9 +111,9 @@ func (encoder *Encoder) SchemaCipher(data []byte, index int, schema SCHEMA) []by
 		case "XOR":
 			binary.BigEndian.PutUint32(data[index:index+4], (binary.BigEndian.Uint32(data[index:index+4]) ^ binary.LittleEndian.Uint32(cursor.Key)))
 		case "ADD":
-			binary.LittleEndian.PutUint32(data[index:index+4], (binary.LittleEndian.Uint32(data[index:index+4])-binary.BigEndian.Uint32(cursor.Key))%0xFFFFFFFF)
+			binary.LittleEndian.PutUint32(data[index:index+4], binary.LittleEndian.Uint32(data[index:index+4])-binary.BigEndian.Uint32(cursor.Key))
 		case "SUB":
-			binary.LittleEndian.PutUint32(data[index:index+4], (binary.LittleEndian.Uint32(data[index:index+4])+binary.BigEndian.Uint32(cursor.Key))%0xFFFFFFFF)
+			binary.LittleEndian.PutUint32(data[index:index+4], binary.LittleEndian.Uint32(data[index:index+4])+binary.BigEndian.Uint32(cursor.Key))
 		case "ROL":
 			binary.LittleEndian.PutUint32(data[index:index+4], bits.RotateLeft32(binary.LittleEndian.Uint32(data[index:index+4]), -int(binary.BigEndian.Uint32(cursor.Key))))
 		case "ROR":
@@ -171,12 +128,16 @@ func (encoder *Encoder) SchemaCipher(data []byte, index int, schema SCHEMA) []by
 
 // RandomOperand generates a random operand string
 func RandomOperand() string {
-	return OPERANDS[rand.Intn(len(OPERANDS))]
+	return OPERANDS[secureIntn(len(OPERANDS))]
 }
 
 // GetRandomByte generates a random single byte
 func GetRandomByte() byte {
-	return byte(rand.Intn(255))
+	value, err := secureRandomByte()
+	if err != nil {
+		panic(err)
+	}
+	return value
 }
 
 // GetRandomBytes generates a random byte slice with given size
@@ -190,7 +151,7 @@ func GetRandomBytes(num int) []byte {
 
 // CoinFlip implements a coin flip witch returns true/false
 func CoinFlip() bool {
-	return rand.Intn(2) == 0
+	return secureIntn(2) == 0
 }
 
 // NewCipherSchema generates random schema for

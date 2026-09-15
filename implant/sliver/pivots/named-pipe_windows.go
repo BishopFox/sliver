@@ -39,7 +39,7 @@ var (
 )
 
 // CreateNamedPipePivotListener - Starts a named pipe listener
-func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope, opts ...bool) (*PivotListener, error) {
+func CreateNamedPipePivotListener(address string, upstream EnvelopeSender, opts ...bool) (*PivotListener, error) {
 	fullName := "\\\\.\\pipe\\" + strings.TrimPrefix(address, "\\\\.\\pipe\\")
 	sd := ""
 	if len(opts) > 0 {

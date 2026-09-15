@@ -45,6 +45,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/mcp"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/operators"
+	"github.com/bishopfox/sliver/client/command/opfor"
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/serverctx"
 	"github.com/bishopfox/sliver/client/command/sessions"
@@ -101,6 +102,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		bind(consts.GenericHelpGroup,
 			exit.Command,
 			ai.ServerCommands,
+			opfor.ServerCommands,
 			docscmd.ServerCommands,
 			serverctx.Commands,
 			licenses.Commands,

@@ -24,8 +24,10 @@ import (
 
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/klauspost/compress/flate"
 	"github.com/klauspost/compress/gzip"
@@ -82,6 +84,7 @@ func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
 	defer gzf.Close()
 
 	tarReader := tar.NewReader(gzf)
+	normalizedTarPath := normalizeTarPath(tarPath)
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -90,7 +93,7 @@ func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if header.Name == tarPath {
+		if normalizeTarPath(header.Name) == normalizedTarPath {
 			switch header.Typeflag {
 			case tar.TypeDir: // = directory
 				continue
@@ -99,7 +102,14 @@ func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
 			}
 		}
 	}
-	return nil, nil
+	return nil, fmt.Errorf("archive member %q: %w", tarPath, fs.ErrNotExist)
+}
+
+func normalizeTarPath(tarPath string) string {
+	for strings.HasPrefix(tarPath, "./") {
+		tarPath = strings.TrimPrefix(tarPath, "./")
+	}
+	return tarPath
 }
 
 // CopyFile - Copy a file from src to dst

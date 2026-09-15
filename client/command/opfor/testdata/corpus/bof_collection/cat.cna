@@ -1,0 +1,32 @@
+# author: Pim Beune
+
+beacon_command_register(
+    "cat", "Prints content of a file",
+    "INFO: Prints content of a file.\n\n" .
+    "FEATURES: UTF-8 and UTF-16 (LE/BE) compatible, with or without BOM\n" .
+    "          Refuses files larger than 128 KB\n" .
+    "          Sanitizes output: strips control characters and invalid\n" .
+    "          byte sequences (replaced with '?'), keeps tabs/newlines\n" .
+    "          Paths do not need to be quoted or backslash-escaped\n\n" .
+    "EXAMPLES: cat C:\\Users\\User\\Desktop\\flag.txt\n" .
+    "          cat C:\\Program Files\\Something\\notes.txt\n" .
+    "          cat \\\\server\\share\\folder\\file.txt");
+
+alias cat {
+    $bid = $1;
+    $file = join(" ", sublist(@_, 1));
+
+    if ($file eq "") {
+        berror($bid, "Please specify a file path.");
+        return;
+    }
+
+    # Read in the right BOF file
+    $handle = openf(script_resource("dist/cat." . barch($bid) . ".o"));
+    $data = readb($handle, -1);
+    closef($handle);
+
+    # Pack our arguments
+    $args = bof_pack($bid, "z", $file);
+    beacon_inline_execute($bid, $data, "go", $args);
+}

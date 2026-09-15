@@ -2,14 +2,17 @@
 
 ## Overview
 
-Extension host runtime allowing implants to load optional capabilities. Manages sandboxing, lifecycle, and communication with extension modules. Runtime components handle extension darwin, extension windows, memfs, and WASM for implant-side extension features.
+Extension host runtime allowing implants to load optional capabilities. Manages native shared-library and WASM extension lifecycle, registration, and communication across supported implant platforms.
 
 ## Go Files
 
-- `extension.go` – Core extension host that loads modules and brokers RPC communication.
-- `extension_darwin.go` – macOS-specific stubs and build tags for extension support.
-- `extension_windows.go` – Windows-specific integration for loading and managing extensions.
+- `extension.go` – Thread-safe native extension registry and single-flight loading lifecycle.
+- `extension_darwin.go` – macOS constructor for the shared Reflektor-backed Unix loader.
+- `extension_linux.go` – Linux constructor for the shared Reflektor-backed Unix loader.
+- `extension_unix.go` – CGO-free macOS/Linux loading, export invocation, and callback bridge.
+- `extension_windows.go` – Windows-specific Reflektor integration for loading and invoking extensions.
 - `memfs.go` – Implements the writable in-memory filesystem backing extension assets and the unchanged host filesystem pass-through.
+- `memfs_compat.go` – Retains the deprecated legacy MemFSNode API for source compatibility.
 - `memfs*_test.go` *(tests)* – Exercise legacy compatibility, mutation, concurrency, resource limits, guest integration, and fuzz-seed behavior.
 - `wasm.go` – Sets up the WASM runtime for implant extensions and handles module lifecycle.
 - `memfs_wasi_integration_test.go` *(test)* – Runs a Go/WASI guest through create, read, write, append, rename, and removal operations.

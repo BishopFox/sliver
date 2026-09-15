@@ -1,0 +1,32 @@
+# author REDMED-X
+
+beacon_command_register(
+	"findsysmon", "Verify if Sysmon is running.\n",
+	"INFO:\nVerify if Sysmon is running. This can be done by checking the registry or by enumerating Minifilter drivers and search for one that is associated with Sysmon.\n\nOPTIONS:\n[reg]: search the registry to check if Sysmon is present on the system and return the Sysmon service PID if active.\n[driver]: list all the Minifilter drivers on the system to check manually (requires elevated privileges).\n\n" .
+	"USAGE:\nfindsysmon <reg | driver>\n\n");
+
+
+alias findsysmon {
+    $bid = $1;
+    $action = $2;
+
+	if ($action eq "reg" || $action eq "driver") {
+	}
+	else {
+		berror($bid, "Please specify one of the following enumeration options: reg | driver\n");
+		return;
+	}
+	
+    # Read in the right BOF file
+    $handle = openf(script_resource("findsysmon.o"));
+    $data   = readb($handle, -1);
+    closef($handle);
+
+	# Pack our arguments
+    $arg_data  = bof_pack($bid, "z", $action);
+
+	blog($bid, "Tasked to find Sysmon..");
+    beacon_inline_execute($bid, $data, "go", $arg_data);
+}
+
+

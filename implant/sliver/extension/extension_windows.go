@@ -31,11 +31,6 @@ import (
 	reflektor "github.com/sliverarmory/reflektor/memmod"
 )
 
-const (
-	Success = 0
-	Failure = 1
-)
-
 type WindowsExtension struct {
 	id     string
 	data   []byte

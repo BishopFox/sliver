@@ -19,6 +19,12 @@
 set -u
 set -o pipefail
 
+HOST_GO="$(command -v go 2>/dev/null || true)"
+if [ -z "$HOST_GO" ] || [ ! -x "$HOST_GO" ]; then
+	echo "Host Go toolchain not found" >&2
+	exit 1
+fi
+
 SKIP_GENERATE=0
 UNIT_ONLY=0
 for arg in "$@"; do
@@ -125,17 +131,27 @@ run_test_cmd() {
 should_skip_package() {
 	local pkg="$1"
 	local tags="${2:-}"
-	local go_list_cmd=(go list -e -f '{{if .Error}}{{.Error}}{{end}}')
-	if [ -n "$tags" ]; then
-		go_list_cmd+=("-tags=$tags")
-	fi
-	go_list_cmd+=("$pkg")
-
 	local go_list_error
-	go_list_error="$("${go_list_cmd[@]}" 2>/dev/null || true)"
+	local test_file_counts
+	if [ -n "$tags" ]; then
+		go_list_error="$("$HOST_GO" list -e -f '{{if .Error}}{{.Error}}{{end}}' "-tags=$tags" "$pkg" 2>/dev/null || true)"
+		test_file_counts="$("$HOST_GO" list -e -f '{{len .TestGoFiles}} {{len .XTestGoFiles}}' "-tags=$tags" "$pkg" 2>/dev/null || true)"
+	else
+		go_list_error="$("$HOST_GO" list -e -f '{{if .Error}}{{.Error}}{{end}}' "$pkg" 2>/dev/null || true)"
+		test_file_counts="$("$HOST_GO" list -e -f '{{len .TestGoFiles}} {{len .XTestGoFiles}}' "$pkg" 2>/dev/null || true)"
+	fi
 	if [[ "$go_list_error" == *"build constraints exclude all Go files"* ]]; then
 		echo
 		echo "==> Skipping $pkg (unsupported on current platform)"
+		return 0
+	fi
+
+	# File discovery intentionally sees tests for every OS. Avoid forcing a
+	# package build when all of its tests are excluded by the current target's
+	# build constraints; those tests remain discoverable on their target OS.
+	if [ "$test_file_counts" = "0 0" ]; then
+		echo
+		echo "==> Skipping $pkg (no tests for current platform)"
 		return 0
 	fi
 	return 1
@@ -145,7 +161,7 @@ collect_test_dirs() {
 	if command -v rg >/dev/null 2>&1; then
 		rg --files -g '*_test.go'
 	else
-		find client implant server util -type f -name '*_test.go' -print
+		find client implant server test util -type f -name '*_test.go' -print
 	fi
 }
 
@@ -156,7 +172,7 @@ unpack_server_assets() {
 		fi
 		echo "sliver-server unpack failed, falling back to go run ./server unpack --force"
 	fi
-	go run -tags=server,go_sqlite ./server unpack --force
+	"$HOST_GO" run -tags=server,go_sqlite ./server unpack --force
 }
 
 run_test_cmd "unpack server assets" unpack_server_assets || exit 1
@@ -169,6 +185,7 @@ done < <(collect_test_dirs | xargs -n1 dirname | sort -u)
 CLIENT_TEST_PKGS=()
 IMPLANT_TEST_PKGS=()
 SERVER_UTIL_TEST_PKGS=()
+E2E_SUPPORT_TEST_PKGS=()
 
 for test_dir in "${TEST_DIRS[@]}"; do
 	pkg="./$test_dir"
@@ -185,6 +202,9 @@ for test_dir in "${TEST_DIRS[@]}"; do
 	./server/* | ./util*)
 		SERVER_UTIL_TEST_PKGS+=("$pkg")
 		;;
+	./test/e2e | ./test/e2e/*)
+		E2E_SUPPORT_TEST_PKGS+=("$pkg")
+		;;
 	esac
 done
 
@@ -193,7 +213,16 @@ for pkg in "${CLIENT_TEST_PKGS[@]}"; do
 	if should_skip_package "$pkg" "client,$TAGS"; then
 		continue
 	fi
-	run_test_cmd "$pkg" go test -tags="client,$TAGS" "$pkg" || exit 1
+	run_test_cmd "$pkg" "$HOST_GO" test -tags="client,$TAGS" "$pkg" || exit 1
+done
+
+## Comprehensive E2E support packages. The top-level lifecycle test skips
+## unless a server binary is supplied; coverage/report unit tests run here.
+for pkg in "${E2E_SUPPORT_TEST_PKGS[@]}"; do
+	if should_skip_package "$pkg" "client,$TAGS"; then
+		continue
+	fi
+	run_test_cmd "$pkg" "$HOST_GO" test -tags="client,$TAGS" "$pkg" || exit 1
 done
 
 ## Implant
@@ -201,7 +230,7 @@ for pkg in "${IMPLANT_TEST_PKGS[@]}"; do
 	if should_skip_package "$pkg"; then
 		continue
 	fi
-	run_test_cmd "$pkg" go test "$pkg" || exit 1
+	run_test_cmd "$pkg" "$HOST_GO" test "$pkg" || exit 1
 done
 
 ## Server + Util
@@ -211,25 +240,25 @@ for pkg in "${SERVER_UTIL_TEST_PKGS[@]}"; do
 	fi
 	case "$pkg" in
 	./server/assets/traffic-encoders | ./server/encoders)
-		run_test_cmd "$pkg" go test -timeout 10m -tags="server,$TAGS" "$pkg" || exit 1
+		run_test_cmd "$pkg" "$HOST_GO" test -timeout 10m -tags="server,$TAGS" "$pkg" || exit 1
 		;;
 	./server/rpc)
-		run_test_cmd "$pkg" go test -vet=off -timeout 30m -tags="server,$TAGS" "$pkg" || exit 1
+		run_test_cmd "$pkg" "$HOST_GO" test -vet=off -timeout 30m -tags="server,$TAGS" "$pkg" || exit 1
 		;;
 	*)
-		run_test_cmd "$pkg" go test -tags="server,$TAGS" "$pkg" || exit 1
+		run_test_cmd "$pkg" "$HOST_GO" test -tags="server,$TAGS" "$pkg" || exit 1
 		;;
 	esac
 done
 
 ## Server c2 (unit + e2e)
-run_test_cmd "./server/c2" go test -tags="server,$TAGS" ./server/c2 || exit 1
+run_test_cmd "./server/c2" "$HOST_GO" test -tags="server,$TAGS" ./server/c2 || exit 1
 if [ "$UNIT_ONLY" -eq 1 ]; then
 	echo
 	echo "Skipping ./server/c2 e2e tests (--unit-only)"
 else
-	run_test_cmd "./server/c2 (e2e yamux)" go test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 || exit 1
-	run_test_cmd "./server/c2 (e2e dns)" go test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 || exit 1
+	run_test_cmd "./server/c2 (e2e yamux)" "$HOST_GO" test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 || exit 1
+	run_test_cmd "./server/c2 (e2e dns)" "$HOST_GO" test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 || exit 1
 fi
 
 ## Server generate
@@ -237,7 +266,7 @@ if [ "$SKIP_GENERATE" -eq 0 ]; then
 	# The package tests above no longer need their Go build cache. Reclaim it
 	# before the cross-platform generation matrix starts so long CI runs do not
 	# exhaust the runner's disk while retaining the implant compiler cache.
-	run_test_cmd "clean Go build cache" go clean -cache || exit 1
+	run_test_cmd "clean Go build cache" "$HOST_GO" clean -cache || exit 1
 	export GOPROXY=off
 	# Generate tests are memory intensive (garble/c-shared cross-builds). Keep
 	# parallelism conservative by default to avoid OOM kills on smaller systems.
@@ -246,7 +275,7 @@ if [ "$SKIP_GENERATE" -eq 0 ]; then
 	GENERATE_TEST_PARALLEL="${SLIVER_GENERATE_TEST_PARALLEL:-1}"
 	run_test_cmd "./server/generate" \
 		env GOMAXPROCS="$GENERATE_GOMAXPROCS" \
-		go test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS" ./server/generate || exit 1
+		"$HOST_GO" test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS" ./server/generate || exit 1
 else
 	echo
 	if [ "$UNIT_ONLY" -eq 1 ]; then

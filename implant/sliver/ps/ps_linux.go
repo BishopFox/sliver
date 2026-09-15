@@ -4,6 +4,7 @@
 package ps
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -114,16 +115,7 @@ func getProcessArchitecture(pid int) (string, error) {
 		return "", nil
 	}
 
-	if mach[0] == 0xb3 {
-		return "aarch64", nil
-	}
-	if mach[0] == 0x03 {
-		return "x86", nil
-	}
-	if mach[0] == 0x3e {
-		return "x86_64", nil
-	}
-	return "", err
+	return architectureFromELFMachine(binary.LittleEndian.Uint16(mach)), nil
 }
 
 // Refresh reloads all the data associated with this process.

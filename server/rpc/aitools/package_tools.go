@@ -62,12 +62,13 @@ type executeExtensionArgs struct {
 }
 
 type packageTargetResult struct {
-	TargetType string `json:"target_type,omitempty"`
-	SessionID  string `json:"session_id,omitempty"`
-	BeaconID   string `json:"beacon_id,omitempty"`
-	Hostname   string `json:"hostname,omitempty"`
-	OS         string `json:"os,omitempty"`
-	Arch       string `json:"arch,omitempty"`
+	TargetType   string `json:"target_type,omitempty"`
+	SessionID    string `json:"session_id,omitempty"`
+	BeaconID     string `json:"beacon_id,omitempty"`
+	Hostname     string `json:"hostname,omitempty"`
+	OS           string `json:"os,omitempty"`
+	Arch         string `json:"arch,omitempty"`
+	Capabilities uint64 `json:"-"`
 }
 
 type packageArgumentResult struct {
@@ -122,6 +123,7 @@ type extensionSearchResult struct {
 	RootPath               string                     `json:"root_path"`
 	Entrypoint             string                     `json:"entrypoint,omitempty"`
 	DependsOn              string                     `json:"depends_on,omitempty"`
+	BOFExecutor            string                     `json:"bof_executor,omitempty"`
 	ExecutionMode          string                     `json:"execution_mode"`
 	SupportedPlatforms     []string                   `json:"supported_platforms,omitempty"`
 	Arguments              []packageArgumentResult    `json:"arguments,omitempty"`
@@ -188,6 +190,7 @@ type extensionExecutionResult struct {
 	ExecutionMode          string               `json:"execution_mode"`
 	ArtifactPath           string               `json:"artifact_path"`
 	DependsOn              string               `json:"depends_on,omitempty"`
+	BOFExecutor            string               `json:"bof_executor,omitempty"`
 	DependencyRootPath     string               `json:"dependency_root_path,omitempty"`
 	DependencyArtifactPath string               `json:"dependency_artifact_path,omitempty"`
 	RegisteredName         string               `json:"registered_name"`
@@ -454,6 +457,7 @@ func (e *executor) callSearchExtensions(ctx context.Context, args searchPackages
 				RootPath:           manifest.RootPath,
 				Entrypoint:         command.Entrypoint,
 				DependsOn:          command.DependsOn,
+				BOFExecutor:        command.BOFExecutor,
 				ExecutionMode:      extensionExecutionMode(command),
 				SupportedPlatforms: extensionPlatforms(command),
 				Arguments:          extensionArgumentsResult(command.Arguments),
@@ -463,15 +467,20 @@ func (e *executor) callSearchExtensions(ctx context.Context, args searchPackages
 			if target != nil {
 				result.CompatibilityChecked = true
 				artifactPath, _, artifactErr := command.artifactForTarget(target.OS, target.Arch)
+				_, preferReflektor, useReflektor := extensionBOFRouting(command, artifactPath, target.Capabilities&sliverpb.CapabilityBOFV1 != 0)
 				if artifactErr == nil {
 					result.ArtifactPath = artifactPath
 					result.Compatible = true
 					result.CompatibilityReason = fmt.Sprintf("compatible with %s/%s", target.OS, target.Arch)
+					if preferReflektor && !useReflektor && strings.TrimSpace(command.DependsOn) == "" {
+						result.Compatible = false
+						result.CompatibilityReason = fmt.Sprintf("BOF extension %q requires built-in Reflektor support, but the target does not advertise bof_v1", command.CommandName)
+					}
 				} else {
 					result.CompatibilityReason = artifactErr.Error()
 				}
 
-				if result.Compatible && strings.TrimSpace(command.DependsOn) != "" {
+				if result.Compatible && !useReflektor && strings.TrimSpace(command.DependsOn) != "" {
 					dependency, depErr := selectAIExtensionCommand(extensions, command.DependsOn, "", target.OS, target.Arch)
 					if depErr != nil {
 						result.Compatible = false
@@ -715,20 +724,14 @@ func (e *executor) callExecuteExtension(ctx context.Context, args executeExtensi
 		return "", err
 	}
 
-	loaded, err := callTargetRPC(
-		ctx,
-		target,
-		func(callCtx context.Context, req *commonpb.Request) (*sliverpb.ListExtensions, error) {
-			return e.backend.ListExtensions(callCtx, &sliverpb.ListExtensionsReq{Request: req})
-		},
-		func() *sliverpb.ListExtensions { return &sliverpb.ListExtensions{} },
-	)
-	if err != nil {
-		return "", err
-	}
-
-	isBOF := strings.EqualFold(filepath.Ext(artifactPath), ".o")
+	isBOF, preferReflektor, useReflektor := extensionBOFRouting(command, artifactPath, targetSupportsBOFV1(session, beacon))
 	warnings := []string{}
+	if preferReflektor && !useReflektor {
+		if strings.TrimSpace(command.DependsOn) == "" {
+			return "", fmt.Errorf("BOF extension %q requires built-in Reflektor support, but the target does not advertise bof_v1", command.CommandName)
+		}
+		warnings = append(warnings, "target does not advertise bof_v1; using the manifest depends_on fallback")
+	}
 	result := extensionExecutionResult{
 		CommandName:   command.CommandName,
 		Name:          command.Manifest.Name,
@@ -738,6 +741,7 @@ func (e *executor) callExecuteExtension(ctx context.Context, args executeExtensi
 		ExecutionMode: extensionExecutionMode(command),
 		ArtifactPath:  artifactPath,
 		DependsOn:     command.DependsOn,
+		BOFExecutor:   command.BOFExecutor,
 		Args:          extensionArgs,
 		Warnings:      warnings,
 	}
@@ -745,8 +749,35 @@ func (e *executor) callExecuteExtension(ctx context.Context, args executeExtensi
 	callName := ""
 	callExport := strings.TrimSpace(command.Entrypoint)
 	callArgs := []byte{}
+	callBOFData := []byte(nil)
+	callIsBOF := false
+	loadedNames := []string{}
 
-	if isBOF {
+	if !useReflektor {
+		loaded, err := callTargetRPC(
+			ctx,
+			target,
+			func(callCtx context.Context, req *commonpb.Request) (*sliverpb.ListExtensions, error) {
+				return e.backend.ListExtensions(callCtx, &sliverpb.ListExtensionsReq{Request: req})
+			},
+			func() *sliverpb.ListExtensions { return &sliverpb.ListExtensions{} },
+		)
+		if err != nil {
+			return "", err
+		}
+		loadedNames = loaded.Names
+	}
+
+	if useReflektor {
+		callArgs, err = parseBOFArguments(command, extensionArgs)
+		if err != nil {
+			return "", err
+		}
+		callName = sha256Hex(artifactData)
+		callBOFData = artifactData
+		callIsBOF = true
+		result.Export = callExport
+	} else if isBOF {
 		if strings.TrimSpace(command.DependsOn) == "" {
 			return "", fmt.Errorf("BOF extension %q is missing depends_on", command.CommandName)
 		}
@@ -762,7 +793,7 @@ func (e *executor) callExecuteExtension(ctx context.Context, args executeExtensi
 		if err != nil {
 			return "", err
 		}
-		dependencyHash, err := e.ensureExtensionRegistered(ctx, target, loaded.Names, dependency, dependencyArtifactPath, dependencyData, targetInfo.OS)
+		dependencyHash, err := e.ensureExtensionRegistered(ctx, target, loadedNames, dependency, dependencyArtifactPath, dependencyData, targetInfo.OS)
 		if err != nil {
 			return "", err
 		}
@@ -777,7 +808,7 @@ func (e *executor) callExecuteExtension(ctx context.Context, args executeExtensi
 		result.RegisteredName = dependencyHash
 		result.Export = callExport
 	} else {
-		registeredName, err := e.ensureExtensionRegistered(ctx, target, loaded.Names, command, artifactPath, artifactData, targetInfo.OS)
+		registeredName, err := e.ensureExtensionRegistered(ctx, target, loadedNames, command, artifactPath, artifactData, targetInfo.OS)
 		if err != nil {
 			return "", err
 		}
@@ -797,6 +828,8 @@ func (e *executor) callExecuteExtension(ctx context.Context, args executeExtensi
 				Name:    callName,
 				Export:  callExport,
 				Args:    callArgs,
+				BOFData: callBOFData,
+				IsBOF:   callIsBOF,
 			})
 		},
 		func() *sliverpb.CallExtension { return &sliverpb.CallExtension{} },
@@ -855,20 +888,22 @@ func (e *executor) optionalPackageTarget(ctx context.Context, sessionID string, 
 func packageTargetFromMetadata(session *clientpb.Session, beacon *clientpb.Beacon) *packageTargetResult {
 	if session != nil {
 		return &packageTargetResult{
-			TargetType: "session",
-			SessionID:  session.ID,
-			Hostname:   session.Hostname,
-			OS:         strings.ToLower(strings.TrimSpace(session.OS)),
-			Arch:       strings.ToLower(strings.TrimSpace(session.Arch)),
+			TargetType:   "session",
+			SessionID:    session.ID,
+			Hostname:     session.Hostname,
+			OS:           strings.ToLower(strings.TrimSpace(session.OS)),
+			Arch:         strings.ToLower(strings.TrimSpace(session.Arch)),
+			Capabilities: session.Capabilities,
 		}
 	}
 	if beacon != nil {
 		return &packageTargetResult{
-			TargetType: "beacon",
-			BeaconID:   beacon.ID,
-			Hostname:   beacon.Hostname,
-			OS:         strings.ToLower(strings.TrimSpace(beacon.OS)),
-			Arch:       strings.ToLower(strings.TrimSpace(beacon.Arch)),
+			TargetType:   "beacon",
+			BeaconID:     beacon.ID,
+			Hostname:     beacon.Hostname,
+			OS:           strings.ToLower(strings.TrimSpace(beacon.OS)),
+			Arch:         strings.ToLower(strings.TrimSpace(beacon.Arch)),
+			Capabilities: beacon.Capabilities,
 		}
 	}
 	return nil
@@ -882,6 +917,24 @@ func toolTargetFromMetadata(session *clientpb.Session, beacon *clientpb.Beacon) 
 		return toolTarget{BeaconID: beacon.ID}
 	}
 	return toolTarget{}
+}
+
+func targetSupportsBOFV1(session *clientpb.Session, beacon *clientpb.Beacon) bool {
+	if session != nil {
+		return session.GetCapabilities()&sliverpb.CapabilityBOFV1 != 0
+	}
+	if beacon != nil {
+		return beacon.GetCapabilities()&sliverpb.CapabilityBOFV1 != 0
+	}
+	return false
+}
+
+func extensionBOFRouting(command *aiExtensionCommand, artifactPath string, supportsBOFV1 bool) (isBOF bool, preferReflektor bool, useReflektor bool) {
+	isBOF = command.BOFExecutor != "" || strings.EqualFold(filepath.Ext(artifactPath), ".o")
+	preferReflektor = isBOF && (command.BOFExecutor == bofExecutorReflektor ||
+		(command.BOFExecutor == "" && strings.TrimSpace(command.DependsOn) == ""))
+	useReflektor = preferReflektor && supportsBOFV1
+	return isBOF, preferReflektor, useReflektor
 }
 
 func aliasArgumentsResult(arguments []*aiAliasArgument) []packageArgumentResult {
@@ -969,6 +1022,9 @@ func aliasExecutionMode(manifest *aiAliasManifest) string {
 func extensionExecutionMode(command *aiExtensionCommand) string {
 	if command == nil {
 		return ""
+	}
+	if command.BOFExecutor != "" {
+		return "bof"
 	}
 	for _, extFile := range command.Files {
 		if extFile == nil {

@@ -56,3 +56,36 @@ func Kill(pid int) error {
 	}
 	return p.Kill()
 }
+
+func architectureFromELFMachine(machine uint16) string {
+	switch machine {
+	case 3:
+		return "x86"
+	case 62:
+		return "x86_64"
+	case 183:
+		return "aarch64"
+	default:
+		return ""
+	}
+}
+
+func architectureFromWindowsMachine(machine uint16) string {
+	switch machine {
+	case 0x014c:
+		return "x86"
+	case 0x8664:
+		return "x86_64"
+	case 0xaa64:
+		return "arm64"
+	default:
+		return ""
+	}
+}
+
+func architectureFromWindowsMachines(processMachine, nativeMachine uint16) string {
+	if processMachine != 0 {
+		return architectureFromWindowsMachine(processMachine)
+	}
+	return architectureFromWindowsMachine(nativeMachine)
+}

@@ -28,22 +28,30 @@ func (p *DarwinProcess) Executable() string {
 }
 
 func findProcess(pid int) (Process, error) {
-	ps, err := processes()
+	buf, err := darwinSysctlPid(pid)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, p := range ps {
-		if p.Pid() == pid {
-			return p, nil
-		}
+	proc := &kinfoProc{}
+	err = binary.Read(buf, binary.LittleEndian, proc)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil
+	if proc.Pid == 0 { // no process with this pid
+		return nil, nil
+	}
+
+	return &DarwinProcess{
+		pid:    int(proc.Pid),
+		ppid:   int(proc.PPid),
+		binary: darwinCstring(proc.Comm),
+	}, nil
 }
 
 func processes() ([]Process, error) {
-	buf, err := darwinSyscall()
+	buf, err := darwinSysctlAll()
 	if err != nil {
 		return nil, err
 	}
@@ -73,20 +81,45 @@ func processes() ([]Process, error) {
 	return darwinProcs, nil
 }
 
-func darwinCstring(s [16]byte) string {
-	i := 0
-	for _, b := range s {
-		if b != 0 {
-			i++
-		} else {
-			break
-		}
+func darwinSysctlPid(pid int) (*bytes.Buffer, error) {
+	mib := [4]int32{_CTRL_KERN, _KERN_PROC, _KERN_PROC_PID, int32(pid)}
+	size := uintptr(0)
+
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS___SYSCTL,
+		uintptr(unsafe.Pointer(&mib[0])),
+		4,
+		0,
+		uintptr(unsafe.Pointer(&size)),
+		0,
+		0)
+
+	if errno != 0 {
+		return nil, errno
 	}
 
-	return string(s[:i])
+	bs := make([]byte, size)
+	_, _, errno = syscall.Syscall6(
+		syscall.SYS___SYSCTL,
+		uintptr(unsafe.Pointer(&mib[0])),
+		4,
+		uintptr(unsafe.Pointer(&bs[0])),
+		uintptr(unsafe.Pointer(&size)),
+		0,
+		0)
+
+	if errno != 0 {
+		return nil, errno
+	}
+
+	if size < _KINFO_STRUCT_SIZE {
+		return bytes.NewBuffer(nil), nil // no process found
+	}
+
+	return bytes.NewBuffer(bs[0:size]), nil
 }
 
-func darwinSyscall() (*bytes.Buffer, error) {
+func darwinSysctlAll() (*bytes.Buffer, error) {
 	mib := [4]int32{_CTRL_KERN, _KERN_PROC, _KERN_PROC_ALL, 0}
 	size := uintptr(0)
 
@@ -120,10 +153,24 @@ func darwinSyscall() (*bytes.Buffer, error) {
 	return bytes.NewBuffer(bs[0:size]), nil
 }
 
+func darwinCstring(s [16]byte) string {
+	i := 0
+	for _, b := range s {
+		if b != 0 {
+			i++
+		} else {
+			break
+		}
+	}
+
+	return string(s[:i])
+}
+
 const (
 	_CTRL_KERN         = 1
 	_KERN_PROC         = 14
 	_KERN_PROC_ALL     = 0
+	_KERN_PROC_PID     = 1
 	_KINFO_STRUCT_SIZE = 648
 )
 

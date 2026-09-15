@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/network"
+	"github.com/bishopfox/sliver/client/command/opfor"
 	"github.com/bishopfox/sliver/client/command/pivots"
 	"github.com/bishopfox/sliver/client/command/portfwd"
 	"github.com/bishopfox/sliver/client/command/privilege"
@@ -81,6 +82,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		// [ Core ]
 		bind(consts.SliverCoreHelpGroup,
 			ai.Commands,
+			opfor.Commands,
 			docscmd.Commands,
 			reconfig.Commands,
 			// sessions.Commands,
@@ -172,6 +174,9 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 				extensions.ExtensionRegisterCommand(ext, sliver, con)
 			}
 		}
+
+		// Rehydrate CNA-defined Beacon aliases from the persistent OPFOR runtime.
+		opfor.RegisterCommands(sliver, con)
 
 		// [ Post-command declaration setup ]----------------------------------------
 

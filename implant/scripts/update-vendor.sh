@@ -29,14 +29,15 @@ trap 'cleanup $? $LINENO' ERR
 # build Go file with all imported packages
 go run update-vendor.go "$tempDir"
 cd "$tempDir"
-# update vendor dir
+# Update the vendor directory. The compatibility version intentionally tracks
+# the Go release before the module's 1.27 minimum.
 # go get gvisor.dev/gvisor/runsc@go
-go mod tidy -compat=1.25
+go mod tidy -compat=1.26
 go mod vendor
 
 # The lesnuages/go-winio fork provides RemoteClientMode, which Sliver needs,
 # but its checked-in syscall wrappers predate syscall.SyscallN. Regenerate the
-# wrappers with the pinned x/sys generator so Go 1.26 Windows/ARM64 debug builds
+# wrappers with the pinned x/sys generator so Go 1.27 Windows/ARM64 debug builds
 # do not link the oversized syscall.Syscall15 wrapper.
 (
   cd vendor/github.com/lesnuages/go-winio

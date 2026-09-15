@@ -1,8 +1,12 @@
 package sgn
 
 import (
+	"bytes"
 	"embed"
 	"errors"
+	"io"
+	"strings"
+	"sync"
 	"testing"
 
 	sgnpkg "github.com/moloch--/sgn/pkg"
@@ -114,15 +118,6 @@ func TestIsASCIIPrintable(t *testing.T) {
 	}
 }
 
-func TestNextSeed(t *testing.T) {
-	if nextSeed(0) != 1 {
-		t.Fatal("expected nextSeed(0) == 1")
-	}
-	if nextSeed(254) != 0 {
-		t.Fatalf("expected nextSeed(254) == 0, got %d", nextSeed(254))
-	}
-}
-
 func TestEncodeShellcodeWithConfigEmptyPayload(t *testing.T) {
 	cfg := SGNConfig{Architecture: "amd64"}
 	if _, err := EncodeShellcodeWithConfig(nil, cfg); err == nil {
@@ -181,17 +176,131 @@ func TestEncodeShellcodeEmpty(t *testing.T) {
 	}
 }
 
-func TestEncodeMSFVenomFixtures(t *testing.T) {
-	t.Helper()
-	checkEncoder, err := newEncoderWithConfig(64, SGNConfig{})
-	if err != nil {
-		t.Fatalf("newEncoderWithConfig failed: %v", err)
-	}
-	checkEncoder.Seed = 0x42
-	if _, err := simpleEncode(checkEncoder, []byte{0x90, 0x90}); err != nil {
-		t.Skipf("keystone assembler not available; skipping MSF shellcode encoding tests (%v)", err)
+func TestEncodeShellcodeWithConfigDeterministicReplay(t *testing.T) {
+	payload := []byte("Sliver SGN deterministic replay")
+	original := append([]byte(nil), payload...)
+	entropy := make([]byte, 1+sgnpkg.RandomSeedSize)
+	for index := range entropy {
+		entropy[index] = byte(index)
 	}
 
+	for _, architecture := range []string{"386", "amd64"} {
+		t.Run(architecture, func(t *testing.T) {
+			cfg := SGNConfig{
+				Architecture:   architecture,
+				Iterations:     2,
+				MaxObfuscation: 100,
+				PlainDecoder:   false,
+				Safe:           true,
+			}
+			encode := func(source []byte) []byte {
+				t.Helper()
+				encoded, err := encodeShellcodeWithConfig(payload, cfg, bytes.NewReader(source))
+				if err != nil {
+					t.Fatalf("encodeShellcodeWithConfig: %v", err)
+				}
+				if len(encoded) == 0 {
+					t.Fatal("encodeShellcodeWithConfig returned an empty payload")
+				}
+				return encoded
+			}
+
+			first := encode(entropy)
+			second := encode(entropy)
+			if !bytes.Equal(first, second) {
+				t.Fatal("fixed SGN entropy did not produce byte-identical output")
+			}
+			if !bytes.Equal(payload, original) {
+				t.Fatal("SGN encoding mutated the input payload")
+			}
+
+			differentEntropy := append([]byte(nil), entropy...)
+			differentEntropy[len(differentEntropy)-1] ^= 0xff
+			if bytes.Equal(first, encode(differentEntropy)) {
+				t.Fatal("different SGN entropy produced identical output")
+			}
+		})
+	}
+}
+
+func TestEncodeShellcodeWithConfigConcurrentReplay(t *testing.T) {
+	const workers = 8
+	payload := []byte("Sliver SGN concurrent replay")
+	cfg := SGNConfig{
+		Architecture:   "amd64",
+		Iterations:     1,
+		MaxObfuscation: 100,
+		PlainDecoder:   false,
+		Safe:           true,
+	}
+	entropy := make([]byte, 1+sgnpkg.RandomSeedSize)
+	for index := range entropy {
+		entropy[index] = byte(0xa5 ^ index)
+	}
+
+	type result struct {
+		payload []byte
+		err     error
+	}
+	results := make(chan result, workers)
+	var wait sync.WaitGroup
+	for range workers {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			encoded, err := encodeShellcodeWithConfig(payload, cfg, bytes.NewReader(entropy))
+			results <- result{payload: encoded, err: err}
+		}()
+	}
+	wait.Wait()
+	close(results)
+
+	var expected []byte
+	for result := range results {
+		if result.err != nil {
+			t.Fatalf("concurrent encodeShellcodeWithConfig: %v", result.err)
+		}
+		if expected == nil {
+			expected = result.payload
+			continue
+		}
+		if !bytes.Equal(result.payload, expected) {
+			t.Fatal("concurrent fixed-entropy SGN output did not replay byte-identically")
+		}
+	}
+}
+
+func TestEncodeShellcodeWithConfigEntropyFailure(t *testing.T) {
+	_, err := encodeShellcodeWithConfig(
+		[]byte{0x90},
+		SGNConfig{Architecture: "amd64"},
+		bytes.NewReader(nil),
+	)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("encodeShellcodeWithConfig entropy error = %v, want EOF", err)
+	}
+}
+
+func TestEncodeShellcodeWithConfigConstraintAttemptsAreStrict(t *testing.T) {
+	badChars := make([]byte, 256)
+	for index := range badChars {
+		badChars[index] = byte(index)
+	}
+	entropy := bytes.NewReader(make([]byte, 64*(1+sgnpkg.RandomSeedSize)))
+	_, err := encodeShellcodeWithConfig(
+		[]byte{0x90},
+		SGNConfig{Architecture: "amd64", BadChars: badChars},
+		entropy,
+	)
+	if err == nil || !strings.Contains(err.Error(), "unable to satisfy encoding constraints") {
+		t.Fatalf("encodeShellcodeWithConfig constraint error = %v", err)
+	}
+	if entropy.Len() != 0 {
+		t.Fatalf("constraint search left %d entropy bytes, want 0 after 64 attempts", entropy.Len())
+	}
+}
+
+func TestEncodeMSFVenomFixtures(t *testing.T) {
 	cases := []struct {
 		filename string
 		arch     string
@@ -211,25 +320,23 @@ func TestEncodeMSFVenomFixtures(t *testing.T) {
 		}
 		cfg := SGNConfig{
 			Architecture:   tc.arch,
-			PlainDecoder:   true,
-			MaxObfuscation: 2048,
+			Iterations:     1,
+			PlainDecoder:   false,
+			Safe:           true,
+			MaxObfuscation: 100,
 		}
-		var encoded []byte
-		var err error
-		for attempt := 0; attempt < 5; attempt++ {
-			encoded, err = EncodeShellcodeWithConfig(data, cfg)
-			if err == nil {
-				break
+		for variant := range 16 {
+			entropy := make([]byte, 1+sgnpkg.RandomSeedSize)
+			for index := range entropy {
+				entropy[index] = byte(variant + index)
 			}
-			if !errors.Is(err, ErrFailedToEncode) {
-				t.Fatalf("unexpected error encoding %s: %v", tc.filename, err)
+			encoded, err := encodeShellcodeWithConfig(data, cfg, bytes.NewReader(entropy))
+			if err != nil {
+				t.Fatalf("encode %s variant %d: %v", tc.filename, variant, err)
 			}
-		}
-		if err != nil {
-			t.Fatalf("EncodeShellcodeWithConfig failed for %s after retries: %v", tc.filename, err)
-		}
-		if len(encoded) == 0 {
-			t.Fatalf("encoded payload for %s is empty", tc.filename)
+			if len(encoded) == 0 {
+				t.Fatalf("encoded payload for %s variant %d is empty", tc.filename, variant)
+			}
 		}
 	}
 }

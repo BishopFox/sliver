@@ -49,11 +49,11 @@ func (e *XorDynamicEncoder) Encode(data []byte, args ShellcodeEncoderArgs) ([]by
 		iterations = 1
 	}
 	for i := 0; i < iterations; i++ {
-		key, err := amd64.XorDynamicKeyGen()
+		key, err := amd64.XorDynamicKeyGenForPayload(data, args.BadChars)
 		if err != nil {
 			return nil, err
 		}
-		encoded, err := amd64.XorDynamic(data, key)
+		encoded, err := amd64.XorDynamicWithBadChars(data, key, args.BadChars)
 		if err != nil {
 			return nil, err
 		}

@@ -28,8 +28,10 @@ func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}.WithDefaults()
 
 	msg := `Do you know what prompt injection is and are you an adult?`
-	if !settings.IsUserAnAdultWithPrompt(con, msg) {
+	skipConfirm, _ := cmd.Flags().GetBool("yes")
+	if !skipConfirm && !settings.IsUserAnAdultWithPrompt(con, msg) {
 		con.PrintErrorf("Failed to start MCP server, the user is not qualified to use feature\n")
+		con.PrintInfof("Use --yes to skip the confirmation prompt, or toggle it with 'settings autoadult'\n")
 		return
 	}
 
@@ -49,5 +51,8 @@ func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	if status.AuthToken != "" {
 		con.PrintInfof("Auth Token: %s\n", status.AuthToken)
+	}
+	if status.AuthConfigPath != "" {
+		con.PrintInfof("Auth Config: %s\n", status.AuthConfigPath)
 	}
 }

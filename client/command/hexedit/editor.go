@@ -540,10 +540,7 @@ func (m *editorModel) ensureCursorVisible() {
 	if m.top < 0 {
 		m.top = 0
 	}
-	maxTop := m.totalLines() - height
-	if maxTop < 0 {
-		maxTop = 0
-	}
+	maxTop := max(m.totalLines()-height, 0)
 	if m.top > maxTop {
 		m.top = maxTop
 	}
@@ -725,8 +722,8 @@ func baseName(path string) string {
 		return ""
 	}
 	clean := strings.ReplaceAll(path, "\\", "/")
-	if idx := strings.LastIndex(clean, "/"); idx != -1 {
-		return clean[idx+1:]
+	if _, after, ok := strings.CutLast(clean, "/"); ok {
+		return after
 	}
 	return path
 }

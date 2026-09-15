@@ -30,7 +30,7 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayer(t *testing.T
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
 
 	operatorName := uniqueKickOperatorName(t)
 	t.Cleanup(func() {
@@ -51,6 +51,9 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayer(t *testing.T
 	}
 	if config.WG == nil {
 		t.Fatal("expected wireguard config block to be present")
+	}
+	if !config.WG.Enabled {
+		t.Fatal("expected wireguard config block to be explicitly enabled")
 	}
 	if config.WG.ServerPubKey == "" {
 		t.Fatal("expected operator config to include wireguard server public key")
@@ -128,7 +131,7 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayerRepeatedly(t 
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
 
 	operatorName := uniqueKickOperatorName(t)
 	t.Cleanup(func() {
@@ -193,7 +196,7 @@ func runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t *testing.T, useE
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
 
 	operatorName := uniqueKickOperatorName(t)
 	t.Cleanup(func() {
@@ -282,7 +285,7 @@ func TestOperatorCLIWireGuardConfigConnectsToWrappedMultiplayer(t *testing.T) {
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
 
 	port := freeUDPPort(t)
 	grpcServer, ln, err := servertransport.StartWGWrappedMtlsClientListener("127.0.0.1", uint16(port))
@@ -333,6 +336,9 @@ func TestOperatorCLIWireGuardConfigConnectsToWrappedMultiplayer(t *testing.T) {
 	}
 	if config.WG == nil {
 		t.Fatal("expected wireguard config block to be present")
+	}
+	if !config.WG.Enabled {
+		t.Fatal("expected wireguard config block to be explicitly enabled")
 	}
 
 	rpcClient, conn, err := clienttransport.MTLSConnect(config)

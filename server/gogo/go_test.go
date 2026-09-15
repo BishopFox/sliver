@@ -60,11 +60,79 @@ func TestGoToolExecutableName(t *testing.T) {
 	}
 }
 
+func TestWithDarwinNoCGOLinknameCompatibility(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  GoConfig
+		ldflags []string
+		want    []string
+	}{
+		{
+			name:   "darwin amd64",
+			config: GoConfig{GOOS: "darwin", GOARCH: "amd64", CGO: "0"},
+			want:   []string{darwinNoCGOCheckLinknameLDFlag},
+		},
+		{
+			name:    "darwin arm64 preserves existing flags",
+			config:  GoConfig{GOOS: "darwin", GOARCH: "arm64", CGO: "0"},
+			ldflags: []string{"-s -w"},
+			want:    []string{"-s -w " + darwinNoCGOCheckLinknameLDFlag},
+		},
+		{
+			name:    "coalesces multiple linker flag arguments",
+			config:  GoConfig{GOOS: "darwin", GOARCH: "amd64", CGO: "0"},
+			ldflags: []string{"-s", "-w"},
+			want:    []string{"-s -w " + darwinNoCGOCheckLinknameLDFlag},
+		},
+		{
+			name:    "does not duplicate compatibility flag",
+			config:  GoConfig{GOOS: "darwin", GOARCH: "amd64", CGO: "0"},
+			ldflags: []string{"-s " + darwinNoCGOCheckLinknameLDFlag},
+			want:    []string{"-s " + darwinNoCGOCheckLinknameLDFlag},
+		},
+		{
+			name:    "darwin with cgo",
+			config:  GoConfig{GOOS: "darwin", GOARCH: "amd64", CGO: "1"},
+			ldflags: []string{"-s"},
+			want:    []string{"-s"},
+		},
+		{
+			name:    "non-darwin",
+			config:  GoConfig{GOOS: "linux", GOARCH: "amd64", CGO: "0"},
+			ldflags: []string{"-s"},
+			want:    []string{"-s"},
+		},
+		{
+			name:    "unsupported darwin architecture",
+			config:  GoConfig{GOOS: "darwin", GOARCH: "386", CGO: "0"},
+			ldflags: []string{"-s"},
+			want:    []string{"-s"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := append([]string(nil), test.ldflags...)
+			got := withDarwinNoCGOLinknameCompatibility(test.config, input)
+			if strings.Join(got, "|") != strings.Join(test.want, "|") {
+				t.Fatalf("withDarwinNoCGOLinknameCompatibility() = %q, want %q", got, test.want)
+			}
+			if strings.Join(input, "|") != strings.Join(test.ldflags, "|") {
+				t.Fatalf("input ldflags mutated: got %q, want %q", input, test.ldflags)
+			}
+		})
+	}
+}
+
 func TestGoVersionUsesHostToolchain(t *testing.T) {
 	goRoot := runtime.GOROOT()
 	if goRoot == "" {
 		t.Fatal("runtime.GOROOT() is empty")
 	}
+	// The configured GOROOT must win over any inherited toolchain selection.
+	// A non-local selection here would fail before invoking the configured go
+	// binary, while GOTOOLCHAIN=local keeps host and embedded compilers pinned.
+	t.Setenv("GOTOOLCHAIN", "go1.999.0+path")
 
 	config := GoConfig{
 		GOOS:   runtime.GOOS,

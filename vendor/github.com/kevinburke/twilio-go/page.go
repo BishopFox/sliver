@@ -54,7 +54,7 @@ func (p *PageIterator) SetNextPageURI(npuri types.NullString) {
 }
 
 // Next asks for the next page of resources and decodes the results into v.
-func (p *PageIterator) Next(ctx context.Context, v interface{}) error {
+func (p *PageIterator) Next(ctx context.Context, v any) error {
 	var err error
 	switch {
 	case p.nextPageURI.Valid:

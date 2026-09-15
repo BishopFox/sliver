@@ -24,13 +24,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Operator - Collections of content to serve from HTTP(S)
 type Operator struct {
-	ID                     uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID                     UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt              time.Time `gorm:"->;<-:create;"`
 	Name                   string
 	Token                  string `gorm:"uniqueIndex"`   // NOTE: This is the SHA256 of the token
@@ -43,10 +42,7 @@ type Operator struct {
 
 // BeforeCreate - GORM hook
 func (o *Operator) BeforeCreate(tx *gorm.DB) (err error) {
-	o.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	o.ID = NewUUID()
 	o.CreatedAt = time.Now()
 	return nil
 }

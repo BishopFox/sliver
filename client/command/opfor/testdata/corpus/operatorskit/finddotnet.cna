@@ -1,0 +1,22 @@
+# author REDMED-X
+
+beacon_command_register(
+	"finddotnet", "Find processes that most likely have .NET loaded.",
+	"INFO:\nFind processes that most likely have .NET loaded by searching for the section name: \BaseNamedObjects\Cor_Private_IPCBlock(_v4)_<ProcessId>\n\n" .
+	"USAGE:\nfinddotnet\n\n");
+
+
+alias finddotnet {
+    $bid = $1;
+	
+    # Read in the right BOF file
+    $handle = openf(script_resource("finddotnet.o"));
+    $data   = readb($handle, -1);
+    closef($handle);
+    
+	blog($bid, "Tasked to search for processes that have .NET loaded..");
+	
+    beacon_inline_execute($bid, $data, "go", $null);
+}
+
+

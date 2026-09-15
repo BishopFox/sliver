@@ -16,7 +16,7 @@ import (
 )
 
 // The twilio-go version. Run "make release" to bump this number.
-const Version = "2.9.0"
+const Version = "2.10.0"
 const userAgent = "twilio-go/" + Version
 
 // The base URL serving the API. Override this for testing.
@@ -479,17 +479,17 @@ func (c *Client) UseSecretKey(key string) {
 
 // GetResource retrieves an instance resource with the given path part (e.g.
 // "/Messages") and sid (e.g. "MM123").
-func (c *Client) GetResource(ctx context.Context, pathPart string, sid string, v interface{}) error {
+func (c *Client) GetResource(ctx context.Context, pathPart string, sid string, v any) error {
 	sidPart := strings.Join([]string{pathPart, sid}, "/")
 	return c.MakeRequest(ctx, "GET", sidPart, nil, v)
 }
 
 // CreateResource makes a POST request to the given resource.
-func (c *Client) CreateResource(ctx context.Context, pathPart string, data url.Values, v interface{}) error {
+func (c *Client) CreateResource(ctx context.Context, pathPart string, data url.Values, v any) error {
 	return c.MakeRequest(ctx, "POST", pathPart, data, v)
 }
 
-func (c *Client) UpdateResource(ctx context.Context, pathPart string, sid string, data url.Values, v interface{}) error {
+func (c *Client) UpdateResource(ctx context.Context, pathPart string, sid string, data url.Values, v any) error {
 	sidPart := strings.Join([]string{pathPart, sid}, "/")
 	return c.MakeRequest(ctx, "POST", sidPart, data, v)
 }
@@ -507,21 +507,21 @@ func (c *Client) DeleteResource(ctx context.Context, pathPart string, sid string
 	return err
 }
 
-func (c *Client) ListResource(ctx context.Context, pathPart string, data url.Values, v interface{}) error {
+func (c *Client) ListResource(ctx context.Context, pathPart string, data url.Values, v any) error {
 	return c.MakeRequest(ctx, "GET", pathPart, data, v)
 }
 
 // GetNextPage fetches the Page at fullUri and decodes it into v. fullUri
 // should be a next_page_uri returned in the response to a paging request, and
 // should be the full path, eg "/2010-04-01/.../Messages?Page=1&PageToken=..."
-func (c *Client) GetNextPage(ctx context.Context, fullUri string, v interface{}) error {
+func (c *Client) GetNextPage(ctx context.Context, fullUri string, v any) error {
 	// for monitor etc.
 	fullUri = strings.TrimPrefix(fullUri, c.Base)
 	return c.MakeRequest(ctx, "GET", fullUri, nil, v)
 }
 
 // Make a request to the Twilio API.
-func (c *Client) MakeRequest(ctx context.Context, method string, pathPart string, data url.Values, v interface{}) error {
+func (c *Client) MakeRequest(ctx context.Context, method string, pathPart string, data url.Values, v any) error {
 	if !strings.HasPrefix(pathPart, "/"+c.APIVersion) {
 		pathPart = c.FullPath(pathPart)
 	}

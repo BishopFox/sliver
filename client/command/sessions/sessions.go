@@ -27,6 +27,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/settings"
+	"github.com/bishopfox/sliver/client/command/targettable"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -131,51 +132,29 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 	if err != nil {
 		width = 999
 	}
+	tw := renderSessions(sessions, filter, filterRegex, con, width, time.Now())
+	con.Printf("%s\n", tw.Render())
+}
 
-	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle(con))
-	wideTermWidth := con.Settings.SmallTermWidth < width
-
-	windowsSessionInList := false
+func renderSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverClient, width int, now time.Time) table.Writer {
+	hasIntegrity := false
 	for _, session := range sessions {
 		if session.OS == "windows" {
-			windowsSessionInList = true
+			hasIntegrity = true
+			break
 		}
 	}
 
-	if wideTermWidth {
-		if windowsSessionInList {
-			tw.AppendHeader(table.Row{
-				"ID",
-				"Name",
-				"Transport",
-				"Remote Address",
-				"Hostname",
-				"Username",
-				"Process (PID)",
-				"Integrity",
-				"Operating System",
-				"Locale",
-				"Last Message",
-				"Health",
-			})
-		} else {
-			tw.AppendHeader(table.Row{
-				"ID",
-				"Name",
-				"Transport",
-				"Remote Address",
-				"Hostname",
-				"Username",
-				"Process (PID)",
-				"Operating System",
-				"Locale",
-				"Last Message",
-				"Health",
-			})
-		}
+	return targettable.Fit(width, hasIntegrity, func(layout targettable.Layout) table.Writer {
+		return buildSessionsTable(sessions, filter, filterRegex, con, layout, hasIntegrity, now)
+	})
+}
 
-	} else {
+func buildSessionsTable(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverClient, layout targettable.Layout, hasIntegrity bool, now time.Time) table.Writer {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+
+	if layout.Compact {
 		tw.AppendHeader(table.Row{
 			"ID",
 			"Transport",
@@ -185,31 +164,98 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 			"Operating System",
 			"Health",
 		})
+	} else {
+		header := table.Row{
+			"ID",
+			"Name",
+			"Transport",
+			"Remote Address",
+			"Hostname",
+			"Username",
+			"Process (PID)",
+		}
+		if hasIntegrity && layout.IncludeIntegrity {
+			header = append(header, "Integrity")
+		}
+		header = append(header, "Operating System")
+		if layout.IncludeLocale {
+			header = append(header, "Locale")
+		}
+		header = append(header, "Last Message", "Health")
+		tw.AppendHeader(header)
 	}
 
 	tw.SortBy([]table.SortBy{
 		{Name: "ID", Mode: table.Asc},
 	})
 
-	for _, session := range sessions {
-		style := console.StyleNormal
-		if con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID {
-			style = console.StyleGreen
+	activeSessionID := ""
+	if con.ActiveTarget != nil {
+		if activeSession := con.ActiveTarget.GetSession(); activeSession != nil {
+			activeSessionID = activeSession.ID
 		}
-		var SessionHealth string
+	}
+
+	for _, session := range sessions {
+		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non-AD Windows users
+		lastMessage := formatRelativeTime(time.Unix(session.LastCheckin, 0), now)
+		health := "[ALIVE]"
 		if session.IsDead {
-			SessionHealth = console.StyleBoldRed.Render("[DEAD]")
-		} else {
-			SessionHealth = console.StyleBoldGreen.Render("[ALIVE]")
+			health = "[DEAD]"
 		}
 		burned := ""
 		if session.Burned {
 			burned = "🔥"
 		}
-		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non-AD Windows users
+		canonicalEntries := []string{
+			ShortSessionID(session.ID),
+			session.Name,
+			session.Transport,
+			session.RemoteAddress,
+			session.Hostname,
+			username,
+			fmt.Sprintf("%s (%d)", session.Filename, session.PID),
+		}
+		if hasIntegrity {
+			canonicalEntries = append(canonicalEntries, session.Integrity)
+		}
+		canonicalEntries = append(canonicalEntries,
+			fmt.Sprintf("%s/%s", session.OS, session.Arch),
+			session.Locale,
+			lastMessage,
+			burned+health,
+		)
+		if !matchesSessionFilter(canonicalEntries, filter, filterRegex) {
+			continue
+		}
+
+		style := console.StyleNormal
+		if activeSessionID == session.ID {
+			style = console.StyleGreen
+		}
+		var sessionHealth string
+		if session.IsDead {
+			sessionHealth = console.StyleBoldRed.Render("[DEAD]")
+		} else {
+			sessionHealth = console.StyleBoldGreen.Render("[ALIVE]")
+		}
 
 		var rowEntries []string
-		if wideTermWidth {
+		if layout.Compact {
+			rowEntries = []string{
+				style.Render(ShortSessionID(session.ID)),
+				style.Render(session.Transport),
+				style.Render(session.RemoteAddress),
+				style.Render(session.Hostname),
+				style.Render(username),
+				style.Render(fmt.Sprintf("%s/%s", session.OS, session.Arch)),
+				burned + sessionHealth,
+			}
+		} else {
+			processName := session.Filename
+			if layout.ProcessBasename {
+				processName = targettable.ProcessName(processName)
+			}
 			rowEntries = []string{
 				style.Render(ShortSessionID(session.ID)),
 				style.Render(session.Name),
@@ -217,57 +263,50 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 				style.Render(session.RemoteAddress),
 				style.Render(session.Hostname),
 				style.Render(username),
-				style.Render(fmt.Sprintf("%s (%d)", session.Filename, session.PID)),
+				style.Render(fmt.Sprintf("%s (%d)", processName, session.PID)),
 			}
 
-			if windowsSessionInList {
+			if hasIntegrity && layout.IncludeIntegrity {
 				rowEntries = append(rowEntries, style.Render(session.Integrity))
 			}
 
-			rowEntries = append(rowEntries, []string{
-				style.Render(fmt.Sprintf("%s/%s", session.OS, session.Arch)),
-				style.Render(session.Locale),
-				con.FormatDateDelta(time.Unix(session.LastCheckin, 0), wideTermWidth, false),
-				burned + SessionHealth,
-			}...)
-		} else {
-			rowEntries = []string{
-				style.Render(ShortSessionID(session.ID)),
-				style.Render(session.Transport),
-				style.Render(session.RemoteAddress),
-				style.Render(session.Hostname),
-				style.Render(username),
-				style.Render(fmt.Sprintf("%s/%s", session.OS, session.Arch)),
-				burned + SessionHealth,
+			rowEntries = append(rowEntries, style.Render(fmt.Sprintf("%s/%s", session.OS, session.Arch)))
+			if layout.IncludeLocale {
+				rowEntries = append(rowEntries, style.Render(session.Locale))
 			}
+			rowEntries = append(rowEntries, lastMessage, burned+sessionHealth)
 		}
 		// Build the row struct
 		row := table.Row{}
 		for _, entry := range rowEntries {
 			row = append(row, entry)
 		}
-		// Apply filters if any
-		if filter == "" && filterRegex == nil {
-			tw.AppendRow(row)
-		} else {
-			for _, rowEntry := range rowEntries {
-				if filter != "" {
-					if strings.Contains(rowEntry, filter) {
-						tw.AppendRow(row)
-						break
-					}
-				}
-				if filterRegex != nil {
-					if filterRegex.MatchString(rowEntry) {
-						tw.AppendRow(row)
-						break
-					}
-				}
-			}
-		}
+		tw.AppendRow(row)
 	}
 
-	con.Printf("%s\n", tw.Render())
+	return tw
+}
+
+func matchesSessionFilter(entries []string, filter string, filterRegex *regexp.Regexp) bool {
+	if filter == "" && filterRegex == nil {
+		return true
+	}
+	for _, entry := range entries {
+		if filter != "" && strings.Contains(entry, filter) {
+			return true
+		}
+		if filterRegex != nil && filterRegex.MatchString(entry) {
+			return true
+		}
+	}
+	return false
+}
+
+func formatRelativeTime(t time.Time, now time.Time) string {
+	if t.After(now) {
+		return fmt.Sprintf("in %s", t.Sub(now).Round(time.Second))
+	}
+	return fmt.Sprintf("%s ago", now.Sub(t).Round(time.Second))
 }
 
 // ShortSessionID - Shorten the session ID.

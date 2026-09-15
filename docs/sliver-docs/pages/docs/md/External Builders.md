@@ -21,6 +21,10 @@ Any `sliver-server` binary can be started as a builder process using [operator c
 ./sliver-server builder -c operator-multiplayer.cfg
 ```
 
+Builders follow the operator profile automatically: direct profiles use gRPC/mTLS, while profiles generated with `new-operator --enable-wg` (or `sliver-server operator --enable-wg`) contain `wg.enabled: true` and use WireGuard. No builder flag is required for a correctly generated profile.
+
+Use `--enable-wg` to force WireGuard for a profile with tunnel settings, or `--disable-wg` to force a direct connection; the flags cannot be combined. Profiles from the withdrawn WireGuard-by-default release may have a `wg` block without `enabled`; builders treat those profiles as direct unless WireGuard is forced explicitly.
+
 When started as a builder, the Sliver process will mirror log output to stdout by default, however this can be disabled (see `sliver-server builder --help`).
 
 **⚠️ IMPORTANT:** Builders must have unique names, by default the builder's hostname will be used, but this can be changed using the `--name` cli flag.

@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -69,7 +69,7 @@ func resolveCustomCABundle(ctx context.Context, cfg *aws.Config, cfgs configs) e
 			tr.TLSClientConfig.RootCAs = x509.NewCertPool()
 		}
 
-		b, err := ioutil.ReadAll(pemCerts)
+		b, err := io.ReadAll(pemCerts)
 		if err != nil {
 			appendErr = fmt.Errorf("failed to read custom CA bundle PEM file")
 		}
@@ -148,6 +148,18 @@ func resolveDisableRequestCompression(ctx context.Context, cfg *aws.Config, conf
 	}
 
 	cfg.DisableRequestCompression = disable
+	return nil
+}
+
+// resolveDisableClockSkewCorrection extracts the DisableClockSkewCorrection from
+// the configs slice's SharedConfig or EnvConfig
+func resolveDisableClockSkewCorrection(ctx context.Context, cfg *aws.Config, configs configs) error {
+	disable, _, err := getDisableClockSkewCorrection(ctx, configs)
+	if err != nil {
+		return err
+	}
+
+	cfg.DisableClockSkewCorrection = disable
 	return nil
 }
 
@@ -440,5 +452,19 @@ func resolveServiceOptions(ctx context.Context, cfg *aws.Config, configs configs
 	}
 
 	cfg.ServiceOptions = serviceOptions
+	return nil
+}
+
+func resolveRestrictFilePermissions(ctx context.Context, cfg *aws.Config, configs configs) error {
+	m, found, err := getRestrictFilePermissions(ctx, configs)
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		m = aws.RestrictFilePermissionsUserReadWrite
+	}
+
+	cfg.RestrictFilePermissions = m
 	return nil
 }

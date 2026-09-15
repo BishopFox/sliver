@@ -16,6 +16,8 @@ import (
 const (
 	aiAliasManifestFileName     = "alias.json"
 	aiExtensionManifestFileName = "extension.json"
+	bofExecutorReflektor        = "reflektor"
+	bofExecutorCOFFLoader       = "coff-loader"
 )
 
 type aiAliasFile struct {
@@ -75,6 +77,7 @@ type aiExtensionCommand struct {
 	LongHelp    string                 `json:"long_help"`
 	Entrypoint  string                 `json:"entrypoint"`
 	DependsOn   string                 `json:"depends_on"`
+	BOFExecutor string                 `json:"bof_executor"`
 	Init        string                 `json:"init"`
 	Files       []*aiExtensionFile     `json:"files"`
 	Arguments   []*aiExtensionArgument `json:"arguments"`
@@ -107,6 +110,7 @@ type aiLegacyExtensionManifest struct {
 	LongHelp        string                 `json:"long_help"`
 	Entrypoint      string                 `json:"entrypoint"`
 	DependsOn       string                 `json:"depends_on"`
+	BOFExecutor     string                 `json:"bof_executor"`
 	Init            string                 `json:"init"`
 	Files           []*aiExtensionFile     `json:"files"`
 	Arguments       []*aiExtensionArgument `json:"arguments"`
@@ -289,6 +293,15 @@ func parseAIExtensionManifest(data []byte) (*aiExtensionManifest, error) {
 		if len(command.Files) == 0 {
 			return nil, fmt.Errorf("missing files field in extension manifest")
 		}
+		switch command.BOFExecutor {
+		case "", bofExecutorReflektor:
+		case bofExecutorCOFFLoader:
+			if strings.TrimSpace(command.DependsOn) == "" {
+				return nil, fmt.Errorf("bof_executor %q requires depends_on", bofExecutorCOFFLoader)
+			}
+		default:
+			return nil, fmt.Errorf("invalid bof_executor %q", command.BOFExecutor)
+		}
 		for _, extFile := range command.Files {
 			if extFile == nil {
 				continue
@@ -332,6 +345,7 @@ func convertLegacyAIExtensionManifest(legacy *aiLegacyExtensionManifest) *aiExte
 				LongHelp:    legacy.LongHelp,
 				Entrypoint:  legacy.Entrypoint,
 				DependsOn:   legacy.DependsOn,
+				BOFExecutor: legacy.BOFExecutor,
 				Init:        legacy.Init,
 				Files:       legacy.Files,
 				Arguments:   legacy.Arguments,

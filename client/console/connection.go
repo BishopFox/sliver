@@ -61,7 +61,7 @@ func (con *SliverClient) SetConnection(rpc rpcpb.SliverRPCClient, grpcConn *grpc
 	con.BeaconTaskCallbacksMutex.Unlock()
 	con.ActiveTarget.Set(nil, nil)
 
-	if details != nil && details.Config != nil && details.Config.WG != nil {
+	if useDedicatedCommandConnection(details) {
 		con.backgroundDedicated = true
 		commandRPC, commandConn, err := transport.MTLSConnect(details.Config)
 		if err != nil {
@@ -108,6 +108,12 @@ func (con *SliverClient) SetConnection(rpc rpcpb.SliverRPCClient, grpcConn *grpc
 	con.refreshRemoteLogStreamsLocked()
 
 	return nil
+}
+
+func useDedicatedCommandConnection(details *ConnectionDetails) bool {
+	return details != nil &&
+		details.Config != nil &&
+		transport.MultiplayerConnectUsesWireGuard(details.Config)
 }
 
 // CloseConnection stops background loops and closes the current gRPC connection.

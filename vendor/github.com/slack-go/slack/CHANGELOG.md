@@ -7,7 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.24.0]
+## [0.29.0] - 2026-08-15
+
+### Fixed
+
+- `slackevents`: `AppMentionEvent` and `MessageEvent` now expose the Data Access API action
+  token through a new `ActionToken` field, which reads `action_token` from the event object
+  itself. Slack sends the token there on `app_mention` and `message` events, but both types
+  only modelled it nested inside `assistant_thread`, so the token was silently dropped and
+  bot-token calls to `assistant.search.context` failed with `invalid_action_token`. The
+  existing `AssistantThread` field is unchanged (#1577, #1580).
+
+## [0.28.0] - 2026-08-15
+
+### Added
+
+- Block Kit: Add support for [`container`](https://docs.slack.dev/reference/block-kit/blocks/container-block/) block through `ContainerBlock`, with a `NewContainerBlock` constructor, fluent `With*` builders (`WithTitle`, `WithRichTextTitle`, `WithSubtitle`, `WithIcon`, `WithWidth`, `WithCollapsible`, `WithHeaderDivider`, `WithBlockID`), an `AddChildBlock` helper and a `Validate` method (#1574).
+- `PostMessageWithResponse` and `PostMessageWithResponseContext` return the full `Message` object from the `chat.postMessage` response alongside the channel and timestamp, giving access to response-only fields such as `Message.ThreadTimestamp` (#1572).
+- `CompleteUploadExternalParameters` and `UploadFileParameters` now take `Channels`, which shares a single uploaded file with up to 100 conversations in one `files.completeUploadExternal` request (#1579).
+
+## [0.27.0] - 2026-06-27
+
+### Added
+
+- Block Kit: Add support for
+  [`data_visualization`](https://docs.slack.dev/reference/block-kit/blocks/data-visualization-block/) block through `DataVisualizationBlock`.
+- Interaction payloads: `Team` now preserves `enterprise_id` and `enterprise_name` when
+  Slack includes Enterprise org details in interaction payload `team` objects.
+
+## [0.26.0] - 2026-06-14
+
+### Added
+
+- `slackevents`: `EventsAPIEvent` now unmarshals the `is_ext_shared_channel` field, and
+  `ParseEvent` propagates it for callback events (#1564 and #1565).
+- Block Kit: `HeaderBlock` now supports the optional `level` field (1-4, mapping to H1-H4
+  heading levels), with a `HeaderBlockOptionLevel` builder (#1563).
+- Block Kit: `CardBlock` now supports the `slack_icon` field via the new `SlackIconObject`
+  composition object (with a `NewSlackIconObject` constructor and `WithSlackIcon` builder)
+  and the `subtext` field (with a `WithSubtext` builder). `slack_icon` is mutually
+  exclusive with `icon` (#1562).
+
+## [0.25.0] - 2026-06-05
+
+### Changed
+
+> [!WARNING]
+> **Breaking change.**
+
+- `TableBlock.Rows` is now `[][]TableCell` (was `[][]*RichTextBlock`), so `table`
+  blocks no longer drop `raw_text`, `raw_number`, and `null` cells (#1558).
+
+## [0.24.0] - 2026-05-24
 
 ### Added
 
@@ -579,7 +630,12 @@ for details.
 [#1196]: https://github.com/slack-go/slack/issues/1196
 [#1547]: https://github.com/slack-go/slack/pull/1547
 
-[Unreleased]: https://github.com/slack-go/slack/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/slack-go/slack/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/slack-go/slack/compare/v0.28.0...v0.29.0
+[0.28.0]: https://github.com/slack-go/slack/compare/v0.27.0...v0.28.0
+[0.27.0]: https://github.com/slack-go/slack/compare/v0.26.0...v0.27.0
+[0.26.0]: https://github.com/slack-go/slack/compare/v0.25.0...v0.26.0
+[0.25.0]: https://github.com/slack-go/slack/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/slack-go/slack/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/slack-go/slack/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/slack-go/slack/compare/v0.22.0...v0.23.0

@@ -396,10 +396,7 @@ func (m *editorModel) renderLine(index int) string {
 		return ""
 	}
 	prefixWidth := m.lineNumberWidth()
-	contentWidth := totalWidth - prefixWidth
-	if contentWidth < 0 {
-		contentWidth = 0
-	}
+	contentWidth := max(totalWidth-prefixWidth, 0)
 	prefix := m.linePrefix(index, prefixWidth)
 
 	if index >= len(m.lines) {
@@ -508,10 +505,7 @@ func (m *editorModel) lineNumberWidth() int {
 	if !m.showLineNumbers {
 		return 0
 	}
-	total := len(m.lines)
-	if total < 1 {
-		total = 1
-	}
+	total := max(len(m.lines), 1)
 	return len(fmt.Sprintf("%d", total)) + 1
 }
 
@@ -559,10 +553,7 @@ func (m *editorModel) ensureCursorVisible() {
 		m.top = 0
 	}
 
-	width := m.textWidth() - m.lineNumberWidth()
-	if width < 1 {
-		width = 1
-	}
+	width := max(m.textWidth()-m.lineNumberWidth(), 1)
 	if m.col < m.left {
 		m.left = m.col
 	} else if m.col >= m.left+width {
@@ -1125,20 +1116,13 @@ func lastIndexOfRunes(haystack, needle []rune, end int) int {
 	return -1
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func baseName(path string) string {
 	if path == "" {
 		return ""
 	}
 	clean := strings.ReplaceAll(path, "\\", "/")
-	if idx := strings.LastIndex(clean, "/"); idx != -1 {
-		return clean[idx+1:]
+	if _, after, ok := strings.CutLast(clean, "/"); ok {
+		return after
 	}
 	return path
 }

@@ -1,4 +1,4 @@
-//go:build darwin && (amd64 || arm64) && cgo
+//go:build darwin && !ios && (amd64 || arm64) && cgo
 
 package memmod
 
@@ -71,6 +71,21 @@ func callVoid0OnThread(fn uintptr) error {
 		return fmt.Errorf("pthread call failed with error %d", errno)
 	}
 	return nil
+}
+
+func callExport(fn uintptr, args ...uintptr) uintptr {
+	switch len(args) {
+	case 0:
+		return call0(fn)
+	case 1:
+		return call1(fn, args[0])
+	case 2:
+		return call2(fn, args[0], args[1])
+	case 3:
+		return call10(fn, args[0], args[1], args[2], 0, 0, 0, 0, 0, 0, 0)
+	default:
+		panic("validated Darwin export argument count is out of range")
+	}
 }
 
 func callDlopen(fn, name uintptr, flags int) uintptr {

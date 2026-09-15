@@ -13,7 +13,7 @@ package aessha2
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"crypto/subtle"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/hkdf"
@@ -50,10 +50,14 @@ func (a *AESSHA2) MAC(ciphertext []byte) ([]byte, error) {
 	return hash.Sum(nil), err
 }
 
-func (a *AESSHA2) VerifyMAC(ciphertext, theirMAC []byte) (bool, error) {
-	if mac, err := a.MAC(ciphertext); err != nil {
+func (a *AESSHA2) VerifyMAC(ciphertext, theirMAC []byte, macLength int) (bool, error) {
+	if macLength > 32 {
+		panic(fmt.Sprintf("invalid mac length: %d", macLength))
+	} else if len(theirMAC) != macLength {
+		return false, fmt.Errorf("unexpected input MAC length: %d != %d", len(theirMAC), macLength)
+	} else if mac, err := a.MAC(ciphertext); err != nil {
 		return false, err
 	} else {
-		return subtle.ConstantTimeCompare(mac[:len(theirMAC)], theirMAC) == 1, nil
+		return hmac.Equal(mac[:len(theirMAC)], theirMAC), nil
 	}
 }

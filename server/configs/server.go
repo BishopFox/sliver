@@ -80,11 +80,14 @@ type GRPCConfig struct {
 
 // DaemonConfig - Configure daemon mode
 type DaemonConfig struct {
-	Host            string `json:"host" yaml:"host"`
-	Port            int    `json:"port" yaml:"port"`
-	Tailscale       bool   `json:"tailscale" yaml:"tailscale"`
-	EnableWG        *bool  `json:"enable_wg,omitempty" yaml:"enable_wg,omitempty"`
-	LegacyDisableWG *bool  `json:"disable_wg,omitempty" yaml:"disable_wg,omitempty"`
+	Host      string `json:"host" yaml:"host"`
+	Port      int    `json:"port" yaml:"port"`
+	Tailscale bool   `json:"tailscale" yaml:"tailscale"`
+	EnableWG  *bool  `json:"enable_wg,omitempty" yaml:"enable_wg,omitempty"`
+	// LegacyDisableWG is retained only so configs from the withdrawn
+	// WireGuard-by-default release can be normalized without preserving an
+	// implicit opt-in.
+	LegacyDisableWG *bool `json:"disable_wg,omitempty" yaml:"disable_wg,omitempty"`
 }
 
 func (c *DaemonConfig) WireGuardEnabled() bool {
@@ -93,9 +96,6 @@ func (c *DaemonConfig) WireGuardEnabled() bool {
 	}
 	if c.EnableWG != nil {
 		return *c.EnableWG
-	}
-	if c.LegacyDisableWG != nil {
-		return !*c.LegacyDisableWG
 	}
 	return false
 }

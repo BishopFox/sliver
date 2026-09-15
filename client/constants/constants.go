@@ -109,8 +109,18 @@ const (
 	CrackstationDisconnected = "crackstation-disconnected"
 
 	// Crack Events - Events consumed by crackstations.
-	CrackBenchmark   = "crack-benchmark"
-	CrackStatusEvent = "crack-status"
+	Crack                  = "crack"
+	CrackKeyspace          = "crack-keyspace"
+	CrackQuery             = "crack-query"
+	CrackBenchmark         = "crack-benchmark"
+	CrackFileUpdated       = "crack-file-updated"
+	CrackStatusEvent       = "crack-status"
+	CrackTaskStatus        = "crack-task-status"
+	CrackTaskCancel        = "crack-task-cancel"
+	CrackTaskCancelAck     = "crack-task-cancel-ack"
+	CrackJobCreated        = "crack-job-created"
+	CrackJobUpdated        = "crack-job-updated"
+	CredentialCrackedEvent = "credential-cracked"
 
 	// WireGuardNewPeer - New Wireguard peer added.
 	WireGuardNewPeer            = "wireguard-newpeer"
@@ -231,6 +241,7 @@ const (
 	AIStr       = "ai"
 	AIConfigStr = "ai-config"
 	DocsStr     = "docs"
+	OpforStr    = "opfor"
 	CatStr      = "cat"
 	EditStr     = "edit"
 	HexEditStr  = "hex-edit"
@@ -325,6 +336,7 @@ const (
 
 	CrackStr         = "crack"
 	StationsStr      = "stations"
+	BenchmarksStr    = "benchmarks"
 	WordlistsStr     = "wordlists"
 	RulesStr         = "rules"
 	Hcstat2Str       = "hcstat2"
@@ -363,7 +375,52 @@ const (
 	BeaconCmdsFilter    = "beacon"
 	WindowsCmdsFilter   = "windows"
 	WireguardCmdsFilter = "wireguard"
+
+	NativeExtensionUnsupportedTargetFilter = "native-extension:unsupported"
+	NativeExtensionDarwinAMD64Filter       = "native-extension:darwin/amd64"
+	NativeExtensionDarwinARM64Filter       = "native-extension:darwin/arm64"
+	NativeExtensionLinux386Filter          = "native-extension:linux/386"
+	NativeExtensionLinuxAMD64Filter        = "native-extension:linux/amd64"
+	NativeExtensionLinuxARM64Filter        = "native-extension:linux/arm64"
+	NativeExtensionWindows386Filter        = "native-extension:windows/386"
+	NativeExtensionWindowsAMD64Filter      = "native-extension:windows/amd64"
+	NativeExtensionWindowsARM64Filter      = "native-extension:windows/arm64"
 )
+
+// NativeExtensionTarget identifies a GOOS/GOARCH pair supported by native
+// implant extensions and the command filter associated with that exact pair.
+type NativeExtensionTarget struct {
+	GOOS   string
+	GOARCH string
+	Filter string
+}
+
+var nativeExtensionTargets = [8]NativeExtensionTarget{
+	{GOOS: "darwin", GOARCH: "amd64", Filter: NativeExtensionDarwinAMD64Filter},
+	{GOOS: "darwin", GOARCH: "arm64", Filter: NativeExtensionDarwinARM64Filter},
+	{GOOS: "linux", GOARCH: "386", Filter: NativeExtensionLinux386Filter},
+	{GOOS: "linux", GOARCH: "amd64", Filter: NativeExtensionLinuxAMD64Filter},
+	{GOOS: "linux", GOARCH: "arm64", Filter: NativeExtensionLinuxARM64Filter},
+	{GOOS: "windows", GOARCH: "386", Filter: NativeExtensionWindows386Filter},
+	{GOOS: "windows", GOARCH: "amd64", Filter: NativeExtensionWindowsAMD64Filter},
+	{GOOS: "windows", GOARCH: "arm64", Filter: NativeExtensionWindowsARM64Filter},
+}
+
+// NativeExtensionTargets returns the supported native extension target matrix.
+func NativeExtensionTargets() [8]NativeExtensionTarget {
+	return nativeExtensionTargets
+}
+
+// NativeExtensionTargetFilter returns the filter for an exact supported target.
+// Unsupported pairs share a filter that hides all native extension commands.
+func NativeExtensionTargetFilter(goos string, goarch string) string {
+	for _, target := range nativeExtensionTargets {
+		if target.GOOS == goos && target.GOARCH == goarch {
+			return target.Filter
+		}
+	}
+	return NativeExtensionUnsupportedTargetFilter
+}
 
 // Creds (needed here to avoid recursive imports).
 const (

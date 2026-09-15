@@ -80,6 +80,11 @@ func textFlagsString(flags uint8) string {
 func (n *Text) Inline() {
 }
 
+// Pos implements Node.Pos.
+func (n *Text) Pos() int {
+	return n.Segment.Start
+}
+
 // SoftLineBreak returns true if this node ends with a new line,
 // otherwise false.
 func (n *Text) SoftLineBreak() bool {
@@ -157,11 +162,14 @@ func (n *Text) Value(source []byte) []byte {
 
 // Dump implements Node.Dump.
 func (n *Text) Dump(source []byte, level int) {
+	m := map[string]string{
+		"Value": "\"" + strings.TrimRight(string(n.Value(source)), "\n") + "\"",
+	}
 	fs := textFlagsString(n.flags)
 	if len(fs) != 0 {
-		fs = "(" + fs + ")"
+		m["Flags"] = fs
 	}
-	fmt.Printf("%sText%s: \"%s\"\n", strings.Repeat("    ", level), fs, strings.TrimRight(string(n.Value(source)), "\n"))
+	DumpHelper(n, source, level, m, nil)
 }
 
 // KindText is a NodeKind of the Text node.
@@ -233,6 +241,12 @@ type String struct {
 
 // Inline implements Inline.Inline.
 func (n *String) Inline() {
+}
+
+// Pos implements Node.Pos.
+// String node does not have a position because it is not associated with a source text.
+func (n *String) Pos() int {
+	return -1
 }
 
 // IsRaw returns true if this text should be rendered without unescaping
@@ -376,10 +390,57 @@ type baseLink struct {
 
 	// Title is a title of this link.
 	Title []byte
+
+	// Reference is a reference of this link. This field is used for reference links.
+	// If this link is not a reference link, this field is nil.
+	Reference *ReferenceLink
 }
 
 // Inline implements Inline.Inline.
 func (n *baseLink) Inline() {
+}
+
+// ReferenceLinkType defines a kind of reference link.
+type ReferenceLinkType int
+
+const (
+	// ReferenceLinkFull indicates that a reference link has a full reference like [foo][bar].
+	ReferenceLinkFull ReferenceLinkType = iota + 1
+	// ReferenceLinkCollapsed indicates that a reference link has a collapsed reference like [foo][].
+	ReferenceLinkCollapsed
+	// ReferenceLinkShortcut indicates that a reference link has a shortcut reference like [foo].
+	ReferenceLinkShortcut
+)
+
+// String returns a string representation of this reference link type.
+func (t ReferenceLinkType) String() string {
+	switch t {
+	case ReferenceLinkFull:
+		return "Full"
+	case ReferenceLinkCollapsed:
+		return "Collapsed"
+	case ReferenceLinkShortcut:
+		return "Shortcut"
+	default:
+		return fmt.Sprintf("Unknown(%d)", t)
+	}
+}
+
+// ReferenceLink struct represents a reference link of the Markdown text.
+type ReferenceLink struct {
+	// Type is a kind of this reference link.
+	Type ReferenceLinkType
+
+	// Value is a value of this reference link.
+	Value []byte
+}
+
+// NewReferenceLink returns a new ReferenceLink with the given type and value.
+func NewReferenceLink(typ ReferenceLinkType, value []byte) *ReferenceLink {
+	return &ReferenceLink{
+		Type:  typ,
+		Value: value,
+	}
 }
 
 // A Link struct represents a link of the Markdown text.
@@ -391,8 +452,22 @@ type Link struct {
 func (n *Link) Dump(source []byte, level int) {
 	m := map[string]string{}
 	m["Destination"] = string(n.Destination)
-	m["Title"] = string(n.Title)
-	DumpHelper(n, source, level, m, nil)
+	if len(n.Title) != 0 {
+		m["Title"] = string(n.Title)
+	}
+	cb := func(int) {}
+	if n.Reference != nil {
+		cb = func(level int) {
+			indent := strings.Repeat("    ", level)
+			fmt.Printf("%sReference {\n", indent)
+			indent2 := strings.Repeat("    ", level+1)
+			fmt.Printf("%sType : %s\n", indent2, n.Reference.Type.String())
+			fmt.Printf("%sValue : %s\n", indent2, string(n.Reference.Value))
+			fmt.Printf("%s}\n", indent)
+
+		}
+	}
+	DumpHelper(n, source, level, m, cb)
 }
 
 // KindLink is a NodeKind of the Link node.
@@ -422,8 +497,22 @@ type Image struct {
 func (n *Image) Dump(source []byte, level int) {
 	m := map[string]string{}
 	m["Destination"] = string(n.Destination)
-	m["Title"] = string(n.Title)
-	DumpHelper(n, source, level, m, nil)
+	if len(n.Title) != 0 {
+		m["Title"] = string(n.Title)
+	}
+	cb := func(int) {}
+	if n.Reference != nil {
+		cb = func(level int) {
+			indent := strings.Repeat("    ", level)
+			fmt.Printf("%sReference {\n", indent)
+			indent2 := strings.Repeat("    ", level+1)
+			fmt.Printf("%sType : %s\n", indent2, n.Reference.Type.String())
+			fmt.Printf("%sValue : %s\n", indent2, string(n.Reference.Value))
+			fmt.Printf("%s}\n", indent)
+
+		}
+	}
+	DumpHelper(n, source, level, m, cb)
 }
 
 // KindImage is a NodeKind of the Image node.
@@ -443,6 +532,7 @@ func NewImage(link *Link) *Image {
 	}
 	c.Destination = link.Destination
 	c.Title = link.Title
+	c.Reference = link.Reference
 	for n := link.FirstChild(); n != nil; {
 		next := n.NextSibling()
 		link.RemoveChild(link, n)
@@ -542,7 +632,7 @@ func (n *RawHTML) Inline() {}
 func (n *RawHTML) Dump(source []byte, level int) {
 	m := map[string]string{}
 	t := []string{}
-	for i := 0; i < n.Segments.Len(); i++ {
+	for i := range n.Segments.Len() {
 		segment := n.Segments.At(i)
 		t = append(t, string(segment.Value(source)))
 	}

@@ -84,10 +84,7 @@ func B58Decode(b string) []byte {
 	// Of course, in addition, we'll need to handle boundary condition when `b` is not multiple of 58^10.
 	// In that case we'll use the bigRadix[n] lookup for the appropriate power.
 	for t := b; len(t) > 0; {
-		n := len(t)
-		if n > 10 {
-			n = 10
-		}
+		n := min(len(t), 10)
 
 		total := uint64(0)
 		for _, v := range t[:n] {

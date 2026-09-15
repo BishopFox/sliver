@@ -206,7 +206,56 @@ openrouter:
 	}
 }
 
-func TestServerConfigMigratesLegacyDisableWG(t *testing.T) {
+func TestDaemonConfigWireGuardRequiresExplicitEnable(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *DaemonConfig
+		enabled bool
+	}{
+		{
+			name: "nil config",
+		},
+		{
+			name:   "default config",
+			config: &DaemonConfig{},
+		},
+		{
+			name:   "explicitly disabled",
+			config: &DaemonConfig{EnableWG: boolPtr(false)},
+		},
+		{
+			name:    "explicitly enabled",
+			config:  &DaemonConfig{EnableWG: boolPtr(true)},
+			enabled: true,
+		},
+		{
+			name:   "legacy disable false",
+			config: &DaemonConfig{LegacyDisableWG: boolPtr(false)},
+		},
+		{
+			name:   "legacy disable true",
+			config: &DaemonConfig{LegacyDisableWG: boolPtr(true)},
+		},
+		{
+			name: "explicit enable takes precedence over legacy field",
+			config: &DaemonConfig{
+				EnableWG:        boolPtr(true),
+				LegacyDisableWG: boolPtr(true),
+			},
+			enabled: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if enabled := test.config.WireGuardEnabled(); enabled != test.enabled {
+				t.Fatalf("expected WireGuard enabled %t, got %t", test.enabled, enabled)
+			}
+		})
+	}
+}
+
+func TestServerConfigLegacyDisableWGDoesNotEnableWireGuard(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 
 	configPath := GetServerConfigPath()
@@ -228,8 +277,8 @@ daemon:
 	if config.DaemonConfig == nil {
 		t.Fatalf("expected daemon config")
 	}
-	if !config.DaemonConfig.WireGuardEnabled() {
-		t.Fatalf("expected legacy disable_wg:false to migrate to enable_wg:true")
+	if config.DaemonConfig.WireGuardEnabled() {
+		t.Fatalf("expected legacy disable_wg:false to migrate to enable_wg:false")
 	}
 	if config.DaemonConfig.LegacyDisableWG != nil {
 		t.Fatalf("expected legacy disable_wg field to be cleared after normalization")
@@ -239,8 +288,8 @@ daemon:
 	if err != nil {
 		t.Fatalf("failed to read migrated config: %v", err)
 	}
-	if !strings.Contains(string(saved), "enable_wg: true") {
-		t.Fatalf("expected migrated config to contain enable_wg: true, got:\n%s", string(saved))
+	if !strings.Contains(string(saved), "enable_wg: false") {
+		t.Fatalf("expected migrated config to contain enable_wg: false, got:\n%s", string(saved))
 	}
 	if strings.Contains(string(saved), "disable_wg") {
 		t.Fatalf("expected migrated config to drop legacy disable_wg field, got:\n%s", string(saved))

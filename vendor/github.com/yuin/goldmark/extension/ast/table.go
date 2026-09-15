@@ -123,6 +123,7 @@ func (n *TableHeader) Dump(source []byte, level int) {
 // NewTableHeader returns a new TableHeader node.
 func NewTableHeader(row *TableRow) *TableHeader {
 	n := &TableHeader{}
+	n.SetPos(row.Pos())
 	for c := row.FirstChild(); c != nil; {
 		next := c.NextSibling()
 		n.AppendChild(n, c)

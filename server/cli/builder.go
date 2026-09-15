@@ -61,6 +61,9 @@ func initBuilderCmd() *cobra.Command {
 	builderCmd.Flags().StringP(operatorConfigFlagStr, "c", "", "operator config file path")
 	builderCmd.Flags().StringP(operatorConfigDirFlagStr, "d", "", "operator config directory path")
 	builderCmd.Flags().BoolP(quietFlagStr, "q", false, "do not write any content to stdout")
+	builderCmd.Flags().Bool(enableWGFlagStr, false, "force multiplayer connections through the operator config's WireGuard wrapper")
+	builderCmd.Flags().Bool(disableWGFlagStr, false, "force direct multiplayer connections even when the operator config enables WireGuard")
+	builderCmd.MarkFlagsMutuallyExclusive(enableWGFlagStr, disableWGFlagStr)
 
 	// Artifact configuration options
 	builderCmd.Flags().StringSlice(enableTargetFlagStr, []string{}, "force enable a target: format:goos/goarch")
@@ -108,10 +111,17 @@ var builderCmd = &cobra.Command{
 		}
 		log.RootLogger.SetLevel(log.LevelFrom(level))
 
+		mode, err := builderMultiplayerConnectMode(cmd)
+		if err != nil {
+			builderLog.Errorf("Failed to select multiplayer transport: %s\n", err)
+			return
+		}
+		transport.SetMultiplayerConnectMode(mode)
+
 		defer func() {
 			if r := recover(); r != nil {
 				builderLog.Printf("panic:\n%s", debug.Stack())
-				builderLog.Fatalf("stacktrace from panic: \n" + string(debug.Stack()))
+				builderLog.Fatalf("stacktrace from panic:\n%s", debug.Stack())
 				os.Exit(99)
 			}
 		}()
@@ -146,6 +156,27 @@ var builderCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func builderMultiplayerConnectMode(cmd *cobra.Command) (transport.MultiplayerConnectMode, error) {
+	if cmd.Flags().Changed(enableWGFlagStr) && cmd.Flags().Changed(disableWGFlagStr) {
+		return transport.MultiplayerConnectAuto, fmt.Errorf("--%s and --%s are mutually exclusive", enableWGFlagStr, disableWGFlagStr)
+	}
+	enableWG, err := cmd.Flags().GetBool(enableWGFlagStr)
+	if err != nil {
+		return transport.MultiplayerConnectAuto, err
+	}
+	disableWG, err := cmd.Flags().GetBool(disableWGFlagStr)
+	if err != nil {
+		return transport.MultiplayerConnectAuto, err
+	}
+	if enableWG {
+		return transport.MultiplayerConnectEnableWG, nil
+	}
+	if disableWG {
+		return transport.MultiplayerConnectDisableWG, nil
+	}
+	return transport.MultiplayerConnectAuto, nil
 }
 
 // Start all builders if multpile is true or a single builder otherwise.

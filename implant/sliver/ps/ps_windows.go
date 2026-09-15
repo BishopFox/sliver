@@ -4,6 +4,7 @@
 package ps
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -13,6 +14,16 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
 )
+
+const processMachineTypeInfo = 9
+
+type processMachineInformation struct {
+	ProcessMachine    uint16
+	Reserved          uint16
+	MachineAttributes uint32
+}
+
+var getProcessInformation = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetProcessInformation")
 
 // WindowsProcess is an implementation of Process for Windows.
 type WindowsProcess struct {
@@ -267,32 +278,7 @@ func getCmdLine(pid uint32) ([]string, error) {
 	return strings.Fields(syscall.UTF16ToString(module.SzExePath[:]) + " : " + syscall.UTF16ToString(cmdLine[:])), nil
 }
 
-var nativeArch string = ""
-var nativeArchLookup bool = true
-
 func getProcessArchitecture(pid uint32) (string, error) {
-
-	if nativeArchLookup {
-		nativeArchLookup = false
-		if runtime.GOARCH == "amd64" {
-			nativeArch = "x86_64"
-		} else {
-			var is64Bit bool
-			pHandle := windows.CurrentProcess()
-			if uint(pHandle) == 0 {
-				nativeArch = ""
-			} else if err := windows.IsWow64Process(pHandle, &is64Bit); err != nil {
-				nativeArch = ""
-			} else {
-				if !is64Bit {
-					nativeArch = "x86"
-				} else {
-					nativeArch = "x86_64"
-				}
-			}
-		}
-	}
-
 	proc, err := syscall.OpenProcess(
 		windows.PROCESS_QUERY_INFORMATION,
 		false,
@@ -309,22 +295,74 @@ func getProcessArchitecture(pid uint32) (string, error) {
 		}
 	}
 
-	arch := ""
-	var isWow64 bool
-	if err := windows.IsWow64Process(windows.Handle(proc), &isWow64); err == nil {
-		if isWow64 {
-			arch = "x86"
-		} else {
-			arch = nativeArch
+	arch, queryErr := queryProcessArchitecture(windows.Handle(proc))
+	closeErr := syscall.CloseHandle(proc)
+	if queryErr != nil {
+		return "", queryErr
+	}
+	if closeErr != nil {
+		return "", closeErr
+	}
+	return arch, nil
+}
+
+func queryProcessArchitecture(handle windows.Handle) (string, error) {
+	if arch, err := processMachineArchitecture(handle); err == nil && arch != "" {
+		return arch, nil
+	}
+
+	var processMachine, nativeMachine uint16
+	if err := windows.IsWow64Process2(handle, &processMachine, &nativeMachine); err == nil {
+		if arch := architectureFromWindowsMachines(processMachine, nativeMachine); arch != "" {
+			return arch, nil
 		}
 	}
 
-	err = syscall.CloseHandle(proc)
-	if err != nil {
+	var isWow64 bool
+	if err := windows.IsWow64Process(handle, &isWow64); err != nil {
 		return "", err
 	}
+	if isWow64 {
+		return "x86", nil
+	}
 
-	return arch, err
+	switch runtime.GOARCH {
+	case "amd64":
+		return "x86_64", nil
+	case "arm64":
+		return "arm64", nil
+	case "386":
+		var currentIsWow64 bool
+		if err := windows.IsWow64Process(windows.CurrentProcess(), &currentIsWow64); err != nil {
+			return "", err
+		}
+		if currentIsWow64 {
+			return "x86_64", nil
+		}
+		return "x86", nil
+	default:
+		return "", nil
+	}
+}
+
+func processMachineArchitecture(handle windows.Handle) (string, error) {
+	if err := getProcessInformation.Find(); err != nil {
+		return "", err
+	}
+	info := processMachineInformation{}
+	result, _, callErr := getProcessInformation.Call(
+		uintptr(handle),
+		uintptr(processMachineTypeInfo),
+		uintptr(unsafe.Pointer(&info)),
+		unsafe.Sizeof(info),
+	)
+	if result == 0 {
+		if callErr != nil && !errors.Is(callErr, syscall.Errno(0)) {
+			return "", callErr
+		}
+		return "", syscall.EINVAL
+	}
+	return architectureFromWindowsMachine(info.ProcessMachine), nil
 }
 
 func getSessionID(pid uint32) (int, error) {

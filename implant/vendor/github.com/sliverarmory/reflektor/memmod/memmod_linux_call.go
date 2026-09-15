@@ -1,4 +1,4 @@
-//go:build linux && !cgo && (386 || amd64 || arm64)
+//go:build !cgo && ((linux && !android && (386 || amd64 || arm64)) || (freebsd && (amd64 || arm64)))
 
 package memmod
 
@@ -17,11 +17,11 @@ func cCall2(fn, a0, a1 uintptr) uintptr
 func cCall3(fn, a0, a1, a2 uintptr) uintptr
 
 func cCallVoid0(fn uintptr) {
-	_ = cCall0(fn)
+	_ = callExportFunction(fn)
 }
 
 func cCallVoid3(fn, a0, a1, a2 uintptr) {
-	_ = cCall3(fn, a0, a1, a2)
+	_ = callExportFunction(fn, a0, a1, a2)
 }
 
 func cCallVoid0OnThread(fn uintptr) error {

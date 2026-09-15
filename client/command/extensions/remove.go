@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
@@ -100,21 +99,11 @@ func RemoveExtensionByManifestName(manifestName string, con *console.SliverClien
 			return true, nil
 		}
 
-		// If path is outside extensions directory, prompt for confirmation
-		if !strings.HasPrefix(extPath, assets.GetExtensionsDir()) {
-			confirm := false
-			_ = forms.Confirm(fmt.Sprintf("Remove '%s' extension directory from filesystem?", manifestName), &confirm)
-			if !confirm {
-				// Skip the forceRemoveAll but continue with the rest
-				delete(loadedManifests, manifestName)
-				for _, cmd := range man.ExtCommand {
-					delete(loadedExtensions, cmd.CommandName)
-				}
-				return true, nil
-			}
+		// Only installed extensions are owned by Sliver and may be deleted.
+		// Temporarily loaded extensions can live in arbitrary source directories.
+		if isWithinExtensionsDir(extPath) {
+			forceRemoveAll(extPath)
 		}
-
-		forceRemoveAll(extPath)
 		delete(loadedManifests, manifestName)
 		for _, cmd := range man.ExtCommand {
 			delete(loadedExtensions, cmd.CommandName)
@@ -122,6 +111,14 @@ func RemoveExtensionByManifestName(manifestName string, con *console.SliverClien
 		return true, nil
 	}
 	return false, nil
+}
+
+func isWithinExtensionsDir(extPath string) bool {
+	relPath, err := filepath.Rel(assets.GetExtensionsDir(), extPath)
+	if err != nil {
+		return false
+	}
+	return relPath != "." && filepath.IsLocal(relPath)
 }
 
 func forceRemoveAll(rootPath string) {

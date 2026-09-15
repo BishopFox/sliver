@@ -22,17 +22,35 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/klauspost/compress/zstd"
 	"github.com/spf13/cobra"
 )
+
+func localCrackFileInfo(path string) (os.FileInfo, error) {
+	return localCrackFileInfoWith(path, os.Stat)
+}
+
+func localCrackFileInfoWith(path string, stat func(string) (os.FileInfo, error)) (os.FileInfo, error) {
+	info, err := stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat local crack file %q: %w", path, err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("local crack file %q is a directory", path)
+	}
+	return info, nil
+}
 
 // CrackWordlistsCmd - Manage GPU cracking stations.
 func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -173,9 +191,9 @@ func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		con.PrintErrorf("No path specified, see --help\n")
 		return
 	}
-	wordlistStat, err := os.Stat(localPath)
-	if os.IsNotExist(err) || wordlistStat.IsDir() {
-		con.PrintErrorf("File does not exist: %s\n", localPath)
+	wordlistStat, err := localCrackFileInfo(localPath)
+	if err != nil {
+		con.PrintErrorf("Invalid wordlist file: %s\n", err)
 		return
 	}
 	if name == "" {
@@ -217,9 +235,9 @@ func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		con.PrintErrorf("No path specified, see --help\n")
 		return
 	}
-	rulesStat, err := os.Stat(localPath)
-	if os.IsNotExist(err) || rulesStat.IsDir() {
-		con.PrintErrorf("File does not exist: %s\n", localPath)
+	rulesStat, err := localCrackFileInfo(localPath)
+	if err != nil {
+		con.PrintErrorf("Invalid rules file: %s\n", err)
 		return
 	}
 	if name == "" {
@@ -261,9 +279,9 @@ func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 		con.PrintErrorf("No path specified, see --help\n")
 		return
 	}
-	hcstat2Stat, err := os.Stat(localPath)
-	if os.IsNotExist(err) || hcstat2Stat.IsDir() {
-		con.PrintErrorf("File does not exist: %s\n", localPath)
+	hcstat2Stat, err := localCrackFileInfo(localPath)
+	if err != nil {
+		con.PrintErrorf("Invalid hcstat2 file: %s\n", err)
 		return
 	}
 	if name == "" {
@@ -294,102 +312,176 @@ func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 }
 
 func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *console.SliverClient) {
-	digest := sha256.New()
-	wordlistReader := io.TeeReader(localFile, digest)
-
-	chunks := make(chan []byte, 1) // Chunks are in-memory!
-
-	var chunkReaderErr error
-	go func() {
-		chunkReaderErr = chunkReader(wordlistReader, crackFile.ChunkSize, chunks)
-	}()
-	n := uint32(0)
-	total := int64(0)
-	errors := []error{}
-	for chunk := range chunks {
-		total += int64(len(chunk))
+	total, err := uploadCrackFile(localFile, crackFile, con.Rpc, func(total int64, n uint32, chunkSize int) {
 		con.PrintInfof("Uploading %s (chunk %d - %s) ...",
 			util.ByteCountBinary(total),
 			n,
-			util.ByteCountBinary(int64(len(chunk))),
+			util.ByteCountBinary(int64(chunkSize)),
 		)
-		_, err := con.Rpc.CrackFileChunkUpload(context.Background(), &clientpb.CrackFileChunk{
-			CrackFileID: crackFile.ID,
-			N:           n,
-			Data:        chunk,
-		})
-		n++
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-	}
-	con.Printf(console.Clearln + "\r")
-	if chunkReaderErr != nil {
-		con.PrintErrorf("Failed to read file: %s\n", chunkReaderErr)
-		return
-	}
-	if len(errors) > 0 {
-		for _, err := range errors {
-			con.PrintErrorf("Failed to upload chunk: %s\n", err)
-		}
-		return
-	}
-	_, err := con.Rpc.CrackFileComplete(context.Background(), &clientpb.CrackFile{
-		ID:       crackFile.ID,
-		Sha2_256: hex.EncodeToString(digest.Sum(nil)),
 	})
+	con.Printf(console.Clearln + "\r")
 	if err != nil {
-		con.PrintErrorf("Failed to complete file upload: %s\n", err)
+		con.PrintErrorf("Failed to upload crack file: %s\n", err)
 		return
 	}
 	con.PrintInfof("Upload completed (compressed: %s)\n", util.ByteCountBinary(total))
 }
 
-func chunkReader(wordlistReader io.Reader, chunkSize int64, chunks chan []byte) error {
+func uploadCrackFile(localFile io.Reader, crackFile *clientpb.CrackFile, rpc rpcpb.SliverRPCClient, progress func(total int64, n uint32, chunkSize int)) (total int64, retErr error) {
+	if localFile == nil {
+		return 0, errors.New("local crack file reader is nil")
+	}
+	if crackFile == nil || crackFile.ID == "" {
+		return 0, errors.New("crack file reservation is missing an ID")
+	}
+	if rpc == nil {
+		return 0, errors.New("crack file RPC client is nil")
+	}
+
+	completed := false
+	defer func() {
+		if retErr == nil || completed {
+			return
+		}
+		_, cleanupErr := rpc.CrackFileDelete(context.Background(), &clientpb.CrackFile{ID: crackFile.ID})
+		if cleanupErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("failed to remove crack file reservation %s: %w", crackFile.ID, cleanupErr))
+		}
+	}()
+
+	digest := sha256.New()
+	wordlistReader := io.TeeReader(localFile, digest)
+
+	chunks, chunkReaderErrors := readCrackFileChunks(wordlistReader, crackFile.ChunkSize)
+	n := uint32(0)
+	var uploadErr error
+	for chunk := range chunks {
+		total += int64(len(chunk))
+		if uploadErr == nil {
+			if progress != nil {
+				progress(total, n, len(chunk))
+			}
+			_, err := rpc.CrackFileChunkUpload(context.Background(), &clientpb.CrackFileChunk{
+				CrackFileID: crackFile.ID,
+				N:           n,
+				Data:        chunk,
+			})
+			if err != nil {
+				uploadErr = fmt.Errorf("upload chunk %d: %w", n, err)
+			}
+		}
+		n++
+	}
+	chunkReaderErr := <-chunkReaderErrors
+	if chunkReaderErr != nil {
+		uploadErr = errors.Join(uploadErr, fmt.Errorf("read and compress crack file: %w", chunkReaderErr))
+	}
+	if uploadErr != nil {
+		return total, uploadErr
+	}
+	_, err := rpc.CrackFileComplete(context.Background(), &clientpb.CrackFile{
+		ID:       crackFile.ID,
+		Sha2_256: hex.EncodeToString(digest.Sum(nil)),
+	})
+	if err != nil {
+		return total, fmt.Errorf("complete crack file upload: %w", err)
+	}
+	completed = true
+	return total, nil
+}
+
+func readCrackFileChunks(reader io.Reader, chunkSize int64) (<-chan []byte, <-chan error) {
+	chunks := make(chan []byte, 1) // Chunks are in-memory!
+	errors := make(chan error, 1)
+	go func() {
+		defer close(errors)
+		errors <- chunkReader(reader, chunkSize, chunks)
+	}()
+	return chunks, errors
+}
+
+//nolint:gocyclo // Compression, fixed-size emission, final remainder handling, and cleanup form one streaming state machine.
+func chunkReader(wordlistReader io.Reader, chunkSize int64, chunks chan []byte) (retErr error) {
 	defer close(chunks)
+	if chunkSize < 1 {
+		return fmt.Errorf("invalid crack file chunk size %d", chunkSize)
+	}
 	start := int64(0)
 	tmpFile, err := os.CreateTemp("", "sliver-wordlist")
 	if err != nil {
 		return err
 	}
-	defer tmpFile.Close()
-	compressor, _ := zstd.NewWriter(tmpFile, zstd.WithEncoderLevel(zstd.SpeedBetterCompression))
-	for {
-		readBuf := make([]byte, 32*1024*1024) // 32MB
-		readN, readErr := wordlistReader.Read(readBuf)
-		if readErr != nil && readErr != io.EOF {
-			return err
+	tmpPath := tmpFile.Name()
+	defer func() {
+		if err := tmpFile.Close(); retErr == nil && err != nil {
+			retErr = err
 		}
+		_ = os.Remove(tmpPath)
+	}()
+	compressor, err := zstd.NewWriter(tmpFile, zstd.WithEncoderLevel(zstd.SpeedBetterCompression))
+	if err != nil {
+		return err
+	}
+	compressorClosed := false
+	defer func() {
+		if !compressorClosed {
+			_ = compressor.Close()
+		}
+	}()
+	readBuf := make([]byte, 32*1024*1024) // 32MB
+	for {
+		readN, readErr := wordlistReader.Read(readBuf)
 		if readN != 0 {
 			_, err := compressor.Write(readBuf[:readN])
 			if err != nil {
 				return err
 			}
-			compressor.Flush()
-			tmpFileStat, err := os.Stat(tmpFile.Name())
+			if err := compressor.Flush(); err != nil {
+				return err
+			}
+			tmpFileStat, err := tmpFile.Stat()
 			if err != nil {
 				return err
 			}
-			if tmpFileStat.Size()-start >= chunkSize {
-				stop := start + chunkSize
+			for tmpFileStat.Size()-start >= chunkSize {
 				chunk, err := readChunkAt(tmpFile, start, chunkSize)
 				if err != nil {
 					return err
 				}
 				chunks <- chunk
-				start = stop
+				start += int64(len(chunk))
 			}
+		}
+		if readErr != nil && readErr != io.EOF {
+			return readErr
 		}
 		if readErr == io.EOF {
-			chunk, err := readChunkAt(tmpFile, start, chunkSize)
-			if err != nil {
-				return err
-			}
-			chunks <- chunk
-			return nil
+			break
 		}
 	}
+
+	if err := compressor.Close(); err != nil {
+		return err
+	}
+	compressorClosed = true
+	tmpFileStat, err := tmpFile.Stat()
+	if err != nil {
+		return err
+	}
+	for start < tmpFileStat.Size() {
+		remaining := tmpFileStat.Size() - start
+		readSize := chunkSize
+		if remaining < readSize {
+			readSize = remaining
+		}
+		chunk, err := readChunkAt(tmpFile, start, readSize)
+		if err != nil {
+			return err
+		}
+		chunks <- chunk
+		start += int64(len(chunk))
+	}
+	return nil
 }
 
 func readChunkAt(tmpFile *os.File, offset int64, chunkSize int64) ([]byte, error) {

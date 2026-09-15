@@ -55,7 +55,7 @@ type QRCoder struct {
 	// envVersion 要打开的小程序版本。正式版为 "release"，体验版为 "trial"，开发版为 "develop"
 	EnvVersion string `json:"env_version,omitempty"`
 	// ShowSplashAd 控制通过该小程序码进入小程序是否展示封面广告1、默认为true，展示封面广告2、传入为false时，不展示封面广告
-	ShowSplashAd bool `json:"show_splash_ad,omitempty"`
+	ShowSplashAd *bool `json:"show_splash_ad,omitempty"`
 }
 
 // fetchCode 请求并返回二维码二进制数据

@@ -65,23 +65,23 @@ type ChallengeLinks struct {
 }
 
 type VerifyChallenge struct {
-	Sid             string                 `json:"sid"`
-	AccountSid      string                 `json:"account_sid"`
-	ServiceSid      string                 `json:"service_sid"`
-	EntitySid       string                 `json:"entity_sid"`
-	Identity        string                 `json:"identity"`
-	FactorSid       string                 `json:"factor_sid"`
-	DateCreated     TwilioTime             `json:"date_created"`
-	DateUpdated     TwilioTime             `json:"date_updated"`
-	DateResponded   TwilioTime             `json:"date_responded"`
-	ExpirationDate  TwilioTime             `json:"expiration_date"`
-	Status          string                 `json:"status"`
-	RespondedReason string                 `json:"responded_reason"`
-	Details         map[string]interface{} `json:"details"`
-	HiddenDetails   map[string]interface{} `json:"hidden_details"`
-	FactorType      string                 `json:"factor_type"`
-	Url             string                 `json:"url"`
-	Links           ChallengeLinks         `json:"links"`
+	Sid             string         `json:"sid"`
+	AccountSid      string         `json:"account_sid"`
+	ServiceSid      string         `json:"service_sid"`
+	EntitySid       string         `json:"entity_sid"`
+	Identity        string         `json:"identity"`
+	FactorSid       string         `json:"factor_sid"`
+	DateCreated     TwilioTime     `json:"date_created"`
+	DateUpdated     TwilioTime     `json:"date_updated"`
+	DateResponded   TwilioTime     `json:"date_responded"`
+	ExpirationDate  TwilioTime     `json:"expiration_date"`
+	Status          string         `json:"status"`
+	RespondedReason string         `json:"responded_reason"`
+	Details         map[string]any `json:"details"`
+	HiddenDetails   map[string]any `json:"hidden_details"`
+	FactorType      string         `json:"factor_type"`
+	Url             string         `json:"url"`
+	Links           ChallengeLinks `json:"links"`
 }
 
 // Create calls the Verify API to start a new verification.

@@ -1,0 +1,13 @@
+/dist/
+/opfor
+/opfor.exe
+/CHANGELOG.md
+/TODO.md
+/docs/*
+!/docs/README.md
+!/docs/aggressor-script-extensions.md
+!/docs/aggressor/
+!/docs/aggressor/*.md
+!/docs/benchmarks/
+!/docs/benchmarks/*.md
+.DS_Store

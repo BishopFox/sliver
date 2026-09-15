@@ -6,7 +6,7 @@ import (
 )
 
 func TestSelectPayloadTermFallsBackTo4Bytes(t *testing.T) {
-	allowed := allowedDynamicChars()
+	allowed := allowedDynamicCharsFor(xorDynamicBadchars)
 
 	// Populate the encoded payload with every allowed *distinct* 2-byte sequence
 	// so no 2-byte terminator can be selected.
@@ -20,7 +20,7 @@ func TestSelectPayloadTermFallsBackTo4Bytes(t *testing.T) {
 		}
 	}
 
-	term, err := selectPayloadTerm(encoded)
+	term, err := selectPayloadTerm(encoded, xorDynamicBadchars)
 	if err != nil {
 		t.Fatalf("selectPayloadTerm failed: %v", err)
 	}

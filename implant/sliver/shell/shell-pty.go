@@ -78,26 +78,25 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		cancel()
 		return nil, err
 	}
+	// Tunnel output is an undifferentiated byte stream. Merging stderr into
+	// stdout gives it one reader and preserves the process's actual write order.
+	cmd.Stderr = cmd.Stdout
 
-	stderr, err := cmd.StderrPipe()
+	err = cmd.Start()
 	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[shell] stderr pipe failed\n")
-		// {{end}}
+		_ = stdin.Close()
+		_ = stdout.Close()
 		cancel()
 		return nil, err
 	}
-
-	err = cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
-		Stderr:  stderr,
 		Cancel:  cancel,
-	}, err
+	}, nil
 }
 
 func ptyShell(tunnelID uint64, command []string, rows, cols uint16) (*Shell, error) {

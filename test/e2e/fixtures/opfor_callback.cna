@@ -1,0 +1,149 @@
+beacon_command_register(
+    "opfor-e2e-output",
+    "Exercise typed Reflektor output through OPFOR.",
+    "Internal Sliver comprehensive E2E fixture."
+);
+
+beacon_command_register(
+    "opfor-e2e-partial",
+    "Exercise partial output plus a terminal callback error through OPFOR.",
+    "Internal Sliver comprehensive E2E fixture."
+);
+
+beacon_command_register(
+    "opfor-e2e-timeout",
+    "Exercise a finite BOF deadline and recovery through OPFOR.",
+    "Internal Sliver comprehensive E2E fixture."
+);
+
+sub opfor_e2e_object {
+    local('$handle $object');
+    $handle = openf(script_resource("opfor_bof_fixture." . barch($1) . ".o"));
+    $object = readb($handle, -1);
+    closef($handle);
+    if (strlen($object) == 0) {
+        throw "empty OPFOR E2E BOF fixture";
+    }
+    return $object;
+}
+
+sub opfor_e2e_callback {
+    local('$kind $chunk $type_id $hex $has_final $is_final');
+    $kind = $3["type"];
+
+    if ($kind eq "task_completed" || $kind eq "success") {
+        if ($opfor_e2e_mode ne "output" || $opfor_e2e_chunks != 5) {
+            throw "OPFOR E2E unexpected success lifecycle callback";
+        }
+        return;
+    }
+    if ($kind eq "error" && $3["chunk_num"] is $null) {
+        if ($opfor_e2e_mode eq "partial") {
+            if ($opfor_e2e_chunks != 1 || indexOf($2, "BeaconOutput") < 0 || ("chunk_num" in keys($3)) || ("type_id" in keys($3)) || ("is_final" in keys($3))) {
+                throw "OPFOR E2E partial lifecycle error mismatch";
+            }
+            blog($1, "OPFOR_E2E_PARTIAL_CALLBACK_OK");
+            return;
+        }
+        if ($opfor_e2e_mode ne "timeout") {
+            throw "OPFOR E2E unexpected error lifecycle callback";
+        }
+        return;
+    }
+
+    $opfor_e2e_chunks++;
+    $chunk = $3["chunk_num"];
+    $type_id = $3["type_id"];
+    $has_final = "is_final" in keys($3);
+    $is_final = $3["is_final"];
+
+    if ($opfor_e2e_mode eq "output") {
+        if ($chunk == 1) {
+            if (!($kind eq "output" && $type_id == 0 && $2 eq "alpha")) {
+                throw "OPFOR E2E callback chunk 1 mismatch";
+            }
+            if ($is_final) {
+                throw "OPFOR E2E callback chunk 1 final flag mismatch";
+            }
+            return;
+        }
+        if ($chunk == 2) {
+            if (!($kind eq "error" && $type_id == 13 && $2 eq "beta")) {
+                throw "OPFOR E2E callback chunk 2 mismatch";
+            }
+            if ($is_final) {
+                throw "OPFOR E2E callback chunk 2 final flag mismatch";
+            }
+            return;
+        }
+        if ($chunk == 3) {
+            $hex = unpack("H*", $2)[0];
+            if (!($kind eq "output" && $type_id == 30 && $hex eq "4100ff42")) {
+                throw "OPFOR E2E callback chunk 3 mismatch";
+            }
+            if ($is_final) {
+                throw "OPFOR E2E callback chunk 3 final flag mismatch";
+            }
+            return;
+        }
+        if ($chunk == 4) {
+            $hex = unpack("H*", $2)[0];
+            if (!($kind eq "output" && $type_id == 32 && $hex eq "736e6f773ae29883")) {
+                throw "OPFOR E2E callback chunk 4 mismatch";
+            }
+            if ($is_final) {
+                throw "OPFOR E2E callback chunk 4 final flag mismatch";
+            }
+            return;
+        }
+        if ($chunk == 5) {
+            if (!($kind eq "output" && $type_id == 127 && strlen($2) == 0)) {
+                throw "OPFOR E2E callback chunk 5 mismatch";
+            }
+            if (!$has_final || !$is_final) {
+                throw "OPFOR E2E callback chunk 5 final flag mismatch";
+            }
+            blog($1, "OPFOR_E2E_TYPED_CALLBACK_OK");
+            return;
+        }
+        throw "OPFOR E2E unexpected output callback chunk";
+    }
+
+    if ($opfor_e2e_mode eq "partial") {
+        if (!($chunk == 1 && $kind eq "output" && $type_id == 0 && $2 eq "before-error")) {
+            throw "OPFOR E2E partial callback mismatch";
+        }
+        if (!$has_final || !$is_final) {
+            throw "OPFOR E2E partial final flag mismatch";
+        }
+        return;
+    }
+
+    throw "OPFOR E2E unexpected timeout data callback";
+}
+
+sub opfor_e2e_run {
+    local('$bid $object $arguments');
+    $bid = $1;
+    $object = opfor_e2e_object($bid);
+    $arguments = bof_pack($bid, "ii", $2, $3);
+    beacon_inline_execute($bid, $object, "go", $arguments, &opfor_e2e_callback);
+}
+
+alias opfor-e2e-output {
+    $opfor_e2e_mode = "output";
+    $opfor_e2e_chunks = 0;
+    opfor_e2e_run($1, 0, 0);
+}
+
+alias opfor-e2e-partial {
+    $opfor_e2e_mode = "partial";
+    $opfor_e2e_chunks = 0;
+    opfor_e2e_run($1, 1, 0);
+}
+
+alias opfor-e2e-timeout {
+    $opfor_e2e_mode = "timeout";
+    $opfor_e2e_chunks = 0;
+    opfor_e2e_run($1, 2, $2);
+}

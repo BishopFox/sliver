@@ -12,7 +12,7 @@ type Date struct {
 }
 
 func (d Date) MarshalJSON() ([]byte, error) {
-	return json.Marshal(d.Time.Format(DateFormat))
+	return json.Marshal(d.Format(DateFormat))
 }
 
 func (d *Date) UnmarshalJSON(data []byte) error {
@@ -30,11 +30,26 @@ func (d *Date) UnmarshalJSON(data []byte) error {
 }
 
 func (d Date) String() string {
-	return d.Time.Format(DateFormat)
+	return d.Format(DateFormat)
 }
 
 func (d *Date) UnmarshalText(data []byte) error {
 	parsed, err := time.Parse(DateFormat, string(data))
+	if err != nil {
+		return err
+	}
+	d.Time = parsed
+	return nil
+}
+
+// Bind implements the runtime.Binder interface so that Date is treated as a
+// scalar value when binding query parameters rather than being decomposed as
+// a struct with key-value pairs.
+func (d *Date) Bind(src string) error {
+	if src == "" {
+		return nil
+	}
+	parsed, err := time.Parse(DateFormat, src)
 	if err != nil {
 		return err
 	}

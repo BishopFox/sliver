@@ -68,6 +68,66 @@ func TestXorDynamicEncoderMatchesMSFVenom(t *testing.T) {
 	}
 }
 
+func TestXorDynamicPayloadAwareKeyAvoidsBadchars(t *testing.T) {
+	if !keystoneAvailable() {
+		t.Skip("keystone assembler not available")
+	}
+
+	payload := make([]byte, 8192)
+	for i := range payload {
+		payload[i] = byte(i)
+	}
+
+	tests := []struct {
+		name     string
+		badChars []byte
+	}{
+		{name: "defaults"},
+		{name: "custom", badChars: []byte{0x00, 0x0a, 0x0d, 0xfe}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			key, err := XorDynamicKeyGenForPayload(payload, test.badChars)
+			if err != nil {
+				t.Fatalf("XorDynamicKeyGenForPayload failed: %v", err)
+			}
+			if len(key) <= xorDynamicKeySize {
+				t.Fatalf("payload-aware key length = %d, expected more than %d", len(key), xorDynamicKeySize)
+			}
+
+			encoded, err := XorDynamicWithBadChars(payload, key, test.badChars)
+			if err != nil {
+				t.Fatalf("XorDynamicWithBadChars failed: %v", err)
+			}
+			if containsBadchars(encoded, xorDynamicBadcharSet(test.badChars)) {
+				t.Fatal("encoded output contains a bad character")
+			}
+		})
+	}
+}
+
+func TestXorDynamicWithBadCharsUsesCompleteKey(t *testing.T) {
+	if !keystoneAvailable() {
+		t.Skip("keystone assembler not available")
+	}
+
+	payload := []byte{0x90, 0x90, 0x90, 0x90}
+	key := []byte{0x11, 0x22, 0x33, 0x44}
+	encoded, err := XorDynamicWithBadChars(payload, key, nil)
+	if err != nil {
+		t.Fatalf("XorDynamicWithBadChars failed: %v", err)
+	}
+
+	actualKey, _, _, err := extractXorDynamicParams(encoded)
+	if err != nil {
+		t.Fatalf("extractXorDynamicParams failed: %v", err)
+	}
+	if !bytes.Equal(actualKey, key) {
+		t.Fatalf("encoded key = %x, expected %x", actualKey, key)
+	}
+}
+
 func extractXorDynamicParams(encoded []byte) ([]byte, byte, []byte, error) {
 	if len(encoded) < xorDynamicStubSize+3 {
 		return nil, 0, nil, fmt.Errorf("xor_dynamic output too short")

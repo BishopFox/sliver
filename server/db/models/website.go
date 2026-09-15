@@ -24,13 +24,12 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Website - Colletions of content to serve from HTTP(S)
 type Website struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Name string `gorm:"unique;"` // Website Name
@@ -40,10 +39,7 @@ type Website struct {
 
 // BeforeCreate - GORM hook
 func (w *Website) BeforeCreate(tx *gorm.DB) (err error) {
-	w.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	w.ID = NewUUID()
 	w.CreatedAt = time.Now()
 	return nil
 }
@@ -67,8 +63,8 @@ func (w *Website) ToProtobuf(webContentDir string) *clientpb.Website {
 
 // WebContent - One piece of content mapped to a path
 type WebContent struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	WebsiteID uuid.UUID `gorm:"type:uuid;"`
+	ID        UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	WebsiteID UUID `gorm:"type:uuid;"`
 
 	Path         string `gorm:"primaryKey"`
 	Size         uint64
@@ -79,8 +75,8 @@ type WebContent struct {
 
 // BeforeCreate - GORM hook to automatically set values
 func (wc *WebContent) BeforeCreate(tx *gorm.DB) (err error) {
-	wc.ID, err = uuid.NewV4()
-	return err
+	wc.ID = NewUUID()
+	return nil
 }
 
 // ToProtobuf - Converts to protobuf object
@@ -98,8 +94,8 @@ func (wc *WebContent) ToProtobuf(content *[]byte) *clientpb.WebContent {
 }
 
 func WebContentFromProtobuf(pbWebContent *clientpb.WebContent) WebContent {
-	siteUUID, _ := uuid.FromString(pbWebContent.ID)
-	websiteUUID, _ := uuid.FromString(pbWebContent.WebsiteID)
+	siteUUID, _ := ParseUUID(pbWebContent.ID)
+	websiteUUID, _ := ParseUUID(pbWebContent.WebsiteID)
 
 	return WebContent{
 		ID:           siteUUID,

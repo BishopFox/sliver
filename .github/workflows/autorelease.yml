@@ -39,10 +39,18 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-  release:
-    name: Release
+  e2e:
+    name: End-to-end test suites
     needs: tag-check
     if: needs.tag-check.outputs.tag != ''
+    uses: ./.github/workflows/comprehensive-e2e.yml
+
+  release:
+    name: Release
+    needs:
+      - tag-check
+      - e2e
+    if: needs.tag-check.outputs.tag != '' && needs.e2e.result == 'success'
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 45
@@ -52,10 +60,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Go 1.26.6
+      - name: Go 1.27.1
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.6"
+          go-version: "1.27.1"
 
       - name: Install Minisign
         run: sudo apt-get update --fix-missing && sudo apt-get -y install minisign

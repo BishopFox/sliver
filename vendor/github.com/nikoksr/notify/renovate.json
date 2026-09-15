@@ -1,13 +1,73 @@
 {
-  "extends": ["config:base"],
-  "assignees": ["nikoksr"],
-  "labels": ["type/deps"],
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":maintainLockFilesWeekly",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "labels": [
+    "area/dependencies",
+    "type/enhancement"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
   "packageRules": [
     {
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "automerge": true
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "matchPackageNames": [
+        "*"
+      ]
+    },
+    {
+      "groupName": "github actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ]
+    },
+    {
+      "description": "Group golangci-lint updates specifically",
+      "matchPackageNames": [
+        "golangci/golangci-lint-action"
+      ],
+      "groupName": "golangci-lint"
     }
   ],
-  "postUpdateOptions": ["gomodTidy"],
-  "dependencyDashboard": false
+  "vulnerabilityAlerts": {
+    "labels": [
+      "area/dependencies",
+      "type/bug",
+      "priority/critical"
+    ],
+    "automerge": true,
+    "assignees": [
+      "@nikoksr"
+    ]
+  },
+  "timezone": "Europe/Berlin",
+  "schedule": [
+    "before 9am on monday"
+  ]
 }
+

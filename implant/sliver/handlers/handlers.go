@@ -444,12 +444,13 @@ func cdHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	os.Chdir(cdReq.Path)
-	dir, err := os.Getwd()
-	pwd := &sliverpb.Pwd{Path: dir}
-	if err != nil {
-		resp([]byte{}, err)
-		return
+	chdirErr := os.Chdir(cdReq.Path)
+	dir, getwdErr := os.Getwd()
+	pwd := &sliverpb.Pwd{Path: dir, Response: &commonpb.Response{}}
+	if chdirErr != nil {
+		pwd.Response.Err = chdirErr.Error()
+	} else if getwdErr != nil {
+		pwd.Response.Err = getwdErr.Error()
 	}
 
 	// {{if .Config.Debug}}
@@ -984,7 +985,7 @@ func extractFiles(data []byte, path string, overwrite bool) (int, int, error) {
 					return filesWritten, filesSkipped, err
 				}
 			}
-			file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
 				file.Close()
 				return filesWritten, filesSkipped, err

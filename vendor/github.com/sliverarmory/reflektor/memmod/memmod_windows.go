@@ -42,6 +42,12 @@ type Module struct {
 	exceptionTable uintptr
 	goRuntime      bool
 	runtimeStarted bool
+	recursive      *recursiveLoadSession
+	recursiveOwner bool
+	recursivePath  string
+	recursiveMu    sync.Mutex
+	forwarders     map[string]resolvedWindowsExport
+	recursiveRange bool
 }
 
 func imageHasGoBuildInfo(data []byte) bool {
@@ -474,6 +480,12 @@ func hookRtlPcToFileHeader() error {
 
 // LoadLibrary loads module image to memory.
 func LoadLibrary(data []byte) (module *Module, err error) {
+	return loadLibrary(data, func(module *Module) error {
+		return module.buildImportTable()
+	})
+}
+
+func loadLibrary(data []byte, buildImports func(*Module) error) (module *Module, err error) {
 	addr := uintptr(unsafe.Pointer(&data[0]))
 	size := uintptr(len(data))
 	if size < unsafe.Sizeof(IMAGE_DOS_HEADER{}) {
@@ -590,7 +602,7 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 	}
 
 	// Load required dlls and adjust function table of imports.
-	err = module.buildImportTable()
+	err = buildImports(module)
 	if err != nil {
 		err = fmt.Errorf("Error building import table: %w", err)
 		return
@@ -613,12 +625,26 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 	loadedAddressRangesMu.Lock()
 	loadedAddressRanges = append(loadedAddressRanges, addressRange{module.codeBase, module.codeBase + alignedImageSize})
 	loadedAddressRangesMu.Unlock()
+	if module.recursive != nil {
+		module.recursiveRange = true
+	}
 	haveHookedRtlPcToFileHeader.Do(func() {
 		hookRtlPcToFileHeaderResult = hookRtlPcToFileHeader()
 	})
 	err = hookRtlPcToFileHeaderResult
 	if err != nil {
 		return
+	}
+	if module.recursive != nil {
+		// Recursive import resolution must understand PE forwarded exports before
+		// any initializer can call through them. Legacy loads retain their original
+		// export-table timing below.
+		_ = module.buildNameExports()
+		err = module.resolveRecursiveForwarders()
+		if err != nil {
+			err = fmt.Errorf("Error resolving forwarded exports: %w", err)
+			return
+		}
 	}
 
 	// TLS callbacks are executed BEFORE the main loading.
@@ -645,12 +671,27 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 		}
 	}
 
-	module.buildNameExports()
+	if module.recursive == nil {
+		module.buildNameExports()
+	}
 	return
 }
 
 // Free releases module resources. Started Go runtime images remain pinned.
 func (module *Module) Free() {
+	if module.recursive != nil && module.recursive.freed {
+		return
+	}
+	if module.recursiveOwner && module.recursive != nil {
+		session := module.recursive
+		module.recursiveOwner = false
+		session.free()
+		return
+	}
+	module.freeSelf()
+}
+
+func (module *Module) freeSelf() {
 	if module.goRuntime && module.runtimeStarted {
 		if module.blockedMemory != nil {
 			module.blockedMemory.free()
@@ -674,6 +715,17 @@ func (module *Module) Free() {
 		windows.RtlDeleteFunctionTable((*windows.RUNTIME_FUNCTION)(unsafe.Pointer(module.exceptionTable)))
 		module.exceptionTable = 0
 	}
+	if module.recursiveRange {
+		loadedAddressRangesMu.Lock()
+		for i := range loadedAddressRanges {
+			if loadedAddressRanges[i].start == module.codeBase {
+				loadedAddressRanges = append(loadedAddressRanges[:i], loadedAddressRanges[i+1:]...)
+				break
+			}
+		}
+		loadedAddressRangesMu.Unlock()
+		module.recursiveRange = false
+	}
 	if module.codeBase != 0 {
 		windows.VirtualFree(module.codeBase, 0, windows.MEM_RELEASE)
 		module.codeBase = 0
@@ -686,6 +738,10 @@ func (module *Module) Free() {
 
 // ProcAddressByName returns function address by exported name.
 func (module *Module) ProcAddressByName(name string) (uintptr, error) {
+	if module.recursive != nil {
+		resolved, err := module.recursiveProcAddressByName(name, make(map[string]struct{}))
+		return resolved.address, err
+	}
 	directory := module.headerDirectory(IMAGE_DIRECTORY_ENTRY_EXPORT)
 	if directory.Size == 0 {
 		return 0, errors.New("No export table found")
@@ -706,6 +762,10 @@ func (module *Module) ProcAddressByName(name string) (uintptr, error) {
 
 // ProcAddressByOrdinal returns function address by exported ordinal.
 func (module *Module) ProcAddressByOrdinal(ordinal uint16) (uintptr, error) {
+	if module.recursive != nil {
+		resolved, err := module.recursiveProcAddressByOrdinal(ordinal, make(map[string]struct{}))
+		return resolved.address, err
+	}
 	directory := module.headerDirectory(IMAGE_DIRECTORY_ENTRY_EXPORT)
 	if directory.Size == 0 {
 		return 0, errors.New("No export table found")

@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+*.jar binary
+*.ser binary
+*.png binary
