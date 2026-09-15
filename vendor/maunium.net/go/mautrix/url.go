@@ -98,10 +98,8 @@ func (saup SynapseAdminURLPath) FullPath() []any {
 // and appservice user ID set already.
 func (cli *Client) BuildURLWithQuery(urlPath PrefixableURLPath, urlQuery map[string]string) string {
 	return cli.BuildURLWithFullQuery(urlPath, func(q url.Values) {
-		if urlQuery != nil {
-			for k, v := range urlQuery {
-				q.Set(k, v)
-			}
+		for k, v := range urlQuery {
+			q.Set(k, v)
 		}
 	})
 }

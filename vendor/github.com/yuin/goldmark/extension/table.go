@@ -68,7 +68,7 @@ func NewTableConfig() TableConfig {
 }
 
 // SetOption implements renderer.SetOptioner.
-func (c *TableConfig) SetOption(name renderer.OptionName, value interface{}) {
+func (c *TableConfig) SetOption(name renderer.OptionName, value any) {
 	switch name {
 	case optTableCellAlignMethod:
 		c.TableCellAlignMethod = value.(TableCellAlignMethod)
@@ -125,12 +125,16 @@ func isTableDelim(bs []byte) bool {
 	if w, _ := util.IndentWidth(bs, 0); w > 3 {
 		return false
 	}
+	allSep := true
 	for _, b := range bs {
+		if b != '-' {
+			allSep = false
+		}
 		if !(util.IsSpace(b) || b == '-' || b == '|' || b == ':') {
 			return false
 		}
 	}
-	return true
+	return !allSep
 }
 
 var tableDelimLeft = regexp.MustCompile(`^\s*\:\-+\s*$`)
@@ -150,6 +154,7 @@ func NewTableParagraphTransformer() parser.ParagraphTransformer {
 }
 
 func (b *tableParagraphTransformer) Transform(node *gast.Paragraph, reader text.Reader, pc parser.Context) {
+	ppos := node.Pos()
 	lines := node.Lines()
 	if lines.Len() < 2 {
 		return
@@ -165,6 +170,7 @@ func (b *tableParagraphTransformer) Transform(node *gast.Paragraph, reader text.
 		}
 		table := ast.NewTable()
 		table.Alignments = alignments
+		table.SetPos(ppos)
 		table.AppendChild(table, ast.NewTableHeader(header))
 		for j := i + 1; j < lines.Len(); j++ {
 			table.AppendChild(table, b.parseRow(lines.At(j), alignments, false, reader, pc))
@@ -183,6 +189,7 @@ func (b *tableParagraphTransformer) Transform(node *gast.Paragraph, reader text.
 
 func (b *tableParagraphTransformer) parseRow(segment text.Segment,
 	alignments []ast.Alignment, isHeader bool, reader text.Reader, pc parser.Context) *ast.TableRow {
+	npos := segment
 	source := reader.Source()
 	segment = segment.TrimLeftSpace(source)
 	segment = segment.TrimRightSpace(source)
@@ -190,6 +197,7 @@ func (b *tableParagraphTransformer) parseRow(segment text.Segment,
 	pos := 0
 	limit := len(line)
 	row := ast.NewTableRow(alignments)
+	row.SetPos(npos.Start)
 	if len(line) > 0 && line[pos] == '|' {
 		pos++
 	}
@@ -209,6 +217,7 @@ func (b *tableParagraphTransformer) parseRow(segment text.Segment,
 
 		var escapedCell *escapedPipeCell
 		node := ast.NewTableCell()
+		node.SetPos(npos.Start + pos - npos.Padding)
 		node.Alignment = alignment
 		hasBacktick := false
 		closure := pos
@@ -223,7 +232,7 @@ func (b *tableParagraphTransformer) parseRow(segment text.Segment,
 					if escapedCell == nil {
 						escapedCell = &escapedPipeCell{node, []int{}, false}
 						escapedList := pc.ComputeIfAbsent(escapedPipeCellListKey,
-							func() interface{} {
+							func() any {
 								return []*escapedPipeCell{}
 							}).([]*escapedPipeCell)
 						escapedList = append(escapedList, escapedCell)
@@ -502,7 +511,12 @@ func (r *TableHTMLRenderer) renderTableCell(
 				v, ok := n.AttributeString("style")
 				var cob util.CopyOnWriteBuffer
 				if ok {
-					cob = util.NewCopyOnWriteBuffer(v.([]byte))
+					switch v := v.(type) {
+					case []byte:
+						cob = util.NewCopyOnWriteBuffer(v)
+					case string:
+						cob = util.NewCopyOnWriteBuffer([]byte(v))
+					}
 					cob.AppendByte(';')
 				}
 				style := fmt.Sprintf("text-align:%s", n.Alignment.String())

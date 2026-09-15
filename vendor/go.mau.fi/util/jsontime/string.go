@@ -8,6 +8,7 @@ package jsontime
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -18,9 +19,13 @@ func parseTimeString(data []byte, unixConv func(int64) time.Time, into *time.Tim
 	if err != nil {
 		return err
 	}
+	if strVal == "" {
+		*into = time.Time{}
+		return nil
+	}
 	val, err := strconv.ParseInt(strVal, 10, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf("jsontime: %w", err)
 	}
 	if val == 0 {
 		*into = time.Time{}

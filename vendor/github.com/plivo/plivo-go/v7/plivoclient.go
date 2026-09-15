@@ -52,6 +52,10 @@ type Client struct {
 	VerifySession               *VerifyService
 	VerifyCallerId              *VerifyCallerIdService
 	TollFreeRequestVerification *TollfreeVerificationService
+
+	PhoneNumberCompliance             *PhoneNumberComplianceService
+	PhoneNumberComplianceRequirements *PhoneNumberComplianceRequirementService
+	PhoneNumberComplianceLink         *PhoneNumberComplianceLinkService
 }
 
 /*
@@ -126,6 +130,9 @@ func NewClient(authId, authToken string, options *ClientOptions) (client *Client
 	client.VerifySession = &VerifyService{client: client}
 	client.TollFreeRequestVerification = &TollfreeVerificationService{client: client}
 	client.VerifyCallerId = &VerifyCallerIdService{client: client}
+	client.PhoneNumberCompliance = &PhoneNumberComplianceService{client: client}
+	client.PhoneNumberComplianceRequirements = &PhoneNumberComplianceRequirementService{client: client}
+	client.PhoneNumberComplianceLink = &PhoneNumberComplianceLinkService{client: client}
 	return
 }
 

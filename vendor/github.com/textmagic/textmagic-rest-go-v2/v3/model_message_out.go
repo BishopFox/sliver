@@ -42,6 +42,8 @@ type MessageOut struct {
 	Avatar NullableString `json:"avatar"`
 	// Indicates that the message has been deleted.
 	Deleted *bool `json:"deleted,omitempty"`
+	// Time when message was delivered.
+	DeliveredAt NullableTime `json:"deliveredAt,omitempty"`
 	// Message charset. Could be: *   **ISO-8859-1** for plaintext SMS; *   **UTF-16BE** for Unicode SMS. 
 	Charset NullableString `json:"charset"`
 	// Human-readable message charset label. Could be: *   **ISO-8859-1** for plaintext SMS; *   **UTF-16BE** for Unicode SMS; *   **Voice** for voice services (Text-to-Speech or Voice Broadcast) messages. 
@@ -408,6 +410,48 @@ func (o *MessageOut) HasDeleted() bool {
 // SetDeleted gets a reference to the given bool and assigns it to the Deleted field.
 func (o *MessageOut) SetDeleted(v bool) {
 	o.Deleted = &v
+}
+
+// GetDeliveredAt returns the DeliveredAt field value if set, zero value otherwise (both if not set or set to explicit null).
+func (o *MessageOut) GetDeliveredAt() time.Time {
+	if o == nil || IsNil(o.DeliveredAt.Get()) {
+		var ret time.Time
+		return ret
+	}
+	return *o.DeliveredAt.Get()
+}
+
+// GetDeliveredAtOk returns a tuple with the DeliveredAt field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
+func (o *MessageOut) GetDeliveredAtOk() (*time.Time, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return o.DeliveredAt.Get(), o.DeliveredAt.IsSet()
+}
+
+// HasDeliveredAt returns a boolean if a field has been set.
+func (o *MessageOut) HasDeliveredAt() bool {
+	if o != nil && o.DeliveredAt.IsSet() {
+		return true
+	}
+
+	return false
+}
+
+// SetDeliveredAt gets a reference to the given NullableTime and assigns it to the DeliveredAt field.
+func (o *MessageOut) SetDeliveredAt(v time.Time) {
+	o.DeliveredAt.Set(&v)
+}
+// SetDeliveredAtNil sets the value for DeliveredAt to be an explicit nil
+func (o *MessageOut) SetDeliveredAtNil() {
+	o.DeliveredAt.Set(nil)
+}
+
+// UnsetDeliveredAt ensures that no value is present for DeliveredAt, not even an explicit nil
+func (o *MessageOut) UnsetDeliveredAt() {
+	o.DeliveredAt.Unset()
 }
 
 // GetCharset returns the Charset field value
@@ -826,6 +870,9 @@ func (o MessageOut) ToMap() (map[string]interface{}, error) {
 	toSerialize["avatar"] = o.Avatar.Get()
 	if !IsNil(o.Deleted) {
 		toSerialize["deleted"] = o.Deleted
+	}
+	if o.DeliveredAt.IsSet() {
+		toSerialize["deliveredAt"] = o.DeliveredAt.Get()
 	}
 	toSerialize["charset"] = o.Charset.Get()
 	toSerialize["charsetLabel"] = o.CharsetLabel.Get()

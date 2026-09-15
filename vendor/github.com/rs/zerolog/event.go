@@ -32,6 +32,15 @@ type Event struct {
 }
 
 func putEvent(e *Event) {
+	// prevent any subsequent use of the Event contextual state and truncate the buffer
+	e.w = nil
+	e.done = nil
+	e.stack = false
+	e.ch = nil
+	e.skipFrame = 0
+	e.ctx = nil
+	e.buf = e.buf[:0]
+
 	// Proper usage of a sync.Pool requires each entry to have approximately
 	// the same memory cost. To obtain this property when the stored type
 	// contains a variably-sized buffer, we add a hard limit on the maximum buffer
@@ -39,10 +48,9 @@ func putEvent(e *Event) {
 	//
 	// See https://golang.org/issue/23199
 	const maxSize = 1 << 16 // 64KiB
-	if cap(e.buf) > maxSize {
-		return
+	if cap(e.buf) <= maxSize {
+		eventPool.Put(e)
 	}
-	eventPool.Put(e)
 }
 
 // LogObjectMarshaler provides a strongly-typed and encoding-agnostic interface
@@ -57,14 +65,15 @@ type LogArrayMarshaler interface {
 	MarshalZerologArray(a *Array)
 }
 
-func newEvent(w LevelWriter, level Level) *Event {
+func newEvent(w LevelWriter, level Level, stack bool, ctx context.Context, hooks []Hook) *Event {
 	e := eventPool.Get().(*Event)
 	e.buf = e.buf[:0]
-	e.ch = nil
+	e.stack = stack
+	e.ctx = ctx
+	e.ch = hooks
 	e.buf = enc.AppendBeginMarker(e.buf)
 	e.w = w
 	e.level = level
-	e.stack = false
 	e.skipFrame = 0
 	return e
 }
@@ -164,31 +173,58 @@ func (e *Event) Fields(fields interface{}) *Event {
 	if e == nil {
 		return e
 	}
-	e.buf = appendFields(e.buf, fields, e.stack)
+	e.buf = appendFields(e.buf, fields, e.stack, e.ctx, e.ch)
 	return e
 }
 
 // Dict adds the field key with a dict to the event context.
-// Use zerolog.Dict() to create the dictionary.
+// Use e.CreateDict() to create the dictionary.
 func (e *Event) Dict(key string, dict *Event) *Event {
-	if e == nil {
-		return e
+	if e != nil {
+		dict.buf = enc.AppendEndMarker(dict.buf)
+		e.buf = append(enc.AppendKey(e.buf, key), dict.buf...)
 	}
-	dict.buf = enc.AppendEndMarker(dict.buf)
-	e.buf = append(enc.AppendKey(e.buf, key), dict.buf...)
 	putEvent(dict)
 	return e
+}
+
+// CreateDict creates an Event to be used with the *Event.Dict method.
+// It preserves the stack, hooks, and context from the parent event.
+// Call usual field methods like Str, Int etc to add fields to this
+// event and give it as argument the *Event.Dict method.
+func (e *Event) CreateDict() *Event {
+	if e == nil {
+		return newEvent(nil, DebugLevel, false, nil, nil)
+	}
+	return newEvent(nil, DebugLevel, e.stack, e.ctx, e.ch)
 }
 
 // Dict creates an Event to be used with the *Event.Dict method.
 // Call usual field methods like Str, Int etc to add fields to this
 // event and give it as argument the *Event.Dict method.
+// NOTE: This function is deprecated because it does not preserve
+// the stack, hooks, and context from the parent event.
+// Deprecated: Use Event.CreateDict instead.
 func Dict() *Event {
-	return newEvent(nil, 0)
+	return newEvent(nil, DebugLevel, false, nil, nil)
+}
+
+// CreateArray creates an Array to be used with the *Event.Array method.
+// It preserves the stack, hooks, and context from the parent event.
+// Call usual field methods like Str, Int etc to add elements to this
+// array and give it as argument the *Event.Array method.
+func (e *Event) CreateArray() *Array {
+	a := Arr()
+	if e != nil {
+		a.stack = e.stack
+		a.ctx = e.ctx
+		a.ch = e.ch
+	}
+	return a
 }
 
 // Array adds the field key with an array to the event context.
-// Use zerolog.Arr() to create the array or pass a type that
+// Use e.CreateArray() to create the array or pass a type that
 // implement the LogArrayMarshaler interface.
 func (e *Event) Array(key string, arr LogArrayMarshaler) *Event {
 	if e == nil {
@@ -199,7 +235,7 @@ func (e *Event) Array(key string, arr LogArrayMarshaler) *Event {
 	if aa, ok := arr.(*Array); ok {
 		a = aa
 	} else {
-		a = Arr()
+		a = e.CreateArray()
 		arr.MarshalZerologArray(a)
 	}
 	e.buf = a.write(e.buf)
@@ -226,6 +262,33 @@ func (e *Event) Object(key string, obj LogObjectMarshaler) *Event {
 
 	e.appendObject(obj)
 	return e
+}
+
+// Objects adds the field key with objs as an array of objects that
+// implement the LogObjectMarshaler interface to the event.
+//
+// This is the array version that accepts a slice of LogObjectMarshaler objects.
+func (e *Event) Objects(key string, objs []LogObjectMarshaler) *Event {
+	if e == nil {
+		return e
+	}
+	e.buf = enc.AppendArrayStart(enc.AppendKey(e.buf, key))
+	for i, obj := range objs {
+		e.buf = appendObject(e.buf, obj, e.stack, e.ctx, e.ch)
+		if i < (len(objs) - 1) {
+			e.buf = enc.AppendArrayDelim(e.buf)
+		}
+	}
+	e.buf = enc.AppendArrayEnd(e.buf)
+	return e
+}
+
+// ObjectsV adds the field key with objs as an array of objects that
+// implement the LogObjectMarshaler interface to the event.
+//
+// This is a variadic version that accepts a list of individual LogObjectMarshaler objects.
+func (e *Event) ObjectsV(key string, objs ...LogObjectMarshaler) *Event {
+	return e.Objects(key, objs)
 }
 
 // Func allows an anonymous func to run only if the event is enabled.
@@ -258,6 +321,8 @@ func (e *Event) Str(key, val string) *Event {
 }
 
 // Strs adds the field key with vals as a []string to the *Event context.
+//
+// This is the array version that accepts a slice of string values.
 func (e *Event) Strs(key string, vals []string) *Event {
 	if e == nil {
 		return e
@@ -266,8 +331,16 @@ func (e *Event) Strs(key string, vals []string) *Event {
 	return e
 }
 
-// Stringer adds the field key with val.String() (or null if val is nil)
-// to the *Event context.
+// StrsV adds the field key with vals as a []string to the *Event context.
+//
+// This is a variadic version that accepts a list of individual strings.
+func (e *Event) StrsV(key string, vals ...string) *Event {
+	return e.Strs(key, vals)
+}
+
+// Stringer adds the field key and a val to the *Event context.
+// If val is not nil, it is added by calling val.String().
+// If val is nil, it is encoded as null without calling String().
 func (e *Event) Stringer(key string, val fmt.Stringer) *Event {
 	if e == nil {
 		return e
@@ -276,15 +349,27 @@ func (e *Event) Stringer(key string, val fmt.Stringer) *Event {
 	return e
 }
 
-// Stringers adds the field key with vals where each individual val
-// is used as val.String() (or null if val is empty) to the *Event
-// context.
+// Stringers adds the field key with vals to the *Event context.
+// If a val is not nil, it is added by calling val.String().
+// If a val is nil, it is encoded as null without calling String().
+//
+// This is the array version that accepts a slice of fmt.Stringer values.
 func (e *Event) Stringers(key string, vals []fmt.Stringer) *Event {
 	if e == nil {
 		return e
 	}
 	e.buf = enc.AppendStringers(enc.AppendKey(e.buf, key), vals)
 	return e
+}
+
+// StringersV adds the field key with vals to the *Event context.
+// If a val is not nil, it is added by calling val.String().
+// If a val is nil, it is encoded as null without calling String().
+//
+// This is a variadic version that accepts a list of individual
+// fmt.Stringer values.
+func (e *Event) StringersV(key string, vals ...fmt.Stringer) *Event {
+	return e.Stringers(key, vals)
 }
 
 // Bytes adds the field key with val as a string to the *Event context.
@@ -344,11 +429,10 @@ func (e *Event) AnErr(key string, err error) *Event {
 	case LogObjectMarshaler:
 		return e.Object(key, m)
 	case error:
-		if m == nil || isNilValue(m) {
+		if isNilValue(m) {
 			return e
-		} else {
-			return e.Str(key, m.Error())
 		}
+		return e.Str(key, m.Error())
 	case string:
 		return e.Str(key, m)
 	default:
@@ -362,20 +446,7 @@ func (e *Event) Errs(key string, errs []error) *Event {
 	if e == nil {
 		return e
 	}
-	arr := Arr()
-	for _, err := range errs {
-		switch m := ErrorMarshalFunc(err).(type) {
-		case LogObjectMarshaler:
-			arr = arr.Object(m)
-		case error:
-			arr = arr.Err(m)
-		case string:
-			arr = arr.Str(m)
-		default:
-			arr = arr.Interface(m)
-		}
-	}
-
+	arr := e.CreateArray().Errs(errs)
 	return e.Array(key, arr)
 }
 
@@ -391,21 +462,23 @@ func (e *Event) Err(err error) *Event {
 	if e == nil {
 		return e
 	}
+
 	if e.stack && ErrorStackMarshaler != nil {
 		switch m := ErrorStackMarshaler(err).(type) {
 		case nil:
+			// ErrorStackMarshaler returned nil — the error has no stack trace to
+			// attach. Fall through and still log the error via AnErr below.
 		case LogObjectMarshaler:
-			e.Object(ErrorStackFieldName, m)
+			e = e.Object(ErrorStackFieldName, m)
 		case error:
-			if m != nil && !isNilValue(m) {
-				e.Str(ErrorStackFieldName, m.Error())
-			}
+			e = e.Str(ErrorStackFieldName, m.Error())
 		case string:
-			e.Str(ErrorStackFieldName, m)
+			e = e.Str(ErrorStackFieldName, m)
 		default:
-			e.Interface(ErrorStackFieldName, m)
+			e = e.Interface(ErrorStackFieldName, m)
 		}
 	}
+
 	return e.AnErr(ErrorFieldName, err)
 }
 
@@ -431,8 +504,8 @@ func (e *Event) Ctx(ctx context.Context) *Event {
 }
 
 // GetCtx retrieves the Go context.Context which is optionally stored in the
-// Event.  This allows Hooks and functions passed to Func() to retrieve values
-// which are stored in the context.Context.  This can be useful in tracing,
+// Event. This allows Hooks and functions passed to Func() to retrieve values
+// which are stored in the context.Context. This can be useful in tracing,
 // where span information is commonly propagated in the context.Context.
 func (e *Event) GetCtx() context.Context {
 	if e == nil || e.ctx == nil {
@@ -713,7 +786,7 @@ func (e *Event) Dur(key string, d time.Duration) *Event {
 	if e == nil {
 		return e
 	}
-	e.buf = enc.AppendDuration(enc.AppendKey(e.buf, key), d, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+	e.buf = enc.AppendDuration(enc.AppendKey(e.buf, key), d, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 	return e
 }
 
@@ -724,7 +797,7 @@ func (e *Event) Durs(key string, d []time.Duration) *Event {
 	if e == nil {
 		return e
 	}
-	e.buf = enc.AppendDurations(enc.AppendKey(e.buf, key), d, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+	e.buf = enc.AppendDurations(enc.AppendKey(e.buf, key), d, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 	return e
 }
 
@@ -739,7 +812,7 @@ func (e *Event) TimeDiff(key string, t time.Time, start time.Time) *Event {
 	if t.After(start) {
 		d = t.Sub(start)
 	}
-	e.buf = enc.AppendDuration(enc.AppendKey(e.buf, key), d, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+	e.buf = enc.AppendDuration(enc.AppendKey(e.buf, key), d, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 	return e
 }
 
@@ -794,15 +867,13 @@ func (e *Event) caller(skip int) *Event {
 	if e == nil {
 		return e
 	}
-	pc, file, line, ok := runtime.Caller(skip + e.skipFrame)
-	if !ok {
-		return e
+	if pc, file, line, ok := runtime.Caller(skip + e.skipFrame); ok {
+		e.buf = enc.AppendString(enc.AppendKey(e.buf, CallerFieldName), CallerMarshalFunc(pc, file, line))
 	}
-	e.buf = enc.AppendString(enc.AppendKey(e.buf, CallerFieldName), CallerMarshalFunc(pc, file, line))
 	return e
 }
 
-// IPAddr adds IPv4 or IPv6 Address to the event
+// IPAddr adds the field key with ip as a net.IP IPv4 or IPv6 Address to the event
 func (e *Event) IPAddr(key string, ip net.IP) *Event {
 	if e == nil {
 		return e
@@ -811,7 +882,16 @@ func (e *Event) IPAddr(key string, ip net.IP) *Event {
 	return e
 }
 
-// IPPrefix adds IPv4 or IPv6 Prefix (address and mask) to the event
+// IPAddrs adds the field key with ip as a net.IP array of IPv4 or IPv6 Address to the event
+func (e *Event) IPAddrs(key string, ip []net.IP) *Event {
+	if e == nil {
+		return e
+	}
+	e.buf = enc.AppendIPAddrs(enc.AppendKey(e.buf, key), ip)
+	return e
+}
+
+// IPPrefix adds the field key with pfx as a net.IPNet IPv4 or IPv6 Prefix (address and mask) to the event
 func (e *Event) IPPrefix(key string, pfx net.IPNet) *Event {
 	if e == nil {
 		return e
@@ -820,7 +900,16 @@ func (e *Event) IPPrefix(key string, pfx net.IPNet) *Event {
 	return e
 }
 
-// MACAddr adds MAC address to the event
+// IPPrefixes the field key with pfx as a net.IPNet array of IPv4 or IPv6 Prefixes (address and mask) to the event
+func (e *Event) IPPrefixes(key string, pfx []net.IPNet) *Event {
+	if e == nil {
+		return e
+	}
+	e.buf = enc.AppendIPPrefixes(enc.AppendKey(e.buf, key), pfx)
+	return e
+}
+
+// MACAddr the field key with ha as a net.HardwareAddr MAC address to the event
 func (e *Event) MACAddr(key string, ha net.HardwareAddr) *Event {
 	if e == nil {
 		return e

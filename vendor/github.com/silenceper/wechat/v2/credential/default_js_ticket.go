@@ -56,7 +56,9 @@ func (js *DefaultJsTicket) GetTicketContext(ctx context2.Context, accessToken st
 	// 先从cache中取
 	jsAPITicketCacheKey := fmt.Sprintf("%s_jsapi_ticket_%s", js.cacheKeyPrefix, js.appID)
 	if val := js.cache.Get(jsAPITicketCacheKey); val != nil {
-		return val.(string), nil
+		if ticketStr = val.(string); ticketStr != "" {
+			return
+		}
 	}
 
 	js.jsAPITicketLock.Lock()
@@ -64,7 +66,9 @@ func (js *DefaultJsTicket) GetTicketContext(ctx context2.Context, accessToken st
 
 	// 双检，防止重复从微信服务器获取
 	if val := js.cache.Get(jsAPITicketCacheKey); val != nil {
-		return val.(string), nil
+		if ticketStr = val.(string); ticketStr != "" {
+			return
+		}
 	}
 
 	var ticket ResTicket

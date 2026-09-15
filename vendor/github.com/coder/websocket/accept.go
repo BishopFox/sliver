@@ -90,7 +90,7 @@ func (opts *AcceptOptions) cloneWithDefaults() *AcceptOptions {
 }
 
 // Accept accepts a WebSocket handshake from a client and upgrades the
-// the connection to a WebSocket.
+// connection to a WebSocket.
 //
 // Accept will not allow cross origin requests by default.
 // See the InsecureSkipVerify and OriginPatterns options to allow cross origin requests.

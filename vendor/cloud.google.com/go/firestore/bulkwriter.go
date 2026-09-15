@@ -27,6 +27,7 @@ import (
 	"google.golang.org/api/support/bundler"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -186,7 +187,10 @@ func (bw *BulkWriter) Create(doc *DocumentRef, datum interface{}) (*BulkWriterJo
 		return nil, fmt.Errorf("firestore: too many document writes sent to bulkwriter")
 	}
 
-	j := bw.write(w[0])
+	j, err := bw.write(w[0])
+	if err != nil {
+		return nil, err
+	}
 	return j, nil
 }
 
@@ -209,7 +213,10 @@ func (bw *BulkWriter) Delete(doc *DocumentRef, preconds ...Precondition) (*BulkW
 		return nil, fmt.Errorf("firestore: too many document writes sent to bulkwriter")
 	}
 
-	j := bw.write(w[0])
+	j, err := bw.write(w[0])
+	if err != nil {
+		return nil, err
+	}
 	return j, nil
 }
 
@@ -232,7 +239,10 @@ func (bw *BulkWriter) Set(doc *DocumentRef, datum interface{}, opts ...SetOption
 		return nil, fmt.Errorf("firestore: too many writes sent to bulkwriter")
 	}
 
-	j := bw.write(w[0])
+	j, err := bw.write(w[0])
+	if err != nil {
+		return nil, err
+	}
 	return j, nil
 }
 
@@ -255,7 +265,10 @@ func (bw *BulkWriter) Update(doc *DocumentRef, updates []Update, preconds ...Pre
 		return nil, fmt.Errorf("firestore: too many writes sent to bulkwriter")
 	}
 
-	j := bw.write(w[0])
+	j, err := bw.write(w[0])
+	if err != nil {
+		return nil, err
+	}
 	return j, nil
 }
 
@@ -284,20 +297,23 @@ func (bw *BulkWriter) checkWriteConditions(doc *DocumentRef) error {
 }
 
 // write packages up write requests into bulkWriterJob objects.
-func (bw *BulkWriter) write(w *pb.Write) *BulkWriterJob {
-
+func (bw *BulkWriter) write(w *pb.Write) (*BulkWriterJob, error) {
 	j := &BulkWriterJob{
 		resultChan: make(chan bulkWriterResult, 1),
 		write:      w,
 		ctx:        bw.ctx,
 	}
 
-	bw.limiter.Wait(bw.ctx)
-	// ignore operation size constraints and related errors; can't be inferred at compile time
-	// Bundler is set to accept an unlimited amount of bytes
-	_ = bw.bundler.Add(j, 0)
+	if err := bw.limiter.Wait(bw.ctx); err != nil {
+		return nil, err
+	}
 
-	return j
+	estimatedSize := proto.Size(w)
+	if err := bw.bundler.AddWait(bw.ctx, j, estimatedSize); err != nil {
+		return nil, err
+	}
+
+	return j, nil
 }
 
 // send transmits writes to the service and matches response results to job channels.
@@ -321,6 +337,9 @@ func (bw *BulkWriter) send(i interface{}) {
 
 	select {
 	case <-bw.ctx.Done():
+		for _, j := range bwj {
+			j.setError(bw.ctx.Err())
+		}
 		return
 	default:
 		resp, err := bw.vc.BatchWrite(bw.ctx, bwr)
@@ -342,9 +361,19 @@ func (bw *BulkWriter) send(i interface{}) {
 				// Do we need separate retry bundler?
 				_, isRetryable := batchWriteRetryCodes[codes.Code(s.Code)]
 				if j.attempts < maxRetryAttempts && isRetryable {
-					// ignore operation size constraints and related errors; job size can't be inferred at compile time
-					// Bundler is set to accept an unlimited amount of bytes
-					_ = bw.bundler.Add(j, 0)
+					// Re-queue the job for retry. We use a size of 0 here for two reasons:
+					// 1. Consistency: Since the BulkWriter uses AddWait for backpressure,
+					//    we must continue using AddWait to avoid a "mixed methods" error from
+					//    the bundler.
+					// 2. Deadlock Prevention: The send() function runs within the bundler's
+					//    handler. The memory for this job was already accounted for during the
+					//    initial write() and will not be released until this handler returns.
+					//    Attempting to acquire additional weight here could cause a deadlock
+					//    if the buffer is full.
+					err := bw.bundler.AddWait(bw.ctx, j, 0)
+					if err != nil {
+						j.setError(fmt.Errorf("firestore: bulk write retry failed %w original error %v", err, status.Error(codes.Code(s.Code), s.Message)))
+					}
 				} else {
 					j.setError(status.Error(codes.Code(s.Code), s.Message))
 				}

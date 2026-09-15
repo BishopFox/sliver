@@ -1,6 +1,6 @@
 package mailgun
 
-// https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/tag/Webhooks/#tag/Webhooks
+// https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/domain-webhooks
 
 import (
 	"context"
@@ -44,6 +44,9 @@ func (mg *Client) CreateWebhook(ctx context.Context, domain, id string, urls []s
 	r := newHTTPRequest(generateV3DomainsApiUrl(mg, webhooksEndpoint, domain))
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
+
+	// TODO(vtopc): should be "multipart/form-data" (NewFormDataPayload) according to the docs:
+	// https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/domain-webhooks/post-v3-domains--domain--webhooks
 	p := newUrlEncodedPayload()
 	p.addValue("id", id)
 	for _, url := range urls {
@@ -94,7 +97,8 @@ func (mg *Client) UpdateWebhook(ctx context.Context, domain, name string, urls [
 	return err
 }
 
-// VerifyWebhookSignature - use this method to parse the webhook signature given as JSON in the webhook response
+// VerifyWebhookSignature - use this method to parse the Mailgun Send webhook signature given as JSON in the webhook response.
+// If you need to validate Alerts webhooks, use VerifyAlertsWebhookSignFromRequest or VerifyAlertsWebhookSign instead.
 func (mg *Client) VerifyWebhookSignature(sig mtypes.Signature) (verified bool, err error) {
 	webhookSigningKey := mg.WebhookSigningKey()
 	if webhookSigningKey == "" {

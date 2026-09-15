@@ -7,7 +7,7 @@
 package event
 
 import (
-	"encoding/gob"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -40,6 +40,12 @@ var TypeMap = map[Type]reflect.Type{
 	StateSpaceParent:       reflect.TypeOf(SpaceParentEventContent{}),
 	StateSpaceChild:        reflect.TypeOf(SpaceChildEventContent{}),
 
+	StateRoomPolicy:         reflect.TypeOf(RoomPolicyEventContent{}),
+	StateUnstableRoomPolicy: reflect.TypeOf(RoomPolicyEventContent{}),
+
+	StateImagePack:         reflect.TypeOf(ImagePackEventContent{}),
+	StateUnstableImagePack: reflect.TypeOf(ImagePackEventContent{}),
+
 	StateLegacyPolicyRoom:     reflect.TypeOf(ModPolicyContent{}),
 	StateLegacyPolicyServer:   reflect.TypeOf(ModPolicyContent{}),
 	StateLegacyPolicyUser:     reflect.TypeOf(ModPolicyContent{}),
@@ -50,7 +56,6 @@ var TypeMap = map[Type]reflect.Type{
 	StateElementFunctionalMembers: reflect.TypeOf(ElementFunctionalMembersContent{}),
 	StateBeeperRoomFeatures:       reflect.TypeOf(RoomFeatures{}),
 	StateBeeperDisappearingTimer:  reflect.TypeOf(BeeperDisappearingTimer{}),
-	StateBotCommands:              reflect.TypeOf(BotCommandsEventContent{}),
 
 	EventMessage:   reflect.TypeOf(MessageEventContent{}),
 	EventSticker:   reflect.TypeOf(MessageEventContent{}),
@@ -61,16 +66,22 @@ var TypeMap = map[Type]reflect.Type{
 	EventUnstablePollStart:    reflect.TypeOf(PollStartEventContent{}),
 	EventUnstablePollResponse: reflect.TypeOf(PollResponseEventContent{}),
 
-	BeeperMessageStatus: reflect.TypeOf(BeeperMessageStatusEventContent{}),
-	BeeperTranscription: reflect.TypeOf(BeeperTranscriptionEventContent{}),
-	BeeperDeleteChat:    reflect.TypeOf(BeeperChatDeleteEventContent{}),
+	BeeperMessageStatus:        reflect.TypeOf(BeeperMessageStatusEventContent{}),
+	BeeperTranscription:        reflect.TypeOf(BeeperTranscriptionEventContent{}),
+	BeeperDeleteChat:           reflect.TypeOf(BeeperChatDeleteEventContent{}),
+	BeeperAcceptMessageRequest: reflect.TypeOf(BeeperAcceptMessageRequestEventContent{}),
+	BeeperSendState:            reflect.TypeOf(BeeperSendStateEventContent{}),
 
-	AccountDataRoomTags:        reflect.TypeOf(TagEventContent{}),
-	AccountDataDirectChats:     reflect.TypeOf(DirectChatsEventContent{}),
-	AccountDataFullyRead:       reflect.TypeOf(FullyReadEventContent{}),
-	AccountDataIgnoredUserList: reflect.TypeOf(IgnoredUserListEventContent{}),
-	AccountDataMarkedUnread:    reflect.TypeOf(MarkedUnreadEventContent{}),
-	AccountDataBeeperMute:      reflect.TypeOf(BeeperMuteEventContent{}),
+	AccountDataRoomTags:           reflect.TypeOf(TagEventContent{}),
+	AccountDataDirectChats:        reflect.TypeOf(DirectChatsEventContent{}),
+	AccountDataFullyRead:          reflect.TypeOf(FullyReadEventContent{}),
+	AccountDataIgnoredUserList:    reflect.TypeOf(IgnoredUserListEventContent{}),
+	AccountDataMarkedUnread:       reflect.TypeOf(MarkedUnreadEventContent{}),
+	AccountDataBeeperMute:         reflect.TypeOf(BeeperMuteEventContent{}),
+	AccountDataPerMessageProfiles: reflect.TypeOf(PerMessageProfilesEventContent{}),
+
+	AccountDataImagePackRooms:         reflect.TypeOf(ImagePackRoomsEventContent{}),
+	AccountDataUnstableImagePackRooms: reflect.TypeOf(ImagePackRoomsEventContent{}),
 
 	EphemeralEventTyping:   reflect.TypeOf(TypingEventContent{}),
 	EphemeralEventReceipt:  reflect.TypeOf(ReceiptEventContent{}),
@@ -87,6 +98,7 @@ var TypeMap = map[Type]reflect.Type{
 
 	ToDeviceRoomKey:          reflect.TypeOf(RoomKeyEventContent{}),
 	ToDeviceForwardedRoomKey: reflect.TypeOf(ForwardedRoomKeyEventContent{}),
+	ToDeviceRoomKeyBundle:    reflect.TypeOf(RoomKeyBundleEventContent{}),
 	ToDeviceRoomKeyRequest:   reflect.TypeOf(RoomKeyRequestEventContent{}),
 	ToDeviceEncrypted:        reflect.TypeOf(EncryptedEventContent{}),
 	ToDeviceRoomKeyWithheld:  reflect.TypeOf(RoomKeyWithheldEventContent{}),
@@ -106,7 +118,9 @@ var TypeMap = map[Type]reflect.Type{
 
 	ToDeviceOrgMatrixRoomKeyWithheld: reflect.TypeOf(RoomKeyWithheldEventContent{}),
 
-	ToDeviceBeeperRoomKeyAck: reflect.TypeOf(BeeperRoomKeyAckEventContent{}),
+	ToDeviceBeeperRoomKeyAck:      reflect.TypeOf(BeeperRoomKeyAckEventContent{}),
+	ToDeviceBeeperStreamSubscribe: reflect.TypeOf(BeeperStreamSubscribeEventContent{}),
+	ToDeviceBeeperStreamUpdate:    reflect.TypeOf(BeeperStreamUpdateEventContent{}),
 
 	CallInvite:       reflect.TypeOf(CallInviteEventContent{}),
 	CallCandidates:   reflect.TypeOf(CallCandidatesEventContent{}),
@@ -140,7 +154,7 @@ type Relatable interface {
 }
 
 func (content *Content) UnmarshalJSON(data []byte) error {
-	content.VeryRaw = data
+	content.VeryRaw = bytes.Clone(data)
 	err := json.Unmarshal(data, &content.Raw)
 	return err
 }
@@ -227,42 +241,6 @@ func mergeMaps(into, from map[string]interface{}) {
 			into[key] = newValue
 		}
 	}
-}
-
-func init() {
-	gob.Register(&MemberEventContent{})
-	gob.Register(&PowerLevelsEventContent{})
-	gob.Register(&CanonicalAliasEventContent{})
-	gob.Register(&EncryptionEventContent{})
-	gob.Register(&BridgeEventContent{})
-	gob.Register(&SpaceChildEventContent{})
-	gob.Register(&SpaceParentEventContent{})
-	gob.Register(&ElementFunctionalMembersContent{})
-	gob.Register(&RoomNameEventContent{})
-	gob.Register(&RoomAvatarEventContent{})
-	gob.Register(&TopicEventContent{})
-	gob.Register(&TombstoneEventContent{})
-	gob.Register(&CreateEventContent{})
-	gob.Register(&JoinRulesEventContent{})
-	gob.Register(&HistoryVisibilityEventContent{})
-	gob.Register(&GuestAccessEventContent{})
-	gob.Register(&PinnedEventsEventContent{})
-	gob.Register(&MessageEventContent{})
-	gob.Register(&MessageEventContent{})
-	gob.Register(&EncryptedEventContent{})
-	gob.Register(&RedactionEventContent{})
-	gob.Register(&ReactionEventContent{})
-	gob.Register(&TagEventContent{})
-	gob.Register(&DirectChatsEventContent{})
-	gob.Register(&FullyReadEventContent{})
-	gob.Register(&IgnoredUserListEventContent{})
-	gob.Register(&TypingEventContent{})
-	gob.Register(&ReceiptEventContent{})
-	gob.Register(&PresenceEventContent{})
-	gob.Register(&RoomKeyEventContent{})
-	gob.Register(&ForwardedRoomKeyEventContent{})
-	gob.Register(&RoomKeyRequestEventContent{})
-	gob.Register(&RoomKeyWithheldEventContent{})
 }
 
 func CastOrDefault[T any](content *Content) *T {
@@ -507,6 +485,22 @@ func (content *Content) AsRoomKeyWithheld() *RoomKeyWithheldEventContent {
 	}
 	return casted
 }
+func (content *Content) AsBeeperStreamSubscribe() *BeeperStreamSubscribeEventContent {
+	casted, ok := content.Parsed.(*BeeperStreamSubscribeEventContent)
+	if !ok {
+		return &BeeperStreamSubscribeEventContent{}
+	}
+	return casted
+}
+
+func (content *Content) AsBeeperStreamUpdate() *BeeperStreamUpdateEventContent {
+	casted, ok := content.Parsed.(*BeeperStreamUpdateEventContent)
+	if !ok {
+		return &BeeperStreamUpdateEventContent{}
+	}
+	return casted
+}
+
 func (content *Content) AsCallInvite() *CallInviteEventContent {
 	casted, ok := content.Parsed.(*CallInviteEventContent)
 	if !ok {

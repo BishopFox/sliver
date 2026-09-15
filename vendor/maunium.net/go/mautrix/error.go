@@ -80,11 +80,31 @@ var (
 )
 
 var (
+	ErrOAuthInvalidRequest        = RespError{ErrCode: "invalid_request", OAuth: true}
+	ErrOAuthInvalidClient         = RespError{ErrCode: "invalid_client", OAuth: true}
+	ErrOAuthInvalidGrant          = RespError{ErrCode: "invalid_grant", OAuth: true}
+	ErrOAuthUnauthorizedClient    = RespError{ErrCode: "unauthorized_client", OAuth: true}
+	ErrOAuthUnauthorizedGrantType = RespError{ErrCode: "unauthorized_grant_type", OAuth: true}
+	ErrOAuthInvalidScope          = RespError{ErrCode: "invalid_scope", OAuth: true}
+	ErrOAuthAuthorizationPending  = RespError{ErrCode: "authorization_pending", OAuth: true}
+	ErrOAuthSlowDown              = RespError{ErrCode: "slow_down", OAuth: true}
+	ErrOAuthExpiredToken          = RespError{ErrCode: "expired_token", OAuth: true}
+	ErrOAuthAccessDenied          = RespError{ErrCode: "access_denied", OAuth: true}
+)
+
+var (
 	ErrClientIsNil           = errors.New("client is nil")
 	ErrClientHasNoHomeserver = errors.New("client has no homeserver set")
 
+	ErrFailedToRefreshToken = errors.New("failed to refresh access token")
+	ErrClientIDNotSet       = errors.New("client ID not set")
+
 	ErrResponseTooLong      = errors.New("response content length too long")
 	ErrBodyReadReachedLimit = errors.New("reached response size limit while reading body")
+
+	// Special error that indicates we should retry canceled contexts. Note that on it's own this
+	// is useless, the context itself must also be replaced.
+	ErrContextCancelRetry = errors.New("retry canceled context")
 )
 
 // HTTPError An HTTP Error response, which may wrap an underlying native Go Error.
@@ -110,14 +130,21 @@ func (e HTTPError) Error() string {
 	if e.WrappedError != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.WrappedError)
 	} else if e.RespError != nil {
-		return fmt.Sprintf("%s (HTTP %d): %s", e.RespError.ErrCode, e.Response.StatusCode, e.RespError.Err)
-	} else {
+		msg := e.RespError.Err
+		if e.RespError.InternalError != "" {
+			msg = e.RespError.InternalError
+		}
+		return fmt.Sprintf("%s (HTTP %d): %s", e.RespError.ErrCode, e.Response.StatusCode, msg)
+	} else if e.Response != nil {
 		msg := fmt.Sprintf("HTTP %d", e.Response.StatusCode)
 		if len(e.ResponseBody) > 0 {
 			msg = fmt.Sprintf("%s: %s", msg, e.ResponseBody)
 		}
 		return msg
+	} else if e.Message != "" {
+		return e.Message
 	}
+	return "unexpected empty error"
 }
 
 func (e HTTPError) Unwrap() error {
@@ -136,7 +163,12 @@ type RespError struct {
 	Err       string
 	ExtraData map[string]any
 
-	StatusCode int
+	StatusCode  int
+	ExtraHeader map[string]string
+
+	CanRetry      bool
+	OAuth         bool
+	InternalError string
 }
 
 func (e *RespError) UnmarshalJSON(data []byte) error {
@@ -146,13 +178,38 @@ func (e *RespError) UnmarshalJSON(data []byte) error {
 	}
 	e.ErrCode, _ = e.ExtraData["errcode"].(string)
 	e.Err, _ = e.ExtraData["error"].(string)
+	e.CanRetry, _ = e.ExtraData["com.beeper.can_retry"].(bool)
+	e.InternalError, _ = e.ExtraData["fi.mau.internal_error"].(string)
 	return nil
+}
+
+func (e *RespError) mutateOAuthError() {
+	if e.ErrCode == "" && e.Err != "" {
+		e.ErrCode = e.Err
+		e.Err, _ = e.ExtraData["error_description"].(string)
+		e.OAuth = true
+	}
 }
 
 func (e *RespError) MarshalJSON() ([]byte, error) {
 	data := exmaps.NonNilClone(e.ExtraData)
-	data["errcode"] = e.ErrCode
-	data["error"] = e.Err
+	if e.OAuth {
+		data["error"] = e.ErrCode
+		data["error_description"] = e.Err
+	} else {
+		data["errcode"] = e.ErrCode
+		data["error"] = e.Err
+	}
+	if e.CanRetry {
+		data["com.beeper.can_retry"] = e.CanRetry
+	} else {
+		delete(data, "com.beeper.can_retry")
+	}
+	if e.InternalError != "" {
+		data["fi.mau.internal_error"] = e.InternalError
+	} else {
+		delete(data, "fi.mau.internal_error")
+	}
 	return json.Marshal(data)
 }
 
@@ -163,6 +220,9 @@ func (e RespError) Write(w http.ResponseWriter) {
 	statusCode := e.StatusCode
 	if statusCode == 0 {
 		statusCode = http.StatusInternalServerError
+	}
+	for key, value := range e.ExtraHeader {
+		w.Header().Set(key, value)
 	}
 	exhttp.WriteJSONResponse(w, statusCode, &e)
 }
@@ -180,14 +240,49 @@ func (e RespError) WithStatus(status int) RespError {
 	return e
 }
 
+func (e RespError) WithCanRetry(canRetry bool) RespError {
+	e.CanRetry = canRetry
+	return e
+}
+
+func (e RespError) WithInternalError(err error) RespError {
+	e.InternalError = err.Error()
+	return e
+}
+
 func (e RespError) WithExtraData(extraData map[string]any) RespError {
 	e.ExtraData = exmaps.NonNilClone(e.ExtraData)
 	maps.Copy(e.ExtraData, extraData)
 	return e
 }
 
+func (e RespError) WithExtraField(key string, value any) RespError {
+	e.ExtraData = exmaps.NonNilClone(e.ExtraData)
+	e.ExtraData[key] = value
+	return e
+}
+
+func (e RespError) WithExtraHeader(key, value string) RespError {
+	e.ExtraHeader = exmaps.NonNilClone(e.ExtraHeader)
+	e.ExtraHeader[key] = value
+	return e
+}
+
+func (e RespError) WithExtraHeaders(headers map[string]string) RespError {
+	e.ExtraHeader = exmaps.NonNilClone(e.ExtraHeader)
+	maps.Copy(e.ExtraHeader, headers)
+	return e
+}
+
 // Error returns the errcode and error message.
 func (e RespError) Error() string {
+	if e.OAuth {
+		prefix := "oauth: "
+		if e.Err != "" {
+			return prefix + e.ErrCode + ": " + e.Err
+		}
+		return prefix + e.ErrCode
+	}
 	return e.ErrCode + ": " + e.Err
 }
 

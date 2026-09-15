@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"strconv"
 	"strings"
@@ -90,9 +91,7 @@ func (a *AlertService) GetAlertsInRange(start time.Time, end time.Time, data url
 		panic("start date is after end date")
 	}
 	d := url.Values{}
-	for k, v := range data {
-		d[k] = v
-	}
+	maps.Copy(d, data)
 	d.Del("Page") // just in case
 	if start != Epoch {
 		startFormat := start.UTC().Format(time.RFC3339)
@@ -222,8 +221,8 @@ func (a *Alert) description() string {
 			if msg == "" {
 				break
 			}
-			if idx := strings.Index(msg, "over"); idx >= 0 {
-				return msg[:idx]
+			if before, _, ok := strings.Cut(msg, "over"); ok {
+				return before
 			}
 			return msg
 		case CodeDocumentParseFailure:

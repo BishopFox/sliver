@@ -21,9 +21,6 @@ import (
 )
 
 // AggregateFunction represents an aggregation function in a pipeline.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 type AggregateFunction interface {
 	toProto() (*pb.Value, error)
 	getBaseAggregateFunction() *baseAggregateFunction
@@ -37,13 +34,13 @@ type baseAggregateFunction struct {
 	err   error
 }
 
-func newBaseAggregateFunction(name string, fieldOrExpr any) *baseAggregateFunction {
+func newBaseAggregateFunction(name string, args ...any) *baseAggregateFunction {
 	var argsPbVals []*pb.Value
 	var err error
 
-	if fieldOrExpr != nil {
+	for _, arg := range args {
 		var valueExpr Expression
-		switch value := fieldOrExpr.(type) {
+		switch value := arg.(type) {
 		case string:
 			valueExpr = FieldOf(value)
 		case FieldPath:
@@ -60,6 +57,10 @@ func newBaseAggregateFunction(name string, fieldOrExpr any) *baseAggregateFuncti
 			if err == nil {
 				argsPbVals = append(argsPbVals, pbVal)
 			}
+		}
+
+		if err != nil {
+			break
 		}
 	}
 
@@ -86,7 +87,7 @@ func (b *baseAggregateFunction) toProto() (*pb.Value, error) {
 func (b *baseAggregateFunction) getBaseAggregateFunction() *baseAggregateFunction { return b }
 func (b *baseAggregateFunction) isAggregateFunction()                             {}
 func (b *baseAggregateFunction) As(alias string) *AliasedAggregate {
-	return &AliasedAggregate{baseAggregateFunction: b, alias: alias}
+	return &AliasedAggregate{aggregate: b, alias: alias}
 }
 
 // Ensure that baseAggregateFunction implements the AggregateFunction interface.
@@ -94,12 +95,21 @@ var _ AggregateFunction = (*baseAggregateFunction)(nil)
 
 // AliasedAggregate is an aliased [AggregateFunction].
 // It's used to give a name to the result of an aggregation.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 type AliasedAggregate struct {
-	*baseAggregateFunction
-	alias string
+	aggregate AggregateFunction
+	alias     string
+}
+
+// RawAggregate creates a raw aggregation function.
+//
+// This method provides a way to call aggregation functions that are supported by the Firestore
+// backend but that are not available as specific factory methods in this class.
+//
+// Example:
+//
+//	RawAggregate("sum", "orderAmount").As("totalRevenue")
+func RawAggregate(name string, fieldOrExprs ...any) AggregateFunction {
+	return newBaseAggregateFunction(name, fieldOrExprs...)
 }
 
 // Sum creates an aggregation that calculates the sum of values from an expression or a field's values
@@ -110,9 +120,6 @@ type AliasedAggregate struct {
 //		// Calculate the total revenue from a set of orders
 //		Sum(FieldOf("orderAmount")).As("totalRevenue") // FieldOf returns Expr
 //	 	Sum("orderAmount").As("totalRevenue")          // String implicitly becomes FieldOf(...).As(...)
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func Sum(fieldOrExpr any) AggregateFunction {
 	return newBaseAggregateFunction("sum", fieldOrExpr)
 }
@@ -127,9 +134,6 @@ func Sum(fieldOrExpr any) AggregateFunction {
 //		Average(FieldOfPath("info.age")).As("averageAge") // FieldOfPath returns Expr
 //	    Average("info.age").As("averageAge")              // String implicitly becomes FieldOf(...).As(...)
 //	    Average(FieldPath([]string{"info", "age"})).As("averageAge")
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func Average(fieldOrExpr any) AggregateFunction {
 	return newBaseAggregateFunction("average", fieldOrExpr)
 }
@@ -143,9 +147,6 @@ func Average(fieldOrExpr any) AggregateFunction {
 //		Count(FieldOf("price").Gt(10)).As("expensiveItemCount") // FieldOf("price").Gt(10) is a BooleanExpr
 //	    // Count the total number of products
 //		Count("productId").As("totalProducts")                  // String implicitly becomes FieldOf(...).As(...)
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func Count(fieldOrExpr any) AggregateFunction {
 	return newBaseAggregateFunction("count", fieldOrExpr)
 }
@@ -156,11 +157,8 @@ func Count(fieldOrExpr any) AggregateFunction {
 //
 //		// Count the total number of users
 //	    CountAll().As("totalUsers")
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func CountAll() AggregateFunction {
-	return newBaseAggregateFunction("count", nil)
+	return newBaseAggregateFunction("count")
 }
 
 // CountDistinct creates an aggregation that counts the number of distinct values of the
@@ -172,11 +170,32 @@ func CountAll() AggregateFunction {
 //		CountDistinct(FieldOf("price").Gt(10)).As("expensiveItemCount") // FieldOf("price").Gt(10) is a BooleanExpr
 //	    // CountDistinct the total number of distinct products
 //		CountDistinct("productId").As("totalProducts")                  // String implicitly becomes FieldOf(...).As(...)
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func CountDistinct(fieldOrExpr any) AggregateFunction {
 	return newBaseAggregateFunction("count_distinct", fieldOrExpr)
+}
+
+// First returns the value of the expression for the first document in the group.
+func First(fieldOrExpr any) AggregateFunction {
+	return newBaseAggregateFunction("first", fieldOrExpr)
+}
+
+// Last returns the value of the expression for the last document in the group.
+func Last(fieldOrExpr any) AggregateFunction {
+	return newBaseAggregateFunction("last", fieldOrExpr)
+}
+
+// ArrayAgg returns an array containing all values of the expression when evaluated on each document in the group.
+// If the expression resolves to an absent value, it is converted to NULL.
+// The order of elements in the output array is not stable and shouldn't be relied upon.
+func ArrayAgg(fieldOrExpr any) AggregateFunction {
+	return newBaseAggregateFunction("array_agg", fieldOrExpr)
+}
+
+// ArrayAggDistinct returns an array containing all distinct values of the expression when evaluated on each document in the group.
+// If the expression resolves to an absent value, it is converted to NULL.
+// The order of elements in the output array is not stable and shouldn't be relied upon.
+func ArrayAggDistinct(fieldOrExpr any) AggregateFunction {
+	return newBaseAggregateFunction("array_agg_distinct", fieldOrExpr)
 }
 
 // CountIf creates an aggregation that counts the number of stage inputs where the provided boolean
@@ -184,9 +203,6 @@ func CountDistinct(fieldOrExpr any) AggregateFunction {
 // Example:
 //
 //	CountIf(FieldOf("published").Equal(true)).As("publishedCount")
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func CountIf(condition BooleanExpression) AggregateFunction {
 	return newBaseAggregateFunction("count_if", condition)
 }
@@ -199,9 +215,6 @@ func CountIf(condition BooleanExpression) AggregateFunction {
 //		// Find the highest order amount
 //		Maximum(FieldOf("orderAmount")).As("maxOrderAmount") // FieldOf returns Expr
 //	 	Maximum("orderAmount").As("maxOrderAmount")          // String implicitly becomes FieldOf(...).As(...)
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func Maximum(fieldOrExpr any) AggregateFunction {
 	return newBaseAggregateFunction("maximum", fieldOrExpr)
 }
@@ -214,9 +227,6 @@ func Maximum(fieldOrExpr any) AggregateFunction {
 //		// Find the lowest order amount
 //		Minimum(FieldOf("orderAmount")).As("minOrderAmount") // FieldOf returns Expr
 //	 	Minimum("orderAmount").As("minOrderAmount")          // String implicitly becomes FieldOf(...).As(...)
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func Minimum(fieldOrExpr any) AggregateFunction {
 	return newBaseAggregateFunction("minimum", fieldOrExpr)
 }

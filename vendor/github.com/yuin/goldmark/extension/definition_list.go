@@ -130,7 +130,7 @@ func (b *definitionDescriptionParser) Open(
 	if para != nil {
 		lines := para.Lines()
 		l := lines.Len()
-		for i := 0; i < l; i++ {
+		for i := range l {
 			term := ast.NewDefinitionTerm()
 			segment := lines.At(i)
 			term.Lines().Append(segment.TrimRightSpace(reader.Source()))

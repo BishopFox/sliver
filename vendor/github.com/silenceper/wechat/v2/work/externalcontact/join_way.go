@@ -19,6 +19,7 @@ type (
 		RoomBaseID     int      `json:"room_base_id"`     //非必填	自动建群的群起始序号，当auto_create_room为1时有效
 		ChatIDList     []string `json:"chat_id_list"`     //必填	使用该配置的客户群ID列表，支持5个。见客户群ID获取方法
 		State          string   `json:"state"`            //非必填	企业自定义的state参数，用于区分不同的入群渠道。不超过30个UTF-8字符
+		MarkSource     bool     `json:"mark_source"`
 	}
 
 	// AddJoinWayResponse 添加群配置返回值
@@ -65,6 +66,7 @@ type (
 		ChatIDList     []string `json:"chat_id_list"`
 		QrCode         string   `json:"qr_code"`
 		State          string   `json:"state"`
+		MarkSource     bool     `json:"mark_source"`
 	}
 	//GetJoinWayResponse 获取群配置的返回值
 	GetJoinWayResponse struct {
@@ -103,6 +105,7 @@ type UpdateJoinWayRequest struct {
 	RoomBaseID     int      `json:"room_base_id"`     //非必填	自动建群的群起始序号，当auto_create_room为1时有效
 	ChatIDList     []string `json:"chat_id_list"`     //必填	使用该配置的客户群ID列表，支持5个。见客户群ID获取方法
 	State          string   `json:"state"`            //非必填	企业自定义的state参数，用于区分不同的入群渠道。不超过30个UTF-8字符
+	MarkSource     bool     `json:"mark_source"`
 }
 
 // UpdateJoinWay 更新客户群进群方式配置

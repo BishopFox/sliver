@@ -197,3 +197,8 @@ func (miniProgram *MiniProgram) GetExpress() *express.Express {
 func (miniProgram *MiniProgram) GetOCR() *ocr.OCR {
 	return ocr.NewOCR(miniProgram.ctx)
 }
+
+// GetIntracity 同城配送接口
+func (miniProgram *MiniProgram) GetIntracity() *express.Express {
+	return express.NewExpress(miniProgram.ctx)
+}

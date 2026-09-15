@@ -28,7 +28,7 @@
 //
 // For example, the following iterates over all pages of events 100 items at a time
 //
-//	mg := mailgun.NewMailgun("your-api-key")
+//	mg := mailgun.NewMailgun("MAILGUN_API_KEY")
 //	it := mg.ListEvents(&mailgun.ListEventOptions{Limit: 100})
 //
 //	// The entire operation should not take longer than 30 seconds
@@ -108,6 +108,7 @@ const (
 	bouncesEndpoint      = "bounces"
 	metricsEndpoint      = "analytics/metrics"
 	domainsEndpoint      = "domains"
+	dkimEndpoint         = "dkim/keys"
 	tagsEndpoint         = "tags"
 	eventsEndpoint       = "events"
 	unsubscribesEndpoint = "unsubscribes"
@@ -137,6 +138,11 @@ type Mailgun interface {
 	SetHTTPClient(client *http.Client)
 	SetAPIBase(url string) error
 	AddOverrideHeader(k string, v string)
+
+	ListAPIKeys(ctx context.Context, opts *ListAPIKeysOptions) ([]mtypes.APIKey, error)
+	CreateAPIKey(ctx context.Context, role string, opts *CreateAPIKeyOptions) (mtypes.APIKey, error)
+	DeleteAPIKey(ctx context.Context, id string) error
+	RegeneratePublicAPIKey(ctx context.Context) (mtypes.RegeneratePublicAPIKeyResponse, error)
 
 	// Send attempts to queue a message (see CommonMessage, NewMessage, and its methods) for delivery.
 	Send(ctx context.Context, m Message) (mtypes.SendMessageResponse, error)
@@ -174,6 +180,13 @@ type Mailgun interface {
 	UpdateUnsubscribeTracking(ctx context.Context, domain, active, htmlFooter, textFooter string) error
 	UpdateOpenTracking(ctx context.Context, domain, active string) error
 
+	ListAllDomainsKeys(opts *ListAllDomainsKeysOptions) *AllDomainsKeysIterator
+	CreateDomainKey(ctx context.Context, domain, dkimSelector string, opts *CreateDomainKeyOptions) (mtypes.DomainKey, error)
+	DeleteDomainKey(ctx context.Context, domain, dkimSelector string) error
+	ActivateDomainKey(ctx context.Context, domain, dkimSelector string) error
+	ListDomainKeys(domain string) *DomainKeysIterator
+	DeactivateDomainKey(ctx context.Context, domain, dkimSelector string) error
+	UpdateDomainDkimAuthority(ctx context.Context, domain string, self bool) (mtypes.UpdateDomainDkimAuthorityResponse, error)
 	UpdateDomainDkimSelector(ctx context.Context, domain, dkimSelector string) error
 
 	GetStoredMessage(ctx context.Context, url string) (mtypes.StoredMessage, error)
@@ -257,7 +270,7 @@ type Mailgun interface {
 	DeleteTemplateVersion(ctx context.Context, domain, templateName, tag string) error
 	ListTemplateVersions(domain, templateName string, opts *ListOptions) *TemplateVersionsIterator
 
-	ValidateEmail(ctx context.Context, email string, mailBoxVerify bool) (mtypes.ValidateEmailResponse, error)
+	ValidateEmail(ctx context.Context, email string, providerLookup bool) (mtypes.ValidateEmailResponse, error)
 
 	ListAlertsEvents(context.Context, *ListAlertsEventsOptions) (*mtypes.AlertsEventsResponse, error)
 	ListAlerts(context.Context, *ListAlertsOptions) (*mtypes.AlertsSettingsResponse, error)
@@ -265,6 +278,8 @@ type Mailgun interface {
 	DeleteAlert(ctx context.Context, id uuid.UUID) error
 
 	ListMonitoredDomains(opts ListMonitoredDomainsOptions) (*MonitoredDomainsIterator, error)
+
+	CreateInboxPlacementTest(ctx context.Context, opts mtypes.CreateInboxPlacementTestOptions) (*mtypes.CreateInboxPlacementTestResponse, error)
 
 	ListSubaccounts(opts *ListSubaccountsOptions) *SubaccountsIterator
 	CreateSubaccount(ctx context.Context, subaccountName string) (mtypes.SubaccountResponse, error)
@@ -274,11 +289,6 @@ type Mailgun interface {
 
 	SetOnBehalfOfSubaccount(subaccountID string)
 	RemoveOnBehalfOfSubaccount()
-
-	ListAPIKeys(ctx context.Context, opts *ListAPIKeysOptions) ([]mtypes.APIKey, error)
-	CreateAPIKey(ctx context.Context, role string, opts *CreateAPIKeyOptions) (mtypes.APIKey, error)
-	DeleteAPIKey(ctx context.Context, id string) error
-	RegeneratePublicAPIKey(ctx context.Context) (mtypes.RegeneratePublicAPIKeyResponse, error)
 }
 
 // Client bundles data needed by a large number of methods in order to interact with the Mailgun API.
