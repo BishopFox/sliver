@@ -155,6 +155,9 @@ func TestSliverArmoryCNACorpusPinnedHashes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read pinned corpus fixture: %v", err)
 			}
+			// Git may materialize text fixtures with CRLF on Windows when no
+			// repository attributes override the user's core.autocrlf setting.
+			content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 			digest := fmt.Sprintf("%x", sha256.Sum256(content))
 			if digest != fixture.sha256 {
 				t.Fatalf("SHA-256 = %s, want %s", digest, fixture.sha256)

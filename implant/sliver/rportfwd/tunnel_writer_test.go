@@ -54,6 +54,13 @@ func TestTunnelWriterIncludesAuthorizationIDOnCreateReverse(t *testing.T) {
 	if second.CreateReverse {
 		t.Fatal("subsequent tunnel frame unexpectedly requested reverse tunnel creation")
 	}
+	if second.Rportfwd == nil {
+		t.Fatal("subsequent tunnel frame lost its reverse-port-forward presence marker")
+	}
+	if second.Rportfwd.Port != 0 || second.Rportfwd.Protocol != 0 || second.Rportfwd.Host != "" || //nolint:staticcheck // Verify compatibility marker shape.
+		second.Rportfwd.AuthorizationID != "" || second.Rportfwd.TunnelID != 0 || second.Rportfwd.Response != nil {
+		t.Fatalf("subsequent tunnel frame exposed non-empty reverse metadata: %+v", second.Rportfwd)
+	}
 }
 
 func TestTunnelWriterIncludesLegacyAddressWithoutAuthorization(t *testing.T) {
