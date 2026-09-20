@@ -312,7 +312,9 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 						opening.requestClose()
 						break
 					}
-					RTunnelDataHandlerWithContext(openingContext, frame, tunnel, implantConn)
+					if err := RTunnelDataHandlerWithContext(openingContext, frame, tunnel, implantConn); err != nil {
+						break
+					}
 					if openingContext.Err() != nil || opening.closing.Load() || rtunnels.GetRTunnel(tunnelData.TunnelID) != tunnel {
 						break
 					}
@@ -826,6 +828,8 @@ func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunne
 
 // RTunnelDataHandlerWithContext relays one sequenced frame while honoring the
 // opening transaction's single absolute dial-and-drain deadline.
+//
+//nolint:gocyclo // Admission, ordered delivery, deadlines, and teardown form one relay transaction.
 func RTunnelDataHandlerWithContext(relayContext context.Context, tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunnel, connection *core.ImplantConnection) error {
 	if tunnelData == nil || tunnel == nil || connection == nil || tunnel.Writer == nil {
 		return nil

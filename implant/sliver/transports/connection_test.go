@@ -418,7 +418,7 @@ func TestConnectionTerminalMarksOnlyReverseTunnels(t *testing.T) {
 				if got := terminal.Rportfwd != nil; got != test.wantMarker {
 					t.Fatalf("reverse marker present = %t, want %t", got, test.wantMarker)
 				}
-				if terminal.Rportfwd != nil && (terminal.Rportfwd.Host != "" || terminal.Rportfwd.Port != 0 ||
+				if terminal.Rportfwd != nil && (terminal.Rportfwd.Host != "" || terminal.Rportfwd.Port != 0 || //nolint:staticcheck // Verify the complete compatibility marker.
 					terminal.Rportfwd.Protocol != 0 || terminal.Rportfwd.AuthorizationID != "" ||
 					terminal.Rportfwd.TunnelID != 0 || terminal.Rportfwd.Response != nil) {
 					t.Fatalf("reverse terminal marker carried metadata: %+v", terminal.Rportfwd)

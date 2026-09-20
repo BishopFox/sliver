@@ -379,6 +379,7 @@ func TestReverseTunnelPreCreateNeverDialsBeforeAuthorizedCreate(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Both connection generations must complete their full staging and promotion lifecycles.
 func TestReverseTunnelPreCreateKeyIncludesConnectionGeneration(t *testing.T) {
 	registry := newReverseTunnelPreCreateRegistry(time.Second)
 	firstConnection, firstSession := addBufferedTestSession(t)
@@ -473,6 +474,7 @@ func TestReverseTunnelPreCreateDisconnectReclaimsQuota(t *testing.T) {
 	t.Fatalf("disconnect retained entries=%d sessions=%d total=%+v", entries, sessions, usage)
 }
 
+//nolint:gocyclo // Duplicate, conflict, and invalid-window cases share one accounting contract.
 func TestReverseTunnelPreCreateRejectsConflictsAndInvalidWindows(t *testing.T) {
 	t.Run("duplicate-identical-and-conflicting", func(t *testing.T) {
 		registry := newReverseTunnelPreCreateRegistry(time.Second)
@@ -1047,6 +1049,7 @@ func TestUnknownTerminalRequiresReverseMarkerToClaimPreCreateState(t *testing.T)
 	})
 }
 
+//nolint:gocyclo // Entry, frame, and global quotas must be validated against the same reclamation contract.
 func TestReverseTunnelPreCreateQuotaSaturationReclaimsExactly(t *testing.T) {
 	t.Run("per-session entries", func(t *testing.T) {
 		registry := newReverseTunnelPreCreateRegistry(time.Hour)
@@ -1200,6 +1203,7 @@ func TestActiveReverseTunnelRejectsSameSessionReplacementGeneration(t *testing.T
 	}
 }
 
+//nolint:gocyclo // The synchronized scenario proves blocked cleanup cannot retain global routing locks.
 func TestReverseTunnelClaimCapacityCleanupDoesNotBlockUnrelatedPromotion(t *testing.T) {
 	registry := newReverseTunnelPreCreateRegistry(time.Hour)
 	blockedConnection := core.NewImplantConnection("test", "blocked-cleanup")
@@ -1352,6 +1356,7 @@ func TestReverseTunnelPreCreateConcurrentLifecycleRaces(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Active/opening and data/terminal combinations share one exact-generation failure contract.
 func TestMalformedMarkedFramesFailKnownReverseGenerationOnce(t *testing.T) {
 	for _, state := range []string{"active", "opening"} {
 		for _, frameKind := range []string{"data", "terminal"} {
@@ -1399,7 +1404,7 @@ func TestMalformedMarkedFramesFailKnownReverseGenerationOnce(t *testing.T) {
 							TunnelID: tunnelID,
 							Sequence: 1,
 							Data:     []byte("must-not-relay"),
-							Rportfwd: &sliverpb.RPortfwd{Host: "non-empty-marker"},
+							Rportfwd: &sliverpb.RPortfwd{Host: "non-empty-marker"}, //nolint:staticcheck // Exercise rejection of deprecated compatibility metadata.
 						}))
 						return
 					}

@@ -122,7 +122,8 @@ func emptyReverseTunnelMarker(marker *sliverpb.RPortfwd) bool {
 	if marker == nil {
 		return false
 	}
-	return marker.Port == 0 && marker.Protocol == 0 && marker.Host == "" &&
+	// Deprecated address fields remain part of the legacy wire shape and must be empty on a marker.
+	return marker.Port == 0 && marker.Protocol == 0 && marker.Host == "" && //nolint:staticcheck // Validate the complete compatibility marker.
 		marker.AuthorizationID == "" && marker.TunnelID == 0 && marker.Response == nil
 }
 
@@ -130,12 +131,6 @@ func canonicalReverseTunnelCreate(frame *sliverpb.TunnelData) bool {
 	return frame != nil && frame.CreateReverse && !frame.Closed && !frame.Resend &&
 		frame.Sequence == 0 && frame.Ack == 0 && len(frame.Data) <= sliverpb.MaxTunnelFrameBytes &&
 		frame.SessionID == "" && frame.Rportfwd != nil
-}
-
-func canonicalReverseTunnelPreCreateTerminal(frame *sliverpb.TunnelData) bool {
-	return frame != nil && frame.Closed && !frame.CreateReverse && !frame.Resend &&
-		len(frame.Data) == 0 && frame.Ack == 0 && frame.SessionID == "" && emptyReverseTunnelMarker(frame.Rportfwd) &&
-		frame.Sequence <= maxReverseTunnelPreCreateTerminalSequence
 }
 
 func canonicalKnownReverseTunnelTerminal(frame *sliverpb.TunnelData) bool {
@@ -196,6 +191,7 @@ func (registry *reverseTunnelPreCreateRegistry) rejectBeforePromotion(connection
 	return registry.stage(connection, sessionID, frame, false, reason, true, false)
 }
 
+//nolint:gocyclo // Ownership, quotas, tombstones, and deferred claims form one locked admission transaction.
 func (registry *reverseTunnelPreCreateRegistry) stage(connection *core.ImplantConnection, sessionID string, frame *sliverpb.TunnelData, terminal bool, validationErr error, allowUnknown bool, rejectKnownInvalid bool) (reverseTunnelPreCreateStageResult, error) {
 	if registry == nil || connection == nil || frame == nil || sessionID == "" {
 		return reverseTunnelPreCreateRejected, errReverseTunnelPreCreateInvalid
@@ -369,6 +365,7 @@ func (registry *reverseTunnelPreCreateRegistry) genericTunnel(tunnelID uint64) *
 	return generic(tunnelID)
 }
 
+//nolint:gocyclo // Data and terminal ordering share the same quota-accounting mutation.
 func (registry *reverseTunnelPreCreateRegistry) appendLocked(entry *reverseTunnelPreCreateEntry, frame *sliverpb.TunnelData, terminal bool) error {
 	if terminal {
 		if entry.terminal != nil {
