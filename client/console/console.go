@@ -48,6 +48,7 @@ import (
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -62,6 +63,10 @@ const (
 	UpN     = "\033[%dA"
 	DownN   = "\033[%dB"
 )
+
+// isTerminal reports whether fd is a connected terminal.
+// Variable rather than direct call so tests can override it.
+var isTerminal = term.IsTerminal
 
 // Observer - A function to call when the sessions changes.
 type (
@@ -230,9 +235,25 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	}
 
 	if !con.IsCLI {
+		if err := nonTTYGuard(rcScript); err != nil {
+			return err
+		}
 		return con.App.Start()
 	}
 
+	return nil
+}
+
+// nonTTYGuard returns an error when stdin is not a terminal and no rc script
+// was supplied.  When an rc script is provided it returns nil since the script
+// has already been executed and the interactive loop is not needed.
+func nonTTYGuard(rcScript string) error {
+	if !isTerminal(int(os.Stdin.Fd())) {
+		if rcScript != "" {
+			return nil
+		}
+		return fmt.Errorf("interactive console requires a TTY; use --rc for non-interactive scripts")
+	}
 	return nil
 }
 
