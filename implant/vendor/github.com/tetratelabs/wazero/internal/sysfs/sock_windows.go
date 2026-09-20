@@ -7,15 +7,15 @@ import (
 	"syscall"
 	"unsafe"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 )
 
 const (
 	// MSG_PEEK is the flag PEEK for syscall.Recvfrom on Windows.
-	// This constant is not exported on this platform.
-	MSG_PEEK = 0x2
+	MSG_PEEK = windows.MSG_PEEK
 	// _FIONBIO is the flag to set the O_NONBLOCK flag on socket handles using ioctlsocket.
 	_FIONBIO = 0x8004667e
 )
@@ -69,8 +69,8 @@ func setNonblockSocket(fd uintptr, enabled bool) sys.Errno {
 	return sys.UnwrapOSError(errno)
 }
 
-func _pollSock(conn syscall.Conn, flag fsapi.Pflag, timeoutMillis int32) (bool, sys.Errno) {
-	if flag != fsapi.POLLIN {
+func _pollSock(conn syscall.Conn, flag sys.Pflag, timeoutMillis int32) (bool, sys.Errno) {
+	if flag != sys.POLLIN {
 		return false, sys.ENOTSUP
 	}
 	n, errno := syscallConnControl(conn, func(fd uintptr) (int, sys.Errno) {

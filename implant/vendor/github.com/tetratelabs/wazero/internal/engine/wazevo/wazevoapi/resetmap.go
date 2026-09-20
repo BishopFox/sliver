@@ -5,9 +5,7 @@ func ResetMap[K comparable, V any](m map[K]V) map[K]V {
 	if m == nil {
 		m = make(map[K]V)
 	} else {
-		for v := range m {
-			delete(m, v)
-		}
+		clear(m)
 	}
 	return m
 }

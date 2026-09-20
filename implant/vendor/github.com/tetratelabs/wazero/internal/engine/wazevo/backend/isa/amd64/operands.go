@@ -59,7 +59,7 @@ func (o *operand) format(_64 bool) string {
 	case operandKindImm32:
 		return fmt.Sprintf("$%d", int32(o.imm32()))
 	case operandKindLabel:
-		return backend.Label(o.imm32()).String()
+		return label(o.imm32()).String()
 	default:
 		panic(fmt.Sprintf("BUG: invalid operand: %s", o.kind))
 	}
@@ -85,22 +85,22 @@ func (o *operand) imm32() uint32 {
 	return uint32(o.data)
 }
 
-func (o *operand) label() backend.Label {
+func (o *operand) label() label {
 	switch o.kind {
 	case operandKindLabel:
-		return backend.Label(o.data)
+		return label(o.data)
 	case operandKindMem:
 		mem := o.addressMode()
 		if mem.kind() != amodeRipRel {
 			panic("BUG: invalid label")
 		}
-		return backend.Label(mem.imm32)
+		return label(mem.imm32)
 	default:
 		panic("BUG: invalid operand kind")
 	}
 }
 
-func newOperandLabel(label backend.Label) operand {
+func newOperandLabel(label label) operand {
 	return operand{kind: operandKindLabel, data: uint64(label)}
 }
 
@@ -221,7 +221,7 @@ func (m *machine) newAmodeRegRegShift(imm32 uint32, base, index regalloc.VReg, s
 	return ret
 }
 
-func (m *machine) newAmodeRipRel(label backend.Label) *amode {
+func (m *machine) newAmodeRipRel(label label) *amode {
 	ret := m.amodePool.Allocate()
 	*ret = amode{kindWithShift: uint32(amodeRipRel), imm32: uint32(label)}
 	return ret
@@ -246,18 +246,18 @@ func (a *amode) String() string {
 			"%d(%s,%s,%d)",
 			int32(a.imm32), formatVRegSized(a.base, true), formatVRegSized(a.index, true), shift)
 	case amodeRipRel:
-		return fmt.Sprintf("%s(%%rip)", backend.Label(a.imm32))
+		return fmt.Sprintf("%s(%%rip)", label(a.imm32))
 	default:
 		panic("BUG: invalid amode kind")
 	}
 }
 
-func (m *machine) getOperand_Mem_Reg(def *backend.SSAValueDefinition) (op operand) {
-	if def.IsFromBlockParam() {
-		return newOperandReg(def.BlkParamVReg)
+func (m *machine) getOperand_Mem_Reg(def backend.SSAValueDefinition) (op operand) {
+	if !def.IsFromInstr() {
+		return newOperandReg(m.c.VRegOf(def.V))
 	}
 
-	if def.SSAValue().Type() == ssa.TypeV128 {
+	if def.V.Type() == ssa.TypeV128 {
 		// SIMD instructions require strict memory alignment, so we don't support the memory operand for V128 at the moment.
 		return m.getOperand_Reg(def)
 	}
@@ -272,9 +272,9 @@ func (m *machine) getOperand_Mem_Reg(def *backend.SSAValueDefinition) (op operan
 	return m.getOperand_Reg(def)
 }
 
-func (m *machine) getOperand_Mem_Imm32_Reg(def *backend.SSAValueDefinition) (op operand) {
-	if def.IsFromBlockParam() {
-		return newOperandReg(def.BlkParamVReg)
+func (m *machine) getOperand_Mem_Imm32_Reg(def backend.SSAValueDefinition) (op operand) {
+	if !def.IsFromInstr() {
+		return newOperandReg(m.c.VRegOf(def.V))
 	}
 
 	if m.c.MatchInstr(def, ssa.OpcodeLoad) {
@@ -287,9 +287,9 @@ func (m *machine) getOperand_Mem_Imm32_Reg(def *backend.SSAValueDefinition) (op 
 	return m.getOperand_Imm32_Reg(def)
 }
 
-func (m *machine) getOperand_Imm32_Reg(def *backend.SSAValueDefinition) (op operand) {
-	if def.IsFromBlockParam() {
-		return newOperandReg(def.BlkParamVReg)
+func (m *machine) getOperand_Imm32_Reg(def backend.SSAValueDefinition) (op operand) {
+	if !def.IsFromInstr() {
+		return newOperandReg(m.c.VRegOf(def.V))
 	}
 
 	instr := def.Instr
@@ -323,24 +323,14 @@ func asImm32(val uint64, allowSignExt bool) (uint32, bool) {
 	return u32val, true
 }
 
-func (m *machine) getOperand_Reg(def *backend.SSAValueDefinition) (op operand) {
+func (m *machine) getOperand_Reg(def backend.SSAValueDefinition) (op operand) {
 	var v regalloc.VReg
-	if def.IsFromBlockParam() {
-		v = def.BlkParamVReg
+	if instr := def.Instr; instr != nil && instr.Constant() {
+		// We inline all the constant instructions so that we could reduce the register usage.
+		v = m.lowerConstant(instr)
+		instr.MarkLowered()
 	} else {
-		instr := def.Instr
-		if instr.Constant() {
-			// We inline all the constant instructions so that we could reduce the register usage.
-			v = m.lowerConstant(instr)
-			instr.MarkLowered()
-		} else {
-			if n := def.N; n == 0 {
-				v = m.c.VRegOf(instr.Return())
-			} else {
-				_, rs := instr.Returns()
-				v = m.c.VRegOf(rs[n-1])
-			}
-		}
+		v = m.c.VRegOf(def.V)
 	}
 	return newOperandReg(v)
 }

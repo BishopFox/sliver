@@ -7,7 +7,7 @@ import (
 )
 
 // FS is a writeable fs.FS bridge backed by syscall functions needed for ABI
-// including WASI and runtime.GOOS=js.
+// including WASI.
 //
 // Implementations should embed UnimplementedFS for forward compatibility. Any
 // unsupported method or parameter should return ENO
@@ -18,8 +18,7 @@ import (
 // on success.
 //
 // Restricting to Errno matches current WebAssembly host functions,
-// which are constrained to well-known error codes. For example, `GOOS=js` maps
-// hard coded values and panics otherwise. More commonly, WASI maps syscall
+// which are constrained to well-known error codes. For example, WASI maps syscall
 // errors to u32 numeric values.
 //
 // # Notes

@@ -59,25 +59,26 @@ func (m *machine) goEntryPreamblePassArg(cur *instruction, paramSlicePtr regallo
 	} else {
 		postIndexImm = 8
 	}
-	loadMode := addressMode{kind: addressModeKindPostIndex, rn: paramSlicePtr, imm: postIndexImm}
+	loadMode := m.amodePool.Allocate()
+	*loadMode = addressMode{kind: addressModeKindPostIndex, rn: paramSlicePtr, imm: postIndexImm}
 
 	instr := m.allocateInstr()
 	switch typ {
 	case ssa.TypeI32:
-		instr.asULoad(loadTargetReg, loadMode, 32)
+		instr.asULoad(loadTargetReg.reg(), loadMode, 32)
 	case ssa.TypeI64:
-		instr.asULoad(loadTargetReg, loadMode, 64)
+		instr.asULoad(loadTargetReg.reg(), loadMode, 64)
 	case ssa.TypeF32:
-		instr.asFpuLoad(loadTargetReg, loadMode, 32)
+		instr.asFpuLoad(loadTargetReg.reg(), loadMode, 32)
 	case ssa.TypeF64:
-		instr.asFpuLoad(loadTargetReg, loadMode, 64)
+		instr.asFpuLoad(loadTargetReg.reg(), loadMode, 64)
 	case ssa.TypeV128:
-		instr.asFpuLoad(loadTargetReg, loadMode, 128)
+		instr.asFpuLoad(loadTargetReg.reg(), loadMode, 128)
 	}
 	cur = linkInstr(cur, instr)
 
 	if isStackArg {
-		var storeMode addressMode
+		var storeMode *addressMode
 		cur, storeMode = m.resolveAddressModeForOffsetAndInsert(cur, argStartOffsetFromSP+arg.Offset, bits, spVReg, true)
 		toStack := m.allocateInstr()
 		toStack.asStore(loadTargetReg, storeMode, bits)
@@ -113,21 +114,22 @@ func (m *machine) goEntryPreamblePassResult(cur *instruction, resultSlicePtr reg
 	}
 
 	if isStackArg {
-		var loadMode addressMode
+		var loadMode *addressMode
 		cur, loadMode = m.resolveAddressModeForOffsetAndInsert(cur, resultStartOffsetFromSP+result.Offset, bits, spVReg, true)
 		toReg := m.allocateInstr()
 		switch typ {
 		case ssa.TypeI32, ssa.TypeI64:
-			toReg.asULoad(storeTargetReg, loadMode, bits)
+			toReg.asULoad(storeTargetReg.reg(), loadMode, bits)
 		case ssa.TypeF32, ssa.TypeF64, ssa.TypeV128:
-			toReg.asFpuLoad(storeTargetReg, loadMode, bits)
+			toReg.asFpuLoad(storeTargetReg.reg(), loadMode, bits)
 		default:
 			panic("TODO?")
 		}
 		cur = linkInstr(cur, toReg)
 	}
 
-	mode := addressMode{kind: addressModeKindPostIndex, rn: resultSlicePtr, imm: postIndexImm}
+	mode := m.amodePool.Allocate()
+	*mode = addressMode{kind: addressModeKindPostIndex, rn: resultSlicePtr, imm: postIndexImm}
 	instr := m.allocateInstr()
 	instr.asStore(storeTargetReg, mode, bits)
 	cur = linkInstr(cur, instr)
@@ -214,11 +216,12 @@ func (m *machine) move64(dst, src regalloc.VReg, prev *instruction) *instruction
 
 func (m *machine) loadOrStoreAtExecutionContext(d regalloc.VReg, offset wazevoapi.Offset, store bool, prev *instruction) *instruction {
 	instr := m.allocateInstr()
-	mode := addressMode{kind: addressModeKindRegUnsignedImm12, rn: savedExecutionContextPtr, imm: offset.I64()}
+	mode := m.amodePool.Allocate()
+	*mode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: savedExecutionContextPtr, imm: offset.I64()}
 	if store {
 		instr.asStore(operandNR(d), mode, 64)
 	} else {
-		instr.asULoad(operandNR(d), mode, 64)
+		instr.asULoad(d, mode, 64)
 	}
 	return linkInstr(prev, instr)
 }

@@ -21,9 +21,11 @@ package traffic
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/bishopfox/sliver/implant/sliver/wasmnet"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -43,8 +45,13 @@ type TrafficEncoder struct {
 
 	lock    sync.Mutex
 	ctx     context.Context
+	stop    context.CancelFunc
 	runtime wazero.Runtime
 	mod     api.Module
+	network *wasmnet.Host
+
+	closeOnce sync.Once
+	closeErr  error
 
 	// WASM functions
 	encoder api.Function
@@ -53,18 +60,80 @@ type TrafficEncoder struct {
 	free    api.Function
 }
 
+func validateTrafficEncoderFunction(name string, function api.Function, params, results []api.ValueType) error {
+	if function == nil {
+		return fmt.Errorf("traffic encoder must export %s", name)
+	}
+	definition := function.Definition()
+	if !sameValueTypes(definition.ParamTypes(), params) || !sameValueTypes(definition.ResultTypes(), results) {
+		return fmt.Errorf("traffic encoder export %s has an incompatible function signature", name)
+	}
+	return nil
+}
+
+func validateTrafficEncoderMalloc(function api.Function) error {
+	if function == nil {
+		return fmt.Errorf("traffic encoder must export malloc")
+	}
+	definition := function.Definition()
+	params := definition.ParamTypes()
+	results := definition.ResultTypes()
+	if len(params) != 1 || len(results) != 1 ||
+		(params[0] != api.ValueTypeI32 && params[0] != api.ValueTypeI64) ||
+		(results[0] != api.ValueTypeI32 && results[0] != api.ValueTypeI64) {
+		return fmt.Errorf("traffic encoder export malloc has an incompatible function signature")
+	}
+	return nil
+}
+
+func sameValueTypes(left, right []api.ValueType) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
 // Encode - Encode data using the wasm backend
 func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
+	return t.transform(t.encoder, data)
+}
+
+// Decode - Decode bytes using the wasm backend
+func (t *TrafficEncoder) Decode(data []byte) ([]byte, error) {
+	return t.transform(t.decoder, data)
+}
+
+func (t *TrafficEncoder) transform(transformer api.Function, data []byte) (result []byte, err error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
+
 	// Allocate a buffer in the wasm runtime for the input data
 	size := uint64(len(data))
-	buf, err := t.malloc.Call(t.ctx, size)
+	if size > uint64(^uint32(0)) {
+		return nil, fmt.Errorf("traffic encoder input is too large: %d bytes", size)
+	}
+	allocationSize := size
+	if allocationSize == 0 {
+		allocationSize = 1
+	}
+	buf, err := t.malloc.Call(t.ctx, allocationSize)
 	if err != nil {
 		return nil, err
 	}
 	bufPtr := buf[0]
-	defer t.free.Call(t.ctx, bufPtr)
+	if bufPtr > uint64(^uint32(0)) {
+		return nil, fmt.Errorf("traffic encoder malloc returned an invalid pointer: %d", bufPtr)
+	}
+	defer func() {
+		if _, freeErr := t.free.Call(t.ctx, bufPtr, allocationSize); freeErr != nil {
+			err = errors.Join(err, fmt.Errorf("free traffic encoder input: %w", freeErr))
+		}
+	}()
 
 	// Copy input data into wasm memory
 	if !t.mod.Memory().Write(uint32(bufPtr), data) {
@@ -72,8 +141,7 @@ func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 			bufPtr, size, t.mod.Memory().Size())
 	}
 
-	// Call the encoder function
-	ptrSize, err := t.encoder.Call(t.ctx, bufPtr, size)
+	ptrSize, err := transformer.Call(t.ctx, bufPtr, size)
 	if err != nil {
 		return nil, err
 	}
@@ -81,51 +149,39 @@ func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 	// Read the output buffer from wasm memory
 	encodeResultPtr := uint32(ptrSize[0] >> 32)
 	encodeResultSize := uint32(ptrSize[0])
-	var encodeResult []byte
-	var ok bool
-	if encodeResult, ok = t.mod.Memory().Read(encodeResultPtr, encodeResultSize); !ok {
+	if encodeResultSize > 0 && uint64(encodeResultPtr) != bufPtr {
+		defer func() {
+			if _, freeErr := t.free.Call(t.ctx, uint64(encodeResultPtr), uint64(encodeResultSize)); freeErr != nil {
+				err = errors.Join(err, fmt.Errorf("free traffic encoder output: %w", freeErr))
+			}
+		}()
+	}
+	encodeResult, ok := t.mod.Memory().Read(encodeResultPtr, encodeResultSize)
+	if !ok {
 		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
 			encodeResultPtr, encodeResultSize, t.mod.Memory().Size())
 	}
-	return encodeResult, nil
-}
-
-// Decode - Decode bytes using the wasm backend
-func (t *TrafficEncoder) Decode(data []byte) ([]byte, error) {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	size := uint64(len(data))
-	buf, err := t.malloc.Call(t.ctx, size)
-	if err != nil {
-		return nil, err
-	}
-	bufPtr := buf[0]
-	defer t.free.Call(t.ctx, bufPtr)
-
-	if !t.mod.Memory().Write(uint32(bufPtr), data) {
-		return nil, fmt.Errorf("Memory.Write(%d, %d) out of range of memory size %d",
-			bufPtr, size, t.mod.Memory().Size())
-	}
-
-	// Call the decoder function
-	ptrSize, err := t.decoder.Call(t.ctx, bufPtr, size)
-	if err != nil {
-		return nil, err
-	}
-	decodeResultPtr := uint32(ptrSize[0] >> 32)
-	decodeResultSize := uint32(ptrSize[0])
-	var decodeResult []byte
-	var ok bool
-	if decodeResult, ok = t.mod.Memory().Read(decodeResultPtr, decodeResultSize); !ok {
-		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
-			decodeResultPtr, decodeResultSize, t.mod.Memory().Size())
-	}
-
-	return decodeResult, nil
+	return append([]byte(nil), encodeResult...), nil
 }
 
 func (t *TrafficEncoder) Close() error {
-	return t.runtime.Close(t.ctx)
+	t.closeOnce.Do(func() {
+		if t.stop != nil {
+			t.stop()
+		}
+		t.lock.Lock()
+		defer t.lock.Unlock()
+		if t.network != nil {
+			t.closeErr = errors.Join(t.closeErr, t.network.Close())
+		}
+		if t.mod != nil {
+			t.closeErr = errors.Join(t.closeErr, t.mod.Close(context.Background()))
+		}
+		if t.runtime != nil {
+			t.closeErr = errors.Join(t.closeErr, t.runtime.Close(context.Background()))
+		}
+	})
+	return t.closeErr
 }
 
 // TrafficEncoderLogCallback - Callback function exposed to the wasm runtime to log messages

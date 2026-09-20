@@ -14,7 +14,6 @@ var calleeSavedVRegs = []regalloc.VReg{
 
 // CompileGoFunctionTrampoline implements backend.Machine.
 func (m *machine) CompileGoFunctionTrampoline(exitCode wazevoapi.ExitCode, sig *ssa.Signature, needModuleContextPtr bool) []byte {
-	ectx := m.ectx
 	argBegin := 1 // Skips exec context by default.
 	if needModuleContextPtr {
 		argBegin++
@@ -25,7 +24,7 @@ func (m *machine) CompileGoFunctionTrampoline(exitCode wazevoapi.ExitCode, sig *
 	m.currentABI = abi
 
 	cur := m.allocateNop()
-	ectx.RootInstr = cur
+	m.rootInstr = cur
 
 	// Execution context is always the first argument.
 	execCtrPtr := raxVReg
@@ -272,7 +271,7 @@ func (m *machine) CompileGoFunctionTrampoline(exitCode wazevoapi.ExitCode, sig *
 	cur = m.revertRBPRSP(cur)
 	linkInstr(cur, m.allocateInstr().asRet())
 
-	m.encodeWithoutSSA(ectx.RootInstr)
+	m.encodeWithoutSSA(m.rootInstr)
 	return m.c.Buf()
 }
 
@@ -347,10 +346,8 @@ var stackGrowSaveVRegs = []regalloc.VReg{
 
 // CompileStackGrowCallSequence implements backend.Machine.
 func (m *machine) CompileStackGrowCallSequence() []byte {
-	ectx := m.ectx
-
 	cur := m.allocateNop()
-	ectx.RootInstr = cur
+	m.rootInstr = cur
 
 	cur = m.setupRBPRSP(cur)
 
@@ -379,7 +376,7 @@ func (m *machine) CompileStackGrowCallSequence() []byte {
 	cur = m.revertRBPRSP(cur)
 	linkInstr(cur, m.allocateInstr().asRet())
 
-	m.encodeWithoutSSA(ectx.RootInstr)
+	m.encodeWithoutSSA(m.rootInstr)
 	return m.c.Buf()
 }
 
