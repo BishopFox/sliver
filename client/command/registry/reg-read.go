@@ -20,6 +20,7 @@ package registry
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -151,7 +152,27 @@ func PrintRegRead(regRead *sliverpb.RegistryRead, con *console.SliverClient) {
 		con.PrintErrorf("%s\n", regRead.Response.Err)
 		return
 	}
-	con.Println(regRead.Value)
+	con.Println(formatRegRead(regRead))
+}
+
+func formatRegRead(regRead *sliverpb.RegistryRead) string {
+	switch regRead.Type {
+	case sliverpb.RegistryType_Binary:
+		return fmt.Sprintf("%v", regRead.Binary)
+	case sliverpb.RegistryType_DWORD:
+		if len(regRead.Binary) == 4 {
+			return fmt.Sprintf("0x%08x", binary.LittleEndian.Uint32(regRead.Binary))
+		}
+		return fmt.Sprintf("%v", regRead.Binary)
+	case sliverpb.RegistryType_QWORD:
+		if len(regRead.Binary) == 8 {
+			return fmt.Sprintf("0x%08x", binary.LittleEndian.Uint64(regRead.Binary))
+		}
+		return fmt.Sprintf("%v", regRead.Binary)
+	default:
+		// Unknown preserves compatibility with responses from older implants.
+		return regRead.Value
+	}
 }
 
 func writeHiveDump(data []byte, encoder string, fileName string, saveLoot bool, lootName string, lootType string, lootFileName string, con *console.SliverClient) {

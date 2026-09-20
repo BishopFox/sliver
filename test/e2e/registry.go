@@ -53,19 +53,21 @@ func (s *suite) exerciseWindowsRegistry(target implantTarget, transport string) 
 	}
 
 	type registryValue struct {
-		name        string
-		valueType   uint32
-		stringValue string
-		byteValue   []byte
-		dwordValue  uint32
-		qwordValue  uint64
-		expected    string
+		name           string
+		valueType      uint32
+		stringValue    string
+		byteValue      []byte
+		dwordValue     uint32
+		qwordValue     uint64
+		expectedType   sliverpb.RegistryType
+		expectedValue  string
+		expectedBinary []byte
 	}
 	values := []registryValue{
-		{name: "string-value", valueType: sliverpb.RegistryTypeString, stringValue: "sliver-e2e-" + fixtureName, expected: "sliver-e2e-" + fixtureName},
-		{name: "binary-value", valueType: sliverpb.RegistryTypeBinary, byteValue: []byte{0x00, 0x7f, 0x80, 0xff}, expected: "[0 127 128 255]"},
-		{name: "dword-value", valueType: sliverpb.RegistryTypeDWORD, dwordValue: 0x5a17c0de, expected: "0x5a17c0de"},
-		{name: "qword-value", valueType: sliverpb.RegistryTypeQWORD, qwordValue: 0x0123456789abcdef, expected: "0x123456789abcdef"},
+		{name: "string-value", valueType: sliverpb.RegistryTypeString, stringValue: "sliver-e2e-" + fixtureName, expectedType: sliverpb.RegistryType_String, expectedValue: "sliver-e2e-" + fixtureName},
+		{name: "binary-value", valueType: sliverpb.RegistryTypeBinary, byteValue: []byte{0x00, 0x7f, 0x80, 0xff}, expectedType: sliverpb.RegistryType_Binary, expectedBinary: []byte{0x00, 0x7f, 0x80, 0xff}},
+		{name: "dword-value", valueType: sliverpb.RegistryTypeDWORD, dwordValue: 0x5a17c0de, expectedType: sliverpb.RegistryType_DWORD, expectedBinary: []byte{0xde, 0xc0, 0x17, 0x5a}},
+		{name: "qword-value", valueType: sliverpb.RegistryTypeQWORD, qwordValue: 0x0123456789abcdef, expectedType: sliverpb.RegistryType_QWORD, expectedBinary: []byte{0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01}},
 	}
 
 	if err := s.step(target, transport, "RegistryWrite", "string binary DWORD and QWORD values", func() error {
@@ -85,8 +87,14 @@ func (s *suite) exerciseWindowsRegistry(target implantTarget, transport string) 
 			if err != nil {
 				return fmt.Errorf("read %s: %w", value.name, err)
 			}
-			if got != value.expected {
-				return fmt.Errorf("read %s got %q, want %q", value.name, got, value.expected)
+			if got.Type != value.expectedType {
+				return fmt.Errorf("read %s type got %s, want %s", value.name, got.Type, value.expectedType)
+			}
+			if got.Value != value.expectedValue {
+				return fmt.Errorf("read %s value got %q, want %q", value.name, got.Value, value.expectedValue)
+			}
+			if !slices.Equal(got.Binary, value.expectedBinary) {
+				return fmt.Errorf("read %s binary got %v, want %v", value.name, got.Binary, value.expectedBinary)
 			}
 		}
 		return nil
@@ -186,16 +194,16 @@ func (s *suite) registryWrite(target implantTarget, path string, key string, val
 	return err
 }
 
-func (s *suite) registryRead(target implantTarget, path string, key string) (string, error) {
+func (s *suite) registryRead(target implantTarget, path string, key string) (*sliverpb.RegistryRead, error) {
 	response, err := invokeRPC(s, target, "RegistryRead", func(ctx context.Context, request *commonpb.Request) (*sliverpb.RegistryRead, error) {
 		return s.rpc.RegistryRead(ctx, &sliverpb.RegistryReadReq{
 			Hive: registryE2EHive, Path: path, Key: key, Request: request,
 		})
 	}, func(response *sliverpb.RegistryRead) *commonpb.Response { return response.GetResponse() })
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return response.Value, nil
+	return response, nil
 }
 
 func (s *suite) registryDeleteKey(target implantTarget, path string, key string) error {
