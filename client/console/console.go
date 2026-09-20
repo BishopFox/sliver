@@ -286,8 +286,12 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	}
 
 	if !con.IsCLI {
-		if err := nonTTYGuard(rcScript); err != nil {
+		startInteractive, err := nonTTYGuard(rcScript)
+		if err != nil {
 			return err
+		}
+		if !startInteractive {
+			return nil
 		}
 		return con.App.Start()
 	}
@@ -295,17 +299,17 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	return nil
 }
 
-// nonTTYGuard returns an error when stdin is not a terminal and no rc script
-// was supplied.  When an rc script is provided it returns nil since the script
-// has already been executed and the interactive loop is not needed.
-func nonTTYGuard(rcScript string) error {
+// nonTTYGuard reports whether to start the interactive console. It returns an
+// error when stdin is not a terminal and no rc script was supplied. When an rc
+// script is provided, it reports false because the script has already run.
+func nonTTYGuard(rcScript string) (bool, error) {
 	if !isTerminal(int(os.Stdin.Fd())) {
 		if rcScript != "" {
-			return nil
+			return false, nil
 		}
-		return fmt.Errorf("interactive console requires a TTY; use --rc for non-interactive scripts")
+		return false, fmt.Errorf("interactive console requires a TTY; use --rc for non-interactive scripts")
 	}
-	return nil
+	return true, nil
 }
 
 func (con *SliverClient) runRCScript(serverCmds, sliverCmds console.Commands, rcScript string) {
