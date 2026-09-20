@@ -21,7 +21,7 @@ func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, task := range tasks {
-		shortID := strings.Split(task.ID, "-")[0]
+		shortID, _, _ := strings.Cut(task.ID, "-")
 		fmt.Fprintf(table, "%s\t%s\t%s\t\n", shortID, task.Description, prettyState(task.State))
 	}
 	table.Flush()

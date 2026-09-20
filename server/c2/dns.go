@@ -76,6 +76,13 @@ const (
 
 	// INIT carries only key-exchange material and should remain small.
 	defaultMaxDNSInitSize = 16 * 1024
+
+	// An implant must poll and clear staged messages to release them. Bound the
+	// retained queue so an unreachable or malicious implant cannot make the
+	// teamserver retain outgoing envelopes indefinitely.
+	defaultMaxDNSOutgoingMessages = 128
+	defaultMaxDNSOutgoingBytes    = 16 * 1024 * 1024
+	dnsMessageIDCount             = 255
 )
 
 var (
@@ -83,6 +90,7 @@ var (
 	implantBase64         = encoders.Base64{} // Implant's version of base64 with custom alphabet
 	ErrInvalidMsg         = errors.New("invalid dns message")
 	ErrNoOutgoingMessages = errors.New("no outgoing messages")
+	ErrDNSOutgoingLimit   = errors.New("dns outgoing message retention limit reached")
 	ErrMsgTooLong         = errors.New("too much data to encode")
 	ErrMsgTooShort        = errors.New("too little data to encode")
 )
@@ -121,7 +129,11 @@ type DNSSession struct {
 	dnsIdMsgIdMap   map[uint32]uint32
 	outgoingMsgIDs  []uint32
 	outgoingBuffers map[uint32][]byte
+	outgoingBytes   int
 	outgoingMutex   *sync.RWMutex
+
+	maxOutgoingMessages int
+	maxOutgoingBytes    int
 
 	incomingEnvelopes map[uint32]*PendingEnvelope
 	incomingMutex     *sync.Mutex
@@ -138,7 +150,32 @@ func (s *DNSSession) msgID(id uint32) uint32 {
 
 func (s *DNSSession) nextMsgID() uint32 {
 	s.msgCount++
-	return s.msgID(s.msgCount % 255)
+	return s.msgID(s.msgCount % dnsMessageIDCount)
+}
+
+func (s *DNSSession) outgoingLimits() (int, int) {
+	maxMessages := s.maxOutgoingMessages
+	if maxMessages <= 0 {
+		maxMessages = defaultMaxDNSOutgoingMessages
+	}
+	maxBytes := s.maxOutgoingBytes
+	if maxBytes <= 0 {
+		maxBytes = defaultMaxDNSOutgoingBytes
+	}
+	return maxMessages, maxBytes
+}
+
+// nextAvailableMsgIDLocked returns an unused message ID. DNS only allocates
+// eight bits to this value, so a long-lived session must not overwrite a
+// retained buffer when the counter wraps.
+func (s *DNSSession) nextAvailableMsgIDLocked() (uint32, bool) {
+	for range dnsMessageIDCount {
+		msgID := s.nextMsgID()
+		if _, retained := s.outgoingBuffers[msgID]; !retained {
+			return msgID, true
+		}
+	}
+	return 0, false
 }
 
 // StageOutgoingEnvelope - Stage an outgoing envelope
@@ -157,9 +194,17 @@ func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
 
 	s.outgoingMutex.Lock()
 	defer s.outgoingMutex.Unlock()
-	msgID := s.nextMsgID()
+	maxMessages, maxBytes := s.outgoingLimits()
+	if len(s.outgoingBuffers) >= maxMessages || len(ciphertext) > maxBytes-s.outgoingBytes {
+		return ErrDNSOutgoingLimit
+	}
+	msgID, ok := s.nextAvailableMsgIDLocked()
+	if !ok {
+		return ErrDNSOutgoingLimit
+	}
 	s.outgoingMsgIDs = append(s.outgoingMsgIDs, msgID)
 	s.outgoingBuffers[msgID] = ciphertext
+	s.outgoingBytes += len(ciphertext)
 	dnsLog.Debugf("Staged outgoing envelope successfully (%d bytes)", len(ciphertext))
 	return nil
 }
@@ -205,7 +250,51 @@ func (s *DNSSession) OutgoingRead(msgID uint32, start uint32, stop uint32) ([]by
 func (s *DNSSession) ClearOutgoingEnvelope(msgID uint32) {
 	s.outgoingMutex.Lock()
 	defer s.outgoingMutex.Unlock()
+	ciphertext, ok := s.outgoingBuffers[msgID]
+	if !ok {
+		return
+	}
 	delete(s.outgoingBuffers, msgID)
+	s.outgoingBytes -= len(ciphertext)
+	if s.outgoingBytes < 0 {
+		s.outgoingBytes = 0
+	}
+
+	queued := s.outgoingMsgIDs[:0]
+	for _, queuedID := range s.outgoingMsgIDs {
+		if queuedID != msgID {
+			queued = append(queued, queuedID)
+		}
+	}
+	s.outgoingMsgIDs = queued
+	for dnsID, mappedMsgID := range s.dnsIdMsgIdMap {
+		if mappedMsgID == msgID {
+			delete(s.dnsIdMsgIdMap, dnsID)
+		}
+	}
+}
+
+func (s *DNSSession) clearOutgoingEnvelopes() {
+	s.outgoingMutex.Lock()
+	defer s.outgoingMutex.Unlock()
+	clear(s.dnsIdMsgIdMap)
+	clear(s.outgoingBuffers)
+	s.outgoingMsgIDs = nil
+	s.outgoingBytes = 0
+}
+
+func (s *DNSSession) lookupOutgoingEnvelope(dnsID uint32) (uint32, uint32, bool) {
+	s.outgoingMutex.RLock()
+	defer s.outgoingMutex.RUnlock()
+	msgID, ok := s.dnsIdMsgIdMap[dnsID]
+	if !ok {
+		return 0, 0, false
+	}
+	ciphertext, ok := s.outgoingBuffers[msgID]
+	if !ok {
+		return 0, 0, false
+	}
+	return msgID, uint32(len(ciphertext)), true
 }
 
 // IncomingPendingEnvelope - Get a pending message linked list, creates one if it doesn't exist
@@ -229,6 +318,14 @@ func (s *DNSSession) IncomingPendingEnvelope(msgID uint32, size uint32) *Pending
 // ForwardCompletedEnvelope - Reassembles and forwards envelopes to core
 func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnvelope) {
 	defer recoverAndLogPanic(dnsLog.Errorf, "dns ForwardCompletedEnvelope")
+	if s.ImplantConn == nil {
+		return
+	}
+	select {
+	case <-s.ImplantConn.Done():
+		return
+	default:
+	}
 
 	dnsLog.Debugf("[dns] dns session id: %d, msg id: %d completed message", s.ID, msgID)
 	s.incomingMutex.Lock()
@@ -251,19 +348,22 @@ func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnve
 		dnsLog.Errorf("Failed to unmarshal message %d: %s", msgID, err)
 		return
 	}
+	select {
+	case <-s.ImplantConn.Done():
+		return
+	default:
+	}
 
 	s.ImplantConn.UpdateLastMessage()
 	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		s.ImplantConn.RespMutex.RLock()
-		defer s.ImplantConn.RespMutex.RUnlock()
-		if resp, ok := s.ImplantConn.Resp[envelope.ID]; ok {
-			resp <- envelope
-		}
+		s.ImplantConn.DeliverResponse(envelope)
 	} else if handler, ok := handlers[envelope.Type]; ok {
 		respEnvelope := handler(s.ImplantConn, envelope.Data)
 		if respEnvelope != nil {
-			s.ImplantConn.Send <- respEnvelope
+			if err := s.ImplantConn.SendEnvelope(respEnvelope, core.DefaultImplantSendTimeout); err != nil {
+				s.ImplantConn.Close()
+			}
 		}
 	}
 }
@@ -367,6 +467,44 @@ func (s *SliverDNSServer) Shutdown() error {
 // ListenAndServe - Listen for DNS requests and respond
 func (s *SliverDNSServer) ListenAndServe() error {
 	return s.server.ListenAndServe()
+}
+
+func (s *SliverDNSServer) closeDNSSession(dnsSession *DNSSession) {
+	if dnsSession == nil {
+		return
+	}
+	s.sessions.CompareAndDelete(dnsSession.ID, dnsSession)
+	dnsSession.clearOutgoingEnvelopes()
+	if dnsSession.ImplantConn != nil {
+		dnsSession.ImplantConn.Close()
+	}
+}
+
+func (s *SliverDNSServer) startDNSSessionSendLoop(dnsSession *DNSSession) {
+	go func() {
+		defer s.closeDNSSession(dnsSession)
+		defer recoverAndLogPanic(dnsLog.Errorf, "dns session send loop")
+
+		dnsLog.Debugf("[dns] starting implant conn send loop")
+		for {
+			select {
+			case <-dnsSession.ImplantConn.Done():
+				dnsLog.Debugf("[dns] closing implant conn send loop")
+				return
+			case envelope, ok := <-dnsSession.ImplantConn.Send:
+				if !ok {
+					return
+				}
+				if err := dnsSession.StageOutgoingEnvelope(envelope); err != nil {
+					if errors.Is(err, ErrDNSOutgoingLimit) {
+						dnsLog.Warnf("[dns] closing session %d after outgoing retention limit: %s", dnsSession.ID, err)
+						return
+					}
+					dnsLog.Errorf("[dns] failed to stage outgoing envelope: %s", err)
+				}
+			}
+		}
+	}()
 }
 
 func (s *SliverDNSServer) startInitGC() {
@@ -493,22 +631,31 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 		dnsLog.Warnf("[dns] session not found for id %v (%v)", msg.ID, msg.ID&sessionIDBitMask)
 		return s.nameErrorResp(req)
 	}
-	if session, ok := sessionValue.(*DNSSession); ok && session != nil {
-		session.touch(time.Now())
+	dnsSession, ok := sessionValue.(*DNSSession)
+	if !ok || dnsSession == nil || dnsSession.ImplantConn == nil {
+		dnsLog.Warnf("[dns] invalid session for id %v", msg.ID&sessionIDBitMask)
+		return s.nameErrorResp(req)
 	}
+	select {
+	case <-dnsSession.ImplantConn.Done():
+		s.closeDNSSession(dnsSession)
+		return s.nameErrorResp(req)
+	default:
+	}
+	dnsSession.touch(time.Now())
 
 	// Msg Type -> Handler
 	switch msg.Type {
 	case dnspb.DNSMessageType_NOP:
 		return s.handleNOP(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_POLL:
-		return s.handlePoll(domain, msg, checksum, req)
+		return s.handlePoll(domain, dnsSession, msg, checksum, req)
 	case dnspb.DNSMessageType_DATA_FROM_IMPLANT:
-		return s.handleDataFromImplant(domain, msg, checksum, req)
+		return s.handleDataFromImplant(domain, dnsSession, msg, checksum, req)
 	case dnspb.DNSMessageType_DATA_TO_IMPLANT:
-		return s.handleDataToImplant(domain, msg, checksum, req)
+		return s.handleDataToImplant(domain, dnsSession, msg, checksum, req)
 	case dnspb.DNSMessageType_CLEAR:
-		return s.handleClear(domain, msg, checksum, req)
+		return s.handleClear(domain, dnsSession, msg, checksum, req)
 	}
 	return nil
 }
@@ -689,20 +836,13 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		return s.refusedErrorResp(req)
 	}
 
-	go func() {
-		defer recoverAndLogPanic(dnsLog.Errorf, "dns session send loop")
-
-		dnsLog.Debugf("[dns] starting implant conn send loop")
-		for envelope := range dnsSession.ImplantConn.Send {
-			dnsSession.StageOutgoingEnvelope(envelope)
-		}
-		dnsLog.Debugf("[dns] closing implant conn send loop")
-	}()
+	s.startDNSSessionSendLoop(dnsSession)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, dnsSession.ID)
 	respData, err := dnsSession.CipherCtx.Encrypt(buf)
 	if err != nil {
 		dnsLog.Errorf("[session init] failed to encrypt msg with session key: %s", err)
+		s.closeDNSSession(dnsSession)
 		return s.refusedErrorResp(req)
 	}
 
@@ -749,10 +889,14 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	return resp
 }
 
-func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handlePoll(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, _ uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[poll] with dns session id %d", msg.ID&sessionIDBitMask)
-	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
-	dnsSession := loadSession.(*DNSSession)
+	select {
+	case <-dnsSession.ImplantConn.Done():
+		s.closeDNSSession(dnsSession)
+		return s.nameErrorResp(req)
+	default:
+	}
 	dnsSession.touch(time.Now())
 
 	msgID, msgLen, err := dnsSession.PopOutgoingMsgID(msg)
@@ -764,17 +908,12 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			msgLen = 0
 			msgID = 0
 			dnsLog.Debugf("[poll] error: %s", err)
-			oldID, ok := dnsSession.dnsIdMsgIdMap[msg.ID]
+			oldID, oldLen, ok := dnsSession.lookupOutgoingEnvelope(msg.ID)
 			if !ok {
 				dnsLog.Debugf("[poll] no msg id for given request")
 			} else {
-				ciphertext, ok := dnsSession.outgoingBuffers[oldID]
-				if !ok {
-					dnsLog.Debugf("[poll] no msg for given id")
-				} else {
-					msgLen = uint32(len(ciphertext))
-					msgID = oldID
-				}
+				msgLen = oldLen
+				msgID = oldID
 			}
 
 		}
@@ -831,10 +970,14 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	return resp
 }
 
-func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDataFromImplant(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[from implant] dns session id %d", msg.ID&sessionIDBitMask)
-	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
-	dnsSession := loadSession.(*DNSSession)
+	select {
+	case <-dnsSession.ImplantConn.Done():
+		s.closeDNSSession(dnsSession)
+		return s.nameErrorResp(req)
+	default:
+	}
 	dnsSession.touch(time.Now())
 	dnsLog.Debugf("[from implant] msg id: %d, size: %d", msg.ID, msg.Size)
 	pending := dnsSession.IncomingPendingEnvelope(msg.ID, msg.Size)
@@ -865,10 +1008,14 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 	return resp
 }
 
-func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDataToImplant(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, _ uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[to implant] dns session id %d", msg.ID&sessionIDBitMask)
-	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
-	dnsSession := loadSession.(*DNSSession)
+	select {
+	case <-dnsSession.ImplantConn.Done():
+		s.closeDNSSession(dnsSession)
+		return s.nameErrorResp(req)
+	default:
+	}
 	dnsSession.touch(time.Now())
 
 	data, err := dnsSession.OutgoingRead(msg.ID, msg.Start, msg.Stop)
@@ -925,10 +1072,14 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 	return resp
 }
 
-func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleClear(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[clear] dns session id %d", msg.ID&sessionIDBitMask)
-	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
-	dnsSession := loadSession.(*DNSSession)
+	select {
+	case <-dnsSession.ImplantConn.Done():
+		s.closeDNSSession(dnsSession)
+		return s.nameErrorResp(req)
+	default:
+	}
 	dnsSession.touch(time.Now())
 	dnsSession.ClearOutgoingEnvelope(msg.ID)
 

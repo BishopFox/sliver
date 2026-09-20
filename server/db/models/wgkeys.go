@@ -3,13 +3,12 @@ package models
 import (
 	"time"
 
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // WGKeys - WGKeys database model
 type WGKeys struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 	PrivKey   string
 	PubKey    string
@@ -17,7 +16,7 @@ type WGKeys struct {
 
 // MultiplayerWGKeys - Multiplayer WireGuard server keys database model.
 type MultiplayerWGKeys struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 	PrivKey   string
 	PubKey    string
@@ -36,7 +35,7 @@ func (c *MultiplayerWGKeys) BeforeCreate(tx *gorm.DB) (err error) {
 // WGPeer- WGPeer database model
 type WGPeer struct {
 	// gorm.Model
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 	PrivKey   string
 	PubKey    string
@@ -48,12 +47,8 @@ func (c *WGPeer) BeforeCreate(tx *gorm.DB) (err error) {
 	return initWGKeysModel(&c.ID, &c.CreatedAt)
 }
 
-func initWGKeysModel(id *uuid.UUID, createdAt *time.Time) error {
-	newID, err := uuid.NewV4()
-	if err != nil {
-		return err
-	}
-	*id = newID
+func initWGKeysModel(id *UUID, createdAt *time.Time) error {
+	*id = NewUUID()
 	*createdAt = time.Now()
 	return nil
 }

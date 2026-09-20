@@ -2,11 +2,11 @@ package mailgun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/mailgun/mailgun-go/v5/events"
 )
 
@@ -163,7 +163,7 @@ func (ei *EventIterator) fetch(ctx context.Context, url string) error {
 		return err
 	}
 
-	if err := jsoniter.Unmarshal(resp.Data, &ei.Response); err != nil {
+	if err := json.Unmarshal(resp.Data, &ei.Response); err != nil {
 		return fmt.Errorf("failed to un-marshall event.Response: %s", err)
 	}
 	return nil

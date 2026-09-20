@@ -113,6 +113,9 @@ uintptr_t goVOpen(void *pVTab, char **pzErr);
 
 static int cXOpen(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor) {
 	void *vTabCursor = (void *)goVOpen(((goVTab*)pVTab)->vTab, &(pVTab->zErrMsg));
+	if (!vTabCursor) {
+		return SQLITE_ERROR;
+	}
 	goVTabCursor *pCursor = (goVTabCursor *)sqlite3_malloc(sizeof(goVTabCursor));
 	if (!pCursor) {
 		return SQLITE_NOMEM;
@@ -270,7 +273,6 @@ import "C"
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"unsafe"
 )
 
@@ -301,10 +303,18 @@ const (
 	OpLT            = 16
 	OpGE            = 32
 	OpMATCH         = 64
-	OpLIKE          = 65 /* 3.10.0 and later only */
-	OpGLOB          = 66 /* 3.10.0 and later only */
-	OpREGEXP        = 67 /* 3.10.0 and later only */
-	OpScanUnique    = 1  /* Scan visits at most 1 row */
+	OpLIKE          = 65  /* 3.10.0 and later only */
+	OpGLOB          = 66  /* 3.10.0 and later only */
+	OpREGEXP        = 67  /* 3.10.0 and later only */
+	OpNE            = 68  /* 3.21.0 and later only */
+	OpISNOT         = 69  /* 3.21.0 and later */
+	OpISNOTNULL     = 70  /* 3.21.0 and later */
+	OpISNULL        = 71  /* 3.21.0 and later */
+	OpIS            = 72  /* 3.21.0 and later */
+	OpLIMIT         = 73  /* 3.38.0 and later */
+	OpOFFSET        = 74  /* 3.38.0 and later */
+	OpFUNCTION      = 150 /* 3.25.0 and later */
+	OpScanUnique    = 1   /* Scan visits at most 1 row */
 )
 
 // InfoConstraint give information of constraint.
@@ -321,11 +331,7 @@ type InfoOrderBy struct {
 }
 
 func constraints(info *C.sqlite3_index_info) []InfoConstraint {
-	slice := *(*[]C.struct_sqlite3_index_constraint)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.aConstraint)),
-		Len:  int(info.nConstraint),
-		Cap:  int(info.nConstraint),
-	}))
+	slice := unsafe.Slice(info.aConstraint, int(info.nConstraint))
 
 	cst := make([]InfoConstraint, 0, len(slice))
 	for _, c := range slice {
@@ -343,11 +349,7 @@ func constraints(info *C.sqlite3_index_info) []InfoConstraint {
 }
 
 func orderBys(info *C.sqlite3_index_info) []InfoOrderBy {
-	slice := *(*[]C.struct_sqlite3_index_orderby)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.aOrderBy)),
-		Len:  int(info.nOrderBy),
-		Cap:  int(info.nOrderBy),
-	}))
+	slice := unsafe.Slice(info.aOrderBy, int(info.nOrderBy))
 
 	ob := make([]InfoOrderBy, 0, len(slice))
 	for _, c := range slice {
@@ -392,10 +394,7 @@ func goMInit(db, pClientData unsafe.Pointer, argc C.int, argv **C.char, pzErr **
 		return 0
 	}
 	args := make([]string, argc)
-	var A []*C.char
-	slice := reflect.SliceHeader{Data: uintptr(unsafe.Pointer(argv)), Len: int(argc), Cap: int(argc)}
-	a := reflect.NewAt(reflect.TypeOf(A), unsafe.Pointer(&slice)).Elem().Interface()
-	for i, s := range a.([]*C.char) {
+	for i, s := range unsafe.Slice(argv, int(argc)) {
 		args[i] = C.GoString(s)
 	}
 	var vTab VTab
@@ -424,6 +423,16 @@ func goVRelease(pVTab unsafe.Pointer, isDestroy C.int) *C.char {
 	} else {
 		err = vt.vTab.Disconnect()
 	}
+	if err != nil && isDestroy == 1 {
+		// SQLite retains p->pVtab when xDestroy fails and later calls
+		// xDisconnect on the same object; keep the handle registered so
+		// that call can resolve it (a missing handle panics above).
+		return mPrintf("%s", err.Error())
+	}
+	// On xDisconnect (success or error) SQLite discards the vtab object,
+	// and on successful xDestroy it clears p->pVtab; release the handle
+	// in both cases.
+	deleteHandle(pVTab)
 	if err != nil {
 		return mPrintf("%s", err.Error())
 	}
@@ -452,20 +461,23 @@ func goVBestIndex(pVTab unsafe.Pointer, icp unsafe.Pointer) *C.char {
 	if err != nil {
 		return mPrintf("%s", err.Error())
 	}
+	if res == nil {
+		return mPrintf("%s", "BestIndex returned a nil IndexResult")
+	}
 	if len(res.Used) != len(csts) {
 		return mPrintf("Result.Used != expected value", "")
 	}
 
 	// Get a pointer to constraint_usage struct so we can update in place.
 
-	slice := *(*[]C.struct_sqlite3_index_constraint_usage)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.aConstraintUsage)),
-		Len:  int(info.nConstraint),
-		Cap:  int(info.nConstraint),
-	}))
+	slice := unsafe.Slice(info.aConstraintUsage, int(info.nConstraint))
 	index := 1
 	for i := range slice {
-		if res.Used[i] {
+		// SQLite returns "xBestIndex malfunction" when an argvIndex is
+		// assigned to a constraint it marked as not usable, so ignore
+		// Used for those; they may become usable on a later xBestIndex
+		// invocation for a different plan.
+		if res.Used[i] && csts[i].Usable {
 			slice[i].argvIndex = C.int(index)
 			slice[i].omit = C.uchar(1)
 			index++
@@ -480,19 +492,30 @@ func goVBestIndex(pVTab unsafe.Pointer, icp unsafe.Pointer) *C.char {
 	}
 	info.needToFreeIdxStr = C.int(1)
 
-	idxStr := *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(info.idxStr)),
-		Len:  len(res.IdxStr) + 1,
-		Cap:  len(res.IdxStr) + 1,
-	}))
+	idxStr := unsafe.Slice((*byte)(unsafe.Pointer(info.idxStr)), len(res.IdxStr)+1)
 	copy(idxStr, res.IdxStr)
 	idxStr[len(idxStr)-1] = 0 // null-terminated string
 
 	if res.AlreadyOrdered {
 		info.orderByConsumed = C.int(1)
 	}
-	info.estimatedCost = C.double(res.EstimatedCost)
-	info.estimatedRows = C.sqlite3_int64(res.EstimatedRows)
+	// SQLite pre-initializes estimatedCost and estimatedRows with sensible
+	// defaults; overwriting them with the Go zero value would make every
+	// candidate plan look free and break query planning, so only pass
+	// values the implementation actually set.
+	if res.EstimatedCost > 0 {
+		info.estimatedCost = C.double(res.EstimatedCost)
+	}
+	if res.EstimatedRows > 0 {
+		var rows int64
+		if res.EstimatedRows >= float64(math.MaxInt64) {
+			rows = math.MaxInt64
+		} else if rows = int64(res.EstimatedRows); rows < 1 {
+			// A positive fractional estimate must not truncate to 0.
+			rows = 1
+		}
+		info.estimatedRows = C.sqlite3_int64(rows)
+	}
 
 	return nil
 }
@@ -501,6 +524,9 @@ func goVBestIndex(pVTab unsafe.Pointer, icp unsafe.Pointer) *C.char {
 func goVClose(pCursor unsafe.Pointer) *C.char {
 	vtc := lookupHandle(pCursor).(*sqliteVTabCursor)
 	err := vtc.vTabCursor.Close()
+	// The cursor is gone as far as SQLite is concerned regardless of the
+	// callback result, so release the handle either way.
+	deleteHandle(pCursor)
 	if err != nil {
 		return mPrintf("%s", err.Error())
 	}
@@ -511,6 +537,7 @@ func goVClose(pCursor unsafe.Pointer) *C.char {
 func goMDestroy(pClientData unsafe.Pointer) {
 	m := lookupHandle(pClientData).(*sqliteModule)
 	m.module.DestroyModule()
+	deleteHandle(pClientData)
 }
 
 //export goVFilter
@@ -523,7 +550,14 @@ func goVFilter(pCursor unsafe.Pointer, idxNum C.int, idxName *C.char, argc C.int
 		if err != nil {
 			return mPrintf("%s", err.Error())
 		}
-		vals = append(vals, conv.Interface())
+
+		// work around for SQLITE_NULL
+		x := conv.Interface()
+		if z, ok := x.([]byte); ok && z == nil {
+			x = nil
+		}
+
+		vals = append(vals, x)
 	}
 	err := vtc.vTabCursor.Filter(int(idxNum), C.GoString(idxName), vals)
 	if err != nil {
@@ -617,7 +651,15 @@ func goVUpdate(pVTab unsafe.Pointer, argc C.int, argv **C.sqlite3_value, pRowid 
 			}
 
 		case argc > 1:
-			err = v.Update(vals[1], vals[2:])
+			// Per the xUpdate contract argv[0] identifies the row being
+			// updated while argv[1] is its new rowid. VTabUpdater has no
+			// way to convey a rowid change, so reject it instead of
+			// silently updating values under the old rowid.
+			if vals[0] != vals[1] {
+				err = fmt.Errorf("virtual %s table %sdoes not support changing the rowid", vt.module.name, tname)
+			} else {
+				err = v.Update(vals[0], vals[2:])
+			}
 		}
 	}
 
@@ -717,5 +759,5 @@ func (c *SQLiteConn) CreateModule(moduleName string, module Module) error {
 		}
 		return nil
 	}
-	return nil
+	return fmt.Errorf("sqlite3: CreateModule requires a non-nil module")
 }

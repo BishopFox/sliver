@@ -1,9 +1,12 @@
 package slack
 
 // CardBlock defines a block of type card used to display a rich, self-contained
-// piece of content with an optional hero image, icon, title, subtitle, body,
-// and action buttons. Cards can stand alone or be grouped inside a
-// CarouselBlock.
+// piece of content with an optional hero image, icon (or Slack icon), title,
+// subtitle, body, subtext, and action buttons. Cards can stand alone or be
+// grouped inside a CarouselBlock.
+//
+// Only one of Icon and SlackIcon can be set, as they render in the same
+// location.
 //
 // More Information: https://docs.slack.dev/reference/block-kit/blocks/card-block/
 type CardBlock struct {
@@ -11,9 +14,11 @@ type CardBlock struct {
 	BlockID   string             `json:"block_id,omitempty"`
 	HeroImage *ImageBlockElement `json:"hero_image,omitempty"`
 	Icon      *ImageBlockElement `json:"icon,omitempty"`
+	SlackIcon *SlackIconObject   `json:"slack_icon,omitempty"`
 	Title     *TextBlockObject   `json:"title,omitempty"`
 	Subtitle  *TextBlockObject   `json:"subtitle,omitempty"`
 	Body      *TextBlockObject   `json:"body,omitempty"`
+	Subtext   *TextBlockObject   `json:"subtext,omitempty"`
 	Actions   *BlockElements     `json:"actions,omitempty"`
 }
 
@@ -71,9 +76,23 @@ func (s *CardBlock) WithBody(body *TextBlockObject) *CardBlock {
 	return s
 }
 
-// WithIcon sets the icon image for the CardBlock
+// WithSubtext sets the subtext displayed below the body of the CardBlock
+func (s *CardBlock) WithSubtext(subtext *TextBlockObject) *CardBlock {
+	s.Subtext = subtext
+	return s
+}
+
+// WithIcon sets the icon image for the CardBlock. It is mutually exclusive with
+// SlackIcon, as both render in the same location.
 func (s *CardBlock) WithIcon(icon *ImageBlockElement) *CardBlock {
 	s.Icon = icon
+	return s
+}
+
+// WithSlackIcon sets the built-in Slack icon for the CardBlock. It is mutually
+// exclusive with Icon, as both render in the same location.
+func (s *CardBlock) WithSlackIcon(slackIcon *SlackIconObject) *CardBlock {
+	s.SlackIcon = slackIcon
 	return s
 }
 

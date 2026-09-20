@@ -7,28 +7,34 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/internal/mock"
 )
 
 const (
-	CARAPACE_COMPLINE      = "CARAPACE_COMPLINE"      // TODO
-	CARAPACE_COVERDIR      = "CARAPACE_COVERDIR"      // coverage directory for sandbox tests
-	CARAPACE_EXPERIMENTAL  = "CARAPACE_EXPERIMENTAL"  // enable experimental features
-	CARAPACE_HIDDEN        = "CARAPACE_HIDDEN"        // show hidden commands/flags
-	CARAPACE_LENIENT       = "CARAPACE_LENIENT"       // allow unknown flags
-	CARAPACE_LOG           = "CARAPACE_LOG"           // enable logging
-	CARAPACE_MATCH         = "CARAPACE_MATCH"         // match case insensitive
-	CARAPACE_MERGEFLAGS    = "CARAPACE_MERGEFLAGS"    // merge flags to single tag group
-	CARAPACE_NOSPACE       = "CARAPACE_NOSPACE"       // nospace suffixes
-	CARAPACE_SANDBOX       = "CARAPACE_SANDBOX"       // mock context for sandbox tests
-	CARAPACE_TOOLTIP       = "CARAPACE_TOOLTIP"       // enable tooltip style
-	CARAPACE_UNFILTERED    = "CARAPACE_UNFILTERED"    // skip the final filtering step
-	CARAPACE_ZSH_HASH_DIRS = "CARAPACE_ZSH_HASH_DIRS" // zsh hash directories
-	CLICOLOR               = "CLICOLOR"               // disable color
-	NO_COLOR               = "NO_COLOR"               // disable color
+	CARAPACE_COLOR              = "CARAPACE_COLOR"              // enable color
+	CARAPACE_COMPLINE           = "CARAPACE_COMPLINE"           // TODO
+	CARAPACE_COVERDIR           = "CARAPACE_COVERDIR"           // coverage directory for sandbox tests
+	CARAPACE_DESCRIPTION_LENGTH = "CARAPACE_DESCRIPTION_LENGTH" // maximum description length
+	CARAPACE_EXPERIMENTAL       = "CARAPACE_EXPERIMENTAL"       // enable experimental features
+	CARAPACE_HIDDEN             = "CARAPACE_HIDDEN"             // show hidden commands/flags
+	CARAPACE_LENIENT            = "CARAPACE_LENIENT"            // allow unknown flags
+	CARAPACE_LOG                = "CARAPACE_LOG"                // enable logging
+	CARAPACE_MATCH              = "CARAPACE_MATCH"              // match case insensitive
+	CARAPACE_MERGEFLAGS         = "CARAPACE_MERGEFLAGS"         // merge flags to single tag group
+	CARAPACE_NOSPACE            = "CARAPACE_NOSPACE"            // nospace suffixes
+	CARAPACE_SANDBOX            = "CARAPACE_SANDBOX"            // mock context for sandbox tests
+	CARAPACE_TOOLTIP            = "CARAPACE_TOOLTIP"            // enable tooltip style
+	CARAPACE_UNFILTERED         = "CARAPACE_UNFILTERED"         // skip the final filtering step
+	CARAPACE_ZSH_HASH_DIRS      = "CARAPACE_ZSH_HASH_DIRS"      // zsh hash directories
+	CARAPACE_ZSH_STYLE_LIMIT    = "CARAPACE_ZSH_STYLE_LIMIT"    // max values to style in zsh
+	CLICOLOR                    = "CLICOLOR"                    // disable color
+	NO_COLOR                    = "NO_COLOR"                    // disable color
 )
 
 func ColorDisabled() bool {
+	if v, ok := os.LookupEnv(CARAPACE_COLOR); ok { // TODO multiple modes
+		return v == "0"
+	}
 	return getBool(NO_COLOR) || os.Getenv(CLICOLOR) == "0"
 }
 
@@ -44,7 +50,16 @@ func Hashdirs() string {
 	return os.Getenv(CARAPACE_ZSH_HASH_DIRS)
 }
 
-func Sandbox() (m *common.Mock, err error) {
+func ZshStyleLimit() int {
+	v := os.Getenv(CARAPACE_ZSH_STYLE_LIMIT)
+	limit, err := strconv.Atoi(v)
+	if err != nil {
+		return 300
+	}
+	return limit
+}
+
+func Sandbox() (m *mock.Mock, err error) {
 	sandbox := os.Getenv(CARAPACE_SANDBOX)
 	if sandbox == "" || !isGoRun() {
 		return nil, errors.New("no sandbox")
@@ -121,4 +136,11 @@ func getBool(s string) bool {
 	default:
 		return false
 	}
+}
+
+func DescriptionLength() int {
+	if parsed, err := strconv.Atoi(os.Getenv(CARAPACE_DESCRIPTION_LENGTH)); err == nil && parsed > 0 {
+		return parsed
+	}
+	return 80
 }

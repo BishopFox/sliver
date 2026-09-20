@@ -43,8 +43,9 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient, remoteOS st
 	stdinQueue := make(chan shellInputChunk, stdinQueueDepth)
 	stopWriter := make(chan struct{})
 	var writerWG sync.WaitGroup
-	writerWG.Add(1)
-	go runShellInputWriter(tunnel, stdinQueue, stopWriter, &writerWG)
+	writerWG.Go(func() {
+		runShellInputWriter(tunnel, stdinQueue, stopWriter)
+	})
 
 	defer func() {
 		close(stopWriter)
@@ -96,8 +97,7 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient, remoteOS st
 	return detached, closeRequested
 }
 
-func runShellInputWriter(tunnel *core.TunnelIO, stdinQueue <-chan shellInputChunk, stop <-chan struct{}, writerWG *sync.WaitGroup) {
-	defer writerWG.Done()
+func runShellInputWriter(tunnel *core.TunnelIO, stdinQueue <-chan shellInputChunk, stop <-chan struct{}) {
 	defer recoverShellInputWriter()
 
 	for {

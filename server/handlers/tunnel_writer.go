@@ -19,6 +19,8 @@ package handlers
 */
 
 import (
+	"errors"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -27,6 +29,13 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"google.golang.org/protobuf/proto"
+)
+
+const reverseTunnelSendTimeout = 10 * time.Second
+
+var (
+	errReverseTunnelClosed    = errors.New("reverse tunnel closed")
+	errReverseTunnelSendQueue = errors.New("reverse tunnel implant send queue timed out")
 )
 
 // tunnelWriter - Sends data back to the server based on data read()
@@ -38,19 +47,43 @@ type tunnelWriter struct {
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	data, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence: tw.tun.WriteSequence(), // The tunnel write sequence
-		Ack:      tw.tun.ReadSequence(),
-		TunnelID: tw.tun.ID,
-		Data:     data,
+	err := tw.tun.QueueOutbound(func(sequence uint64) error {
+		marshaled, err := proto.Marshal(&sliverpb.TunnelData{
+			Sequence: sequence,
+			Ack:      tw.tun.ReadSequence(),
+			TunnelID: tw.tun.ID,
+			Data:     data,
+		})
+		if err != nil {
+			return err
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, tw.tun.ReadSequence())
+		// {{end}}
+		return queueTunnelEnvelope(tw.conn, tw.tun, &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelData,
+			Data: marshaled,
+		})
 	})
-	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence(), tw.tun.ReadSequence())
-	// {{end}}
-	tw.tun.IncWriteSequence() // Increment write sequence
-	tw.conn.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
-		Data: data,
+	if err != nil {
+		if errors.Is(err, rtunnels.ErrReverseTunnelClosed) {
+			return 0, errReverseTunnelClosed
+		}
+		return 0, err
 	}
-	return n, err
+	return n, nil
+}
+
+func queueTunnelEnvelope(connection *core.ImplantConnection, tunnel *rtunnels.RTunnel, envelope *sliverpb.Envelope) error {
+	if connection == nil || tunnel == nil || envelope == nil {
+		return errReverseTunnelClosed
+	}
+	err := connection.SendEnvelopeUntil(envelope, tunnel.Done(), reverseTunnelSendTimeout)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, core.ErrImplantConnectionClosed) {
+		return errReverseTunnelClosed
+	}
+	return errReverseTunnelSendQueue
 }

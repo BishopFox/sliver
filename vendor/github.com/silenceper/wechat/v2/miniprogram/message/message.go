@@ -41,6 +41,12 @@ const (
 	EventTypeXpayGoodsDeliverNotify EventType = "xpay_goods_deliver_notify"
 	// EventTypeXpayCoinPayNotify 代币支付推送事件
 	EventTypeXpayCoinPayNotify EventType = "xpay_coin_pay_notify"
+	// EventTypeXpayRefundNotify 退款推送事件
+	EventTypeXpayRefundNotify EventType = "xpay_refund_notify"
+	// EventTypeXpaySubscribeIosRefundQueryNotify iOS Apple 支付退款问询事件
+	EventTypeXpaySubscribeIosRefundQueryNotify EventType = "xpay_subscribe_ios_refund_query_notify"
+	// EventTypeXpayComplaintNotify 用户投诉推送事件
+	EventTypeXpayComplaintNotify EventType = "xpay_complaint_notify"
 	// EventSubscribePopup 用户操作订阅通知弹窗事件推送，用户在图文等场景内订阅通知的操作
 	EventSubscribePopup EventType = "subscribe_msg_popup_event"
 	// EventSubscribeMsgChange 用户管理订阅通知，用户在服务通知管理页面做通知管理时的操作
@@ -203,6 +209,14 @@ func (receiver *PushReceiver) getEvent(dataType string, eventType EventType, dec
 		var pushData PushDataXpayCoinPayNotify
 		err := receiver.unmarshal(dataType, decryptMsg, &pushData)
 		return &pushData, err
+	case EventTypeXpayRefundNotify:
+		// 退款推送事件
+		return receiver.unmarshalPushData(dataType, decryptMsg, &PushDataXpayRefundNotify{})
+	case EventTypeXpaySubscribeIosRefundQueryNotify: // iOS Apple 支付退款问询事件
+		return receiver.unmarshalPushData(dataType, decryptMsg, &PushDataXpaySubscribeIosRefundQueryNotify{})
+	case EventTypeXpayComplaintNotify:
+		// 用户投诉推送事件
+		return receiver.unmarshalPushData(dataType, decryptMsg, &PushDataXpayComplaintNotify{})
 	case EventSubscribePopup:
 		// 用户操作订阅通知弹窗事件推送
 		return receiver.unmarshalSubscribePopup(dataType, decryptMsg)
@@ -223,6 +237,12 @@ func (receiver *PushReceiver) unmarshal(dataType string, decryptMsg []byte, push
 		return xml.Unmarshal(decryptMsg, pushData)
 	}
 	return json.Unmarshal(decryptMsg, pushData)
+}
+
+// unmarshalPushData unmarshal push data helper
+func (receiver *PushReceiver) unmarshalPushData(dataType string, decryptMsg []byte, pushData interface{}) (PushData, error) {
+	err := receiver.unmarshal(dataType, decryptMsg, pushData)
+	return pushData, err
 }
 
 // unmarshalSubscribePopup
@@ -432,6 +452,7 @@ type PushDataXpayGoodsDeliverNotify struct {
 	Env           int           `json:"Env" xml:"Env"`                     // ，环境配置 0：现网环境（也叫正式环境）1：沙箱环境
 	WeChatPayInfo WeChatPayInfo `json:"WeChatPayInfo" xml:"WeChatPayInfo"` // 微信支付信息 非微信支付渠道可能没有
 	GoodsInfo     GoodsInfo     `json:"GoodsInfo" xml:"GoodsInfo"`         // 道具参数信息
+	TeamInfo      XpayTeamInfo  `json:"TeamInfo" xml:"TeamInfo"`           // 拼团信息
 }
 
 // WeChatPayInfo 微信支付信息
@@ -576,4 +597,66 @@ func (s *PushDataSubscribeMsgSent) GetSubscribeMsgSentEvents() []SubscribeMsgSen
 	}
 
 	return s.SubscribeMsgSentEvent.List
+}
+
+// XpayTeamInfo team purchase info
+type XpayTeamInfo struct {
+	ActivityID string `json:"ActivityId" xml:"ActivityId"` // 活动 id
+	TeamID     string `json:"TeamId" xml:"TeamId"`         // 团 id
+	TeamType   int    `json:"TeamType" xml:"TeamType"`     // 团类型 1-支付全部，拼成退款
+	TeamAction int    `json:"TeamAction" xml:"TeamAction"` // 0-创团 1-参团
+}
+
+// PushDataXpayRefundNotify 退款推送
+type PushDataXpayRefundNotify struct {
+	CommonPushData
+	OpenID                   string       `json:"OpenId" xml:"OpenId"`                                     // 用户 openid
+	WxRefundID               string       `json:"WxRefundId" xml:"WxRefundId"`                             // 微信退款单号
+	MchRefundID              string       `json:"MchRefundId" xml:"MchRefundId"`                           // 商户退款单号
+	WxOrderID                string       `json:"WxOrderId" xml:"WxOrderId"`                               // 退款单对应支付单的微信单号
+	MchOrderID               string       `json:"MchOrderId" xml:"MchOrderId"`                             // 退款单对应支付单的商户单号
+	RefundFee                int          `json:"RefundFee" xml:"RefundFee"`                               // 退款金额，单位分
+	RetCode                  int          `json:"RetCode" xml:"RetCode"`                                   // 退款结果，0 为成功
+	RetMsg                   string       `json:"RetMsg" xml:"RetMsg"`                                     // 退款结果详情
+	RefundStartTimestamp     int64        `json:"RefundStartTimestamp" xml:"RefundStartTimestamp"`         // 开始退款时间，秒级时间戳
+	RefundSuccTimestamp      int64        `json:"RefundSuccTimestamp" xml:"RefundSuccTimestamp"`           // 结束退款时间，秒级时间戳
+	WxpayRefundTransactionID string       `json:"WxpayRefundTransactionId" xml:"WxpayRefundTransactionId"` // 退款单的微信支付单号
+	RetryTimes               int          `json:"RetryTimes" xml:"RetryTimes"`                             // 重试次数，从 0 开始
+	TeamInfo                 XpayTeamInfo `json:"TeamInfo" xml:"TeamInfo"`                                 // 拼团信息
+}
+
+// PushDataXpaySubscribeIosRefundQueryNotify iOS Apple 支付退款问询事件
+// 文档：https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment/ios.html
+type PushDataXpaySubscribeIosRefundQueryNotify struct {
+	CommonPushData
+	RefundTime          string `json:"refund_time" xml:"refund_time"`                     // 问询时间，Unix 时间戳
+	OrderTime           string `json:"order_time" xml:"order_time"`                       // 该笔退款的订单时间，Unix 时间戳
+	ChannelBill         string `json:"channel_bill" xml:"channel_bill"`                   // Apple 支付票据号
+	BundleID            string `json:"bundleid" xml:"bundleid"`                           // 应用的 Apple bundleid
+	ProductID           string `json:"product_id" xml:"product_id"`                       // 道具 id
+	PCount              string `json:"p_count" xml:"p_count"`                             // 道具/代币数量
+	RefundRequestReason string `json:"refund_request_reason" xml:"refund_request_reason"` // 用户请求退款的原因
+	ProvideStatus       string `json:"provide_status" xml:"provide_status"`               // 发货状态，0：未发货 1：已发货 2：发货中
+	PayOrderID          string `json:"pay_order_id" xml:"pay_order_id"`                   // 退款对应支付订单号
+}
+
+// IosRefundQueryResponse iOS Apple 支付退款问询应答
+type IosRefundQueryResponse struct {
+	ResultCode int32  `json:"result_code" xml:"result_code"` // 结果码，0-放过，建议退款；1-拦截，拒绝退款
+	ResultInfo string `json:"result_info" xml:"result_info"` // 结果描述
+	Evidence   string `json:"evidence" xml:"evidence"`       // 决策凭据，必填，用于退款审计
+}
+
+// PushDataXpayComplaintNotify 用户投诉推送
+type PushDataXpayComplaintNotify struct {
+	CommonPushData
+	OpenID          string `json:"OpenId" xml:"OpenId"`                   // 用户 openid
+	WxOrderID       string `json:"WxOrderId" xml:"WxOrderId"`             // 微信单号
+	MchOrderID      string `json:"MchOrderId" xml:"MchOrderId"`           // 商户单号
+	TransactionID   string `json:"TransactionId" xml:"TransactionId"`     // 微信支付交易单号
+	ComplaintID     string `json:"ComplaintId" xml:"ComplaintId"`         // 投诉单号
+	ComplaintDetail string `json:"ComplaintDetail" xml:"ComplaintDetail"` // 投诉详情
+	ComplaintTime   int64  `json:"ComplaintTime" xml:"ComplaintTime"`     // 投诉时间，秒级时间戳
+	RetryTimes      int    `json:"RetryTimes" xml:"RetryTimes"`           // 重试次数，从 0 开始
+	RequestID       string `json:"RequestId" xml:"RequestId"`             // 请求编号
 }

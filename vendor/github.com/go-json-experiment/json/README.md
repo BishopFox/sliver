@@ -12,9 +12,29 @@ with the string "WARNING: " near the top of the commit message.
 It is your responsibility to inspect the list of commit changes
 when upgrading the module. Not all breaking changes will lead to build failures.
 
-A [proposal to include this module in Go as `encoding/json/v2` and `encoding/json/jsontext`](https://github.com/golang/go/issues/71497) has been started on the Go Github project on 2025-01-30. Please provide your feedback there.
+## Current status
+
+A [proposal to include this module in Go as `encoding/json/v2` and `encoding/json/jsontext`](https://github.com/golang/go/issues/71497)
+has been started on the Go Github project on 2025-01-30. Please provide your feedback there.
 At present, this module is available within the Go standard library as a Go experiment.
 See ["A new experimental Go API for JSON"](https://go.dev/blog/jsonv2-exp) for more details.
+
+On 2025-11-20, a `json/v2` working group was established by the Go project
+consisting of @aclements, @neild, @prattmic, @ChrisHines, and @dsnet
+to review outstanding issues in preparing for formal adoption into the standard library.
+The working group meets weekly and notes are recorded on [issue #76406](https://github.com/golang/go/issues/76406).
+
+See [the project dashboard](https://github.com/orgs/golang/projects/50/views/1)
+to get a sense of what issues remain for the meeting group to resolve.
+The "Under review" and "Needs review" categories need to be emptied
+before `json/v2` can be released.
+
+This repository will continue to import and mirror the upstream Go project
+for the foreseeable future. Consequently, code changes should be made at
+the upstream [Go project](https://go.googlesource.com/go/) instead of here.
+Building this module with the `goexperiment.jsonv2` tag will cause the
+module to use the `encoding/json/v2` package under-the-hood,
+otherwise this will provide a different implementation of `json/v2`.
 
 ## Goals and objectives
 
@@ -57,27 +77,6 @@ behavioral changes in v2 relative to v1 need to be exposed as options.
 * **Avoid unsafe:** Standard library packages generally avoid the use of
 package `unsafe` even if it could provide a performance boost.
 We aim to preserve this property.
-
-## Expectations
-
-While this module aims to possibly be the v2 implementation of `encoding/json`,
-there is no guarantee that this outcome will occur. As with any major change
-to the Go standard library, this will eventually go through the
-[Go proposal process](https://github.com/golang/proposal#readme).
-At the present moment, this is still in the design and experimentation phase
-and is not ready for a formal proposal.
-
-There are several possible outcomes from this experiment:
-1. We determine that a v2 `encoding/json` would not provide sufficient benefit
-over the existing v1 `encoding/json` package. Thus, we abandon this effort.
-2. We propose a v2 `encoding/json` design, but it is rejected in favor of some
-other design that is considered superior.
-3. We propose a v2 `encoding/json` design, but rather than adding an entirely
-new v2 `encoding/json` package, we decide to merge its functionality into
-the existing v1 `encoding/json` package.
-4. We propose a v2 `encoding/json` design and it is accepted, resulting in
-its addition to the standard library.
-5. Some other unforeseen outcome (among the infinite number of possibilities).
 
 ## Development
 

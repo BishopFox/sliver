@@ -48,7 +48,7 @@ func (b *BaseBlock) SetLines(v *textm.Segments) {
 type Document struct {
 	BaseBlock
 
-	meta map[string]interface{}
+	meta map[string]any
 }
 
 // KindDocument is a NodeKind of the Document node.
@@ -64,6 +64,11 @@ func (n *Document) Type() NodeType {
 	return TypeDocument
 }
 
+// Pos implements Node.Pos.
+func (n *Document) Pos() int {
+	return 0
+}
+
 // Kind implements Node.Kind.
 func (n *Document) Kind() NodeKind {
 	return KindDocument
@@ -75,17 +80,17 @@ func (n *Document) OwnerDocument() *Document {
 }
 
 // Meta returns metadata of this document.
-func (n *Document) Meta() map[string]interface{} {
+func (n *Document) Meta() map[string]any {
 	if n.meta == nil {
-		n.meta = map[string]interface{}{}
+		n.meta = map[string]any{}
 	}
 	return n.meta
 }
 
 // SetMeta sets given metadata to this document.
-func (n *Document) SetMeta(meta map[string]interface{}) {
+func (n *Document) SetMeta(meta map[string]any) {
 	if n.meta == nil {
-		n.meta = map[string]interface{}{}
+		n.meta = map[string]any{}
 	}
 	for k, v := range meta {
 		n.meta[k] = v
@@ -93,9 +98,9 @@ func (n *Document) SetMeta(meta map[string]interface{}) {
 }
 
 // AddMeta adds given metadata to this document.
-func (n *Document) AddMeta(key string, value interface{}) {
+func (n *Document) AddMeta(key string, value any) {
 	if n.meta == nil {
-		n.meta = map[string]interface{}{}
+		n.meta = map[string]any{}
 	}
 	n.meta[key] = value
 }
@@ -117,6 +122,14 @@ type TextBlock struct {
 // Dump implements Node.Dump .
 func (n *TextBlock) Dump(source []byte, level int) {
 	DumpHelper(n, source, level, nil, nil)
+}
+
+// Pos implements Node.Pos.
+func (n *TextBlock) Pos() int {
+	if n.lines.Len() == 0 {
+		return -1
+	}
+	return n.lines.At(0).Start
 }
 
 // KindTextBlock is a NodeKind of the TextBlock node.
@@ -149,6 +162,14 @@ type Paragraph struct {
 // Dump implements Node.Dump .
 func (n *Paragraph) Dump(source []byte, level int) {
 	DumpHelper(n, source, level, nil, nil)
+}
+
+// Pos implements Node.Pos.
+func (n *Paragraph) Pos() int {
+	if n.lines.Len() == 0 {
+		return -1
+	}
+	return n.lines.At(0).Start
 }
 
 // KindParagraph is a NodeKind of the Paragraph node.
@@ -499,8 +520,9 @@ func (n *HTMLBlock) Dump(source []byte, level int) {
 	indent := strings.Repeat("    ", level)
 	fmt.Printf("%s%s {\n", indent, "HTMLBlock")
 	indent2 := strings.Repeat("    ", level+1)
+	fmt.Printf("%sPos: %d\n", indent2, n.Pos())
 	fmt.Printf("%sRawText: \"", indent2)
-	for i := 0; i < n.Lines().Len(); i++ {
+	for i := range n.Lines().Len() {
 		s := n.Lines().At(i)
 		fmt.Print(string(source[s.Start:s.Stop]))
 	}
@@ -541,5 +563,60 @@ func NewHTMLBlock(typ HTMLBlockType) *HTMLBlock {
 		BaseBlock:     BaseBlock{},
 		HTMLBlockType: typ,
 		ClosureLine:   textm.NewSegment(-1, -1),
+	}
+}
+
+// A LinkReferenceDefinition struct represents a list of Markdown text.
+type LinkReferenceDefinition struct {
+	BaseBlock
+
+	// Label is a label of this link reference definition.
+	Label []byte
+
+	// Destination is a destination of this link reference definition.
+	Destination []byte
+
+	// Title is a title of this link reference definition.
+	Title []byte
+}
+
+// IsRaw implements Node.IsRaw.
+func (l *LinkReferenceDefinition) IsRaw() bool {
+	return true
+}
+
+// Pos implements Node.Pos.
+func (l *LinkReferenceDefinition) Pos() int {
+	if l.lines.Len() == 0 {
+		return -1
+	}
+	return l.lines.At(0).Start
+}
+
+// Dump implements Node.Dump.
+func (l *LinkReferenceDefinition) Dump(source []byte, level int) {
+	m := map[string]string{
+		"Label":       string(l.Label),
+		"Destination": string(l.Destination),
+		"Title":       string(l.Title),
+	}
+	DumpHelper(l, source, level, m, nil)
+}
+
+// KindLinkReferenceDefinition is a NodeKind of the LinkReferenceDefinition node.
+var KindLinkReferenceDefinition = NewNodeKind("LinkReferenceDefinition")
+
+// Kind implements Node.Kind.
+func (l *LinkReferenceDefinition) Kind() NodeKind {
+	return KindLinkReferenceDefinition
+}
+
+// NewLinkReferenceDefinition returns a new LinkReferenceDefinition node.
+func NewLinkReferenceDefinition(label, destination, title []byte) *LinkReferenceDefinition {
+	return &LinkReferenceDefinition{
+		BaseBlock:   BaseBlock{},
+		Label:       label,
+		Destination: destination,
+		Title:       title,
 	}
 }

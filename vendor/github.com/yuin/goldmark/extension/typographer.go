@@ -83,7 +83,7 @@ func newDefaultSubstitutions() [][]byte {
 }
 
 // SetOption implements SetOptioner.
-func (b *TypographerConfig) SetOption(name parser.OptionName, value interface{}) {
+func (b *TypographerConfig) SetOption(name parser.OptionName, value any) {
 	switch name {
 	case optTypographicSubstitutions:
 		b.Substitutions = value.([][]byte)

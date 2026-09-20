@@ -40,14 +40,14 @@ type AuditEntry struct {
 		IPAddress string `json:"ip_address"`
 	} `json:"context"`
 	Details struct {
-		NewValue      interface{} `json:"new_value"`
-		PreviousValue interface{} `json:"previous_value"`
-		MobileOnly    bool        `json:"mobile_only"`
-		WebOnly       bool        `json:"web_only"`
-		NonSSOOnly    bool        `json:"non_sso_only"`
-		ExportType    string      `json:"export_type"`
-		ExportStart   string      `json:"export_start_ts"`
-		ExportEnd     string      `json:"export_end_ts"`
+		NewValue      any    `json:"new_value"`
+		PreviousValue any    `json:"previous_value"`
+		MobileOnly    bool   `json:"mobile_only"`
+		WebOnly       bool   `json:"web_only"`
+		NonSSOOnly    bool   `json:"non_sso_only"`
+		ExportType    string `json:"export_type"`
+		ExportStart   string `json:"export_start_ts"`
+		ExportEnd     string `json:"export_end_ts"`
 	} `json:"details"`
 }
 
@@ -115,7 +115,7 @@ func (api *Client) auditLogsRequest(ctx context.Context, path string, values url
 	return response, response.Err()
 }
 
-// GetAuditLogs retrieves a page of audit entires according to the parameters given
+// GetAuditLogs retrieves a page of audit entries according to the parameters given
 func (api *Client) GetAuditLogs(params AuditLogParameters) (entries []AuditEntry, nextCursor string, err error) {
 	return api.GetAuditLogsContext(context.Background(), params)
 }

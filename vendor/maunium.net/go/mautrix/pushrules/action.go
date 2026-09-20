@@ -13,10 +13,12 @@ type PushActionType string
 
 // The allowed push action types as specified in spec section 11.12.1.4.1.
 const (
-	ActionNotify     PushActionType = "notify"
+	ActionNotify   PushActionType = "notify"
+	ActionSetTweak PushActionType = "set_tweak"
+	// Deprecated: this does nothing. An empty actions array is equivalent
 	ActionDontNotify PushActionType = "dont_notify"
-	ActionCoalesce   PushActionType = "coalesce"
-	ActionSetTweak   PushActionType = "set_tweak"
+	// Deprecated: this was never implemented and was removed from the Matrix spec
+	ActionCoalesce PushActionType = "coalesce"
 )
 
 // PushActionTweak is the type of the tweak in SetTweak push actions.
@@ -33,9 +35,6 @@ type PushActionArray []*PushAction
 
 // PushActionArrayShould contains the important information parsed from a PushActionArray.
 type PushActionArrayShould struct {
-	// Whether the array contained a Notify, DontNotify or Coalesce action type.
-	// Deprecated: an empty array should be treated as no notification, so there's no reason to check this field.
-	NotifySpecified bool
 	// Whether the event in question should trigger a notification.
 	Notify bool
 	// Whether the event in question should be highlighted.
@@ -47,16 +46,14 @@ type PushActionArrayShould struct {
 	SoundName string
 }
 
+var ShouldDoNothing = PushActionArrayShould{}
+
 // Should parses this push action array and returns the relevant details wrapped in a PushActionArrayShould struct.
 func (actions PushActionArray) Should() (should PushActionArrayShould) {
 	for _, action := range actions {
 		switch action.Action {
 		case ActionNotify, ActionCoalesce:
 			should.Notify = true
-			should.NotifySpecified = true
-		case ActionDontNotify:
-			should.Notify = false
-			should.NotifySpecified = true
 		case ActionSetTweak:
 			switch action.Tweak {
 			case TweakHighlight:
@@ -77,9 +74,9 @@ func (actions PushActionArray) Should() (should PushActionArrayShould) {
 
 // PushAction is a single action that should be triggered when receiving a message.
 type PushAction struct {
-	Action PushActionType
-	Tweak  PushActionTweak
-	Value  interface{}
+	Action PushActionType  `json:"action"`
+	Tweak  PushActionTweak `json:"set_tweak,omitempty"`
+	Value  any             `json:"value,omitempty"`
 }
 
 // UnmarshalJSON parses JSON into this PushAction.
@@ -90,7 +87,7 @@ type PushAction struct {
 //     and Value will be set to the value of the value field.
 //   - In any other case, the function does nothing.
 func (action *PushAction) UnmarshalJSON(raw []byte) error {
-	var data interface{}
+	var data any
 
 	err := json.Unmarshal(raw, &data)
 	if err != nil {
@@ -100,12 +97,13 @@ func (action *PushAction) UnmarshalJSON(raw []byte) error {
 	switch val := data.(type) {
 	case string:
 		action.Action = PushActionType(val)
-	case map[string]interface{}:
-		tweak, ok := val["set_tweak"].(string)
-		if ok {
+	case map[string]any:
+		if tweak, ok := val["set_tweak"].(string); ok {
 			action.Action = ActionSetTweak
 			action.Tweak = PushActionTweak(tweak)
-			action.Value, _ = val["value"]
+			action.Value = val["value"]
+		} else if actionVal, ok := val["action"].(string); ok {
+			action.Action = PushActionType(actionVal)
 		}
 	}
 	return nil
@@ -114,7 +112,7 @@ func (action *PushAction) UnmarshalJSON(raw []byte) error {
 // MarshalJSON is the reverse of UnmarshalJSON()
 func (action *PushAction) MarshalJSON() (raw []byte, err error) {
 	if action.Action == ActionSetTweak {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"set_tweak": action.Tweak,
 			"value":     action.Value,
 		}

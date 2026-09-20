@@ -21,6 +21,7 @@ package console
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"text/template"
@@ -109,9 +110,7 @@ func toPromptPalette(p theme.Palette) promptPalette {
 		Default: p.Default,
 		Mods:    map[int]string{},
 	}
-	for k, v := range p.Mods {
-		out.Mods[k] = v
-	}
+	maps.Copy(out.Mods, p.Mods)
 	return out
 }
 

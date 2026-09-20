@@ -32,7 +32,7 @@ const (
 	GlobalMarkdownFilename = "shellcode-coverage.md"
 
 	// RequiredSupportedCombinations is the fixed gate denominator.
-	RequiredSupportedCombinations = 192
+	RequiredSupportedCombinations = 168
 	// MinimumSGNSamples is the minimum randomized execution depth required for
 	// every supported Shikata Ga Nai matrix cell.
 	MinimumSGNSamples = 4
@@ -57,7 +57,6 @@ var fixedTargets = [...]coverage.Target{
 	{OS: "darwin", Arch: "arm64"},
 	{OS: "linux", Arch: "amd64"},
 	{OS: "linux", Arch: "arm64"},
-	{OS: "windows", Arch: "386"},
 	{OS: "windows", Arch: "amd64"},
 }
 
@@ -101,7 +100,7 @@ func EncoderSupported(target coverage.Target, encoder string) bool {
 	case EncoderNone:
 		return true
 	case EncoderShikataGaNai:
-		return target.Arch == "386" || target.Arch == "amd64"
+		return target.Arch == "amd64"
 	case EncoderXOR, EncoderXORDynamic:
 		return target.Arch == "amd64" || target.Arch == "arm64"
 	default:

@@ -16,7 +16,7 @@ func buildHTML5Entities() {
 
 		cName := 0
 		cCharacters := 0
-		for i := 0; i < _html5entitiesLength; i++ {
+		for i := range _html5entitiesLength {
 			tName := cName + int(_html5entitiesNameIndex[i])
 			tCharacters := cCharacters + int(_html5entitiesCharactersIndex[i])
 

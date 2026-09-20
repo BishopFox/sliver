@@ -36,15 +36,15 @@ go get github.com/coder/websocket
 
 See GitHub issues for minor issues but the major future enhancements are:
 
-- [ ] Perfect examples [#217](https://github.com/nhooyr/websocket/issues/217)
-- [ ] wstest.Pipe for in memory testing [#340](https://github.com/nhooyr/websocket/issues/340)
-- [ ] Ping pong heartbeat helper [#267](https://github.com/nhooyr/websocket/issues/267)
-- [ ] Ping pong instrumentation callbacks [#246](https://github.com/nhooyr/websocket/issues/246)
-- [ ] Graceful shutdown helpers [#209](https://github.com/nhooyr/websocket/issues/209)
-- [ ] Assembly for WebSocket masking [#16](https://github.com/nhooyr/websocket/issues/16)
-  - WIP at [#326](https://github.com/nhooyr/websocket/pull/326), about 3x faster
-- [ ] HTTP/2 [#4](https://github.com/nhooyr/websocket/issues/4)
-- [ ] The holy grail [#402](https://github.com/nhooyr/websocket/issues/402)
+- [ ] Perfect examples [#217](https://github.com/coder/websocket/issues/217)
+- [ ] wstest.Pipe for in memory testing [#340](https://github.com/coder/websocket/issues/340)
+- [ ] Ping pong heartbeat helper [#267](https://github.com/coder/websocket/issues/267)
+- [ ] Ping pong instrumentation callbacks [#246](https://github.com/coder/websocket/issues/246)
+- [ ] Graceful shutdown helpers [#209](https://github.com/coder/websocket/issues/209)
+- [ ] Assembly for WebSocket masking [#16](https://github.com/coder/websocket/issues/16)
+  - WIP at [#326](https://github.com/coder/websocket/pull/326), about 3x faster
+- [ ] HTTP/2 [#4](https://github.com/coder/websocket/issues/4)
+- [ ] The holy grail [#402](https://github.com/coder/websocket/issues/402)
 
 ## Examples
 
@@ -109,8 +109,6 @@ Advantages of [gorilla/websocket](https://github.com/gorilla/websocket):
 - Mature and widely used
 - [Prepared writes](https://pkg.go.dev/github.com/gorilla/websocket#PreparedMessage)
 - Configurable [buffer sizes](https://pkg.go.dev/github.com/gorilla/websocket#hdr-Buffers)
-- No extra goroutine per connection to support cancellation with context.Context. This costs github.com/coder/websocket 2 KB of memory per connection.
-  - Will be removed soon with [context.AfterFunc](https://github.com/golang/go/issues/57928). See [#411](https://github.com/nhooyr/websocket/issues/411)
 
 Advantages of github.com/coder/websocket:
 
@@ -128,9 +126,9 @@ Advantages of github.com/coder/websocket:
   - Gorilla requires registering a pong callback before sending a Ping
 - Can target Wasm ([gorilla/websocket#432](https://github.com/gorilla/websocket/issues/432))
 - Transparent message buffer reuse with [wsjson](https://pkg.go.dev/github.com/coder/websocket/wsjson) subpackage
-- [1.75x](https://github.com/nhooyr/websocket/releases/tag/v1.7.4) faster WebSocket masking implementation in pure Go
+- [1.75x](https://github.com/coder/websocket/releases/tag/v1.7.4) faster WebSocket masking implementation in pure Go
   - Gorilla's implementation is slower and uses [unsafe](https://golang.org/pkg/unsafe/).
-    Soon we'll have assembly and be 3x faster [#326](https://github.com/nhooyr/websocket/pull/326)
+    Soon we'll have assembly and be 3x faster [#326](https://github.com/coder/websocket/pull/326)
 - Full [permessage-deflate](https://tools.ietf.org/html/rfc7692) compression extension support
   - Gorilla only supports no context takeover mode
 - [CloseRead](https://pkg.go.dev/github.com/coder/websocket#Conn.CloseRead) helper for write only connections ([gorilla/websocket#492](https://github.com/gorilla/websocket/issues/492))

@@ -97,7 +97,7 @@ func TestCommandMarkdownAggregatesScenariosAndImplantModes(t *testing.T) {
 	}
 }
 
-func TestComprehensiveCommandMarkdownHasTwentyFourColumns(t *testing.T) {
+func TestComprehensiveCommandMarkdownHasEighteenTargetColumns(t *testing.T) {
 	t.Parallel()
 
 	report, err := AggregateDirectory(t.TempDir(), ComprehensiveDimensions())
@@ -113,10 +113,8 @@ func TestComprehensiveCommandMarkdownHasTwentyFourColumns(t *testing.T) {
 		"gRPC command",
 		"darwin/amd64/mtls", "darwin/amd64/wg", "darwin/amd64/http",
 		"darwin/arm64/mtls", "darwin/arm64/wg", "darwin/arm64/http",
-		"windows/386/mtls", "windows/386/wg", "windows/386/http",
 		"windows/amd64/mtls", "windows/amd64/wg", "windows/amd64/http",
 		"windows/arm64/mtls", "windows/arm64/wg", "windows/arm64/http",
-		"linux/386/mtls", "linux/386/wg", "linux/386/http",
 		"linux/amd64/mtls", "linux/amd64/wg", "linux/amd64/http",
 		"linux/arm64/mtls", "linux/arm64/wg", "linux/arm64/http",
 	}
@@ -127,8 +125,8 @@ func TestComprehensiveCommandMarkdownHasTwentyFourColumns(t *testing.T) {
 	rows := map[string][]string{}
 	for _, line := range lines[2:] {
 		columns := markdownColumns(line)
-		if len(columns) != 25 {
-			t.Fatalf("row has %d columns, want 25: %q", len(columns), line)
+		if len(columns) != 19 {
+			t.Fatalf("row has %d columns, want 19: %q", len(columns), line)
 		}
 		if _, exists := rows[columns[0]]; exists {
 			t.Fatalf("duplicate command row %q", columns[0])
@@ -144,15 +142,15 @@ func TestComprehensiveCommandMarkdownHasTwentyFourColumns(t *testing.T) {
 		}
 	}
 
-	wantUnixFilesystem := append(repeatedStatus(commandStatusFail, 6), repeatedStatus(commandStatusUnsupported, 9)...)
-	wantUnixFilesystem = append(wantUnixFilesystem, repeatedStatus(commandStatusFail, 9)...)
+	wantUnixFilesystem := append(repeatedStatus(commandStatusFail, 6), repeatedStatus(commandStatusUnsupported, 6)...)
+	wantUnixFilesystem = append(wantUnixFilesystem, repeatedStatus(commandStatusFail, 6)...)
 	for _, method := range []string{"Chmod", "Chown"} {
 		if got := rows[method]; !reflect.DeepEqual(got, wantUnixFilesystem) {
 			t.Fatalf("%s statuses = %#v, want %#v", method, got, wantUnixFilesystem)
 		}
 	}
-	wantCallExtension := append(repeatedStatus(commandStatusUnsupported, 6), repeatedStatus(commandStatusFail, 6)...)
-	wantCallExtension = append(wantCallExtension, repeatedStatus(commandStatusUnsupported, 12)...)
+	wantCallExtension := append(repeatedStatus(commandStatusUnsupported, 6), repeatedStatus(commandStatusFail, 3)...)
+	wantCallExtension = append(wantCallExtension, repeatedStatus(commandStatusUnsupported, 9)...)
 	if got := rows["CallExtension"]; !reflect.DeepEqual(got, wantCallExtension) {
 		t.Fatalf("CallExtension statuses = %#v, want %#v", got, wantCallExtension)
 	}

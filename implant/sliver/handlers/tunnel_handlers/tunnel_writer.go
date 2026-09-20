@@ -38,23 +38,26 @@ type tunnelWriter struct {
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	sequence := tw.tun.NextWriteSequence()
-	ack := tw.tun.ReadSequence()
-	data, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence: sequence,
-		Ack:      ack,
-		TunnelID: tw.tun.ID,
-		Data:     data,
+	err := tw.conn.QueueTunnelData(tw.tun, func(sequence uint64, ack uint64) (*sliverpb.Envelope, error) {
+		marshaled, marshalErr := proto.Marshal(&sliverpb.TunnelData{
+			Sequence: sequence,
+			Ack:      ack,
+			TunnelID: tw.tun.ID,
+			Data:     data,
+		})
+		// {{if .Config.Debug}}
+		log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
+		// {{end}}
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		return &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelData,
+			Data: marshaled,
+		}, nil
 	})
-	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
-	// {{end}}
 	if err != nil {
 		return 0, err
-	}
-	tw.conn.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
-		Data: data,
 	}
 	return n, nil
 }

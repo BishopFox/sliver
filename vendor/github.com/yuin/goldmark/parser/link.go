@@ -166,9 +166,10 @@ func (s *linkParser) Parse(parent ast.Node, block text.Reader, pc Context) ast.N
 	l, pos := block.Position()
 	var link *ast.Link
 	var hasValue bool
-	if c == '(' { // normal link
+	switch c {
+	case '(':
 		link = s.parseLink(parent, last, block, pc)
-	} else if c == '[' { // reference link
+	case '[':
 		link, hasValue = s.parseReferenceLink(parent, last, block, pc)
 		if link == nil && hasValue {
 			ast.MergeOrReplaceTextSegment(last.Parent(), last, last.Segment)
@@ -200,13 +201,18 @@ func (s *linkParser) Parse(parent ast.Node, block text.Reader, pc Context) ast.N
 		s.processLinkLabel(parent, link, last, pc)
 		link.Title = ref.Title()
 		link.Destination = ref.Destination()
+		link.Reference = ast.NewReferenceLink(ast.ReferenceLinkShortcut, maybeReference)
 	}
+	var n ast.Node
 	if last.IsImage {
 		last.Parent().RemoveChild(last.Parent(), last)
-		return ast.NewImage(link)
+		n = ast.NewImage(link)
+	} else {
+		last.Parent().RemoveChild(last.Parent(), last)
+		n = link
 	}
-	last.Parent().RemoveChild(last.Parent(), last)
-	return link
+	n.(interface{ SetPos(int) }).SetPos(last.Segment.Start)
+	return n
 }
 
 func (s *linkParser) containsLink(n ast.Node) bool {
@@ -262,11 +268,12 @@ func (s *linkParser) parseReferenceLink(parent ast.Node, last *linkLabelState,
 	}
 
 	var maybeReference []byte
+	refType := ast.ReferenceLinkFull
 	if segments.Len() == 1 { // avoid allocate a new byte slice
 		maybeReference = block.Value(segments.At(0))
 	} else {
 		maybeReference = []byte{}
-		for i := 0; i < segments.Len(); i++ {
+		for i := range segments.Len() {
 			s := segments.At(i)
 			maybeReference = append(maybeReference, block.Value(s)...)
 		}
@@ -274,6 +281,7 @@ func (s *linkParser) parseReferenceLink(parent ast.Node, last *linkLabelState,
 	if util.IsBlank(maybeReference) { // collapsed reference link
 		s := text.NewSegment(last.Segment.Stop, orgpos.Start-1)
 		maybeReference = block.Value(s)
+		refType = ast.ReferenceLinkCollapsed
 	}
 	// CommonMark spec says:
 	//  > A link label can have at most 999 characters inside the square brackets.
@@ -290,6 +298,7 @@ func (s *linkParser) parseReferenceLink(parent ast.Node, last *linkLabelState,
 	s.processLinkLabel(parent, link, last, pc)
 	link.Title = ref.Title()
 	link.Destination = ref.Destination()
+	link.Reference = ast.NewReferenceLink(refType, maybeReference)
 	return link, true
 }
 
@@ -388,7 +397,7 @@ func parseLinkTitle(block text.Reader) ([]byte, bool) {
 			return block.Value(segments.At(0)), true
 		}
 		var title []byte
-		for i := 0; i < segments.Len(); i++ {
+		for i := range segments.Len() {
 			s := segments.At(i)
 			title = append(title, block.Value(s)...)
 		}

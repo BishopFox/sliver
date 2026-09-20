@@ -31,6 +31,7 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -83,41 +84,11 @@ func unpackDefaultTrafficEncoders(force bool) error {
 }
 
 func unzipBuf(src []byte, dest string) ([]string, error) {
-	var filenames []string
 	reader, err := zip.NewReader(bytes.NewReader(src), int64(len(src)))
 	if err != nil {
-		return filenames, err
+		return nil, err
 	}
-
-	for _, file := range reader.File {
-
-		rc, err := file.Open()
-		if err != nil {
-			return filenames, err
-		}
-		defer rc.Close()
-
-		fPath := filepath.Join(dest, file.Name)
-		filenames = append(filenames, fPath)
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(fPath, 0700)
-		} else {
-			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
-				return filenames, err
-			}
-			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-			if err != nil {
-				return filenames, err
-			}
-			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			if err != nil {
-				return filenames, err
-			}
-		}
-	}
-	return filenames, nil
+	return extractZipReader(reader, dest, false)
 }
 
 func pseudoRandStringRunes(n int) string {
@@ -276,6 +247,11 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		setupLog.Info("Static asset not found: constants.go")
 		return err
 	}
+	sliverpbCapabilitiesSrc, err := protobufs.FS.ReadFile("sliverpb/capabilities.go")
+	if err != nil {
+		setupLog.Info("Static asset not found: capabilities.go")
+		return err
+	}
 	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := filepath.Join(goPathSrc, "protobuf", "sliverpb")
@@ -283,6 +259,11 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	os.MkdirAll(sliverpbDir, 0700)
 	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
 	os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
+	err = os.WriteFile(filepath.Join(sliverpbDir, "capabilities.go"), sliverpbCapabilitiesSrc, 0600)
+	if err != nil {
+		setupLog.Errorf("Failed to write capabilities.go: %s", err)
+		return err
+	}
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
@@ -335,13 +316,26 @@ func stripSliverpb(src []byte) []byte {
 // UntarSkipTopLevel - Untar a tar file, skipping the top level directory
 func untarSkipTopLevel(dst string, r io.Reader) error {
 	tr := tar.NewReader(r)
-	topLevel, _ := tr.Next()
-	if topLevel == nil {
+	topLevel, err := tr.Next()
+	if err == io.EOF {
 		return fmt.Errorf("no files found in tar")
+	}
+	if err != nil {
+		return err
 	}
 	if topLevel.Typeflag != tar.TypeDir {
 		return fmt.Errorf("expected top level to be a directory, got %v", topLevel.Typeflag)
 	}
+	topLevelName, err := archiveTopLevel(topLevel.Name)
+	if err != nil {
+		return err
+	}
+	root, err := openArchiveRoot(dst, 0o700)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+
 	for {
 		header, err := tr.Next()
 
@@ -360,8 +354,13 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 			continue
 		}
 
-		// the target location where the dir/file should be created
-		target := filepath.Join(dst, strings.TrimPrefix(header.Name, topLevel.Name))
+		entryPath, err := archivePathBelowTopLevel(header.Name, topLevelName)
+		if err != nil {
+			return err
+		}
+		if entryPath == "" {
+			continue
+		}
 
 		// the following switch could also be done using fi.Mode(), not sure if there
 		// a benefit of using one vs. the other.
@@ -372,66 +371,23 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 
 		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
-			if _, err := os.Stat(target); err != nil {
-				if err := os.MkdirAll(target, 0700); err != nil {
-					return err
-				}
+			if err := root.MkdirAll(entryPath, 0o700); err != nil {
+				return fmt.Errorf("create archive directory: %w", err)
 			}
 
 		// if it's a file create it
-		case tar.TypeReg:
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
+		case tar.TypeReg, tar.TypeRegA: //nolint:staticcheck // TypeRegA is valid in legacy tar archives.
+			if err := writeArchiveFile(root, entryPath, os.FileMode(header.Mode), 0o700, tr); err != nil {
 				return err
 			}
-
-			// copy over contents
-			if _, err := io.Copy(f, tr); err != nil {
-				return err
-			}
-
-			// manually close here after each file operation; defering would cause each file close
-			// to wait until all operations have completed.
-			f.Close()
 		}
 	}
 }
 
 // UnzipSkipTopLevel - Unzip a zip file, skipping the top level directory
 func unzipSkipTopLevel(dst string, z *zip.Reader) error {
-	topLevel := ""
-	for index, file := range z.File {
-		if index == 0 {
-			topLevel = file.Name
-			continue
-		}
-		rc, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
-		fPath := filepath.Join(dst, strings.TrimPrefix(file.Name, topLevel))
-		if file.FileInfo().IsDir() {
-			err = os.MkdirAll(fPath, 0700)
-			if err != nil {
-				return err
-			}
-		} else {
-			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
-				return err
-			}
-			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	_, err := extractZipReader(z, dst, true)
+	return err
 }
 
 func xorPBRawBytes(src []byte) []byte {
@@ -605,44 +561,151 @@ func xorStringExpr(expr ast.Expr, key [8]byte, offset *int) bool {
 }
 
 func unzip(src string, dest string) ([]string, error) {
-
-	var filenames []string
-
 	reader, err := zip.OpenReader(src)
 	if err != nil {
-		return filenames, err
+		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
+	return extractZipReader(&reader.Reader, dest, false)
+}
+
+func openArchiveRoot(dest string, mode fs.FileMode) (*os.Root, error) {
+	if err := os.MkdirAll(dest, mode); err != nil {
+		return nil, fmt.Errorf("create archive destination: %w", err)
+	}
+	root, err := os.OpenRoot(dest)
+	if err != nil {
+		return nil, fmt.Errorf("open archive destination: %w", err)
+	}
+	return root, nil
+}
+
+func cleanArchiveName(name string) (string, error) {
+	archiveName := strings.TrimSuffix(name, "/")
+	if archiveName == "." || !fs.ValidPath(archiveName) {
+		return "", fmt.Errorf("invalid path in archive: %q", name)
+	}
+	return archiveName, nil
+}
+
+func archiveEntryPath(name string) (string, error) {
+	archiveName, err := cleanArchiveName(name)
+	if err != nil {
+		return "", err
+	}
+	entryPath, err := filepath.Localize(archiveName)
+	if err != nil {
+		return "", fmt.Errorf("invalid path in archive %q: %w", name, err)
+	}
+	return entryPath, nil
+}
+
+func archiveTopLevel(name string) (string, error) {
+	topLevel, err := cleanArchiveName(name)
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(topLevel, "/") {
+		return "", fmt.Errorf("invalid top-level directory in archive: %q", name)
+	}
+	if _, err := filepath.Localize(topLevel); err != nil {
+		return "", fmt.Errorf("invalid top-level directory in archive %q: %w", name, err)
+	}
+	return topLevel, nil
+}
+
+func archivePathBelowTopLevel(name, topLevel string) (string, error) {
+	archiveName, err := cleanArchiveName(name)
+	if err != nil {
+		return "", err
+	}
+	if archiveName == topLevel {
+		return "", nil
+	}
+	prefix := topLevel + "/"
+	if !strings.HasPrefix(archiveName, prefix) {
+		return "", fmt.Errorf("archive path %q is outside top-level directory %q", name, topLevel)
+	}
+	entryPath, err := filepath.Localize(strings.TrimPrefix(archiveName, prefix))
+	if err != nil {
+		return "", fmt.Errorf("invalid path in archive %q: %w", name, err)
+	}
+	return entryPath, nil
+}
+
+func writeArchiveFile(root *os.Root, name string, mode, parentMode fs.FileMode, src io.Reader) error {
+	if err := root.MkdirAll(filepath.Dir(name), parentMode); err != nil {
+		return fmt.Errorf("create archive parent directory: %w", err)
+	}
+	out, err := root.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+	if err != nil {
+		return fmt.Errorf("create archive file: %w", err)
+	}
+	_, copyErr := io.Copy(out, src)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return fmt.Errorf("write archive file: %w", copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close archive file: %w", closeErr)
+	}
+	return nil
+}
+
+func extractZipReader(reader *zip.Reader, dest string, skipTopLevel bool) ([]string, error) {
+	var filenames []string
+	topLevel := ""
+	if skipTopLevel {
+		if len(reader.File) == 0 {
+			return nil, fmt.Errorf("no files found in zip")
+		}
+		if !reader.File[0].FileInfo().IsDir() {
+			return nil, fmt.Errorf("expected top level to be a directory, got %s", reader.File[0].Name)
+		}
+		var err error
+		topLevel, err = archiveTopLevel(reader.File[0].Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	root, err := openArchiveRoot(dest, 0o700)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
 
 	for _, file := range reader.File {
+		entryPath, err := archiveEntryPath(file.Name)
+		if skipTopLevel {
+			entryPath, err = archivePathBelowTopLevel(file.Name, topLevel)
+		}
+		if err != nil {
+			return filenames, err
+		}
+		if entryPath == "" {
+			continue
+		}
+		filenames = append(filenames, filepath.Join(dest, entryPath))
+
+		if file.FileInfo().IsDir() {
+			if err := root.MkdirAll(entryPath, 0o700); err != nil {
+				return filenames, fmt.Errorf("create archive directory: %w", err)
+			}
+			continue
+		}
 
 		rc, err := file.Open()
 		if err != nil {
 			return filenames, err
 		}
-		defer rc.Close()
-
-		fPath := filepath.Clean(filepath.Join(dest, file.Name))
-		if !strings.HasPrefix(fPath, filepath.Clean(dest)) {
-			panic("illegal zip file path")
+		writeErr := writeArchiveFile(root, entryPath, file.Mode(), 0o700, rc)
+		closeErr := rc.Close()
+		if writeErr != nil {
+			return filenames, writeErr
 		}
-		filenames = append(filenames, fPath)
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(fPath, 0700)
-		} else {
-			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
-				return filenames, err
-			}
-			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-			if err != nil {
-				return filenames, err
-			}
-			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			if err != nil {
-				return filenames, err
-			}
+		if closeErr != nil {
+			return filenames, fmt.Errorf("close zip entry: %w", closeErr)
 		}
 	}
 	return filenames, nil

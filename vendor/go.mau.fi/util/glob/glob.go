@@ -40,7 +40,7 @@ func Compile(pattern string) Glob {
 func CompileWithImplicitContains(pattern string) Glob {
 	g := Compile(pattern)
 	if _, isExact := g.(ExactGlob); isExact {
-		return ContainsGlob(pattern)
+		return ContainsGlob(strings.ToLower(pattern))
 	}
 	return g
 }
@@ -73,13 +73,13 @@ func compileSimple(pattern string) Glob {
 		}
 	case 2:
 		if strings.HasPrefix(pattern, "*") && strings.HasSuffix(pattern, "*") {
-			return ContainsGlob(pattern[1 : len(pattern)-1])
+			return ContainsGlob(strings.ToLower(pattern[1 : len(pattern)-1]))
 		}
 		parts := strings.Split(pattern, "*")
 		return PrefixSuffixAndContainsGlob{
-			Prefix:   parts[0],
-			Contains: parts[1],
-			Suffix:   parts[2],
+			Prefix:   strings.ToLower(parts[0]),
+			Contains: strings.ToLower(parts[1]),
+			Suffix:   strings.ToLower(parts[2]),
 		}
 	default:
 		return nil

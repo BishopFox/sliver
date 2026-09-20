@@ -362,6 +362,10 @@ const (
 
 // Constants to replace enums
 const (
+	// MaxTunnelFrameBytes is the shared per-frame payload limit for generic and
+	// reverse tunnels on both the server and generated implant build paths.
+	MaxTunnelFrameBytes = 64 * 1024
+
 	// Port forward protocols
 	PortFwdProtoTCP = 1
 	PortFwdProtoUDP = 2

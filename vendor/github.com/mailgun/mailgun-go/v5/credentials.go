@@ -1,5 +1,7 @@
 package mailgun
 
+// https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/credentials
+
 import (
 	"context"
 	"errors"
@@ -170,6 +172,9 @@ func (mg *Client) CreateCredential(ctx context.Context, domain, login, password 
 	r := newHTTPRequest(generateCredentialsUrl(mg, domain, ""))
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
+
+	// TODO(vtopc): should be "multipart/form-data" (NewFormDataPayload) according to the docs:
+	// https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/credentials/post-v3-domains--domain-name--credentials
 	p := newUrlEncodedPayload()
 	p.addValue("login", login)
 	p.addValue("password", password)
@@ -185,6 +190,9 @@ func (mg *Client) ChangeCredentialPassword(ctx context.Context, domain, login, p
 	r := newHTTPRequest(generateCredentialsUrl(mg, domain, login))
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
+
+	// TODO(vtopc): should be "multipart/form-data" (NewFormDataPayload) according to the docs:
+	// https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/credentials/put-v3-domains--domain-name--credentials--spec-
 	p := newUrlEncodedPayload()
 	p.addValue("password", password)
 	_, err := makePutRequest(ctx, r, p)

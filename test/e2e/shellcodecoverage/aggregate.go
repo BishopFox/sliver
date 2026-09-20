@@ -204,7 +204,7 @@ func (report GlobalReport) NotRunIdentities() []Identity {
 	return missing
 }
 
-// GateError returns nil only when all 192 required combinations explicitly
+// GateError returns nil only when all 168 required combinations explicitly
 // pass. N/A cells never affect the gate.
 func (report GlobalReport) GateError() error {
 	if err := report.Validate(); err != nil {

@@ -65,7 +65,7 @@ func (rs *PushRuleset) MarshalJSON() ([]byte, error) {
 
 // DefaultPushActions is the value returned if none of the rule
 // collections in a Ruleset match the event given to GetActions()
-var DefaultPushActions = PushActionArray{&PushAction{Action: ActionDontNotify}}
+var DefaultPushActions = PushActionArray{}
 
 func (rs *PushRuleset) GetMatchingRule(room Room, evt *event.Event) (rule *PushRule) {
 	if rs == nil {

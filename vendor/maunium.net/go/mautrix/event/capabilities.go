@@ -36,9 +36,16 @@ type RoomFeatures struct {
 	MaxTextLength int `json:"max_text_length,omitempty"`
 
 	LocationMessage CapabilitySupportLevel `json:"location_message,omitempty"`
-	Poll            CapabilitySupportLevel `json:"poll,omitempty"`
-	Thread          CapabilitySupportLevel `json:"thread,omitempty"`
-	Reply           CapabilitySupportLevel `json:"reply,omitempty"`
+
+	Poll                 CapabilitySupportLevel `json:"poll,omitempty"`
+	PollEnd              CapabilitySupportLevel `json:"poll_end,omitempty"`
+	PollHiddenVotes      CapabilitySupportLevel `json:"poll_hidden_votes,omitempty"`
+	PollDuplicateOptions CapabilitySupportLevel `json:"poll_duplicate_options,omitempty"`
+	PollMaxOptions       int                    `json:"poll_max_options,omitempty"`
+	PollOptionMaxLength  int                    `json:"poll_option_max_length,omitempty"`
+
+	Thread CapabilitySupportLevel `json:"thread,omitempty"`
+	Reply  CapabilitySupportLevel `json:"reply,omitempty"`
 
 	Edit         CapabilitySupportLevel `json:"edit,omitempty"`
 	EditMaxCount int                    `json:"edit_max_count,omitempty"`
@@ -46,6 +53,7 @@ type RoomFeatures struct {
 	Delete       CapabilitySupportLevel `json:"delete,omitempty"`
 	DeleteForMe  bool                   `json:"delete_for_me,omitempty"`
 	DeleteMaxAge *jsontime.Seconds      `json:"delete_max_age,omitempty"`
+	DeleteHide   bool                   `json:"delete_hide_placeholder,omitempty"`
 
 	DisappearingTimer *DisappearingTimerCapability `json:"disappearing_timer,omitempty"`
 
@@ -60,6 +68,8 @@ type RoomFeatures struct {
 	MarkAsUnread          bool `json:"mark_as_unread,omitempty"`
 	DeleteChat            bool `json:"delete_chat,omitempty"`
 	DeleteChatForEveryone bool `json:"delete_chat_for_everyone,omitempty"`
+
+	MessageRequest *MessageRequestFeatures `json:"message_request,omitempty"`
 
 	PerMessageProfileRelay bool `json:"-"`
 }
@@ -84,6 +94,7 @@ func (rf *RoomFeatures) Clone() *RoomFeatures {
 	clone.DeleteMaxAge = ptr.Clone(clone.DeleteMaxAge)
 	clone.DisappearingTimer = clone.DisappearingTimer.Clone()
 	clone.AllowedReactions = slices.Clone(clone.AllowedReactions)
+	clone.MessageRequest = clone.MessageRequest.Clone()
 	return &clone
 }
 
@@ -163,6 +174,25 @@ func (dtc *DisappearingTimerCapability) Supports(content *BeeperDisappearingTime
 		return true
 	}
 	return slices.Contains(dtc.Types, content.Type) && (dtc.Timers == nil || slices.Contains(dtc.Timers, content.Timer))
+}
+
+type MessageRequestFeatures struct {
+	AcceptWithMessage CapabilitySupportLevel `json:"accept_with_message,omitempty"`
+	AcceptWithButton  CapabilitySupportLevel `json:"accept_with_button,omitempty"`
+}
+
+func (mrf *MessageRequestFeatures) Clone() *MessageRequestFeatures {
+	return ptr.Clone(mrf)
+}
+
+func (mrf *MessageRequestFeatures) Hash() []byte {
+	if mrf == nil {
+		return nil
+	}
+	hasher := sha256.New()
+	hashValue(hasher, "accept_with_message", mrf.AcceptWithMessage)
+	hashValue(hasher, "accept_with_button", mrf.AcceptWithButton)
+	return hasher.Sum(nil)
 }
 
 type CapabilityMsgType = MessageType
@@ -321,6 +351,11 @@ func (rf *RoomFeatures) Hash() []byte {
 
 	hashValue(hasher, "location_message", rf.LocationMessage)
 	hashValue(hasher, "poll", rf.Poll)
+	hashValue(hasher, "poll_end", rf.PollEnd)
+	hashValue(hasher, "poll_hidden_votes", rf.PollHiddenVotes)
+	hashValue(hasher, "poll_duplicate_options", rf.PollDuplicateOptions)
+	hashInt(hasher, "poll_max_options", rf.PollMaxOptions)
+	hashInt(hasher, "poll_option_max_length", rf.PollOptionMaxLength)
 	hashValue(hasher, "thread", rf.Thread)
 	hashValue(hasher, "reply", rf.Reply)
 
@@ -331,6 +366,7 @@ func (rf *RoomFeatures) Hash() []byte {
 	hashValue(hasher, "delete", rf.Delete)
 	hashBool(hasher, "delete_for_me", rf.DeleteForMe)
 	hashInt(hasher, "delete_max_age", rf.DeleteMaxAge.Get())
+	hashBool(hasher, "delete_hide_placeholder", rf.DeleteHide)
 	hashValue(hasher, "disappearing_timer", rf.DisappearingTimer)
 
 	hashValue(hasher, "reaction", rf.Reaction)
@@ -347,6 +383,7 @@ func (rf *RoomFeatures) Hash() []byte {
 	hashBool(hasher, "mark_as_unread", rf.MarkAsUnread)
 	hashBool(hasher, "delete_chat", rf.DeleteChat)
 	hashBool(hasher, "delete_chat_for_everyone", rf.DeleteChatForEveryone)
+	hashValue(hasher, "message_request", rf.MessageRequest)
 
 	return hasher.Sum(nil)
 }

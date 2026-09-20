@@ -21,7 +21,9 @@ package armory
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -33,7 +35,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
-	"github.com/bishopfox/sliver/util"
 )
 
 type VersionInformation struct {
@@ -244,8 +245,8 @@ func sortUpdateIdentifiers(aliasUpdates, extensionUpdates map[string]VersionInfo
 
 	result := []UpdateIdentifier{}
 
-	aliasNames := util.Keys(aliasUpdates)
-	extensionNames := util.Keys(extensionUpdates)
+	aliasNames := slices.Collect(maps.Keys(aliasUpdates))
+	extensionNames := slices.Collect(maps.Keys(extensionUpdates))
 	for _, name := range aliasNames {
 		result = append(result, UpdateIdentifier{
 			Type: AliasPackage,

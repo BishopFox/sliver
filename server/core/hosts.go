@@ -25,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -71,7 +70,7 @@ func hostsSessionCallback(session *Session) {
 			Columns:   []clause.Column{{Name: "host_uuid"}},
 			DoNothing: true,
 		}).Create(&models.Host{
-			HostUUID:      uuid.FromStringOrNil(session.UUID),
+			HostUUID:      models.ParseUUIDOrNil(session.UUID),
 			Hostname:      session.Hostname,
 			OSVersion:     session.OS,
 			Locale:        session.Locale,
@@ -102,7 +101,7 @@ func hostsBeaconCallback(beacon *models.Beacon) {
 			Columns:   []clause.Column{{Name: "host_uuid"}},
 			DoNothing: true,
 		}).Create(&models.Host{
-			HostUUID:      uuid.FromStringOrNil(beacon.UUID.String()),
+			HostUUID:      models.ParseUUIDOrNil(beacon.UUID.String()),
 			Hostname:      beacon.Hostname,
 			OSVersion:     beacon.OS,
 			Locale:        beacon.Locale,

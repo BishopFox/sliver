@@ -20,19 +20,46 @@ package cursed
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/forms"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
+
+const cursedStartCleanupTimeout = 30 * time.Second
+
+func terminateStartedCursedProcess(con *console.SliverClient, sessionID string, pid uint32) error {
+	const maxTerminatePID = uint32(1<<31 - 1)
+	if con == nil || con.Rpc == nil || sessionID == "" || pid == 0 || pid > maxTerminatePID {
+		return errors.New("cannot terminate incompletely tracked cursed process")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), cursedStartCleanupTimeout)
+	defer cancel()
+	response, err := con.Rpc.Terminate(ctx, &sliverpb.TerminateReq{
+		Request: &commonpb.Request{SessionID: sessionID},
+		Pid:     int32(pid),
+	})
+	if err != nil {
+		return fmt.Errorf("terminate started cursed process %d: %w", pid, err)
+	}
+	if response.GetResponse().GetErr() != "" {
+		return fmt.Errorf("terminate started cursed process %d: %s", pid, response.GetResponse().GetErr())
+	}
+	return nil
+}
 
 // CursedChromeCmd - Execute a .NET assembly in-memory.
 func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {

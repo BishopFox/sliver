@@ -51,6 +51,30 @@ const (
 	SessionKeyExpiredError ErrCode = 268490009
 	// BillGeneratingError 错误码 268490011、账单数据生成中，请稍后调用本接口获取
 	BillGeneratingError ErrCode = 268490011
+	// BatchTaskRunningError 错误码 268490012、批量任务运行中，请等待完成后才能再次运行
+	BatchTaskRunningError ErrCode = 268490012
+	// RefundVerifiedOrderError 错误码 268490013、禁止对核销状态的单进行退款
+	RefundVerifiedOrderError ErrCode = 268490013
+	// RefundInProgressError 错误码 268490014、退款操作进行中，稍后可以使用相同参数重试
+	RefundInProgressError ErrCode = 268490014
+	// FrequencyLimitError 错误码 268490015、频率限制
+	FrequencyLimitError ErrCode = 268490015
+	// RefundLeftFeeMismatchError 错误码 268490016、退款的 left_fee 字段与实际不符
+	RefundLeftFeeMismatchError ErrCode = 268490016
+	// AdFundIndustryMismatchError 错误码 268490018、广告金充值帐户行业 id 不匹配
+	AdFundIndustryMismatchError ErrCode = 268490018
+	// AdFundAccountBoundError 错误码 268490019、广告金充值帐户 id 已绑定其他 appid
+	AdFundAccountBoundError ErrCode = 268490019
+	// AdFundAccountNameError 错误码 268490020、广告金充值帐户主体名称错误
+	AdFundAccountNameError ErrCode = 268490020
+	// AccountNotVerifiedError 错误码 268490021、账户未完成进件
+	AccountNotVerifiedError ErrCode = 268490021
+	// AdFundAccountInvalidError 错误码 268490022、广告金充值账户无效
+	AdFundAccountInvalidError ErrCode = 268490022
+	// AdFundInsufficientError 错误码 268490023、广告金余额不足
+	AdFundInsufficientError ErrCode = 268490023
+	// AdFundAmountMustPositiveError 错误码 268490024、广告金充值金额必须大于 0
+	AdFundAmountMustPositiveError ErrCode = 268490024
 )
 
 const (
@@ -117,6 +141,57 @@ const (
 
 	// queryPublishGoods 查询批量发布道具任务状态
 	queryPublishGoods = "/xpay/query_publish_goods"
+
+	// startDownloadOrder 发起下载小程序订单明细任务
+	startDownloadOrder = "/xpay/start_download_order"
+
+	// queryDownloadOrder 查询下载订单任务结果
+	queryDownloadOrder = "/xpay/query_download_order"
+
+	// queryBizBalance 查询商家账户可提现余额
+	queryBizBalance = "/xpay/query_biz_balance"
+
+	// queryTransferAccount 查询广告金充值账户
+	queryTransferAccount = "/xpay/query_transfer_account"
+
+	// queryAdverFunds 查询广告金发放记录
+	queryAdverFunds = "/xpay/query_adver_funds"
+
+	// createFundsBill 充值广告金
+	createFundsBill = "/xpay/create_funds_bill"
+
+	// bindTransferAccount 绑定广告金充值账户
+	bindTransferAccount = "/xpay/bind_transfer_accout"
+
+	// queryFundsBill 查询广告金充值记录
+	queryFundsBill = "/xpay/query_funds_bill"
+
+	// queryRecoverBill 查询广告金回收记录
+	queryRecoverBill = "/xpay/query_recover_bill"
+
+	// downloadAdverFundsOrder 下载广告金对应的商户订单信息
+	downloadAdverFundsOrder = "/xpay/download_adverfunds_order"
+
+	// getComplaintList 获取投诉列表
+	getComplaintList = "/xpay/get_complaint_list"
+
+	// getComplaintDetail 获取投诉详情
+	getComplaintDetail = "/xpay/get_complaint_detail"
+
+	// getNegotiationHistory 获取协商历史
+	getNegotiationHistory = "/xpay/get_negotiation_history"
+
+	// responseComplaint 回复用户
+	responseComplaint = "/xpay/response_complaint"
+
+	// completeComplaint 完成投诉处理
+	completeComplaint = "/xpay/complete_complaint"
+
+	// uploadVPFile 上传媒体文件
+	uploadVPFile = "/xpay/upload_vp_file"
+
+	// getUploadFileSign 获取微信支付反馈投诉图片的签名头部
+	getUploadFileSign = "/xpay/get_upload_file_sign"
 )
 
 const (
