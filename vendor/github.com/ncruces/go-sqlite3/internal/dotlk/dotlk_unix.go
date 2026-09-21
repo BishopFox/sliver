@@ -38,13 +38,20 @@ func removeStale(name string) bool {
 	}
 
 	pid, err := strconv.Atoi(string(buf))
-	if err != nil {
-		return false
-	}
-	if unix.Kill(pid, 0) == nil {
+	if pid <= 0 || err != nil {
 		return false
 	}
 
-	err = os.Remove(name)
-	return err == nil || errors.Is(err, fs.ErrNotExist)
+	if pid == os.Getpid() {
+		err = os.Remove(name)
+		return err == nil || errors.Is(err, fs.ErrNotExist)
+	}
+
+	err = unix.Kill(pid, 0)
+	if errors.Is(err, unix.ESRCH) {
+		err = os.Remove(name)
+		return err == nil || errors.Is(err, fs.ErrNotExist)
+	}
+
+	return false
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/ncruces/go-sqlite3/internal/sqlite3_wrap"
 )
 
 // Error wraps an SQLite Error Code.
@@ -34,7 +34,7 @@ func (e *Error) ExtendedCode() ExtendedErrorCode {
 // Error implements the error interface.
 func (e *Error) Error() string {
 	var b strings.Builder
-	b.WriteString(util.ErrorCodeString(e.code))
+	b.WriteString(sqlite3_wrap.ErrorCodeString(e.code))
 
 	if e.msg != "" {
 		b.WriteString(": ")
@@ -103,7 +103,7 @@ func (e *Error) SQL() string {
 
 // Error implements the error interface.
 func (e ErrorCode) Error() string {
-	return util.ErrorCodeString(e)
+	return sqlite3_wrap.ErrorCodeString(e)
 }
 
 // As converts this error to an [ExtendedErrorCode].
@@ -127,7 +127,7 @@ func (e ErrorCode) ExtendedCode() ExtendedErrorCode {
 
 // Error implements the error interface.
 func (e ExtendedErrorCode) Error() string {
-	return util.ErrorCodeString(e)
+	return sqlite3_wrap.ErrorCodeString(e)
 }
 
 // Is tests whether this error matches a given [ErrorCode].
