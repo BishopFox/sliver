@@ -15,8 +15,8 @@ charm.land/bubbles/v2/spinner
 charm.land/bubbles/v2/textarea
 charm.land/bubbles/v2/textinput
 charm.land/bubbles/v2/viewport
-# charm.land/bubbletea/v2 v2.0.2
-## explicit; go 1.24.2
+# charm.land/bubbletea/v2 v2.0.9
+## explicit; go 1.25.0
 charm.land/bubbletea/v2
 # charm.land/glamour/v2 v2.0.1
 ## explicit; go 1.25.8
