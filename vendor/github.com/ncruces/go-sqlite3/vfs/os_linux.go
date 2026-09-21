@@ -5,10 +5,41 @@ package vfs
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
+
+func osCreateTemp(flags OpenFlag) (*os.File, error) {
+	dir := os.Getenv("SQLITE_TMPDIR")
+	if dir == "" {
+		dir = os.TempDir()
+	}
+
+	for {
+		fd, err := unix.Open(dir, unix.O_RDWR|unix.O_EXCL|unix.O_TMPFILE|unix.O_CLOEXEC, 0600)
+		if err == nil {
+			path := filepath.Join(dir, "tmp.db")
+			return os.NewFile(uintptr(fd), path), nil
+		}
+		if err == unix.EISDIR || err == unix.EOPNOTSUPP {
+			break
+		}
+		if err != unix.EINTR {
+			return nil, sysError{err, _IOERR_GETTEMPPATH}
+		}
+	}
+
+	f, err := os.CreateTemp(dir, "*.db")
+	if err != nil {
+		return nil, sysError{err, _IOERR_GETTEMPPATH}
+	}
+	if flags&OPEN_DELETEONCLOSE != 0 {
+		os.Remove(f.Name())
+	}
+	return f, nil
+}
 
 func osSync(file *os.File, _ OpenFlag, _ SyncFlag) error {
 	// SQLite trusts Linux's fdatasync for all fsync's.
@@ -24,8 +55,16 @@ func osAllocate(file *os.File, size int64) error {
 	if size == 0 {
 		return nil
 	}
+	end, err := file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+	if end >= size {
+		return nil
+	}
+
 	for {
-		err := unix.Fallocate(int(file.Fd()), 0, 0, size)
+		err := unix.Fallocate(int(file.Fd()), 0, end, size-end)
 		if err == unix.EOPNOTSUPP {
 			break
 		}
@@ -33,15 +72,7 @@ func osAllocate(file *os.File, size int64) error {
 			return err
 		}
 	}
-	off, err := file.Seek(0, io.SeekEnd)
-	if err != nil {
-		return err
-	}
-	if size <= off {
-		return nil
-	}
 	return file.Truncate(size)
-
 }
 
 func osReadLock(file *os.File, start, len int64, timeout time.Duration) error {

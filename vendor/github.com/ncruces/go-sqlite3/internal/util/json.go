@@ -1,4 +1,4 @@
-//go:build !goexperiment.jsonv2
+//go:build !go1.27
 
 package util
 
@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 	"unsafe"
+
+	"github.com/ncruces/go-sqlite3/internal/errutil"
 )
 
 type JSON struct{ Value any }
@@ -31,7 +33,7 @@ func (j JSON) Scan(value any) error {
 	case nil:
 		buf = []byte("null")
 	default:
-		panic(AssertErr())
+		panic(errutil.AssertErr())
 	}
 
 	return json.Unmarshal(buf, j.Value)
