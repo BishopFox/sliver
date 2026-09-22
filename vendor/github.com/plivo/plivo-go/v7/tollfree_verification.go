@@ -22,33 +22,41 @@ type TollfreeVerificationCreateResponse struct {
 
 // TollfreeVerificationCreateParams - List of params to create a TF verification request
 type TollfreeVerificationCreateParams struct {
-	ProfileUUID           string `json:"profile_uuid,omitempty" url:"profile_uuid,omitempty"`
-	Usecase               string `json:"usecase,omitempty" url:"usecase,omitempty"`
-	UsecaseSummary        string `json:"usecase_summary,omitempty" url:"usecase_summary,omitempty"`
-	MessageSample         string `json:"message_sample,omitempty" url:"message_sample,omitempty"`
-	OptInImageURL         string `json:"optin_image_url,omitempty" url:"optin_image_url,omitempty"`
-	OptInType             string `json:"optin_type,omitempty" url:"optin_type,omitempty"`
-	Volume                string `json:"volume,omitempty" url:"volume,omitempty"`
-	AdditionalInformation string `json:"additional_information,omitempty" url:"additional_information,omitempty"`
-	ExtraData             string `json:"extra_data,omitempty" url:"extra_data,omitempty"`
-	Number                string `json:"number,omitempty" url:"number,omitempty"`
-	CallbackURL           string `json:"callback_url,omitempty" url:"callback_url,omitempty"`
-	CallbackMethod        string `json:"callback_method,omitempty" url:"callback_method,omitempty"`
+	ProfileUUID            string `json:"profile_uuid,omitempty" url:"profile_uuid,omitempty"`
+	Usecase                string `json:"usecase,omitempty" url:"usecase,omitempty"`
+	UsecaseSummary         string `json:"usecase_summary,omitempty" url:"usecase_summary,omitempty"`
+	MessageSample          string `json:"message_sample,omitempty" url:"message_sample,omitempty"`
+	OptInImageURL          string `json:"optin_image_url,omitempty" url:"optin_image_url,omitempty"`
+	OptInType              string `json:"optin_type,omitempty" url:"optin_type,omitempty"`
+	Volume                 string `json:"volume,omitempty" url:"volume,omitempty"`
+	AdditionalInformation  string `json:"additional_information,omitempty" url:"additional_information,omitempty"`
+	ExtraData              string `json:"extra_data,omitempty" url:"extra_data,omitempty"`
+	Number                 string `json:"number,omitempty" url:"number,omitempty"`
+	CallbackURL            string `json:"callback_url,omitempty" url:"callback_url,omitempty"`
+	CallbackMethod         string `json:"callback_method,omitempty" url:"callback_method,omitempty"`
+	TermsAndConditionsLink string `json:"terms_and_conditions_link,omitempty" url:"terms_and_conditions_link,omitempty"`
+	PrivacyPolicyLink      string `json:"privacy_policy_link,omitempty" url:"privacy_policy_link,omitempty"`
+	OptinMessage           string `json:"optin_message,omitempty" url:"optin_message,omitempty"`
+	HelpMessage            string `json:"help_message,omitempty" url:"help_message,omitempty"`
 }
 
 // TollfreeVerificationUpdateParams - List of update params to update in TF verification request
 type TollfreeVerificationUpdateParams struct {
-	ProfileUUID           string `json:"profile_uuid,omitempty" url:"profile_uuid,omitempty"`
-	Usecase               string `json:"usecase,omitempty" url:"usecase,omitempty"`
-	UsecaseSummary        string `json:"usecase_summary,omitempty" url:"usecase_summary,omitempty"`
-	MessageSample         string `json:"message_sample,omitempty" url:"message_sample,omitempty"`
-	OptInImageURL         string `json:"optin_image_url,omitempty" url:"optin_image_url,omitempty"`
-	OptInType             string `json:"optin_type,omitempty" url:"optin_type,omitempty"`
-	Volume                string `json:"volume,omitempty" url:"volume,omitempty"`
-	AdditionalInformation string `json:"additional_information,omitempty" url:"additional_information,omitempty"`
-	ExtraData             string `json:"extra_data,omitempty" url:"extra_data,omitempty"`
-	CallbackURL           string `json:"callback_url,omitempty" url:"callback_url,omitempty"`
-	CallbackMethod        string `json:"callback_method,omitempty" url:"callback_method,omitempty"`
+	ProfileUUID            string `json:"profile_uuid,omitempty" url:"profile_uuid,omitempty"`
+	Usecase                string `json:"usecase,omitempty" url:"usecase,omitempty"`
+	UsecaseSummary         string `json:"usecase_summary,omitempty" url:"usecase_summary,omitempty"`
+	MessageSample          string `json:"message_sample,omitempty" url:"message_sample,omitempty"`
+	OptInImageURL          string `json:"optin_image_url,omitempty" url:"optin_image_url,omitempty"`
+	OptInType              string `json:"optin_type,omitempty" url:"optin_type,omitempty"`
+	Volume                 string `json:"volume,omitempty" url:"volume,omitempty"`
+	AdditionalInformation  string `json:"additional_information,omitempty" url:"additional_information,omitempty"`
+	ExtraData              string `json:"extra_data,omitempty" url:"extra_data,omitempty"`
+	CallbackURL            string `json:"callback_url,omitempty" url:"callback_url,omitempty"`
+	CallbackMethod         string `json:"callback_method,omitempty" url:"callback_method,omitempty"`
+	TermsAndConditionsLink string `json:"terms_and_conditions_link,omitempty" url:"terms_and_conditions_link,omitempty"`
+	PrivacyPolicyLink      string `json:"privacy_policy_link,omitempty" url:"privacy_policy_link,omitempty"`
+	OptinMessage           string `json:"optin_message,omitempty" url:"optin_message,omitempty"`
+	HelpMessage            string `json:"help_message,omitempty" url:"help_message,omitempty"`
 }
 
 // TollfreeVerificationListParams - List of params to search in list API
@@ -67,23 +75,27 @@ type TollfreeVerificationListParams struct {
 
 // TollfreeVerification struct
 type TollfreeVerification struct {
-	UUID                  string    `json:"uuid"  url:"uuid"`
-	ProfileUUID           string    `json:"profile_uuid" url:"profile_uuid"`
-	Number                string    `json:"number" url:"number"`
-	Usecase               string    `json:"usecase" url:"usecase"`
-	UsecaseSummary        string    `json:"usecase_summary" url:"usecase_summary"`
-	MessageSample         string    `json:"message_sample" url:"message_sample"`
-	OptinImageURL         *string   `json:"optin_image_url" url:"optin_image_url"`
-	OptinType             string    `json:"optin_type" url:"optin_type"`
-	Volume                string    `json:"volume" url:"volume"`
-	AdditionalInformation string    `json:"additional_information" url:"additional_information"`
-	ExtraData             string    `json:"extra_data" url:"extra_data"`
-	CallbackURL           string    `json:"callback_url" url:"callback_url"`
-	CallbackMethod        string    `json:"callback_method" url:"callback_method"`
-	Status                string    `json:"status" url:"status"`
-	ErrorMessage          string    `json:"error_message" url:"error_message"`
-	Created               time.Time `json:"created" url:"created"`
-	LastModified          time.Time `json:"last_modified" url:"last_modified"`
+	UUID                   string    `json:"uuid"  url:"uuid"`
+	ProfileUUID            string    `json:"profile_uuid" url:"profile_uuid"`
+	Number                 string    `json:"number" url:"number"`
+	Usecase                string    `json:"usecase" url:"usecase"`
+	UsecaseSummary         string    `json:"usecase_summary" url:"usecase_summary"`
+	MessageSample          string    `json:"message_sample" url:"message_sample"`
+	OptinImageURL          *string   `json:"optin_image_url" url:"optin_image_url"`
+	OptinType              string    `json:"optin_type" url:"optin_type"`
+	Volume                 string    `json:"volume" url:"volume"`
+	AdditionalInformation  string    `json:"additional_information" url:"additional_information"`
+	ExtraData              string    `json:"extra_data" url:"extra_data"`
+	CallbackURL            string    `json:"callback_url" url:"callback_url"`
+	CallbackMethod         string    `json:"callback_method" url:"callback_method"`
+	TermsAndConditionsLink string    `json:"terms_and_conditions_link" url:"terms_and_conditions_link"`
+	PrivacyPolicyLink      string    `json:"privacy_policy_link" url:"privacy_policy_link"`
+	OptinMessage           string    `json:"optin_message" url:"optin_message"`
+	HelpMessage            string    `json:"help_message" url:"help_message"`
+	Status                 string    `json:"status" url:"status"`
+	ErrorMessage           string    `json:"error_message" url:"error_message"`
+	Created                time.Time `json:"created" url:"created"`
+	LastModified           time.Time `json:"last_modified" url:"last_modified"`
 }
 
 // TollfreeVerificationListResponse - list API response struct

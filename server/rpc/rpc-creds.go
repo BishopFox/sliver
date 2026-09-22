@@ -27,7 +27,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -90,8 +89,8 @@ func (rpc *Server) CredsRm(ctx context.Context, req *clientpb.Credentials) (*com
 
 func (rpc *Server) CredsUpdate(ctx context.Context, req *clientpb.Credentials) (*commonpb.Empty, error) {
 	for _, cred := range req.Credentials {
-		credID := uuid.FromStringOrNil(cred.ID)
-		if credID == uuid.Nil {
+		credID := models.ParseUUIDOrNil(cred.ID)
+		if credID == models.NilUUID() {
 			return nil, ErrInvalidCredID
 		}
 		err := db.Session().Where(&models.Credential{ID: credID}).Updates(&models.Credential{

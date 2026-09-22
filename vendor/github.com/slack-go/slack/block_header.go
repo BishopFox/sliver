@@ -7,6 +7,9 @@ type HeaderBlock struct {
 	Type    MessageBlockType `json:"type"`
 	Text    *TextBlockObject `json:"text,omitempty"`
 	BlockID string           `json:"block_id,omitempty"`
+	// Level sets the heading level. Values 1-4 correspond to H1-H4 heading
+	// levels, respectively.
+	Level int `json:"level,omitempty"`
 }
 
 // BlockType returns the type of the block
@@ -25,6 +28,14 @@ type HeaderBlockOption func(*HeaderBlock)
 func HeaderBlockOptionBlockID(blockID string) HeaderBlockOption {
 	return func(block *HeaderBlock) {
 		block.BlockID = blockID
+	}
+}
+
+// HeaderBlockOptionLevel sets the heading level of the header block. Values 1-4
+// correspond to H1-H4 heading levels, respectively.
+func HeaderBlockOptionLevel(level int) HeaderBlockOption {
+	return func(block *HeaderBlock) {
+		block.Level = level
 	}
 }
 

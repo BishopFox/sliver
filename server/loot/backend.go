@@ -28,7 +28,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -49,10 +48,10 @@ type LocalBackend struct {
 // Add - Add a piece of loot
 func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 	host, err := db.HostByHostUUID(loot.OriginHostUUID)
-	var hostID uuid.UUID
+	var hostID models.UUID
 	if err != nil {
 		lootLog.Warnf("Failed to find host %s for loot %s", loot.OriginHostUUID, loot.ID)
-		hostID = uuid.Nil
+		hostID = models.NilUUID()
 	} else {
 		hostID = host.HostUUID
 	}
@@ -91,7 +90,7 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 // Update - Update metadata about loot, currently only 'name' can be changed
 func (l *LocalBackend) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	dbSession := db.Session()
-	lootUUID, err := uuid.FromString(lootReq.ID)
+	lootUUID, err := models.ParseUUID(lootReq.ID)
 	if err != nil {
 		return nil, ErrInvalidLootID
 	}
@@ -114,7 +113,7 @@ func (l *LocalBackend) Update(lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 // Rm - Remove a piece of loot
 func (l *LocalBackend) Rm(lootID string) error {
 	dbSession := db.Session()
-	lootUUID, err := uuid.FromString(lootID)
+	lootUUID, err := models.ParseUUID(lootID)
 	if err != nil {
 		return ErrInvalidLootID
 	}
@@ -140,7 +139,7 @@ func (l *LocalBackend) Rm(lootID string) error {
 // GetContent - Get the content of a piece of loot
 func (l *LocalBackend) GetContent(lootID string, eager bool) (*clientpb.Loot, error) {
 	dbSession := db.Session()
-	lootUUID, err := uuid.FromString(lootID)
+	lootUUID, err := models.ParseUUID(lootID)
 	if err != nil {
 		return nil, ErrInvalidLootID
 	}

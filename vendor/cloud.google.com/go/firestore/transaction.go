@@ -24,6 +24,7 @@ import (
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Transaction represents a Firestore transaction.
@@ -37,6 +38,7 @@ type Transaction struct {
 	readAfterWrite bool
 	readSettings   *readSettings
 	explainOptions *ExplainOptions
+	err            error
 }
 
 // A TransactionOption is an option passed to Client.Transaction.
@@ -65,6 +67,22 @@ type ro struct{}
 
 func (ro) config(t *Transaction)                     { t.readOnly = true }
 func (ro) handleCommitResponse(r *pb.CommitResponse) {}
+
+// TransactionReadTime is a TransactionOption that configures the transaction to
+// read data at a specific time in the past. Specifying this option forces the
+// transaction to be read-only.
+func TransactionReadTime(t time.Time) TransactionOption {
+	return txReadTime(t)
+}
+
+type txReadTime time.Time
+
+func (rt txReadTime) config(t *Transaction) {
+	t.readOnly = true // Read-time transactions must be read-only
+	t.readSettings.readTime = time.Time(rt)
+}
+
+func (rt txReadTime) handleCommitResponse(r *pb.CommitResponse) {}
 
 // CommitResponse exposes information about a committed transaction.
 type CommitResponse struct {
@@ -98,6 +116,7 @@ var (
 	errReadAfterWrite    = errors.New("firestore: read after write in transaction")
 	errWriteReadOnly     = errors.New("firestore: write in read-only transaction")
 	errNestedTransaction = errors.New("firestore: nested transaction")
+	errInvalidReadTime   = errors.New("firestore: ReadTime cannot be set via WithReadOptions on a Transaction. Use TransactionReadTime option when starting the transaction")
 )
 
 type transactionInProgressKey struct{}
@@ -156,8 +175,14 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 	}
 	var txOpts *pb.TransactionOptions
 	if t.readOnly {
+		ro := &pb.TransactionOptions_ReadOnly{}
+		if !t.readSettings.readTime.IsZero() {
+			ro.ConsistencySelector = &pb.TransactionOptions_ReadOnly_ReadTime{
+				ReadTime: timestamppb.New(t.readSettings.readTime),
+			}
+		}
 		txOpts = &pb.TransactionOptions{
-			Mode: &pb.TransactionOptions_ReadOnly_{ReadOnly: &pb.TransactionOptions_ReadOnly{}},
+			Mode: &pb.TransactionOptions_ReadOnly_{ReadOnly: ro},
 		}
 	}
 	var backoff gax.Backoff
@@ -165,7 +190,9 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 	// TODO(jba): use other than the standard backoff parameters?
 	// TODO(jba): get backoff time from gRPC trailer metadata? See
 	// extractRetryDelay in https://code.googlesource.com/gocloud/+/master/spanner/retry.go.
+	var errDuringCommit bool
 	for i := 0; i < t.maxAttempts; i++ {
+		errDuringCommit = false
 		t.ctx = trace.StartSpan(t.ctx, "cloud.google.com/go/firestore.Client.BeginTransaction")
 		var res *pb.BeginTransactionResponse
 		res, err = t.c.c.BeginTransaction(t.ctx, &pb.BeginTransactionRequest{
@@ -179,10 +206,14 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 		t.id = res.Transaction
 
 		err = f(context.WithValue(ctx, transactionInProgressKey{}, 1), t)
-		// Read after write can only be checked client-side, so we make sure to check
-		// even if the user does not.
-		if err == nil && t.readAfterWrite {
-			err = errReadAfterWrite
+		// Read after write and invalid read time can only be checked client-side,
+		// so we make sure to check even if the user does not.
+		if err == nil {
+			if t.readAfterWrite {
+				err = errReadAfterWrite
+			} else if t.err != nil {
+				err = t.err
+			}
 		}
 
 		if err == nil {
@@ -193,6 +224,7 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 				Transaction: t.id,
 			})
 			trace.EndSpan(t.ctx, err)
+			errDuringCommit = err != nil
 
 			// on success, handle the commit response
 			if err == nil {
@@ -204,7 +236,9 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 		}
 
 		// At this point, `err` is non-nil. It came from `f` or `Commit`.
-		t.rollback()
+		if !errDuringCommit {
+			t.rollback()
+		}
 
 		// If not a retryable error, or if read-only, return now.
 		// (We've already rolled back).
@@ -242,7 +276,12 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 }
 
 func (t *Transaction) rollback() {
-	_ = t.c.c.Rollback(t.ctx, &pb.RollbackRequest{
+	// Use a background context with a timeout to ensure rollback completes
+	// even if the transaction context (t.ctx) is cancelled.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(t.ctx), 5*time.Second)
+	defer cancel()
+	ctx = withResourceHeader(ctx, t.c.path())
+	_ = t.c.c.Rollback(ctx, &pb.RollbackRequest{
 		Database:    t.c.path(),
 		Transaction: t.id,
 	})
@@ -273,6 +312,9 @@ func (t *Transaction) Get(dr *DocumentRef) (*DocumentSnapshot, error) {
 // corresponding DocumentSnapshot's Exists method will return false. The transaction
 // holds a pessimistic lock on all of the returned documents.
 func (t *Transaction) GetAll(drs []*DocumentRef) ([]*DocumentSnapshot, error) {
+	if t.err != nil {
+		return nil, t.err
+	}
 	if len(t.writes) > 0 {
 		t.readAfterWrite = true
 		return nil, errReadAfterWrite
@@ -289,6 +331,9 @@ type Queryer interface {
 // Documents returns a DocumentIterator based on given Query or CollectionRef. The
 // results will be in the context of the transaction.
 func (t *Transaction) Documents(q Queryer) *DocumentIterator {
+	if t.err != nil {
+		return &DocumentIterator{err: t.err}
+	}
 	if len(t.writes) > 0 {
 		t.readAfterWrite = true
 		return &DocumentIterator{err: errReadAfterWrite}
@@ -303,6 +348,9 @@ func (t *Transaction) Documents(q Queryer) *DocumentIterator {
 // missing documents. A missing document is a document that does not exist but has
 // sub-documents.
 func (t *Transaction) DocumentRefs(cr *CollectionRef) *DocumentRefIterator {
+	if t.err != nil {
+		return &DocumentRefIterator{err: t.err}
+	}
 	if len(t.writes) > 0 {
 		t.readAfterWrite = true
 		return &DocumentRefIterator{err: errReadAfterWrite}
@@ -335,6 +383,9 @@ func (t *Transaction) Update(dr *DocumentRef, data []Update, opts ...Preconditio
 }
 
 func (t *Transaction) addWrites(ws []*pb.Write, err error) error {
+	if t.err != nil {
+		return t.err
+	}
 	if t.readOnly {
 		return errWriteReadOnly
 	}
@@ -347,15 +398,30 @@ func (t *Transaction) addWrites(ws []*pb.Write, err error) error {
 
 // WithReadOptions specifies constraints for accessing documents from the database,
 // e.g. at what time snapshot to read the documents.
+// Note: ReadTime cannot be set via WithReadOptions on a Transaction.
+// If ReadTime is passed, subsequent calls to the transaction will return an error.
+// Use TransactionReadTime option when starting the transaction instead.
 func (t *Transaction) WithReadOptions(opts ...ReadOption) *Transaction {
+	if t.err != nil {
+		return t
+	}
 	for _, ro := range opts {
+		if _, ok := ro.(readTime); ok {
+			t.err = errInvalidReadTime
+			return t
+		}
 		ro.apply(t.readSettings)
 	}
 	return t
 }
 
 // Execute runs the given pipeline in the context of the transaction.
-func (t *Transaction) Execute(p *Pipeline) *PipelineSnapshot {
+func (t *Transaction) Execute(p *Pipeline, opts ...ExecuteOption) *PipelineSnapshot {
+	if t.err != nil {
+		return &PipelineSnapshot{
+			iter: &PipelineResultIterator{err: t.err},
+		}
+	}
 	if len(t.writes) > 0 {
 		t.readAfterWrite = true
 		return &PipelineSnapshot{
@@ -364,5 +430,5 @@ func (t *Transaction) Execute(p *Pipeline) *PipelineSnapshot {
 	}
 	p2 := p.copy()
 	p2.tx = t
-	return p2.Execute(t.ctx)
+	return p2.Execute(t.ctx, opts...)
 }

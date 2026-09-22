@@ -2,7 +2,6 @@
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/carapace-sh/carapace)](https://pkg.go.dev/github.com/carapace-sh/carapace)
 [![documentation](https://img.shields.io/badge/&zwnj;-documentation-blue?logo=gitbook)](https://carapace-sh.github.io/carapace/)
-[![GoReportCard](https://goreportcard.com/badge/github.com/carapace-sh/carapace)](https://goreportcard.com/report/github.com/carapace-sh/carapace)
 [![Coverage Status](https://coveralls.io/repos/github/carapace-sh/carapace/badge.svg?branch=master)](https://coveralls.io/github/carapace-sh/carapace?branch=master)
 
 Command argument completion generator for [cobra].

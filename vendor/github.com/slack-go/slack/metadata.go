@@ -24,11 +24,11 @@ type WorkObjectExternalRef struct {
 
 // WorkObjectEntity represents a single Work Object entity
 type WorkObjectEntity struct {
-	AppUnfurlURL  string                 `json:"app_unfurl_url,omitempty"`
-	URL           string                 `json:"url"`
-	ExternalRef   WorkObjectExternalRef  `json:"external_ref"`
-	EntityType    string                 `json:"entity_type"`
-	EntityPayload map[string]interface{} `json:"entity_payload"`
+	AppUnfurlURL  string                `json:"app_unfurl_url,omitempty"`
+	URL           string                `json:"url"`
+	ExternalRef   WorkObjectExternalRef `json:"external_ref"`
+	EntityType    string                `json:"entity_type"`
+	EntityPayload map[string]any        `json:"entity_payload"`
 }
 
 // WorkObjectMetadata represents the metadata for Work Objects

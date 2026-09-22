@@ -18,10 +18,10 @@ type EntityPresentDetailsParameters struct {
 
 // EntityDetailsMetadata represents the metadata for entity details
 type EntityDetailsMetadata struct {
-	EntityType    string                 `json:"entity_type"`
-	URL           string                 `json:"url,omitempty"`
-	ExternalRef   WorkObjectExternalRef  `json:"external_ref,omitempty"`
-	EntityPayload map[string]interface{} `json:"entity_payload"`
+	EntityType    string                `json:"entity_type"`
+	URL           string                `json:"url,omitempty"`
+	ExternalRef   WorkObjectExternalRef `json:"external_ref,omitempty"`
+	EntityPayload map[string]any        `json:"entity_payload"`
 }
 
 // EntityDetailsError represents an error response for entity details

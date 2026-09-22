@@ -22,13 +22,12 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Host - Represents a host machine
 type ResourceID struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Type  string // encoder or stager
@@ -38,10 +37,7 @@ type ResourceID struct {
 
 // BeforeCreate - GORM hook
 func (h *ResourceID) BeforeCreate(tx *gorm.DB) (err error) {
-	h.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	h.ID = NewUUID()
 	h.CreatedAt = time.Now()
 	return nil
 }

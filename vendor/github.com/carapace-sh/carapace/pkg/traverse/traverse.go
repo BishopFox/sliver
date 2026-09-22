@@ -40,10 +40,13 @@ func Parent(names ...string) func(tc Context) (string, error) {
 func traverse(path string, name string) (target string, err error) {
 	var absPath string
 	if absPath, err = filepath.Abs(path); err == nil {
+		if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+			absPath = resolved
+		}
 		target = filepath.ToSlash(absPath + "/" + strings.TrimSuffix(name, "/"))
 		if _, err = os.Stat(target); err != nil {
 			parent := filepath.Dir(absPath)
-			if parent != path {
+			if parent != absPath {
 				return traverse(parent, name)
 			} else {
 				err = errors.New("could not find: " + name)

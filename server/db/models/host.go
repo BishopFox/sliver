@@ -22,14 +22,13 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Host - Represents a host machine
 type Host struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HostUUID  uuid.UUID `gorm:"type:uuid;unique"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	HostUUID  UUID      `gorm:"type:uuid;unique"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Hostname  string
@@ -42,10 +41,7 @@ type Host struct {
 
 // BeforeCreate - GORM hook
 func (h *Host) BeforeCreate(tx *gorm.DB) (err error) {
-	h.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	h.ID = NewUUID()
 	h.CreatedAt = time.Now()
 	return nil
 }
@@ -85,8 +81,8 @@ func (h *Host) extensionDataToProtobuf() map[string]*clientpb.ExtensionData {
 type IOC struct {
 	gorm.Model
 
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HostID    uuid.UUID `gorm:"type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	HostID    UUID      `gorm:"type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Path     string
@@ -95,10 +91,7 @@ type IOC struct {
 
 // BeforeCreate - GORM hook
 func (i *IOC) BeforeCreate(tx *gorm.DB) (err error) {
-	i.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	i.ID = NewUUID()
 	i.CreatedAt = time.Now()
 	return nil
 }
@@ -116,8 +109,8 @@ func (i *IOC) ToProtobuf() *clientpb.IOC {
 type ExtensionData struct {
 	gorm.Model
 
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HostID    uuid.UUID `gorm:"type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	HostID    UUID      `gorm:"type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Name   string
@@ -126,10 +119,7 @@ type ExtensionData struct {
 
 // BeforeCreate - GORM hook
 func (e *ExtensionData) BeforeCreate(tx *gorm.DB) (err error) {
-	e.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	e.ID = NewUUID()
 	e.CreatedAt = time.Now()
 	return nil
 }

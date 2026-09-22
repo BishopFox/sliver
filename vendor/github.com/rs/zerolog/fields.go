@@ -1,24 +1,31 @@
 package zerolog
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"net"
+	"reflect"
 	"sort"
 	"time"
-	"unsafe"
 )
 
-func isNilValue(i interface{}) bool {
-	return (*[2]uintptr)(unsafe.Pointer(&i))[1] == 0
+func isNilValue(e error) bool {
+	switch reflect.TypeOf(e).Kind() {
+	case reflect.Ptr:
+		return reflect.ValueOf(e).IsNil()
+	default:
+		return false
+	}
 }
 
-func appendFields(dst []byte, fields interface{}, stack bool) []byte {
+func appendFields(dst []byte, fields interface{}, stack bool, ctx context.Context, hooks []Hook) []byte {
 	switch fields := fields.(type) {
 	case []interface{}:
 		if n := len(fields); n&0x1 == 1 { // odd number
 			fields = fields[:n-1]
 		}
-		dst = appendFieldList(dst, fields, stack)
+		dst = appendFieldList(dst, fields, stack, ctx, hooks)
 	case map[string]interface{}:
 		keys := make([]string, 0, len(fields))
 		for key := range fields {
@@ -28,26 +35,27 @@ func appendFields(dst []byte, fields interface{}, stack bool) []byte {
 		kv := make([]interface{}, 2)
 		for _, key := range keys {
 			kv[0], kv[1] = key, fields[key]
-			dst = appendFieldList(dst, kv, stack)
+			dst = appendFieldList(dst, kv, stack, ctx, hooks)
 		}
 	}
 	return dst
 }
 
-func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
+func appendObject(dst []byte, obj LogObjectMarshaler, stack bool, ctx context.Context, hooks []Hook) []byte {
+	e := newEvent(LevelWriterAdapter{io.Discard}, DebugLevel, stack, ctx, hooks)
+	e.buf = e.buf[:0] // discard the beginning marker added by newEvent
+	e.appendObject(obj)
+	dst = append(dst, e.buf...)
+	putEvent(e)
+	return dst
+}
+
+func appendFieldList(dst []byte, kvList []interface{}, stack bool, ctx context.Context, hooks []Hook) []byte {
 	for i, n := 0, len(kvList); i < n; i += 2 {
 		key, val := kvList[i], kvList[i+1]
 		if key, ok := key.(string); ok {
 			dst = enc.AppendKey(dst, key)
 		} else {
-			continue
-		}
-		if val, ok := val.(LogObjectMarshaler); ok {
-			e := newEvent(nil, 0)
-			e.buf = e.buf[:0]
-			e.appendObject(val)
-			dst = append(dst, e.buf...)
-			putEvent(e)
 			continue
 		}
 		switch val := val.(type) {
@@ -57,16 +65,12 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 			dst = enc.AppendBytes(dst, val)
 		case error:
 			switch m := ErrorMarshalFunc(val).(type) {
+			case nil:
+				dst = enc.AppendNil(dst)
 			case LogObjectMarshaler:
-				e := newEvent(nil, 0)
-				e.buf = e.buf[:0]
-				e.appendObject(m)
-				dst = append(dst, e.buf...)
-				putEvent(e)
+				dst = appendObject(dst, m, stack, ctx, hooks)
 			case error:
-				if m == nil || isNilValue(m) {
-					dst = enc.AppendNil(dst)
-				} else {
+				if !isNilValue(m) {
 					dst = enc.AppendString(dst, m.Error())
 				}
 			case string:
@@ -76,16 +80,20 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 			}
 
 			if stack && ErrorStackMarshaler != nil {
-				dst = enc.AppendKey(dst, ErrorStackFieldName)
 				switch m := ErrorStackMarshaler(val).(type) {
 				case nil:
+					return dst // do nothing with nil errors
+				case LogObjectMarshaler:
+					dst = enc.AppendKey(dst, ErrorStackFieldName)
+					dst = appendObject(dst, m, stack, ctx, hooks)
 				case error:
-					if m != nil && !isNilValue(m) {
-						dst = enc.AppendString(dst, m.Error())
-					}
+					dst = enc.AppendKey(dst, ErrorStackFieldName)
+					dst = enc.AppendString(dst, m.Error())
 				case string:
+					dst = enc.AppendKey(dst, ErrorStackFieldName)
 					dst = enc.AppendString(dst, m)
 				default:
+					dst = enc.AppendKey(dst, ErrorStackFieldName)
 					dst = enc.AppendInterface(dst, m)
 				}
 			}
@@ -93,16 +101,12 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 			dst = enc.AppendArrayStart(dst)
 			for i, err := range val {
 				switch m := ErrorMarshalFunc(err).(type) {
+				case nil:
+					dst = enc.AppendNil(dst)
 				case LogObjectMarshaler:
-					e := newEvent(nil, 0)
-					e.buf = e.buf[:0]
-					e.appendObject(m)
-					dst = append(dst, e.buf...)
-					putEvent(e)
+					dst = appendObject(dst, m, stack, ctx, hooks)
 				case error:
-					if m == nil || isNilValue(m) {
-						dst = enc.AppendNil(dst)
-					} else {
+					if !isNilValue(m) {
 						dst = enc.AppendString(dst, m.Error())
 					}
 				case string:
@@ -112,7 +116,16 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 				}
 
 				if i < (len(val) - 1) {
-					enc.AppendArrayDelim(dst)
+					dst = enc.AppendArrayDelim(dst)
+				}
+			}
+			dst = enc.AppendArrayEnd(dst)
+		case []LogObjectMarshaler:
+			dst = enc.AppendArrayStart(dst)
+			for i, obj := range val {
+				dst = appendObject(dst, obj, stack, ctx, hooks)
+				if i < (len(val) - 1) {
+					dst = enc.AppendArrayDelim(dst)
 				}
 			}
 			dst = enc.AppendArrayEnd(dst)
@@ -145,7 +158,7 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 		case time.Time:
 			dst = enc.AppendTime(dst, val, TimeFieldFormat)
 		case time.Duration:
-			dst = enc.AppendDuration(dst, val, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+			dst = enc.AppendDuration(dst, val, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 		case *string:
 			if val != nil {
 				dst = enc.AppendString(dst, *val)
@@ -238,7 +251,7 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 			}
 		case *time.Duration:
 			if val != nil {
-				dst = enc.AppendDuration(dst, *val, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+				dst = enc.AppendDuration(dst, *val, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 			} else {
 				dst = enc.AppendNil(dst)
 			}
@@ -258,8 +271,7 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 			dst = enc.AppendInts64(dst, val)
 		case []uint:
 			dst = enc.AppendUints(dst, val)
-		// case []uint8:
-		// 	dst = enc.AppendUints8(dst, val)
+		// case []uint8: is handled as []byte above
 		case []uint16:
 			dst = enc.AppendUints16(dst, val)
 		case []uint32:
@@ -273,19 +285,27 @@ func appendFieldList(dst []byte, kvList []interface{}, stack bool) []byte {
 		case []time.Time:
 			dst = enc.AppendTimes(dst, val, TimeFieldFormat)
 		case []time.Duration:
-			dst = enc.AppendDurations(dst, val, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+			dst = enc.AppendDurations(dst, val, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 		case nil:
 			dst = enc.AppendNil(dst)
 		case net.IP:
 			dst = enc.AppendIPAddr(dst, val)
+		case []net.IP:
+			dst = enc.AppendIPAddrs(dst, val)
 		case net.IPNet:
 			dst = enc.AppendIPPrefix(dst, val)
+		case []net.IPNet:
+			dst = enc.AppendIPPrefixes(dst, val)
 		case net.HardwareAddr:
 			dst = enc.AppendMACAddr(dst, val)
 		case json.RawMessage:
 			dst = appendJSON(dst, val)
 		default:
-			dst = enc.AppendInterface(dst, val)
+			if lom, ok := val.(LogObjectMarshaler); ok {
+				dst = appendObject(dst, lom, stack, ctx, hooks)
+			} else {
+				dst = enc.AppendInterface(dst, val)
+			}
 		}
 	}
 	return dst

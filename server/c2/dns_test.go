@@ -885,6 +885,7 @@ func newTestDNSServer() *SliverDNSServer {
 func newTestDNSSession(sessionID uint32) *DNSSession {
 	return &DNSSession{
 		ID:                sessionID,
+		ImplantConn:       core.NewImplantConnection("dns", "test"),
 		dnsIdMsgIdMap:     map[uint32]uint32{},
 		outgoingMsgIDs:    []uint32{},
 		outgoingBuffers:   map[uint32][]byte{},

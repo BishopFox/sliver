@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -42,14 +43,14 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/gofrs/uuid"
 	"github.com/kballard/go-shellquote"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slog"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 const (
@@ -63,11 +64,66 @@ const (
 	DownN   = "\033[%dB"
 )
 
+// isTerminal reports whether fd is a connected terminal.
+// Variable rather than direct call so tests can override it.
+var isTerminal = term.IsTerminal
+
 // Observer - A function to call when the sessions changes.
 type (
 	Observer           func(*clientpb.Session, *clientpb.Beacon)
 	BeaconTaskCallback func(*clientpb.BeaconTask)
 )
+
+type consoleEventListener struct {
+	events  chan *clientpb.Event
+	done    chan struct{}
+	mu      sync.Mutex
+	closed  bool
+	senders sync.WaitGroup
+}
+
+func newConsoleEventListener() *consoleEventListener {
+	return &consoleEventListener{
+		events: make(chan *clientpb.Event, 100),
+		done:   make(chan struct{}),
+	}
+}
+
+func (listener *consoleEventListener) send(event *clientpb.Event) {
+	if listener == nil {
+		return
+	}
+	listener.mu.Lock()
+	if listener.closed {
+		listener.mu.Unlock()
+		return
+	}
+	listener.senders.Add(1)
+	listener.mu.Unlock()
+	defer listener.senders.Done()
+
+	select {
+	case listener.events <- event:
+	case <-listener.done:
+	}
+}
+
+func (listener *consoleEventListener) close() {
+	if listener == nil {
+		return
+	}
+	listener.mu.Lock()
+	if listener.closed {
+		listener.mu.Unlock()
+		return
+	}
+	listener.closed = true
+	close(listener.done)
+	listener.mu.Unlock()
+
+	listener.senders.Wait()
+	close(listener.events)
+}
 
 type SliverClient struct {
 	App                      *console.Console
@@ -230,10 +286,30 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	}
 
 	if !con.IsCLI {
+		startInteractive, err := nonTTYGuard(rcScript)
+		if err != nil {
+			return err
+		}
+		if !startInteractive {
+			return nil
+		}
 		return con.App.Start()
 	}
 
 	return nil
+}
+
+// nonTTYGuard reports whether to start the interactive console. It returns an
+// error when stdin is not a terminal and no rc script was supplied. When an rc
+// script is provided, it reports false because the script has already run.
+func nonTTYGuard(rcScript string) (bool, error) {
+	if !isTerminal(int(os.Stdin.Fd())) {
+		if rcScript != "" {
+			return false, nil
+		}
+		return false, fmt.Errorf("interactive console requires a TTY; use --rc for non-interactive scripts")
+	}
+	return true, nil
 }
 
 func (con *SliverClient) runRCScript(serverCmds, sliverCmds console.Commands, rcScript string) {
@@ -377,7 +453,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 			}
 			con.PrintEventErrorf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
 			for _, session := range sessions {
-				shortID := strings.Split(session.ID, "-")[0]
+				shortID, _, _ := strings.Cut(session.ID, "-")
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
 			}
 
@@ -398,7 +474,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 			}
 			con.PrintEventErrorf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
 			for _, session := range sessions {
-				shortID := strings.Split(session.ID, "-")[0]
+				shortID, _, _ := strings.Cut(session.ID, "-")
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
 			}
 
@@ -418,20 +494,20 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
+			shortID, _, _ := strings.Cut(session.ID, "-")
 			con.emitConsoleNotification("info", true, "Session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
+			shortID, _, _ := strings.Cut(session.ID, "-")
 			con.emitConsoleNotification("info", false, "Session %s has been updated - %v", shortID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
+			shortID, _, _ := strings.Cut(session.ID, "-")
 			con.emitConsoleNotification("error", true, "Lost session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
@@ -446,7 +522,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 			beacon := &clientpb.Beacon{}
 			proto.Unmarshal(event.Data, beacon)
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(beacon.ID, "-")[0]
+			shortID, _, _ := strings.Cut(beacon.ID, "-")
 			con.emitConsoleNotification("info", true, "Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
@@ -461,10 +537,10 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 
 // CreateEventListener - creates a new event listener and returns its ID.
 func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) {
-	listener := make(chan *clientpb.Event, 100)
-	listenerID, _ := uuid.NewV4()
+	listener := newConsoleEventListener()
+	listenerID := uuid.NewV4()
 	con.EventListeners.Store(listenerID.String(), listener)
-	return listenerID.String(), listener
+	return listenerID.String(), listener.events
 }
 
 // SuppressEventNotifications redirects console event messages to local listeners instead of stdout.
@@ -531,14 +607,13 @@ func (con *SliverClient) emitConsoleNotification(level string, emphasized bool, 
 func (con *SliverClient) RemoveEventListener(listenerID string) {
 	value, ok := con.EventListeners.LoadAndDelete(listenerID)
 	if ok {
-		close(value.(chan *clientpb.Event))
+		value.(*consoleEventListener).close()
 	}
 }
 
 func (con *SliverClient) triggerEventListeners(event *clientpb.Event) {
 	con.EventListeners.Range(func(key, value interface{}) bool {
-		listener := value.(chan *clientpb.Event)
-		listener <- event // Do not block while sending the event to the listener
+		value.(*consoleEventListener).send(event)
 		return true
 	})
 }

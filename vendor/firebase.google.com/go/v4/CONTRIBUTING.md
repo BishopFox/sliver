@@ -148,8 +148,12 @@ Set up your Firebase project as follows:
 
 2. Enable Firestore:
    1. Go to the Firebase Console, and select **Firestore Database** from the **Build** menu.
-   2. Click on the **Create database** button. You can choose to set up Firestore either in
-   the production mode or in the test mode.
+   2. Click on the **Create database** button and create a default database. You can choose
+   to set up Firestore either in the production mode or in the test mode.
+   > **Note:** Integration tests are run against both the default database and an additional
+   database named "testing-database".
+   3. After the default database is created, click the **Add database** button to create a
+   second database named "testing-database". 
 
 
 3. Enable Realtime Database:

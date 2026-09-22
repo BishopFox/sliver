@@ -22,20 +22,19 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Loot - Represents a piece of loot
 type Loot struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	FileType int
 	Name     string
 	Size     int64
 
-	OriginHostID uuid.UUID `gorm:"type:uuid;"`
+	OriginHostID UUID `gorm:"type:uuid;"`
 }
 
 func (l *Loot) ToProtobuf() *clientpb.Loot {
@@ -50,10 +49,7 @@ func (l *Loot) ToProtobuf() *clientpb.Loot {
 
 // BeforeCreate - GORM hook
 func (l *Loot) BeforeCreate(tx *gorm.DB) (err error) {
-	l.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	l.ID = NewUUID()
 	l.CreatedAt = time.Now()
 	return nil
 }

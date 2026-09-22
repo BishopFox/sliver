@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/extensions"
@@ -49,10 +49,14 @@ func TestValidateSAWhoamiOutput(t *testing.T) {
 }
 
 func TestDownloadPinnedRetriesTransientHTTPStatus(t *testing.T) {
+	synctest.Test(t, testDownloadPinnedRetriesTransientHTTPStatus)
+}
+
+func testDownloadPinnedRetriesTransientHTTPStatus(t *testing.T) {
 	content := []byte("verified Armory asset")
 	digest := sha256.Sum256(content)
 	attempts := atomic.Int32{}
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := httptest.NewTestServer(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		attempt := attempts.Add(1)
 		if request.UserAgent() != "sliver-comprehensive-e2e" {
 			t.Errorf("User-Agent = %q", request.UserAgent())
@@ -66,9 +70,8 @@ func TestDownloadPinnedRetriesTransientHTTPStatus(t *testing.T) {
 			_, _ = response.Write(content)
 		}
 	}))
-	defer server.Close()
 
-	got, err := downloadPinned(context.Background(), server.Client(), pinnedAsset{
+	got, err := downloadPinned(t.Context(), server.Client(), pinnedAsset{
 		url:    server.URL,
 		sha256: hex.EncodeToString(digest[:]),
 	})
@@ -84,6 +87,10 @@ func TestDownloadPinnedRetriesTransientHTTPStatus(t *testing.T) {
 }
 
 func TestDownloadPinnedRetriesTransportError(t *testing.T) {
+	synctest.Test(t, testDownloadPinnedRetriesTransportError)
+}
+
+func testDownloadPinnedRetriesTransportError(t *testing.T) {
 	content := []byte("verified Armory asset")
 	digest := sha256.Sum256(content)
 	attempts := 0
@@ -101,7 +108,7 @@ func TestDownloadPinnedRetriesTransportError(t *testing.T) {
 		}, nil
 	})}
 
-	got, err := downloadPinned(context.Background(), client, pinnedAsset{
+	got, err := downloadPinned(t.Context(), client, pinnedAsset{
 		url:    "https://armory.invalid/asset",
 		sha256: hex.EncodeToString(digest[:]),
 	})
@@ -119,13 +126,12 @@ func TestDownloadPinnedRetriesTransportError(t *testing.T) {
 func TestDownloadPinnedDoesNotRetryPermanentFailures(t *testing.T) {
 	t.Run("HTTP 404", func(t *testing.T) {
 		attempts := atomic.Int32{}
-		server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		server := httptest.NewTestServer(t, http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 			attempts.Add(1)
 			response.WriteHeader(http.StatusNotFound)
 		}))
-		defer server.Close()
 
-		if _, err := downloadPinned(context.Background(), server.Client(), pinnedAsset{url: server.URL}); err == nil {
+		if _, err := downloadPinned(t.Context(), server.Client(), pinnedAsset{url: server.URL}); err == nil {
 			t.Fatal("HTTP 404 unexpectedly succeeded")
 		}
 		if gotAttempts := attempts.Load(); gotAttempts != 1 {
@@ -135,13 +141,12 @@ func TestDownloadPinnedDoesNotRetryPermanentFailures(t *testing.T) {
 
 	t.Run("SHA-256 mismatch", func(t *testing.T) {
 		attempts := atomic.Int32{}
-		server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		server := httptest.NewTestServer(t, http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 			attempts.Add(1)
 			_, _ = io.WriteString(response, "tampered")
 		}))
-		defer server.Close()
 
-		if _, err := downloadPinned(context.Background(), server.Client(), pinnedAsset{
+		if _, err := downloadPinned(t.Context(), server.Client(), pinnedAsset{
 			url:    server.URL,
 			sha256: strings.Repeat("0", sha256.Size*2),
 		}); err == nil {
@@ -166,10 +171,9 @@ func TestDownloadSignedPackageDoesNotRetryIntegrityFailures(t *testing.T) {
 		}
 		signature := minisign.SignWithComments(privateKey, []byte("different bytes"), "test", "")
 		server, archiveRequests, signatureRequests := armoryAssetServer(t, archive, signature)
-		defer server.Close()
 
 		_, _, err = downloadSignedPackage(
-			context.Background(), server.Client(),
+			t.Context(), server.Client(),
 			&armory.ArmoryPackage{CommandName: "sa-test", PublicKey: string(publicKeyText)},
 			pinnedTestAsset(server.URL+"/archive", archive),
 			pinnedTestAsset(server.URL+"/signature", signature),
@@ -212,10 +216,9 @@ func TestDownloadSignedPackageDoesNotRetryIntegrityFailures(t *testing.T) {
 		trustedComment := base64.StdEncoding.EncodeToString(signedManifest)
 		signature := minisign.SignWithComments(privateKey, archive, trustedComment, "")
 		server, archiveRequests, signatureRequests := armoryAssetServer(t, archive, signature)
-		defer server.Close()
 
 		_, _, err = downloadSignedPackage(
-			context.Background(), server.Client(),
+			t.Context(), server.Client(),
 			&armory.ArmoryPackage{CommandName: "sa-test", PublicKey: string(publicKeyText)},
 			pinnedTestAsset(server.URL+"/archive", archive),
 			pinnedTestAsset(server.URL+"/signature", signature),
@@ -239,7 +242,7 @@ func armoryAssetServer(t *testing.T, archive []byte, signature []byte) (*httptes
 	t.Helper()
 	archiveRequests := &atomic.Int32{}
 	signatureRequests := &atomic.Int32{}
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := httptest.NewTestServer(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/archive":
 			archiveRequests.Add(1)

@@ -47,6 +47,13 @@ func attachProcessTree(cmd *exec.Cmd) (processTree, error) {
 	return processTree{job: job}, nil
 }
 
+func killPreparedProcessTree(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+	return cmd.Process.Kill()
+}
+
 func terminateProcessTree(tree processTree, cmd *exec.Cmd) error {
 	err := exec.Command("taskkill.exe", "/PID", strconv.Itoa(cmd.Process.Pid), "/T").Run()
 	if err == nil {

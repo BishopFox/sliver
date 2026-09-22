@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -37,7 +38,6 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/forms"
-	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/minisign"
 )
 
@@ -348,7 +348,7 @@ func getPackagesWithCommandName(name, armoryPK, minimumVersion string) []*pkgCac
 
 func getPackageIDFromUser(name string, options map[string]string) string {
 	selectedPackageKey := ""
-	optionKeys := util.Keys(options)
+	optionKeys := slices.Collect(maps.Keys(options))
 	slices.Sort(optionKeys)
 	// Add a cancel option
 	optionKeys = append(optionKeys, doNotInstallOption)

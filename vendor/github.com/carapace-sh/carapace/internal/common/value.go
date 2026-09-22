@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/carapace-sh/carapace/internal/env"
 	"github.com/carapace-sh/carapace/pkg/match"
 	"github.com/carapace-sh/carapace/pkg/style"
 )
@@ -25,11 +26,15 @@ type RawValue struct {
 
 // TrimmedDescription returns the trimmed description.
 func (r RawValue) TrimmedDescription() string {
-	maxLength := 80
+	maxLength := env.DescriptionLength()
 	description := strings.SplitN(r.Description, "\n", 2)[0]
 	description = strings.TrimSpace(description)
-	if len([]rune(description)) > maxLength {
-		description = string([]rune(description)[:maxLength-3]) + "..."
+	runes := []rune(description)
+	if len(runes) > maxLength {
+		if maxLength <= 3 {
+			return string(runes[:maxLength])
+		}
+		description = string(runes[:maxLength-3]) + "..."
 	}
 	return description
 }

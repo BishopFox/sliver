@@ -19,15 +19,40 @@ package pivotclients
 */
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"net"
 	"sync"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 )
+
+func TestParsePivotSessionID(t *testing.T) {
+	want := []byte{
+		0x00, 0x11, 0x22, 0x33,
+		0x44, 0x55,
+		0x66, 0x77,
+		0x88, 0x99,
+		0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+	}
+	id, err := parsePivotSessionID(want)
+	if err != nil {
+		t.Fatalf("parsePivotSessionID returned an error: %v", err)
+	}
+	if !bytes.Equal(id[:], want) {
+		t.Fatalf("parsePivotSessionID mutated the identifier: got %x, want %x", id, want)
+	}
+
+	for _, data := range [][]byte{nil, make([]byte, len(uuid.UUID{})-1), make([]byte, len(uuid.UUID{})+1)} {
+		if _, err := parsePivotSessionID(data); !errors.Is(err, errInvalidPivotSessionID) {
+			t.Errorf("parsePivotSessionID accepted %d bytes: %v", len(data), err)
+		}
+	}
+}
 
 func framePrefix(n uint32) []byte {
 	b := make([]byte, 4)

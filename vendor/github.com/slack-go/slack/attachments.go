@@ -47,7 +47,8 @@ type AttachmentActionOptionGroup struct {
 }
 
 // AttachmentActionCallback is sent from Slack when a user clicks a button in an interactive message (aka AttachmentAction)
-// DEPRECATED: use InteractionCallback
+//
+// Deprecated: use InteractionCallback
 type AttachmentActionCallback InteractionCallback
 
 // ConfirmationField are used to ask users to confirm actions

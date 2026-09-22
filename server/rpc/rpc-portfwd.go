@@ -20,16 +20,43 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"unicode"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
+
+func validatePortfwdTarget(req *sliverpb.PortfwdReq) error {
+	if req == nil {
+		return errors.New("port forward request is required")
+	}
+	if req.Host == "" || strings.IndexFunc(req.Host, func(value rune) bool {
+		return unicode.IsSpace(value) || unicode.IsControl(value)
+	}) >= 0 {
+		return fmt.Errorf("invalid port forward host %q", req.Host)
+	}
+	if req.Port == 0 || req.Port > 65535 {
+		return fmt.Errorf("invalid port forward port %d: must be from 1 to 65535", req.Port)
+	}
+	if req.Protocol != sliverpb.PortFwdProtoTCP {
+		return fmt.Errorf("unsupported port forward protocol %d", req.Protocol)
+	}
+	return nil
+}
 
 // Portfwd - Open an in-band port forward
 func (s *Server) Portfwd(ctx context.Context, req *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error) {
 	if req == nil || req.Request == nil {
 		return nil, ErrMissingRequestField
+	}
+	if err := validatePortfwdTarget(req); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	session := core.Sessions.Get(req.Request.SessionID)
@@ -40,12 +67,51 @@ func (s *Server) Portfwd(ctx context.Context, req *sliverpb.PortfwdReq) (*sliver
 	if tunnel == nil {
 		return nil, rpcError(core.ErrInvalidTunnelID)
 	}
+	if tunnel.SessionID != session.ID {
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	}
+	// Session IDs may be reused after a reconnect. The tunnel remains owned by
+	// the exact implant connection that created it, so never send setup through
+	// a replacement session while data and teardown still target the creator.
+	if session.Connection != tunnel.ImplantConnection() {
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	}
+	// The client must bind its TunnelData stream before the implant opens the
+	// destination socket. Otherwise an abandoned client setup can leave a live
+	// port-forward connection without a consumer.
+	select {
+	case <-tunnel.ClientBound():
+	case <-tunnel.Done():
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	select {
+	case <-tunnel.Done():
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	default:
+	}
 	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	data, err := session.Request(sliverpb.MsgNumber(req), s.getTimeout(req), reqData)
+	requestCtx, cancelRequest := context.WithTimeout(ctx, s.getTimeout(req))
+	go func() {
+		select {
+		case <-tunnel.Done():
+			cancelRequest()
+		case <-requestCtx.Done():
+		}
+	}()
+	data, err := session.RequestContext(requestCtx, sliverpb.MsgNumber(req), reqData)
+	requestContextErr := requestCtx.Err()
+	cancelRequest()
 	if err != nil {
+		// Preserve the existing implant-timeout error while allowing an earlier
+		// caller or tunnel cancellation to propagate immediately.
+		if errors.Is(requestContextErr, context.DeadlineExceeded) && ctx.Err() == nil {
+			err = core.ErrImplantTimeout
+		}
 		return nil, rpcError(err)
 	}
 	portfwd := &sliverpb.Portfwd{}

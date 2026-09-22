@@ -32,12 +32,18 @@ func (d *Decoder) ReadBool() (bool, error) {
 	return val != 0x00, err
 }
 
+func (d *Decoder) ReadBytesOrNil(length int) (data []byte, err error) {
+	data, err = d.ReadBytes(length)
+	if err == nil && isZeroByteSlice(data) {
+		data = nil
+	}
+	return
+}
+
 func (d *Decoder) ReadBytes(length int) (data []byte, err error) {
 	data = d.buf.Next(length)
 	if len(data) != length {
 		return nil, fmt.Errorf("only %d in buffer, expected %d", len(data), length)
-	} else if isZeroByteSlice(data) {
-		return nil, nil
 	}
 	return
 }

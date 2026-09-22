@@ -20,6 +20,8 @@ type CreateProfileRequestParams struct {
 	AltBusinessidType string             `json:"alt_business_id_type" validate:"oneof= DUNS LEI GIIN NONE ''"`
 	PlivoSubaccount   string             `json:"plivo_subaccount" validate:"max=20"`
 	AuthorizedContact *AuthorizedContact `json:"authorized_contact"`
+	BusinessContactEmail string         `json:"business_contact_email,omitempty" validate:"omitempty,email,max=255"`
+	DoingBusinessAs      string         `json:"doing_business_as,omitempty" validate:"max=100"`
 }
 
 type CreateProfileResponse struct {
@@ -55,12 +57,18 @@ type DeleteProfileResponse struct {
 }
 
 type UpdateProfileRequestParams struct {
-	EntityType        string             `json:"entity_type" validate:"oneof= PRIVATE PUBLIC NON_PROFIT GOVERNMENT INDIVIDUAL"`
-	CompanyName       string             `json:"company_name" validate:"required,max=100"`
-	Address           *Address           `json:"address" validate:"required"`
-	Website           string             `json:"website" validate:"max=100"`
-	Vertical          string             `json:"vertical" validate:"oneof= PROFESSIONAL REAL_ESTATE HEALTHCARE HUMAN_RESOURCES ENERGY ENTERTAINMENT RETAIL TRANSPORTATION AGRICULTURE INSURANCE POSTAL EDUCATION HOSPITALITY FINANCIAL POLITICAL GAMBLING LEGAL CONSTRUCTION NGO MANUFACTURING GOVERNMENT TECHNOLOGY COMMUNICATION"`
-	AuthorizedContact *AuthorizedContact `json:"authorized_contact"`
+	EntityType           string             `json:"entity_type" validate:"oneof= PRIVATE PUBLIC NON_PROFIT GOVERNMENT INDIVIDUAL"`
+	CompanyName          string             `json:"company_name" validate:"required,max=100"`
+	Address              *Address           `json:"address" validate:"required"`
+	Website              string             `json:"website" validate:"max=100"`
+	Vertical             string             `json:"vertical" validate:"oneof= PROFESSIONAL REAL_ESTATE HEALTHCARE HUMAN_RESOURCES ENERGY ENTERTAINMENT RETAIL TRANSPORTATION AGRICULTURE INSURANCE POSTAL EDUCATION HOSPITALITY FINANCIAL POLITICAL GAMBLING LEGAL CONSTRUCTION NGO MANUFACTURING GOVERNMENT TECHNOLOGY COMMUNICATION"`
+	AuthorizedContact    *AuthorizedContact `json:"authorized_contact"`
+	BusinessContactEmail string             `json:"business_contact_email,omitempty" validate:"omitempty,email,max=255"`
+	Ein                  string             `json:"ein,omitempty" validate:"max=100"`
+	EinIssuingCountry    string             `json:"ein_issuing_country,omitempty" validate:"max=2"`
+	AltBusinessID        string             `json:"alt_business_id,omitempty" validate:"max=50"`
+	AltBusinessidType    string             `json:"alt_business_id_type,omitempty" validate:"oneof= DUNS LEI GIIN NONE ''"`
+	DoingBusinessAs      string             `json:"doing_business_as,omitempty" validate:"max=100"`
 }
 
 type Profile struct {
@@ -82,6 +90,8 @@ type Profile struct {
 	AltBusinessidType string            `json:"alt_business_id_type,omitempty"`
 	PlivoSubaccount   string            `json:"plivo_subaccount,omitempty"`
 	AuthorizedContact AuthorizedContact `json:"authorized_contact,omitempty"`
+	BusinessContactEmail string         `json:"business_contact_email,omitempty"`
+	DoingBusinessAs   string            `json:"doing_business_as,omitempty"`
 	CreatedAt         string            `json:"created_at,omitempty"`
 }
 

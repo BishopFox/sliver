@@ -203,7 +203,7 @@ func ShellKillCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	// Best-effort graceful request before closing the tunnel.
 	requestRemoteShellExit(sh.Tunnel())
 
-	if err := closeShellTunnel(con, sh.TunnelID, sh.SessionID); err != nil {
+	if err := closeShellTunnel(con, sh.Tunnel()); err != nil {
 		con.PrintWarnf("Error closing shell tunnel %d: %s\n", sh.TunnelID, err)
 	}
 
@@ -285,11 +285,11 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		case <-tunnel.Done():
 			bindTimer.Stop()
 			con.PrintErrorf("Shell tunnel closed before it was bound\n")
-			go backgroundCloseShell(con, tunnel.ID, session.ID)
+			go backgroundCloseShell(con, tunnel)
 			return shellAttachFailed
 		case <-bindTimer.C:
 			con.PrintErrorf("Timed out binding shell tunnel\n")
-			go backgroundCloseShell(con, tunnel.ID, session.ID)
+			go backgroundCloseShell(con, tunnel)
 			return shellAttachFailed
 		}
 
@@ -318,12 +318,12 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		cancelShell()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
-			go backgroundCloseShell(con, tunnel.ID, session.ID)
+			go backgroundCloseShell(con, tunnel)
 			return shellAttachFailed
 		}
 		if shell.Response != nil && shell.Response.Err != "" {
 			con.PrintErrorf("Error: %s\n", shell.Response.Err)
-			go backgroundCloseShell(con, tunnel.ID, session.ID)
+			go backgroundCloseShell(con, tunnel)
 			return shellAttachFailed
 		}
 
@@ -393,20 +393,28 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 	shells.Remove(managed.ID)
 
 	// "exit" should return immediately; tunnel close/cleanup is best-effort in the background.
-	go backgroundCloseShell(con, tunnel.ID, session.ID)
+	go backgroundCloseShell(con, tunnel)
 
 	return shellExited
 }
 
-func backgroundCloseShell(con *console.SliverClient, tunnelID uint64, sessionID string) {
-	err := closeShellTunnel(con, tunnelID, sessionID)
+func backgroundCloseShell(con *console.SliverClient, tunnel *core.TunnelIO) {
+	if tunnel == nil {
+		return
+	}
+	err := closeShellTunnel(con, tunnel)
 	if err != nil {
-		log.Printf("Background close tunnel %d failed: %v", tunnelID, err)
+		log.Printf("Background close tunnel %d failed: %v", tunnel.ID, err)
 	}
 }
 
-func closeShellTunnel(con *console.SliverClient, tunnelID uint64, sessionID string) error {
-	core.GetTunnels().Close(tunnelID)
+func closeShellTunnel(con *console.SliverClient, tunnel *core.TunnelIO) error {
+	if tunnel == nil {
+		return nil
+	}
+	if !core.GetTunnels().CloseIf(tunnel) {
+		return nil
+	}
 	if con == nil || con.Rpc == nil {
 		return nil
 	}
@@ -414,8 +422,8 @@ func closeShellTunnel(con *console.SliverClient, tunnelID uint64, sessionID stri
 	ctx, cancel := context.WithTimeout(context.Background(), shellCloseTimeout)
 	defer cancel()
 	_, err := con.Rpc.CloseTunnel(ctx, &sliverpb.Tunnel{
-		TunnelID:  tunnelID,
-		SessionID: sessionID,
+		TunnelID:  tunnel.ID,
+		SessionID: tunnel.SessionID,
 	})
 	return err
 }

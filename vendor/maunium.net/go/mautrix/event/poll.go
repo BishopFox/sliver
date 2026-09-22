@@ -6,11 +6,13 @@
 
 package event
 
+type PollResponse struct {
+	Answers []string `json:"answers"`
+}
+
 type PollResponseEventContent struct {
-	RelatesTo RelatesTo `json:"m.relates_to"`
-	Response  struct {
-		Answers []string `json:"answers"`
-	} `json:"org.matrix.msc3381.poll.response"`
+	RelatesTo RelatesTo    `json:"m.relates_to"`
+	Response  PollResponse `json:"org.matrix.msc3381.poll.response"`
 }
 
 func (content *PollResponseEventContent) GetRelatesTo() *RelatesTo {
@@ -34,18 +36,22 @@ type MSC1767Message struct {
 	Message []ExtensibleText `json:"org.matrix.msc1767.message,omitempty"`
 }
 
+type PollOption struct {
+	ID string `json:"id"`
+	MSC1767Message
+}
+
+type PollStart struct {
+	Kind          string         `json:"kind"`
+	MaxSelections int            `json:"max_selections"`
+	Question      MSC1767Message `json:"question"`
+	Answers       []PollOption   `json:"answers"`
+}
+
 type PollStartEventContent struct {
 	RelatesTo *RelatesTo `json:"m.relates_to,omitempty"`
 	Mentions  *Mentions  `json:"m.mentions,omitempty"`
-	PollStart struct {
-		Kind          string         `json:"kind"`
-		MaxSelections int            `json:"max_selections"`
-		Question      MSC1767Message `json:"question"`
-		Answers       []struct {
-			ID string `json:"id"`
-			MSC1767Message
-		} `json:"answers"`
-	} `json:"org.matrix.msc3381.poll.start"`
+	PollStart PollStart  `json:"org.matrix.msc3381.poll.start"`
 }
 
 func (content *PollStartEventContent) GetRelatesTo() *RelatesTo {

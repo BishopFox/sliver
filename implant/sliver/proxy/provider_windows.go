@@ -355,7 +355,7 @@ Returns:
 //noinspection SpellCheckingInspection
 func (p *providerWindows) parseLpszProxy(protocol string, lpszProxy string) string {
 	m := ""
-	for _, s := range strings.Split(lpszProxy, ";") {
+	for s := range strings.SplitSeq(lpszProxy, ";") {
 		parts := strings.SplitN(s, "=", 2)
 		// No protocol?
 		if len(parts) < 2 {

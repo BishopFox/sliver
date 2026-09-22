@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -64,10 +65,14 @@ func ExecWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 	} else {
 		data, _ = runNonInteractive(req, wasmExtRuntime)
 	}
-	connection.Send <- &pb.Envelope{
+	if !connection.SendEnvelope(&pb.Envelope{
 		ID:   envelope.ID,
 		Type: pb.MsgExecWasmExtension,
 		Data: data,
+	}) && req.Interactive {
+		if tunnel := connection.Tunnel(req.TunnelID); tunnel != nil {
+			connection.CloseTunnelRemote(tunnel)
+		}
 	}
 }
 
@@ -143,21 +148,22 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		wasm.Stdout.Reader,
 		// wasm.Stderr.Reader,
 	)
-	conn.AddTunnel(tunnel)
+	if !conn.AddTunnel(tunnel) {
+		_ = wasm.Close()
+		return proto.Marshal(&pb.ExecWasmExtension{
+			Response: &commonpb.Response{Err: "Wasm tunnel ID is already active"},
+		})
+	}
 
 	// Cleanup function with arguments
+	var cleanupOnce sync.Once
 	cleanup := func(reason string, err error) {
-		// {{if .Config.Debug}}
-		log.Printf("[wasm] Closing tunnel request %d (%s). Err: %v", tunnel.ID, reason, err)
-		// {{end}}
-		tunnelClose, _ := proto.Marshal(&pb.TunnelData{
-			Closed:   true,
-			TunnelID: tunnel.ID,
+		cleanupOnce.Do(func() {
+			// {{if .Config.Debug}}
+			log.Printf("[wasm] Closing tunnel request %d (%s). Err: %v", tunnel.ID, reason, err)
+			// {{end}}
+			conn.CloseTunnelLocal(tunnel)
 		})
-		conn.Send <- &pb.Envelope{
-			Type: pb.MsgTunnelClose,
-			Data: tunnelClose,
-		}
 	}
 
 	go func() (uint32, error) {
@@ -178,7 +184,6 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		wasm.Stdout.Writer.Write([]byte(fmt.Sprintf("\r\n*** exit code %d ***\r\n", exitCode)))
 		wasm.Stdout.Writer.Write([]byte("Wait 10 seconds and press <enter> to continue ...\r\n"))
 		wasm.Close()
-		tunnel.Close()
 		return exitCode, err
 	}()
 
@@ -198,14 +203,7 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 			log.Printf("[wasm] tWriter: %v stream: %v", tWriter, stream)
 			// {{end}}
 			_, err := io.Copy(tWriter, stream)
-			if err != nil {
-				cleanup("io error", err)
-				return
-			}
-			if err == io.EOF {
-				cleanup("EOF", err)
-				return
-			}
+			cleanup("stream closed", err)
 		}(rc)
 	}
 

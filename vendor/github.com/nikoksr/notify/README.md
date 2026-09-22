@@ -5,24 +5,23 @@
     alt="notify logo"
 />
 
-[![codecov](https://codecov.io/gh/nikoksr/notify/branch/main/graph/badge.svg?token=QDON0KO2WV)](https://codecov.io/gh/nikoksr/notify)
+---
+
+<p><i>A dead simple Go library for sending notifications to various messaging services.</i></p>
+
+&nbsp;
+
+[![CI](https://github.com/nikoksr/notify/actions/workflows/ci.yml/badge.svg)](https://github.com/nikoksr/notify/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikoksr/notify)](https://goreportcard.com/report/github.com/nikoksr/notify)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/37fdff3c275c4a72a3a061f2d0ec5553)](https://www.codacy.com/gh/nikoksr/notify/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=nikoksr/notify&amp;utm_campaign=Badge_Grade)
-[![Maintainability](https://api.codeclimate.com/v1/badges/b3afd7bf115341995077/maintainability)](https://codeclimate.com/github/nikoksr/notify/maintainability)
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat)](https://pkg.go.dev/github.com/nikoksr/notify)
 
 </div>
 
-> <p align="center">A dead simple Go library for sending notifications to various messaging services.</p>
-
-> [!NOTE]
-> **[July 2024 Update]**: Notify is back under active maintenance! [Read the full announcement here](https://github.com/nikoksr/notify/discussions/840).
-
-<h1></h1>
+&nbsp;
 
 ## About <a id="about"></a>
 
-*Notify* was born out of my own need to have my API servers running in production be able to notify me when critical errors occur. Of course, _Notify_ can be used for any other purpose as well. The library is kept as simple as possible for quick integration and ease of use.
+Notify started as a solution to a personal problem: I needed a simple way to send notifications across different messaging platforms. What began as a tool for my own use has grown into a library designed for quick integration and ease of use, applicable to any notification scenario you might have.
 
 ## Disclaimer <a id="disclaimer"></a>
 
@@ -93,6 +92,7 @@ Yes, please! Contributions of all kinds are very welcome! Feel free to check our
 | [Line](https://line.me)                                                           | [service/line](service/line)             | [line/line-bot-sdk-go](https://github.com/line/line-bot-sdk-go)                                 | :heavy_check_mark: |
 | [Line Notify](https://notify-bot.line.me)                                         | [service/line](service/line)             | [utahta/go-linenotify](https://github.com/utahta/go-linenotify)                                 | :heavy_check_mark: |
 | [Mailgun](https://www.mailgun.com)                                                | [service/mailgun](service/mailgun)       | [mailgun/mailgun-go](https://github.com/mailgun/mailgun-go)                                     | :heavy_check_mark: |
+| [Mailtrap](https://mailtrap.io)                                                   | [service/mailtrap](service/mailtrap)     | -                                                                                               | :heavy_check_mark: |
 | [Matrix](https://www.matrix.org)                                                  | [service/matrix](service/matrix)         | [mautrix/go](https://github.com/mautrix/go)                                                     | :heavy_check_mark: |
 | [Microsoft Teams](https://www.microsoft.com/microsoft-teams)                      | [service/msteams](service/msteams)       | [atc0005/go-teams-notify](https://github.com/atc0005/go-teams-notify)                           | :heavy_check_mark: |
 | [PagerDuty](https://www.pagerduty.com)                                            | [service/pagerduty](service/pagerduty)   | [PagerDuty/go-pagerduty](https://github.com/PagerDuty/go-pagerduty)                             | :heavy_check_mark: |
@@ -123,10 +123,16 @@ Yes, please! Contributions of all kinds are very welcome! Feel free to check our
 
 The [logo](https://github.com/MariaLetta/free-gophers-pack) was made by the amazing [MariaLetta](https://github.com/MariaLetta).
 
-## Support <a id="support"></a>
+## More Projects
 
-If you find this project useful, consider giving it a ⭐️! Your support helps bring more attention to the project, allowing us to enhance it even further.
+If you find this library useful, you might also be interested in:
 
-While you're here, feel free to check out my other work:
+- **[assert-go](https://github.com/nikoksr/assert-go)** - Tiny (~100 LoC) Go assertion library focused on crystal-clear failure messages
+- **[konfetty](https://github.com/nikoksr/konfetty)** - Zero-dependency, type-safe and powerful post-processing for your existing config solution in Go
+- **[typeid-zig](https://github.com/nikoksr/typeid-zig)** - Complete Zig implementation of the TypeID specification, recognized as an official community implementation
 
-- [nikoksr/konfetty](https://github.com/nikoksr/konfetty) - Zero-dependency, type-safe and powerful post-processing for your existing config solution in Go.
+---
+
+<div align="center">
+<sub>Built with ❤️ by <a href="https://github.com/nikoksr">@nikoksr</a></sub>
+</div>

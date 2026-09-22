@@ -3,7 +3,6 @@ package models
 import (
 	"time"
 
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +13,7 @@ const (
 
 // WGIPReservation tracks allocated WireGuard tunnel IPs across all consumers.
 type WGIPReservation struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	TunIP     string `gorm:"uniqueIndex"`
@@ -24,10 +23,7 @@ type WGIPReservation struct {
 
 // BeforeCreate - GORM hook to automatically set values.
 func (r *WGIPReservation) BeforeCreate(tx *gorm.DB) (err error) {
-	r.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	r.ID = NewUUID()
 	r.CreatedAt = time.Now()
 	return nil
 }

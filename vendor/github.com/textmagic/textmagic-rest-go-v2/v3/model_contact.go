@@ -39,6 +39,7 @@ type Contact struct {
 	Email NullableString `json:"email"`
 	Country NullableCountry `json:"country"`
 	CustomFields []CustomFieldListItem `json:"customFields"`
+	CustomFieldValues []CustomFieldValues `json:"customFieldValues"`
 	User NullableUser `json:"user"`
 	Lists []List `json:"lists"`
 	Owner NullableUser `json:"owner,omitempty"`
@@ -57,7 +58,7 @@ type _Contact Contact
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewContact(id int32, favorited bool, blocked bool, firstName NullableString, lastName NullableString, companyName NullableString, phone NullableString, email NullableString, country NullableCountry, customFields []CustomFieldListItem, user NullableUser, lists []List, phoneType NullableString, avatar NullableContactImage, notes []ContactNote) *Contact {
+func NewContact(id int32, favorited bool, blocked bool, firstName NullableString, lastName NullableString, companyName NullableString, phone NullableString, email NullableString, country NullableCountry, customFields []CustomFieldListItem, customFieldValues []CustomFieldValues, user NullableUser, lists []List, phoneType NullableString, avatar NullableContactImage, notes []ContactNote) *Contact {
 	this := Contact{}
 	this.Id = id
 	this.Favorited = favorited
@@ -69,6 +70,7 @@ func NewContact(id int32, favorited bool, blocked bool, firstName NullableString
 	this.Email = email
 	this.Country = country
 	this.CustomFields = customFields
+	this.CustomFieldValues = customFieldValues
 	this.User = user
 	this.Lists = lists
 	this.PhoneType = phoneType
@@ -337,6 +339,30 @@ func (o *Contact) SetCustomFields(v []CustomFieldListItem) {
 	o.CustomFields = v
 }
 
+// GetCustomFieldValues returns the CustomFieldValues field value
+func (o *Contact) GetCustomFieldValues() []CustomFieldValues {
+	if o == nil {
+		var ret []CustomFieldValues
+		return ret
+	}
+
+	return o.CustomFieldValues
+}
+
+// GetCustomFieldValuesOk returns a tuple with the CustomFieldValues field value
+// and a boolean to check if the value has been set.
+func (o *Contact) GetCustomFieldValuesOk() ([]CustomFieldValues, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return o.CustomFieldValues, true
+}
+
+// SetCustomFieldValues sets field value
+func (o *Contact) SetCustomFieldValues(v []CustomFieldValues) {
+	o.CustomFieldValues = v
+}
+
 // GetUser returns the User field value
 // If the value is explicit nil, the zero value for User will be returned
 func (o *Contact) GetUser() User {
@@ -599,6 +625,7 @@ func (o Contact) ToMap() (map[string]interface{}, error) {
 	toSerialize["email"] = o.Email.Get()
 	toSerialize["country"] = o.Country.Get()
 	toSerialize["customFields"] = o.CustomFields
+	toSerialize["customFieldValues"] = o.CustomFieldValues
 	toSerialize["user"] = o.User.Get()
 	toSerialize["lists"] = o.Lists
 	if o.Owner.IsSet() {
@@ -631,6 +658,7 @@ func (o *Contact) UnmarshalJSON(data []byte) (err error) {
 		"email",
 		"country",
 		"customFields",
+		"customFieldValues",
 		"user",
 		"lists",
 		"phoneType",

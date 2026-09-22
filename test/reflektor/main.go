@@ -608,10 +608,8 @@ func validateOptions(opts *options) error {
 	supported := map[string]bool{
 		"darwin/amd64":  true,
 		"darwin/arm64":  true,
-		"linux/386":     true,
 		"linux/amd64":   true,
 		"linux/arm64":   true,
-		"windows/386":   true,
 		"windows/amd64": true,
 		"windows/arm64": true,
 	}

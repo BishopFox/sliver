@@ -487,10 +487,7 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if conversationContainsUserPrompt(m.currentConversation, m.pendingPrompt) {
 			m.pendingPrompt = ""
 		}
-		m.selectedConversation = conversationIndexByID(m.conversations, selectedConversationID(msg.conversation, msg.selectedID))
-		if m.selectedConversation < 0 {
-			m.selectedConversation = 0
-		}
+		m.selectedConversation = max(conversationIndexByID(m.conversations, selectedConversationID(msg.conversation, msg.selectedID)), 0)
 		m.invalidateTranscriptCache()
 		if strings.TrimSpace(msg.status) != "" {
 			m.status = msg.status
@@ -3273,10 +3270,7 @@ func (m *aiModel) removeConversation(conversationID string) {
 	}
 	m.conversations = filtered
 
-	next := conversationIndexByID(m.conversations, m.selectedConversationID())
-	if next < 0 {
-		next = 0
-	}
+	next := max(conversationIndexByID(m.conversations, m.selectedConversationID()), 0)
 	m.selectedConversation = next
 }
 
@@ -3683,10 +3677,7 @@ func (m *aiModel) applyConversationEvent(event *clientpb.AIConversationEvent) {
 	}
 
 	if m.currentConversation != nil {
-		m.selectedConversation = conversationIndexByID(m.conversations, m.currentConversation.GetID())
-		if m.selectedConversation < 0 {
-			m.selectedConversation = 0
-		}
+		m.selectedConversation = max(conversationIndexByID(m.conversations, m.currentConversation.GetID()), 0)
 	}
 	m.invalidateTranscriptCache()
 }
@@ -5579,10 +5570,7 @@ func truncateToolCallContentLines(content string, maxLines int) (string, int) {
 	}
 
 	truncated := strings.Join(lines[:maxLines], "\n")
-	hiddenBytes := len(content) - len(truncated)
-	if hiddenBytes < 0 {
-		hiddenBytes = 0
-	}
+	hiddenBytes := max(len(content)-len(truncated), 0)
 	return truncated, hiddenBytes
 }
 
@@ -5828,10 +5816,7 @@ func inputWindow(input []rune, cursor, width int) ([]rune, int) {
 
 	start := 0
 	if len(input) > width {
-		start = cursor - width + 1
-		if start < 0 {
-			start = 0
-		}
+		start = max(cursor-width+1, 0)
 		if start > len(input)-width {
 			start = len(input) - width
 		}

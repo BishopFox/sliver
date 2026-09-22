@@ -3,12 +3,12 @@ package handlers
 import (
 	"path/filepath"
 	"testing"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -33,10 +33,7 @@ func TestBeaconRegisterHandlerPropagatesCapabilities(t *testing.T) {
 		}
 	})
 
-	beaconID, err := uuid.NewV4()
-	if err != nil {
-		t.Fatalf("generate beacon ID: %v", err)
-	}
+	beaconID := uuid.NewV4()
 	registerData, err := proto.Marshal(&sliverpb.BeaconRegister{
 		ID: beaconID.String(),
 		Register: &sliverpb.Register{

@@ -74,11 +74,11 @@ func (c *SQLiteConn) loadExtension(lib string, entry *string) error {
 	}
 
 	var errMsg *C.char
-	defer C.sqlite3_free(unsafe.Pointer(errMsg))
-
 	rv := C.sqlite3_load_extension(c.db, clib, centry, &errMsg)
 	if rv != C.SQLITE_OK {
-		return errors.New(C.GoString(errMsg))
+		err := errors.New(C.GoString(errMsg))
+		C.sqlite3_free(unsafe.Pointer(errMsg))
+		return err
 	}
 
 	return nil

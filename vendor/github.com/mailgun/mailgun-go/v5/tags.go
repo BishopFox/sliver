@@ -19,7 +19,7 @@ type ListTagOptions struct {
 
 // DeleteTag removes all counters for a particular tag, including the tag itself.
 func (mg *Client) DeleteTag(ctx context.Context, domain, tag string) error {
-	r := newHTTPRequest(generateApiV3UrlWithDomain(mg, tagsEndpoint, domain) + "/" + tag)
+	r := newHTTPRequest(generateApiV3UrlWithDomain(mg, tagsEndpoint, domain) + "/" + url.QueryEscape(tag))
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 	_, err := makeDeleteRequest(ctx, r)
@@ -28,7 +28,7 @@ func (mg *Client) DeleteTag(ctx context.Context, domain, tag string) error {
 
 // GetTag retrieves metadata about the tag from the api
 func (mg *Client) GetTag(ctx context.Context, domain, tag string) (mtypes.Tag, error) {
-	r := newHTTPRequest(generateApiV3UrlWithDomain(mg, tagsEndpoint, domain) + "/" + tag)
+	r := newHTTPRequest(generateApiV3UrlWithDomain(mg, tagsEndpoint, domain) + "/" + url.QueryEscape(tag))
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 	var tagItem mtypes.Tag

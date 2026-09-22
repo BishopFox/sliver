@@ -15,7 +15,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	serverloot "github.com/bishopfox/sliver/server/loot"
-	"github.com/gofrs/uuid"
 )
 
 const aiLootReadDefaultMaxBytes = 64 * 1024
@@ -465,7 +464,7 @@ func (e *executor) callCredentialsAdd(_ context.Context, args credentialsAddTool
 		Hash:           args.Hash,
 		HashType:       int32(hashType),
 		IsCracked:      args.Plaintext != "" && args.Hash != "",
-		OriginHostUUID: uuid.FromStringOrNil(strings.TrimSpace(args.OriginHostUUID)),
+		OriginHostUUID: models.ParseUUIDOrNil(strings.TrimSpace(args.OriginHostUUID)),
 	}
 	if err := db.Session().Create(record).Error; err != nil {
 		return "", err
@@ -640,7 +639,7 @@ func resolveLootRecord(id string) (*models.Loot, error) {
 		return nil, fmt.Errorf("loot_id is required")
 	}
 
-	if lootID := uuid.FromStringOrNil(id); lootID != uuid.Nil {
+	if lootID := models.ParseUUIDOrNil(id); lootID != models.NilUUID() {
 		record := &models.Loot{}
 		err := db.Session().Where(&models.Loot{ID: lootID}).First(record).Error
 		if err == nil {
@@ -678,7 +677,7 @@ func resolveCredentialRecord(id string) (*models.Credential, error) {
 		return nil, fmt.Errorf("credential_id is required")
 	}
 
-	if credentialID := uuid.FromStringOrNil(id); credentialID != uuid.Nil {
+	if credentialID := models.ParseUUIDOrNil(id); credentialID != models.NilUUID() {
 		record := &models.Credential{}
 		err := db.Session().Where(&models.Credential{ID: credentialID}).First(record).Error
 		if err == nil {
@@ -713,7 +712,7 @@ func resolveCredentialRecord(id string) (*models.Credential, error) {
 func joinRecordIDsLoot(records []*models.Loot) string {
 	ids := make([]string, 0, len(records))
 	for _, record := range records {
-		if record == nil || record.ID == uuid.Nil {
+		if record == nil || record.ID == models.NilUUID() {
 			continue
 		}
 		ids = append(ids, record.ID.String())
@@ -724,7 +723,7 @@ func joinRecordIDsLoot(records []*models.Loot) string {
 func joinRecordIDsCredential(records []*models.Credential) string {
 	ids := make([]string, 0, len(records))
 	for _, record := range records {
-		if record == nil || record.ID == uuid.Nil {
+		if record == nil || record.ID == models.NilUUID() {
 			continue
 		}
 		ids = append(ids, record.ID.String())
@@ -798,7 +797,7 @@ func hashTypeName(hashType clientpb.HashType) string {
 
 func cleanUUIDString(raw string) string {
 	raw = strings.TrimSpace(raw)
-	if raw == uuid.Nil.String() {
+	if raw == models.NilUUID().String() {
 		return ""
 	}
 	return raw

@@ -113,25 +113,27 @@ func (et *Type) GuessClass() TypeClass {
 		StatePinnedEvents.Type, StateTombstone.Type, StateEncryption.Type, StateBridge.Type, StateHalfShotBridge.Type,
 		StateSpaceParent.Type, StateSpaceChild.Type, StatePolicyRoom.Type, StatePolicyServer.Type, StatePolicyUser.Type,
 		StateElementFunctionalMembers.Type, StateBeeperRoomFeatures.Type, StateBeeperDisappearingTimer.Type,
-		StateBotCommands.Type:
+		StateMSC4391BotCommand.Type, StateRoomPolicy.Type, StateUnstableRoomPolicy.Type, StateImagePack.Type,
+		StateUnstableImagePack.Type:
 		return StateEventType
 	case EphemeralEventReceipt.Type, EphemeralEventTyping.Type, EphemeralEventPresence.Type:
 		return EphemeralEventType
 	case AccountDataDirectChats.Type, AccountDataPushRules.Type, AccountDataRoomTags.Type,
 		AccountDataFullyRead.Type, AccountDataIgnoredUserList.Type, AccountDataMarkedUnread.Type,
+		AccountDataPerMessageProfiles.Type, AccountDataBeeperMute.Type, AccountDataSpaceOrder.Type,
 		AccountDataSecretStorageKey.Type, AccountDataSecretStorageDefaultKey.Type,
 		AccountDataCrossSigningMaster.Type, AccountDataCrossSigningSelf.Type, AccountDataCrossSigningUser.Type,
-		AccountDataFullyRead.Type, AccountDataMegolmBackupKey.Type:
+		AccountDataMegolmBackupKey.Type, AccountDataImagePackRooms.Type, AccountDataUnstableImagePackRooms.Type:
 		return AccountDataEventType
 	case EventRedaction.Type, EventMessage.Type, EventEncrypted.Type, EventReaction.Type, EventSticker.Type,
 		InRoomVerificationStart.Type, InRoomVerificationReady.Type, InRoomVerificationAccept.Type,
 		InRoomVerificationKey.Type, InRoomVerificationMAC.Type, InRoomVerificationCancel.Type,
 		CallInvite.Type, CallCandidates.Type, CallAnswer.Type, CallReject.Type, CallSelectAnswer.Type,
 		CallNegotiate.Type, CallHangup.Type, BeeperMessageStatus.Type, EventUnstablePollStart.Type, EventUnstablePollResponse.Type,
-		EventUnstablePollEnd.Type, BeeperTranscription.Type, BeeperDeleteChat.Type:
+		EventUnstablePollEnd.Type, BeeperTranscription.Type, BeeperDeleteChat.Type, BeeperAcceptMessageRequest.Type:
 		return MessageEventType
 	case ToDeviceRoomKey.Type, ToDeviceRoomKeyRequest.Type, ToDeviceForwardedRoomKey.Type, ToDeviceRoomKeyWithheld.Type,
-		ToDeviceBeeperRoomKeyAck.Type:
+		ToDeviceBeeperRoomKeyAck.Type, ToDeviceBeeperStreamSubscribe.Type, ToDeviceBeeperStreamUpdate.Type:
 		return ToDeviceEventType
 	default:
 		return UnknownEventType
@@ -195,6 +197,12 @@ var (
 	StateSpaceChild        = Type{"m.space.child", StateEventType}
 	StateSpaceParent       = Type{"m.space.parent", StateEventType}
 
+	StateRoomPolicy         = Type{"m.room.policy", StateEventType}
+	StateUnstableRoomPolicy = Type{"org.matrix.msc4284.policy", StateEventType}
+
+	StateImagePack         = Type{"m.room.image_pack", StateEventType}
+	StateUnstableImagePack = Type{"im.ponies.room_emotes", StateEventType}
+
 	StateLegacyPolicyRoom     = Type{"m.room.rule.room", StateEventType}
 	StateLegacyPolicyServer   = Type{"m.room.rule.server", StateEventType}
 	StateLegacyPolicyUser     = Type{"m.room.rule.user", StateEventType}
@@ -205,7 +213,7 @@ var (
 	StateElementFunctionalMembers = Type{"io.element.functional_members", StateEventType}
 	StateBeeperRoomFeatures       = Type{"com.beeper.room_features", StateEventType}
 	StateBeeperDisappearingTimer  = Type{"com.beeper.disappearing_timer", StateEventType}
-	StateBotCommands              = Type{"org.matrix.msc4332.commands", StateEventType}
+	StateMSC4391BotCommand        = Type{"org.matrix.msc4391.command_description", StateEventType}
 )
 
 // Message events
@@ -234,9 +242,11 @@ var (
 	CallNegotiate    = Type{"m.call.negotiate", MessageEventType}
 	CallHangup       = Type{"m.call.hangup", MessageEventType}
 
-	BeeperMessageStatus = Type{"com.beeper.message_send_status", MessageEventType}
-	BeeperTranscription = Type{"com.beeper.transcription", MessageEventType}
-	BeeperDeleteChat    = Type{"com.beeper.delete_chat", MessageEventType}
+	BeeperMessageStatus        = Type{"com.beeper.message_send_status", MessageEventType}
+	BeeperTranscription        = Type{"com.beeper.transcription", MessageEventType}
+	BeeperDeleteChat           = Type{"com.beeper.delete_chat", MessageEventType}
+	BeeperAcceptMessageRequest = Type{"com.beeper.accept_message_request", MessageEventType}
+	BeeperSendState            = Type{"com.beeper.send_state", MessageEventType}
 
 	EventUnstablePollStart    = Type{Type: "org.matrix.msc3381.poll.start", Class: MessageEventType}
 	EventUnstablePollResponse = Type{Type: "org.matrix.msc3381.poll.response", Class: MessageEventType}
@@ -252,13 +262,18 @@ var (
 
 // Account data events
 var (
-	AccountDataDirectChats     = Type{"m.direct", AccountDataEventType}
-	AccountDataPushRules       = Type{"m.push_rules", AccountDataEventType}
-	AccountDataRoomTags        = Type{"m.tag", AccountDataEventType}
-	AccountDataFullyRead       = Type{"m.fully_read", AccountDataEventType}
-	AccountDataIgnoredUserList = Type{"m.ignored_user_list", AccountDataEventType}
-	AccountDataMarkedUnread    = Type{"m.marked_unread", AccountDataEventType}
-	AccountDataBeeperMute      = Type{"com.beeper.mute", AccountDataEventType}
+	AccountDataDirectChats        = Type{"m.direct", AccountDataEventType}
+	AccountDataPushRules          = Type{"m.push_rules", AccountDataEventType}
+	AccountDataRoomTags           = Type{"m.tag", AccountDataEventType}
+	AccountDataFullyRead          = Type{"m.fully_read", AccountDataEventType}
+	AccountDataIgnoredUserList    = Type{"m.ignored_user_list", AccountDataEventType}
+	AccountDataMarkedUnread       = Type{"m.marked_unread", AccountDataEventType}
+	AccountDataBeeperMute         = Type{"com.beeper.mute", AccountDataEventType}
+	AccountDataSpaceOrder         = Type{"org.matrix.msc3230.space_order", AccountDataEventType}
+	AccountDataPerMessageProfiles = Type{"fi.mau.msc4461.per_message_profiles.v3", AccountDataEventType}
+
+	AccountDataImagePackRooms         = Type{"m.image_pack.rooms", AccountDataEventType}
+	AccountDataUnstableImagePackRooms = Type{"im.ponies.emote_rooms", AccountDataEventType}
 
 	AccountDataSecretStorageDefaultKey = Type{"m.secret_storage.default_key", AccountDataEventType}
 	AccountDataSecretStorageKey        = Type{"m.secret_storage.key", AccountDataEventType}
@@ -273,6 +288,7 @@ var (
 	ToDeviceRoomKey          = Type{"m.room_key", ToDeviceEventType}
 	ToDeviceRoomKeyRequest   = Type{"m.room_key_request", ToDeviceEventType}
 	ToDeviceForwardedRoomKey = Type{"m.forwarded_room_key", ToDeviceEventType}
+	ToDeviceRoomKeyBundle    = Type{"m.room_key_bundle", ToDeviceEventType}
 	ToDeviceEncrypted        = Type{"m.room.encrypted", ToDeviceEventType}
 	ToDeviceRoomKeyWithheld  = Type{"m.room_key.withheld", ToDeviceEventType}
 	ToDeviceSecretRequest    = Type{"m.secret.request", ToDeviceEventType}
@@ -292,5 +308,7 @@ var (
 
 	ToDeviceOrgMatrixRoomKeyWithheld = Type{"org.matrix.room_key.withheld", ToDeviceEventType}
 
-	ToDeviceBeeperRoomKeyAck = Type{"com.beeper.room_key.ack", ToDeviceEventType}
+	ToDeviceBeeperRoomKeyAck      = Type{"com.beeper.room_key.ack", ToDeviceEventType}
+	ToDeviceBeeperStreamSubscribe = Type{"com.beeper.stream.subscribe", ToDeviceEventType}
+	ToDeviceBeeperStreamUpdate    = Type{"com.beeper.stream.update", ToDeviceEventType}
 )

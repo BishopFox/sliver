@@ -22,15 +22,14 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Credential - Represents a piece of loot
 type Credential struct {
-	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID             UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
-	OriginHostUUID uuid.UUID `gorm:"type:uuid;"`
+	OriginHostUUID UUID      `gorm:"type:uuid;"`
 
 	Collection string
 	Username   string
@@ -55,10 +54,7 @@ func (c *Credential) ToProtobuf() *clientpb.Credential {
 
 // BeforeCreate - GORM hook
 func (c *Credential) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }

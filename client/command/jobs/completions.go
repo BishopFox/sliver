@@ -88,8 +88,8 @@ func filterCompletionValues(values []string, prefix string) []string {
 	filtered := make([]string, 0, len(values))
 	for _, value := range values {
 		candidate := value
-		if tab := strings.IndexByte(value, '\t'); tab >= 0 {
-			candidate = value[:tab]
+		if before, _, ok := strings.Cut(value, "\t"); ok {
+			candidate = before
 		}
 		if strings.HasPrefix(candidate, prefix) {
 			filtered = append(filtered, value)

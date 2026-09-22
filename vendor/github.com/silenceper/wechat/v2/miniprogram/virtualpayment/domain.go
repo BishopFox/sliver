@@ -25,7 +25,7 @@ import (
 )
 
 // VirtualPayment mini program virtual payment
-// https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/industry/virtual-payment.html#_2-3-%E6%9C%8D%E5%8A%A1%E5%99%A8API
+// https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment.html
 type VirtualPayment struct {
 	ctx        *context.Context
 	sessionKey string
@@ -368,12 +368,14 @@ type AsyncXPayGoodsDeliverNotifyRequest struct {
 	Env           Env            `json:"env"`           // 环境 0-正式环境 1-沙箱环境
 	WechatPayInfo *WeChatPayInfo `json:"WechatPayInfo"` // 微信支付订单信息
 	GoodsInfo     *GoodsInfo     `json:"GoodsInfo"`     // 道具信息
+	TeamInfo      *TeamInfo      `json:"TeamInfo"`      // 拼团信息
 }
 
 // WeChatPayInfo 微信支付信息 非微信支付渠道可能没有
 type WeChatPayInfo struct {
 	MchOrderNo    string `json:"MchOrderNo"`    // 商户订单号
 	TransactionID string `json:"TransactionId"` // 微信支付订单号
+	PaidTime      int64  `json:"PaidTime"`      // 用户支付时间，Linux 秒级时间戳
 }
 
 // GoodsInfo 道具参数信息
@@ -383,6 +385,14 @@ type GoodsInfo struct {
 	OrigPrice   int    `json:"OrigPrice"`   // 物品原始价格（单位：分）
 	ActualPrice int    `json:"ActualPrice"` // 物品实际支付价格（单位：分）
 	Attach      string `json:"Attach"`      // 透传信息
+}
+
+// TeamInfo 拼团信息
+type TeamInfo struct {
+	ActivityID string `json:"ActivityId"` // 活动 id
+	TeamID     string `json:"TeamId"`     // 团 id
+	TeamType   int    `json:"TeamType"`   // 团类型 1-支付全部，拼成退款
+	TeamAction int    `json:"TeamAction"` // 0-创团 1-参团
 }
 
 // AsyncXPayGoodsDeliverNotifyResponse 异步通知发货响应参数
@@ -415,6 +425,438 @@ type CoinInfo struct {
 // AsyncXPayCoinPayNotifyResponse 异步通知代币支付推送响应参数
 type AsyncXPayCoinPayNotifyResponse struct {
 	util.CommonError
+}
+
+// AsyncXPayRefundNotifyRequest 异步通知退款推送，请求参数
+type AsyncXPayRefundNotifyRequest struct {
+	ToUserName               string    `json:"ToUserName"`               // 小程序的原始 ID
+	FromUserName             string    `json:"FromUserName"`             // 发送方帐号（一个 OpenID）
+	CreateTime               int       `json:"CreateTime"`               // 消息发送时间（整型）
+	MsgType                  string    `json:"MsgType"`                  // 消息类型，此时固定为：event
+	Event                    string    `json:"Event"`                    // 事件类型，此时固定为：xpay_refund_notify
+	Openid                   string    `json:"openid"`                   // 用户 openid
+	WxRefundID               string    `json:"WxRefundId"`               // 微信退款单号
+	MchRefundID              string    `json:"MchRefundId"`              // 商户退款单号
+	WxOrderID                string    `json:"WxOrderId"`                // 退款单对应支付单的微信单号
+	MchOrderID               string    `json:"MchOrderId"`               // 退款单对应支付单的商户单号
+	RefundFee                int       `json:"RefundFee"`                // 退款金额，单位分
+	RetCode                  int       `json:"RetCode"`                  // 退款结果，0 为成功，非0 为失败
+	RetMsg                   string    `json:"RetMsg"`                   // 退款结果详情
+	RefundStartTimestamp     int64     `json:"RefundStartTimestamp"`     // 开始退款时间，秒级时间戳
+	RefundSuccTimestamp      int64     `json:"RefundSuccTimestamp"`      // 结束退款时间，秒级时间戳
+	WxpayRefundTransactionID string    `json:"WxpayRefundTransactionId"` // 退款单的微信支付单号
+	RetryTimes               int       `json:"RetryTimes"`               // 重试次数，从 0 开始
+	TeamInfo                 *TeamInfo `json:"TeamInfo"`                 // 拼团信息
+}
+
+// AsyncXPayRefundNotifyResponse 异步通知退款推送响应参数
+type AsyncXPayRefundNotifyResponse struct {
+	util.CommonError
+}
+
+// AsyncXPaySubscribeIosRefundQueryNotifyRequest iOS Apple 支付退款问询消息
+// 文档：https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment/ios.html
+type AsyncXPaySubscribeIosRefundQueryNotifyRequest struct {
+	ToUserName   string `json:"ToUserName"`   // 小程序的原始 ID
+	FromUserName string `json:"FromUserName"` // 发送方帐号
+	CreateTime   int    `json:"CreateTime"`   // 消息发送时间
+	MsgType      string `json:"MsgType"`      // 消息类型，此时固定为 event
+	Event        string `json:"Event"`        // 事件类型，此时固定为 xpay_subscribe_ios_refund_query_notify
+
+	RefundTime          string `json:"refund_time"`           // 问询时间，Unix 时间戳
+	OrderTime           string `json:"order_time"`            // 该笔退款的订单时间，Unix 时间戳
+	ChannelBill         string `json:"channel_bill"`          // Apple 支付票据号
+	BundleID            string `json:"bundleid"`              // 应用的 Apple bundleid
+	ProductID           string `json:"product_id"`            // 道具 id
+	PCount              string `json:"p_count"`               // 道具/代币数量
+	RefundRequestReason string `json:"refund_request_reason"` // 用户请求退款的原因
+	ProvideStatus       string `json:"provide_status"`        // 发货状态，0：未发货 1：已发货 2：发货中
+	PayOrderID          string `json:"pay_order_id"`          // 退款对应支付订单号
+}
+
+// AsyncXPaySubscribeIosRefundQueryNotifyResponse iOS Apple 支付退款问询应答
+type AsyncXPaySubscribeIosRefundQueryNotifyResponse struct {
+	ResultCode int32  `json:"result_code"` // 结果码，0-放过，建议退款；1-拦截，拒绝退款
+	ResultInfo string `json:"result_info"` // 结果描述
+	Evidence   string `json:"evidence"`    // 决策凭据，必填，用于退款审计
+}
+
+// AsyncXPayComplaintNotifyRequest 异步通知用户投诉推送，请求参数
+type AsyncXPayComplaintNotifyRequest struct {
+	ToUserName      string `json:"ToUserName"`      // 小程序的原始 ID
+	FromUserName    string `json:"FromUserName"`    // 发送方帐号（一个 OpenID）
+	CreateTime      int    `json:"CreateTime"`      // 消息发送时间（整型）
+	MsgType         string `json:"MsgType"`         // 消息类型，此时固定为：event
+	Event           string `json:"Event"`           // 事件类型，此时固定为：xpay_complaint_notify
+	Openid          string `json:"openid"`          // 用户 openid
+	WxOrderID       string `json:"WxOrderId"`       // 微信单号
+	MchOrderID      string `json:"MchOrderId"`      // 商户单号
+	TransactionID   string `json:"TransactionId"`   // 微信支付交易单号
+	ComplaintID     string `json:"ComplaintId"`     // 投诉单号
+	ComplaintDetail string `json:"ComplaintDetail"` // 投诉详情
+	ComplaintTime   int64  `json:"ComplaintTime"`   // 投诉时间，秒级时间戳
+	RetryTimes      int    `json:"RetryTimes"`      // 重试次数，从 0 开始
+	RequestID       string `json:"RequestId"`       // 请求编号
+}
+
+// AsyncXPayComplaintNotifyResponse 异步通知用户投诉推送响应参数
+type AsyncXPayComplaintNotifyResponse struct {
+	util.CommonError
+}
+
+// ==================== 下载订单 ====================
+
+// StartDownloadOrderRequest 发起下载小程序订单明细任务，请求参数
+type StartDownloadOrderRequest struct {
+	Env     Env    `json:"env"`      // 环境 0-正式环境 1-沙箱环境
+	BeginDs string `json:"begin_ds"` // 账单开始日期，格式为 yyyymmdd
+	EndDs   string `json:"end_ds"`   // 账单结束日期，格式为 yyyymmdd
+}
+
+// StartDownloadOrderResponse 发起下载小程序订单明细任务 响应参数
+type StartDownloadOrderResponse struct {
+	util.CommonError
+}
+
+// QueryDownloadOrderRequest 查询下载订单任务结果，请求参数
+type QueryDownloadOrderRequest struct {
+	Env     Env    `json:"env"`      // 环境 0-正式环境 1-沙箱环境
+	BeginDs string `json:"begin_ds"` // 账单开始日期，格式为 yyyymmdd
+	EndDs   string `json:"end_ds"`   // 账单结束日期，格式为 yyyymmdd
+}
+
+// QueryDownloadOrderResponse 查询下载订单任务结果 响应参数
+type QueryDownloadOrderResponse struct {
+	util.CommonError
+	URL string `json:"url"` // 订单下载地址
+}
+
+// ==================== 资金管理 ====================
+
+// QueryBizBalanceRequest 查询商家账户可提现余额，请求参数
+type QueryBizBalanceRequest struct {
+	Env Env `json:"env"` // 环境 0-正式环境 1-沙箱环境（仅作为签名校验，查询结果都是正式环境的）
+}
+
+// BizBalanceAvailable 可提现余额
+type BizBalanceAvailable struct {
+	Amount       string `json:"amount"`        // 可提现余额，单位元
+	CurrencyCode string `json:"currency_code"` // 币种（一般为 CNY）
+}
+
+// QueryBizBalanceResponse 查询商家账户可提现余额 响应参数
+type QueryBizBalanceResponse struct {
+	util.CommonError
+	BalanceAvailable *BizBalanceAvailable `json:"balance_available"` // 可提现余额
+}
+
+// ==================== 广告金 ====================
+
+// TransferAccount 广告金充值账户信息
+type TransferAccount struct {
+	TransferAccountName       string `json:"transfer_account_name"`        // 账户名称
+	TransferAccountUID        int64  `json:"transfer_account_uid"`         // 账户 UID
+	TransferAccountAgencyID   int64  `json:"transfer_account_agency_id"`   // 代理商 ID
+	TransferAccountAgencyName string `json:"transfer_account_agency_name"` // 代理商名称
+	State                     int    `json:"state"`                        // 审核状态 0-待审核 1-已通过 2-已驳回
+	BindResult                int    `json:"bind_result"`                  // 绑定结果 1-绑定成功 2-绑定失败
+	ErrorMsg                  string `json:"error_msg"`                    // 错误信息
+}
+
+// QueryTransferAccountRequest 查询广告金充值账户，请求参数
+type QueryTransferAccountRequest struct {
+	Env Env `json:"env"` // 环境 0-正式环境 1-沙箱环境
+}
+
+// QueryTransferAccountResponse 查询广告金充值账户 响应参数
+type QueryTransferAccountResponse struct {
+	util.CommonError
+	AcctList []*TransferAccount `json:"acct_list"` // 充值账户列表
+}
+
+// AdverFundsFilter 广告金发放记录查询过滤条件
+type AdverFundsFilter struct {
+	SettleBegin int64 `json:"settle_begin,omitempty"` // 结算周期开始时间，unix 秒级时间戳
+	SettleEnd   int64 `json:"settle_end,omitempty"`   // 结算周期结束时间，unix 秒级时间戳
+	FundType    int   `json:"fund_type,omitempty"`    // 资金类型 0-普通赠送 1-广告激励 2-定向激励
+}
+
+// AdverFundsRecord 广告金发放记录
+type AdverFundsRecord struct {
+	SettleBegin  int64  `json:"settle_begin"`  // 结算周期开始时间，unix 秒级时间戳
+	SettleEnd    int64  `json:"settle_end"`    // 结算周期结束时间，unix 秒级时间戳
+	TotalAmount  int64  `json:"total_amount"`  // 发放总金额，单位分
+	RemainAmount int64  `json:"remain_amount"` // 剩余可用金额，单位分
+	ExpireTime   int64  `json:"expire_time"`   // 过期时间，unix 秒级时间戳
+	FundType     int    `json:"fund_type"`     // 资金类型 0-普通赠送 1-广告激励 2-定向激励
+	FundID       string `json:"fund_id"`       // 广告金发放 ID
+}
+
+// QueryAdverFundsRequest 查询广告金发放记录，请求参数
+type QueryAdverFundsRequest struct {
+	Env      Env               `json:"env"`                 // 环境 0-正式环境 1-沙箱环境
+	Page     int               `json:"page,omitempty"`      // 页码，>= 1
+	PageSize int               `json:"page_size,omitempty"` // 每页记录数
+	Filter   *AdverFundsFilter `json:"filter,omitempty"`    // 查询过滤条件
+}
+
+// QueryAdverFundsResponse 查询广告金发放记录 响应参数
+type QueryAdverFundsResponse struct {
+	util.CommonError
+	AdverFundsList []*AdverFundsRecord `json:"adver_funds_list"` // 发放记录列表
+	TotalPage      int                 `json:"total_page"`       // 总页数
+}
+
+// CreateFundsBillRequest 充值广告金，请求参数
+type CreateFundsBillRequest struct {
+	Env                     Env    `json:"env"`                        // 环境 0-正式环境 1-沙箱环境
+	TransferAmount          int64  `json:"transfer_amount"`            // 充值金额，单位分
+	TransferAccountUID      int64  `json:"transfer_account_uid"`       // 充值账户 UID
+	TransferAccountName     string `json:"transfer_account_name"`      // 充值账户名称
+	TransferAccountAgencyID int64  `json:"transfer_account_agency_id"` // 代理商 ID
+	RequestID               string `json:"request_id"`                 // 幂等请求 ID，最长 1024 字符
+	SettleBegin             int64  `json:"settle_begin"`               // 结算周期开始时间，unix 秒级时间戳
+	SettleEnd               int64  `json:"settle_end"`                 // 结算周期结束时间，unix 秒级时间戳
+	AuthorizeAdvertise      int    `json:"authorize_advertise"`        // 是否授权广告数据 0-否 1-是
+	FundType                int    `json:"fund_type"`                  // 资金类型 0-普通赠送 1-广告激励 2-定向激励
+}
+
+// CreateFundsBillResponse 充值广告金 响应参数
+type CreateFundsBillResponse struct {
+	util.CommonError
+	BillID string `json:"bill_id"` // 充值订单号
+}
+
+// BindTransferAccountRequest 绑定广告金充值账户，请求参数
+type BindTransferAccountRequest struct {
+	Env                    Env    `json:"env"`                                 // 环境 0-正式环境 1-沙箱环境
+	TransferAccountUID     int64  `json:"transfer_account_uid,omitempty"`      // 充值账户 UID
+	TransferAccountOrgName string `json:"transfer_account_org_name,omitempty"` // 充值账户主体名称
+}
+
+// BindTransferAccountResponse 绑定广告金充值账户 响应参数
+type BindTransferAccountResponse struct {
+	util.CommonError
+}
+
+// FundsBillFilter 广告金充值记录查询过滤条件
+type FundsBillFilter struct {
+	OperTimeBegin int64  `json:"oper_time_begin"`      // 充值开始时间，unix 秒级时间戳
+	OperTimeEnd   int64  `json:"oper_time_end"`        // 充值结束时间，unix 秒级时间戳
+	BillID        string `json:"bill_id,omitempty"`    // 充值订单号
+	RequestID     string `json:"request_id,omitempty"` // 幂等请求 ID
+}
+
+// FundsBillRecord 广告金充值记录
+type FundsBillRecord struct {
+	BillID              string `json:"bill_id"`               // 充值订单号
+	OperTime            int64  `json:"oper_time"`             // 充值时间，unix 秒级时间戳
+	SettleBegin         int64  `json:"settle_begin"`          // 对应广告金结算开始时间，unix 秒级时间戳
+	SettleEnd           int64  `json:"settle_end"`            // 对应广告金结算结束时间，unix 秒级时间戳
+	FundID              string `json:"fund_id"`               // 对应广告金发放 ID
+	TransferAccountName string `json:"transfer_account_name"` // 充值账户名称
+	TransferAccountUID  int64  `json:"transfer_account_uid"`  // 充值账户 UID
+	TransferAmount      int64  `json:"transfer_amount"`       // 充值金额，单位分
+	Status              int    `json:"status"`                // 状态 0-充值中 1-成功 2-失败
+	RequestID           string `json:"request_id"`            // 幂等请求 ID
+}
+
+// QueryFundsBillRequest 查询广告金充值记录，请求参数
+type QueryFundsBillRequest struct {
+	Env      Env             `json:"env"`       // 环境 0-正式环境 1-沙箱环境
+	Page     int             `json:"page"`      // 页码，>= 1
+	PageSize int             `json:"page_size"` // 每页记录数
+	Filter   FundsBillFilter `json:"filter"`    // 查询过滤条件
+}
+
+// QueryFundsBillResponse 查询广告金充值记录 响应参数
+type QueryFundsBillResponse struct {
+	util.CommonError
+	BillList  []*FundsBillRecord `json:"bill_list"`  // 充值记录列表
+	TotalPage int                `json:"total_page"` // 总页数
+}
+
+// RecoverBillFilter 广告金回收记录查询过滤条件
+type RecoverBillFilter struct {
+	RecoverTimeBegin int64  `json:"recover_time_begin"` // 回收开始时间，unix 秒级时间戳
+	RecoverTimeEnd   int64  `json:"recover_time_end"`   // 回收结束时间，unix 秒级时间戳
+	BillID           string `json:"bill_id,omitempty"`  // 回收订单号
+}
+
+// RecoverBillRecord 广告金回收记录
+type RecoverBillRecord struct {
+	BillID             string   `json:"bill_id"`              // 回收订单号
+	RecoverTime        int64    `json:"recover_time"`         // 回收时间，unix 秒级时间戳
+	SettleBegin        int64    `json:"settle_begin"`         // 结算周期开始时间，unix 秒级时间戳
+	SettleEnd          int64    `json:"settle_end"`           // 结算周期结束时间，unix 秒级时间戳
+	FundID             string   `json:"fund_id"`              // 对应广告金发放 ID
+	RecoverAccountName string   `json:"recover_account_name"` // 回收账户
+	RecoverAmount      int64    `json:"recover_amount"`       // 回收金额，单位分
+	RefundOrderList    []string `json:"refund_order_list"`    // 对应的退款订单号列表
+}
+
+// QueryRecoverBillRequest 查询广告金回收记录，请求参数
+type QueryRecoverBillRequest struct {
+	Env      Env               `json:"env"`       // 环境 0-正式环境 1-沙箱环境
+	Page     int               `json:"page"`      // 页码，>= 1
+	PageSize int               `json:"page_size"` // 每页记录数
+	Filter   RecoverBillFilter `json:"filter"`    // 查询过滤条件
+}
+
+// QueryRecoverBillResponse 查询广告金回收记录 响应参数
+type QueryRecoverBillResponse struct {
+	util.CommonError
+	BillList  []*RecoverBillRecord `json:"bill_list"`  // 回收记录列表
+	TotalPage int                  `json:"total_page"` // 总页数
+}
+
+// DownloadAdverFundsOrderRequest 下载广告金对应的商户订单信息，请求参数
+type DownloadAdverFundsOrderRequest struct {
+	Env    Env    `json:"env"`     // 环境 0-正式环境 1-沙箱环境
+	FundID string `json:"fund_id"` // 广告金发放 ID
+}
+
+// DownloadAdverFundsOrderResponse 下载广告金对应的商户订单信息 响应参数
+type DownloadAdverFundsOrderResponse struct {
+	util.CommonError
+	URL string `json:"url"` // 订单下载地址
+}
+
+// ==================== 投诉处理 ====================
+
+// ComplaintOrderInfo 投诉关联订单信息
+type ComplaintOrderInfo struct {
+	TransactionID string `json:"transaction_id"` // 微信支付交易单号
+	MchOrderNo    string `json:"mch_order_no"`   // 商户订单号
+	RefundID      string `json:"refund_id"`      // 退款订单号
+}
+
+// ComplaintMedia 投诉媒体信息
+type ComplaintMedia struct {
+	MediaType int      `json:"media_type"` // 媒体类型
+	MediaURL  string   `json:"media_url"`  // 媒体 URL
+	MediaTags []string `json:"media_tags"` // 媒体标签
+}
+
+// ComplaintItem 投诉详情
+type ComplaintItem struct {
+	ComplaintID           string                `json:"complaint_id"`            // 投诉单号
+	ComplaintTime         string                `json:"complaint_time"`          // 投诉时间
+	ComplaintDetail       string                `json:"complaint_detail"`        // 投诉内容
+	ComplaintState        string                `json:"complaint_state"`         // 投诉状态 PENDING/PROCESSING/PROCESSED
+	PayerPhone            string                `json:"payer_phone"`             // 投诉人联系方式
+	PayerOpenID           string                `json:"payer_openid"`            // 投诉人 OpenID
+	ComplaintOrderInfo    []*ComplaintOrderInfo `json:"complaint_order_info"`    // 关联订单信息
+	ComplaintFullRefunded bool                  `json:"complaint_full_refunded"` // 是否全部退款
+	IncomingUserResponse  bool                  `json:"incoming_user_response"`  // 是否有待处理的用户消息
+	UserComplaintTimes    int                   `json:"user_complaint_times"`    // 用户投诉次数
+	ComplaintMediaList    []*ComplaintMedia     `json:"complaint_media_list"`    // 用户上传的证据
+}
+
+// GetComplaintListRequest 获取投诉列表，请求参数
+type GetComplaintListRequest struct {
+	Env       Env    `json:"env"`        // 环境 0-正式环境 1-沙箱环境
+	BeginDate string `json:"begin_date"` // 查询开始日期，格式 yyyy-mm-dd
+	EndDate   string `json:"end_date"`   // 查询结束日期，格式 yyyy-mm-dd
+	Offset    int    `json:"offset"`     // 偏移量，从 0 开始
+	Limit     int    `json:"limit"`      // 最大返回记录数
+}
+
+// GetComplaintListResponse 获取投诉列表 响应参数
+type GetComplaintListResponse struct {
+	util.CommonError
+	Total      int              `json:"total"`      // 总数
+	Complaints []*ComplaintItem `json:"complaints"` // 投诉列表
+}
+
+// GetComplaintDetailRequest 获取投诉详情，请求参数
+type GetComplaintDetailRequest struct {
+	Env         Env    `json:"env"`          // 环境 0-正式环境 1-沙箱环境
+	ComplaintID string `json:"complaint_id"` // 投诉单号
+}
+
+// GetComplaintDetailResponse 获取投诉详情 响应参数
+type GetComplaintDetailResponse struct {
+	util.CommonError
+	Complaint *ComplaintItem `json:"complaint"` // 投诉详情
+}
+
+// NegotiationHistory 协商历史记录
+type NegotiationHistory struct {
+	LogID              string            `json:"log_id"`               // 操作流水号
+	Operator           string            `json:"operator"`             // 操作人
+	OperateTime        string            `json:"operate_time"`         // 操作时间
+	OperateType        string            `json:"operate_type"`         // 操作类型
+	OperateDetails     string            `json:"operate_details"`      // 操作详情
+	ComplaintMediaList []*ComplaintMedia `json:"complaint_media_list"` // 上传的证据
+}
+
+// GetNegotiationHistoryRequest 获取协商历史，请求参数
+type GetNegotiationHistoryRequest struct {
+	Env         Env    `json:"env"`          // 环境 0-正式环境 1-沙箱环境
+	ComplaintID string `json:"complaint_id"` // 投诉单号
+	Offset      int    `json:"offset"`       // 偏移量，从 0 开始
+	Limit       int    `json:"limit"`        // 最大返回记录数
+}
+
+// GetNegotiationHistoryResponse 获取协商历史 响应参数
+type GetNegotiationHistoryResponse struct {
+	util.CommonError
+	Total   int                   `json:"total"`   // 总数
+	History []*NegotiationHistory `json:"history"` // 协商历史列表
+}
+
+// ResponseComplaintRequest 回复用户投诉，请求参数
+type ResponseComplaintRequest struct {
+	Env             Env      `json:"env"`              // 环境 0-正式环境 1-沙箱环境
+	ComplaintID     string   `json:"complaint_id"`     // 投诉单号
+	ResponseContent string   `json:"response_content"` // 回复内容
+	ResponseImages  []string `json:"response_images"`  // 图片文件 ID 列表（来自 upload_vp_file）
+}
+
+// ResponseComplaintResponse 回复用户投诉 响应参数
+type ResponseComplaintResponse struct {
+	util.CommonError
+}
+
+// CompleteComplaintRequest 完成投诉处理，请求参数
+type CompleteComplaintRequest struct {
+	Env         Env    `json:"env"`          // 环境 0-正式环境 1-沙箱环境
+	ComplaintID string `json:"complaint_id"` // 投诉单号
+}
+
+// CompleteComplaintResponse 完成投诉处理 响应参数
+type CompleteComplaintResponse struct {
+	util.CommonError
+}
+
+// UploadVPFileRequest 上传媒体文件，请求参数
+type UploadVPFileRequest struct {
+	Env       Env    `json:"env"`                  // 环境 0-正式环境 1-沙箱环境
+	Base64Img string `json:"base64_img,omitempty"` // Base64 编码的图片，最大 1MB
+	ImgURL    string `json:"img_url,omitempty"`    // 图片 URL（可直接下载，不支持 302 跳转），最大 2MB，优先使用此字段
+	FileName  string `json:"file_name"`            // 图片名称
+}
+
+// UploadVPFileResponse 上传媒体文件 响应参数
+type UploadVPFileResponse struct {
+	util.CommonError
+	FileID string `json:"file_id"` // 返回的文件 ID（用于 response_complaint）
+}
+
+// GetUploadFileSignRequest 获取微信支付反馈投诉图片的签名头部，请求参数
+type GetUploadFileSignRequest struct {
+	Env         Env    `json:"env"`          // 环境 0-正式环境 1-沙箱环境
+	WxpayURL    string `json:"wxpay_url"`    // 微信支付图片 URL，格式 "https://api.mch.weixin.qq.com/v3/merchant-service/images/{xxxxxx}"
+	ConvertCOS  bool   `json:"convert_cos"`  // 是否转换为 COS，获取临时下载链接（有效期 30 分钟）
+	ComplaintID string `json:"complaint_id"` // 对应的投诉单号
+}
+
+// GetUploadFileSignResponse 获取微信支付反馈投诉图片的签名头部 响应参数
+type GetUploadFileSignResponse struct {
+	util.CommonError
+	Sign   string `json:"sign"`    // Authorization 头部值
+	CosURL string `json:"cos_url"` // 当 convert_cos=true 时返回的 COS URL，有效期 30 分钟
 }
 
 // URLParams url parameter

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 )
 
 // ValidateIncomingRequest returns an error if the incoming req could not be
@@ -43,7 +44,8 @@ func GetExpectedTwilioSignature(host string, authToken string, URL string, postF
 	// Take the full URL of the request URL you specify for your
 	// phone number or app, from the protocol (https...) through
 	// the end of the query string (everything after the ?).
-	str := host + URL
+	var str strings.Builder
+	str.WriteString(host + URL)
 
 	// If the request is a POST, sort all of the POST parameters
 	// alphabetically (using Unix-style case-sensitive sorting order).
@@ -57,13 +59,13 @@ func GetExpectedTwilioSignature(host string, authToken string, URL string, postF
 	// the variable name and value (with no delimiters) to the end
 	// of the URL string.
 	for _, key := range keys {
-		str += key + postForm[key][0]
+		str.WriteString(key + postForm[key][0])
 	}
 
 	// Sign the resulting string with HMAC-SHA1 using your AuthToken
 	// as the key (remember, your AuthToken's case matters!).
 	mac := hmac.New(sha1.New, []byte(authToken))
-	mac.Write([]byte(str))
+	mac.Write([]byte(str.String()))
 	expectedMac := mac.Sum(nil)
 
 	// Base64 encode the resulting hash value.

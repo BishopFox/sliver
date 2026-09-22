@@ -7,7 +7,6 @@
 package pushrules
 
 import (
-	"encoding/gob"
 	"encoding/json"
 	"reflect"
 
@@ -22,7 +21,6 @@ type EventContent struct {
 
 func init() {
 	event.TypeMap[event.AccountDataPushRules] = reflect.TypeOf(EventContent{})
-	gob.Register(&EventContent{})
 }
 
 // EventToPushRules converts a m.push_rules event to a PushRuleset by passing the data through JSON.

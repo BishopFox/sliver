@@ -27,6 +27,13 @@ func attachProcessTree(cmd *exec.Cmd) (processTree, error) {
 	return processTree{pgid: pgid}, nil
 }
 
+func killPreparedProcessTree(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+	return signalProcessGroup(cmd.Process.Pid, syscall.SIGKILL)
+}
+
 func terminateProcessTree(tree processTree, _ *exec.Cmd) error {
 	return signalProcessGroup(tree.pgid, syscall.SIGTERM)
 }

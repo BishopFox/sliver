@@ -57,7 +57,7 @@ type FilterPart struct {
 // Validate checks if the filter contains valid property values
 func (filter *Filter) Validate() error {
 	if filter.EventFormat != EventFormatClient && filter.EventFormat != EventFormatFederation {
-		return errors.New("Bad event_format value. Must be one of [\"client\", \"federation\"]")
+		return errors.New("bad event_format value")
 	}
 	return nil
 }

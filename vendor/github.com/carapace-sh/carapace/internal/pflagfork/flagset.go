@@ -28,8 +28,18 @@ func (f FlagSet) IsPosix() bool {
 	return true
 }
 
+func (f FlagSet) Prefix() rune {
+	if method := reflect.ValueOf(f.FlagSet).MethodByName("Prefix"); method.IsValid() {
+		if values := method.Call([]reflect.Value{}); len(values) == 1 && values[0].Kind() == reflect.Int32 {
+			return rune(values[0].Int())
+		}
+	}
+	return '-'
+}
+
 func (f FlagSet) IsShorthandSeries(arg string) bool {
-	re := regexp.MustCompile("^-(?P<shorthand>[^-].*)")
+	p := string(f.Prefix())
+	re := regexp.MustCompile("^" + p + "(?P<shorthand>[^" + p + "].*)")
 	return re.MatchString(arg) && f.IsPosix()
 }
 
@@ -47,21 +57,29 @@ func (f FlagSet) IsMutuallyExclusive(flag *pflag.Flag) bool {
 }
 
 func (f *FlagSet) VisitAll(fn func(*Flag)) {
+	prefix := f.Prefix()
 	f.FlagSet.VisitAll(func(flag *pflag.Flag) {
-		fn(&Flag{Flag: flag, Args: []string{}})
+		fn(&Flag{Flag: flag, FlagPrefix: prefix, Args: []string{}})
 	})
 
 }
 
 func (fs FlagSet) LookupArg(arg string) (result *Flag) {
 	isPosix := fs.IsPosix()
+	prefix := string(fs.Prefix())
+	doublePrefix := prefix + prefix
 
 	switch {
-	case strings.HasPrefix(arg, "--"):
+	case strings.HasPrefix(arg, doublePrefix):
 		return fs.lookupPosixLonghandArg(arg)
 	case isPosix:
 		return fs.lookupPosixShorthandArg(arg)
 	case !isPosix:
+		// In non-posix mode, try longhand first (single dash with name)
+		// to handle cases where name overlaps with shorthand
+		if result = fs.LookupNonPosixLonghandArg(arg); result != nil {
+			return result
+		}
 		return fs.lookupNonPosixShorthandArg(arg)
 	}
 	return
@@ -70,27 +88,38 @@ func (fs FlagSet) LookupArg(arg string) (result *Flag) {
 func (fs FlagSet) ShorthandLookup(name string) *Flag {
 	if f := fs.FlagSet.ShorthandLookup(name); f != nil {
 		return &Flag{
-			Flag: f,
-			Args: []string{},
+			Flag:       f,
+			FlagPrefix: fs.Prefix(),
+			Args:       []string{},
 		}
 	}
 	return nil
 }
 
 func (fs FlagSet) lookupPosixLonghandArg(arg string) (flag *Flag) {
-	if !strings.HasPrefix(arg, "--") {
+	prefix := string(fs.Prefix())
+	doublePrefix := prefix + prefix
+	if !strings.HasPrefix(arg, doublePrefix) {
 		return nil
 	}
 
 	fs.VisitAll(func(f *Flag) { // TODO needs to be sorted to try longest matching first
-		if flag != nil || f.Mode() != Default {
+		if flag != nil || f.GetMode() != Default {
 			return
 		}
 
 		splitted := strings.SplitAfterN(arg, string(f.OptargDelimiter()), 2)
-		if strings.TrimSuffix(splitted[0], string(f.OptargDelimiter())) == "--"+f.Name {
+		if strings.TrimSuffix(splitted[0], string(f.OptargDelimiter())) == doublePrefix+f.Name {
+			// AcceptAttached does not apply to longhand flags (--flagvalue is not valid);
+			// only AcceptDelimited (--flag=value) and AcceptNext (--flag value) are checked here.
+			if len(splitted) > 1 && !f.AcceptsDelimited() {
+				return // flag doesn't accept delimited style (--flag=value)
+			}
+			if len(splitted) == 1 && !f.AcceptsNext() && f.NoOptDefVal == "" {
+				return // flag doesn't accept next style and has no default
+			}
 			flag = f
-			flag.Prefix = splitted[0]
+			flag.ArgPrefix = splitted[0]
 			if len(splitted) > 1 {
 				flag.Args = splitted[1:]
 			}
@@ -100,7 +129,8 @@ func (fs FlagSet) lookupPosixLonghandArg(arg string) (flag *Flag) {
 }
 
 func (fs FlagSet) lookupPosixShorthandArg(arg string) *Flag {
-	if !strings.HasPrefix(arg, "-") || !fs.IsPosix() || len(arg) < 2 {
+	prefix := string(fs.Prefix())
+	if !strings.HasPrefix(arg, prefix) || !fs.IsPosix() || len(arg) < 2 {
 		return nil
 	}
 
@@ -108,22 +138,38 @@ func (fs FlagSet) lookupPosixShorthandArg(arg string) *Flag {
 		index += 1
 		flag := fs.ShorthandLookup(string(r))
 
+		if flag == nil {
+			return flag
+		}
+
+		atEnd := len(arg) == index+1
+		hasDelimiter := !atEnd && arg[index+1] == byte(flag.OptargDelimiter())
+		hasAttached := !atEnd && !hasDelimiter
+
+		// Reject argument styles the flag does not accept
 		switch {
-		case flag == nil:
+		case hasDelimiter && !flag.AcceptsDelimited():
+			continue
+		case hasAttached && !flag.AcceptsAttached():
+			continue
+		case atEnd && !flag.AcceptsNext() && !flag.AcceptsAttached():
+			continue
+		}
+
+		switch {
+		case atEnd:
+			flag.ArgPrefix = arg
 			return flag
-		case len(arg) == index+1:
-			flag.Prefix = arg
-			return flag
-		case arg[index+1] == byte(flag.OptargDelimiter()) && len(arg) > index+2:
-			flag.Prefix = arg[:index+2]
+		case hasDelimiter && len(arg) > index+2:
+			flag.ArgPrefix = arg[:index+2]
 			flag.Args = []string{arg[index+2:]}
 			return flag
-		case arg[index+1] == byte(flag.OptargDelimiter()):
-			flag.Prefix = arg[:index+2]
+		case hasDelimiter:
+			flag.ArgPrefix = arg[:index+2]
 			flag.Args = []string{""}
 			return flag
 		case !flag.IsOptarg() && len(arg) > index+1:
-			flag.Prefix = arg[:index+1]
+			flag.ArgPrefix = arg[:index+1]
 			flag.Args = []string{arg[index+1:]}
 			return flag
 		}
@@ -132,21 +178,90 @@ func (fs FlagSet) lookupPosixShorthandArg(arg string) *Flag {
 }
 
 func (fs FlagSet) lookupNonPosixShorthandArg(arg string) (result *Flag) { // TODO pretty much duplicates longhand lookup
-	if !strings.HasPrefix(arg, "-") {
+	prefix := string(fs.Prefix())
+	if !strings.HasPrefix(arg, prefix) {
 		return nil
 	}
 
-	fs.VisitAll(func(f *Flag) { // TODO needs to be sorted to try longest matching first
-		if result != nil {
+	fs.VisitAll(func(f *Flag) {
+		splitted := strings.SplitAfterN(arg, string(f.OptargDelimiter()), 2)
+		baseArg := strings.TrimSuffix(splitted[0], string(f.OptargDelimiter()))
+
+		// Check ArgumentStyle constraints
+		if len(splitted) > 1 && !f.AcceptsDelimited() {
+			return // flag doesn't accept delimited style
+		}
+
+		if baseArg == prefix+f.Shorthand {
+			candidate := f
+			candidate.ArgPrefix = splitted[0]
+			if len(splitted) > 1 {
+				candidate.Args = splitted[1:]
+			}
+			if result == nil || len(candidate.ArgPrefix) > len(result.ArgPrefix) {
+				result = candidate
+			}
+			return
+		}
+
+		// optarg flags with a non-standard delimiter (e.g. -1) accept
+		// directly attached values: -rvalue matches flag "r" with arg "value"
+		if f.IsOptarg() && f.DelimiterDisabled() && f.AcceptsAttached() &&
+			strings.HasPrefix(arg, prefix+f.Shorthand) && len(arg) > len(prefix+f.Shorthand) {
+			candidate := f
+			candidate.ArgPrefix = prefix + f.Shorthand
+			candidate.Args = []string{arg[len(prefix+f.Shorthand):]}
+			if result == nil || len(candidate.ArgPrefix) > len(result.ArgPrefix) {
+				result = candidate
+			}
+		}
+	})
+	return
+}
+
+// LookupNonPosixLonghandArg looks up a non-posix longhand argument (single prefix with name)
+func (fs FlagSet) LookupNonPosixLonghandArg(arg string) (result *Flag) {
+	prefix := string(fs.Prefix())
+	doublePrefix := prefix + prefix
+	if !strings.HasPrefix(arg, prefix) || strings.HasPrefix(arg, doublePrefix) {
+		return nil
+	}
+
+	fs.VisitAll(func(f *Flag) {
+		if f.GetMode() != NameAsShorthand {
 			return
 		}
 
 		splitted := strings.SplitAfterN(arg, string(f.OptargDelimiter()), 2)
-		if strings.TrimSuffix(splitted[0], string(f.OptargDelimiter())) == "-"+f.Shorthand {
+		baseArg := strings.TrimSuffix(splitted[0], string(f.OptargDelimiter()))
+
+		// Check ArgumentStyle constraints
+		if len(splitted) > 1 && !f.AcceptsDelimited() {
+			return // flag doesn't accept delimited style
+		}
+
+		if baseArg == prefix+f.Name {
+			if len(splitted) == 1 && !f.AcceptsNext() && f.NoOptDefVal == "" {
+				return // flag doesn't accept next style and has no default
+			}
+
 			result = f
-			result.Prefix = splitted[0]
+			result.ArgPrefix = splitted[0]
 			if len(splitted) > 1 {
 				result.Args = splitted[1:]
+			}
+			return
+		}
+
+		// optarg flags with a non-standard delimiter (e.g. -1) accept
+		// directly attached values: -namevalue matches flag "name" with arg "value"
+		if f.IsOptarg() && f.DelimiterDisabled() && f.AcceptsAttached() &&
+			strings.HasPrefix(arg, prefix+f.Name) && len(arg) > len(prefix+f.Name) {
+			candidate := f
+			candidate.ArgPrefix = prefix + f.Name
+			candidate.Args = []string{arg[len(prefix+f.Name):]}
+			if result == nil || len(candidate.ArgPrefix) > len(result.ArgPrefix) {
+				result = candidate
 			}
 		}
 	})

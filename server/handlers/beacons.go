@@ -34,7 +34,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
@@ -57,13 +56,13 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 		beaconHandlerLog.Errorf("Database query error %s", err)
 		return nil
 	}
-	beaconUUID, _ := uuid.FromString(beaconReg.ID)
+	beaconUUID, _ := models.ParseUUID(beaconReg.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		beacon = &models.Beacon{
 			ID: beaconUUID,
 		}
 	}
-	beaconRegUUID, _ := uuid.FromString(beaconReg.Register.Uuid)
+	beaconRegUUID, _ := models.ParseUUID(beaconReg.Register.Uuid)
 	beacon.Name = beaconReg.Register.Name
 	beacon.Hostname = beaconReg.Register.Hostname
 	beacon.UUID = beaconRegUUID
@@ -81,7 +80,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	beacon.ReconnectInterval = beaconReg.Register.ReconnectInterval
 	beacon.ActiveC2 = beaconReg.Register.ActiveC2
 	beacon.ProxyURL = beaconReg.Register.ProxyURL
-	// beacon.ConfigID = uuid.FromStringOrNil(beaconReg.Register.ConfigID)
+	// beacon.ConfigID = models.ParseUUIDOrNil(beaconReg.Register.ConfigID)
 	beacon.Locale = beaconReg.Register.Locale
 	beacon.Capabilities = beaconReg.Register.Capabilities
 
@@ -200,7 +199,7 @@ func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) *sli
 		dbTask.State = models.COMPLETED
 		dbTask.CompletedAt = time.Now().Unix()
 		dbTask.Response = envelope.Data
-		id, _ := uuid.FromString(dbTask.ID)
+		id, _ := models.ParseUUID(dbTask.ID)
 		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
 			ID: id,
 		}).Updates(dbTask).Error
