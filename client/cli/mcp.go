@@ -38,7 +38,6 @@ func mcpCmd(con *console.SliverClient) *cobra.Command {
 			return runMCP(cmd, con)
 		},
 	}
-	mcpCmd.Flags().String("config", "", "path to client config file")
 	return mcpCmd
 }
 

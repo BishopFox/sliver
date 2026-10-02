@@ -6,7 +6,7 @@ replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v
 
 replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a
 
-replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701
+replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20261002031128-9c7d5fba75f5
 
 require (
 	charm.land/bubbles/v2 v2.0.0

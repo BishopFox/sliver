@@ -56,46 +56,72 @@ func (c *Console) StartContext(ctx context.Context) error {
 		if err != nil {
 			menu.handleInterrupt(err)
 
-			lastLine = input 
+			lastLine = input
 
 			continue
 		}
 
-		// Any call to the SwitchMenu() while we were reading user
-		// input (through an interrupt handler) might have changed it,
-		// so we must be sure we use the good one.
-		menu = c.activeMenu()
+		c.runInput(ctx, input)
 
-		// Parse the line with bash-syntax, removing comments.
-		args, err := line.Parse(input)
-		if err != nil {
-			menu.ErrorHandler(ParseError{newError(err, "Parsing error")})
-			continue
+		lastLine = input
+	}
+}
+
+// runInput handles a line returned by Readline. A bracketed paste may contain
+// several commands, but each is run only after the user accepts the whole input.
+// A parse error rejects the entire input; an interrupt stops the remaining
+// commands after the one being interrupted.
+func (c *Console) runInput(ctx context.Context, input string) {
+	var commands [][]string
+	var err error
+	if c.ExecuteMultiline {
+		commands, err = line.ParseCommands(input)
+	} else {
+		var args []string
+		args, err = line.Parse(input)
+		commands = [][]string{args}
+	}
+	if err != nil {
+		c.activeMenu().ErrorHandler(ParseError{newError(err, "Parsing error")})
+		return
+	}
+
+	for i, args := range commands {
+		if ctx.Err() != nil {
+			return
+		}
+
+		// A command can switch menus. Regenerate the active command tree and
+		// run its pre-read hooks before processing the next pasted command.
+		menu := c.activeMenu()
+		if i > 0 {
+			menu.resetPreRun()
+			if err := c.runAllE(c.PreReadlineHooks); err != nil {
+				menu.ErrorHandler(PreReadError{newError(err, "Pre-read error")})
+				continue
+			}
 		}
 
 		if len(args) == 0 {
-			lastLine = input 
 			continue
 		}
 
-		// Run user-provided pre-run line hooks,
-		// which may modify the input line args.
+		// Hooks may modify each command's arguments independently.
 		args, err = c.runLineHooks(args)
 		if err != nil {
 			menu.ErrorHandler(LineHookError{newError(err, "Line error")})
 			continue
 		}
 
-		// Run all pre-run hooks and the command itself
-		// Don't check the error: if its a cobra error,
-		// the library user is responsible for setting
-		// the cobra behavior.
-		// If it's an interrupt, we take care of it.
-		if err := c.execute(ctx, menu, args, false); err != nil {
+		// Run all pre-run hooks and the command itself. Cobra errors are
+		// reported through the menu's error handler.
+		err, interrupted := c.executeWithInterrupt(ctx, menu, args, false)
+		if err != nil {
 			menu.ErrorHandler(ExecutionError{newError(err, "")})
 		}
-
-		lastLine = input 
+		if interrupted {
+			return
+		}
 	}
 }
 
@@ -138,6 +164,11 @@ func (m *Menu) RunCommandLine(ctx context.Context, line string) (err error) {
 // instead of the menu itself, because if RunCommand() is asynchronously triggered while another
 // command is running, the menu's root command will be overwritten.
 func (c *Console) execute(ctx context.Context, menu *Menu, args []string, async bool) error {
+	err, _ := c.executeWithInterrupt(ctx, menu, args, async)
+	return err
+}
+
+func (c *Console) executeWithInterrupt(ctx context.Context, menu *Menu, args []string, async bool) (error, bool) {
 	if !async {
 		c.mutex.Lock()
 		c.isExecuting = true
@@ -157,12 +188,12 @@ func (c *Console) execute(ctx context.Context, menu *Menu, args []string, async 
 	target, _, _ := cmd.Find(args)
 
 	if err := menu.CheckIsAvailable(target); err != nil {
-		return err
+		return err, false
 	}
 
 	// Console-wide pre-run hooks, cannot.
 	if err := c.runAllE(c.PreCmdRunHooks); err != nil {
-		return fmt.Errorf("pre-run error: %s", err.Error())
+		return fmt.Errorf("pre-run error: %s", err.Error()), false
 	}
 
 	// Assign those arguments to our parser.
@@ -176,6 +207,7 @@ func (c *Console) execute(ctx context.Context, menu *Menu, args []string, async 
 
 	// Start monitoring keyboard and OS signals.
 	sigchan := c.monitorSignals()
+	defer signal.Stop(sigchan)
 
 	// And start the command execution.
 	go c.executeCommand(cmd, cancel)
@@ -186,16 +218,17 @@ func (c *Console) execute(ctx context.Context, menu *Menu, args []string, async 
 		cause := context.Cause(ctx)
 
 		if !errors.Is(cause, context.Canceled) {
-			return cause
+			return cause, false
 		}
 
 	case signal := <-sigchan:
 		cancel(errors.New(signal.String()))
 
 		menu.handleInterrupt(errors.New(signal.String()))
+		return nil, true
 	}
 
-	return nil
+	return nil, false
 }
 
 // Run the command in a separate goroutine, and cancel the context when done.
@@ -279,7 +312,7 @@ func (c *Console) displayPostRun(lastLine string) {
 
 // monitorSignals - Monitor the signals that can be sent to the process
 // while a command is running. We want to be able to cancel the command.
-func (c *Console) monitorSignals() <-chan os.Signal {
+func (c *Console) monitorSignals() chan os.Signal {
 	sigchan := make(chan os.Signal, 1)
 
 	signal.Notify(

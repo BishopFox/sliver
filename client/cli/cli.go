@@ -52,6 +52,7 @@ func init() {
 
 	rootCmd.TraverseChildren = true
 	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
+	rootCmd.PersistentFlags().String(ConsoleConfigFlagName, "", "path to client config file")
 	rootCmd.PersistentFlags().Bool(enableWGFlag, false, "force multiplayer connections through the operator config's WireGuard wrapper")
 	rootCmd.PersistentFlags().Bool(disableWGFlag, false, "force multiplayer connections to use direct mTLS")
 	rootCmd.MarkFlagsMutuallyExclusive(enableWGFlag, disableWGFlag)
