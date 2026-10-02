@@ -119,7 +119,7 @@ var rootCmd = &cobra.Command{
 	Use:   "sliver-server",
 	Short: "",
 	Long:  ``,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Root command starts the server normally
 
 		appDir := assets.GetRootAppDir()

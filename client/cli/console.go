@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// ConsoleConfigFlagName is the flag used to select a client config file.
 const ConsoleConfigFlagName = "config"
 
 // consoleCmd generates the console with required pre/post runners.
