@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/ncruces/go-sqlite3/internal/errutil"
 )
 
 // Quote escapes and quotes a value
@@ -113,7 +113,7 @@ func Quote(value any) string {
 		return Quote(v.Bytes())
 	}
 
-	panic(util.ValueErr)
+	panic(errutil.ValueErr)
 }
 
 // QuoteIdentifier escapes and quotes an identifier
@@ -121,7 +121,7 @@ func Quote(value any) string {
 // Strings with embedded NUL characters panic.
 func QuoteIdentifier(id string) string {
 	if strings.IndexByte(id, 0) >= 0 {
-		panic(util.ValueErr)
+		panic(errutil.ValueErr)
 	}
 
 	buf := make([]byte, 2+len(id)+strings.Count(id, `"`))

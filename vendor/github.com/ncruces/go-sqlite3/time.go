@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ncruces/go-sqlite3/internal/errutil"
 	"github.com/ncruces/go-sqlite3/internal/util"
-	"github.com/ncruces/go-sqlite3/util/sql3util"
 	"github.com/ncruces/julianday"
 )
 
@@ -153,17 +153,17 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return julianday.Time(v, 0), nil
 		default:
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 
 	case TimeFormatUnix, TimeFormatUnixFrac:
 		if s, ok := v.(string); ok {
 			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 				v = i
-			} else if f, ok := sql3util.ParseFloat(s); ok {
+			} else if f, ok := util.ParseFloat(s); ok {
 				v = f
 			} else {
-				return time.Time{}, util.TimeErr
+				return time.Time{}, errutil.TimeErr
 			}
 		}
 		switch v := v.(type) {
@@ -174,7 +174,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.Unix(v, 0).UTC(), nil
 		default:
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 
 	case TimeFormatUnixMilli:
@@ -191,7 +191,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.UnixMilli(v).UTC(), nil
 		default:
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 
 	case TimeFormatUnixMicro:
@@ -208,14 +208,14 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.UnixMicro(v).UTC(), nil
 		default:
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 
 	case TimeFormatUnixNano:
 		if s, ok := v.(string); ok {
 			i, err := strconv.ParseInt(s, 10, 64)
 			if err != nil {
-				return time.Time{}, util.TimeErr
+				return time.Time{}, errutil.TimeErr
 			}
 			v = i
 		}
@@ -225,7 +225,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.Unix(0, v).UTC(), nil
 		default:
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 
 	// Special formats.
@@ -237,7 +237,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 				v = i
 				break
 			}
-			f, ok := sql3util.ParseFloat(s)
+			f, ok := util.ParseFloat(s)
 			if ok {
 				v = f
 				break
@@ -285,7 +285,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 			}
 			return TimeFormatUnixNano.Decode(v)
 		default:
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 
 	case
@@ -297,7 +297,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		TimeFormat7, TimeFormat7TZ:
 		s, ok := v.(string)
 		if !ok {
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 		return f.parseRelaxed(s)
 
@@ -307,7 +307,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		TimeFormat10, TimeFormat10TZ:
 		s, ok := v.(string)
 		if !ok {
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 		t, err := f.parseRelaxed(s)
 		if err != nil {
@@ -318,7 +318,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 	default:
 		s, ok := v.(string)
 		if !ok {
-			return time.Time{}, util.TimeErr
+			return time.Time{}, errutil.TimeErr
 		}
 		if f == "" {
 			f = time.RFC3339Nano
@@ -342,7 +342,7 @@ func (f TimeFormat) parseRelaxed(s string) (time.Time, error) {
 // [database/sql.Row.Scan] and similar methods to
 // decode a time value into dest using this format.
 func (f TimeFormat) Scanner(dest *time.Time) interface{ Scan(any) error } {
-	return timeScanner{dest, f}
+	return &timeScanner{dest, f}
 }
 
 type timeScanner struct {
@@ -350,7 +350,7 @@ type timeScanner struct {
 	TimeFormat
 }
 
-func (s timeScanner) Scan(src any) error {
+func (s *timeScanner) Scan(src any) error {
 	var ok bool
 	var err error
 	if *s.Time, ok = src.(time.Time); !ok {
