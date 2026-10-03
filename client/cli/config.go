@@ -20,23 +20,36 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/forms"
 )
 
-func selectConfig() (string, *assets.ClientConfig) {
-	configs := assets.GetConfigs()
+func selectConfig(configPath string, stdinTTY bool) (string, *assets.ClientConfig, error) {
+	if configPath != "" {
+		config, err := loadMCPClientConfig(configPath)
+		if err != nil {
+			return "", nil, fmt.Errorf("load client config: %w", err)
+		}
+		return filepath.Base(configPath), config, nil
+	}
+	return selectConfigFrom(assets.GetConfigs(), stdinTTY)
+}
 
+func selectConfigFrom(configs map[string]*assets.ClientConfig, stdinTTY bool) (string, *assets.ClientConfig, error) {
 	if len(configs) == 0 {
-		return "", nil
+		return "", nil, fmt.Errorf("no config files found at %s", assets.GetConfigDir())
 	}
 
 	if len(configs) == 1 {
 		for key, config := range configs {
-			return key, config
+			return key, config, nil
 		}
+	}
+	if !stdinTTY {
+		return "", nil, fmt.Errorf("multiple configs found; use --config to select one")
 	}
 
 	keys := make([]string, 0, len(configs))
@@ -48,9 +61,8 @@ func selectConfig() (string, *assets.ClientConfig) {
 	selection := keys[0]
 	err := forms.Select("Select a server:", keys, &selection)
 	if err != nil {
-		fmt.Println(err.Error())
-		return "", nil
+		return "", nil, err
 	}
 
-	return selection, configs[selection]
+	return selection, configs[selection], nil
 }

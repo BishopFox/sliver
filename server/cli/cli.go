@@ -119,7 +119,7 @@ var rootCmd = &cobra.Command{
 	Use:   "sliver-server",
 	Short: "",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Root command starts the server normally
 
 		appDir := assets.GetRootAppDir()
@@ -154,15 +154,15 @@ var rootCmd = &cobra.Command{
 		}
 		if serverConfig.DaemonMode {
 			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale, serverConfig.DaemonConfig.WireGuardEnabled())
+			return nil
 		} else {
 			rcScript, err := clientcli.ReadRCScript(cmd)
 			if err != nil {
-				fmt.Printf("Failed to read rc script: %s\n", err)
-				return
+				return err
 			}
 
 			os.Args = os.Args[:1] // Hide cli from grumble console
-			console.Start(rcScript)
+			return console.Start(rcScript)
 		}
 	},
 }
