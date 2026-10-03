@@ -1,8 +1,8 @@
-//go:build ((freebsd || openbsd || netbsd || dragonfly || illumos) && (386 || arm || amd64 || arm64 || riscv64 || ppc64le || loong64)) || sqlite3_flock || sqlite3_dotlk
+//go:build freebsd || openbsd || netbsd || dragonfly || illumos || sqlite3_flock || sqlite3_dotlk
 
 package vfs
 
-import "github.com/ncruces/go-sqlite3/internal/util"
+import "github.com/ncruces/go-sqlite3/internal/errutil"
 
 // +checklocks:s.Mutex
 func (s *vfsShm) shmMemLock(offset, n int32, flags _ShmFlag) error {
@@ -35,7 +35,7 @@ func (s *vfsShm) shmMemLock(offset, n int32, flags _ShmFlag) error {
 		for i := offset; i < offset+n; i++ {
 			if s.lock[i] {
 				// SQLite never requests an exclusive lock that it already holds.
-				panic(util.AssertErr())
+				panic(errutil.AssertErr())
 			}
 			if s.vfsShmParent.lock[i] != 0 {
 				return _BUSY
@@ -46,7 +46,7 @@ func (s *vfsShm) shmMemLock(offset, n int32, flags _ShmFlag) error {
 			s.lock[i] = true
 		}
 	default:
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 	return nil
 }
