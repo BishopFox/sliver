@@ -40,6 +40,8 @@ type Event struct {
 
 	Data []byte
 	Err  error
+
+	Level string
 }
 
 type eventBroker struct {

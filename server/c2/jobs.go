@@ -45,7 +45,7 @@ var (
 // StartMTLSListenerJob - Start an mTLS listener as a job
 func StartMTLSListenerJob(mtlsListener *clientpb.MTLSListenerReq) (*core.Job, error) {
 	bind := fmt.Sprintf("%s:%d", mtlsListener.Host, mtlsListener.Port)
-	ln, err := StartMutualTLSListener(mtlsListener.Host, uint16(mtlsListener.Port))
+	ln, err := StartMutualTLSListener(mtlsListener.Host, uint16(mtlsListener.Port), mtlsListener.EnforceConLog)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
