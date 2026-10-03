@@ -21,25 +21,12 @@ type Snapshotter interface {
 	Snapshot() Snapshot
 }
 
-// EnableSnapshotterKey is a context key to indicate that snapshotting should be enabled.
-// The context.Context passed to a exported function invocation should have this key set
-// to a non-nil value, and host functions will be able to retrieve it using SnapshotterKey.
-//
-// Deprecated: use WithSnapshotter to enable snapshots.
-type EnableSnapshotterKey = expctxkeys.EnableSnapshotterKey
-
 // WithSnapshotter enables snapshots.
 // Passing the returned context to a exported function invocation enables snapshots,
 // and allows host functions to retrieve the Snapshotter using GetSnapshotter.
 func WithSnapshotter(ctx context.Context) context.Context {
 	return context.WithValue(ctx, expctxkeys.EnableSnapshotterKey{}, struct{}{})
 }
-
-// SnapshotterKey is a context key to access a Snapshotter from a host function.
-// It is only present if EnableSnapshotter was set in the function invocation context.
-//
-// Deprecated: use GetSnapshotter to get the snapshotter.
-type SnapshotterKey = expctxkeys.SnapshotterKey
 
 // GetSnapshotter gets the Snapshotter from a host function.
 // It is only present if WithSnapshotter was called with the function invocation context.

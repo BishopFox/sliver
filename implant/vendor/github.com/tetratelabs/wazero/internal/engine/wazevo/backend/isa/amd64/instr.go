@@ -17,27 +17,16 @@ type instruction struct {
 	kind                instructionKind
 }
 
-// Next implements regalloc.Instr.
-func (i *instruction) Next() regalloc.Instr {
-	return i.next
-}
-
-// Prev implements regalloc.Instr.
-func (i *instruction) Prev() regalloc.Instr {
-	return i.prev
-}
-
 // IsCall implements regalloc.Instr.
 func (i *instruction) IsCall() bool { return i.kind == call }
 
 // IsIndirectCall implements regalloc.Instr.
-func (i *instruction) IsIndirectCall() bool { return i.kind == callIndirect }
+func (i *instruction) IsIndirectCall() bool {
+	return i.kind == callIndirect
+}
 
 // IsReturn implements regalloc.Instr.
 func (i *instruction) IsReturn() bool { return i.kind == ret }
-
-// AddedBeforeRegAlloc implements regalloc.Instr.
-func (i *instruction) AddedBeforeRegAlloc() bool { return i.addedBeforeRegAlloc }
 
 // String implements regalloc.Instr.
 func (i *instruction) String() string {
@@ -298,8 +287,13 @@ func (i *instruction) String() string {
 		}
 		return fmt.Sprintf("lock xadd.%s %s, %s", suffix, i.op1.format(true), i.op2.format(true))
 
-	case keepAlive:
-		return fmt.Sprintf("keepAlive %s", i.op1.format(true))
+	case nopUseReg:
+		return fmt.Sprintf("nop_use_reg %s", i.op1.format(true))
+
+	case tailCall:
+		return fmt.Sprintf("tailCall %s", ssa.FuncRef(i.u1))
+	case tailCallIndirect:
+		return fmt.Sprintf("tailCallIndirect %s", i.op1.format(true))
 
 	default:
 		panic(fmt.Sprintf("BUG: %d", int(i.kind)))
@@ -370,7 +364,7 @@ func (i *instruction) Uses(regs *[]regalloc.VReg) []regalloc.VReg {
 		default:
 			panic(fmt.Sprintf("BUG: invalid operand: %s", i))
 		}
-	case useKindCallInd:
+	case useKindCallInd, useKindTailCallInd:
 		op := i.op1
 		switch op.kind {
 		case operandKindReg:
@@ -441,13 +435,16 @@ func (i *instruction) Uses(regs *[]regalloc.VReg) []regalloc.VReg {
 func (i *instruction) AssignUse(index int, v regalloc.VReg) {
 	switch uk := useKinds[i.kind]; uk {
 	case useKindNone:
-	case useKindCallInd:
+	case useKindCallInd, useKindTailCallInd:
 		if index != 0 {
 			panic("BUG")
 		}
 		op := &i.op1
 		switch op.kind {
 		case operandKindReg:
+			if uk == useKindTailCallInd && v != r11VReg {
+				panic("BUG")
+			}
 			op.setReg(v)
 		case operandKindMem:
 			op.addressMode().assignUses(index, v)
@@ -651,26 +648,14 @@ func resetInstruction(i *instruction) {
 	*i = instruction{}
 }
 
-func setNext(i *instruction, next *instruction) {
-	i.next = next
-}
-
-func setPrev(i *instruction, prev *instruction) {
-	i.prev = prev
-}
-
-func asNop(i *instruction) {
-	i.kind = nop0
-}
-
-func (i *instruction) asNop0WithLabel(label backend.Label) *instruction { //nolint
+func (i *instruction) asNop0WithLabel(label label) *instruction { //nolint
 	i.kind = nop0
 	i.u1 = uint64(label)
 	return i
 }
 
-func (i *instruction) nop0Label() backend.Label {
-	return backend.Label(i.u1)
+func (i *instruction) nop0Label() label {
+	return label(i.u1)
 }
 
 type instructionKind byte
@@ -860,8 +845,14 @@ const (
 	// lockxadd is xadd https://www.felixcloutier.com/x86/xadd with a lock prefix.
 	lockxadd
 
-	// keepAlive is a meta instruction that uses one register and does nothing.
-	keepAlive
+	// nopUseReg is a meta instruction that uses one register and does nothing.
+	nopUseReg
+
+	// tailCall is a meta instruction that emits a tail call.
+	tailCall
+
+	// tailCallIndirect is a meta instruction that emits a tail call with an indirect call.
+	tailCallIndirect
 
 	instrMax
 )
@@ -871,8 +862,8 @@ func (i *instruction) asMFence() *instruction {
 	return i
 }
 
-func (i *instruction) asKeepAlive(r regalloc.VReg) *instruction {
-	i.kind = keepAlive
+func (i *instruction) asNopUseReg(r regalloc.VReg) *instruction {
+	i.kind = nopUseReg
 	i.op1 = newOperandReg(r)
 	return i
 }
@@ -1104,6 +1095,10 @@ func (k instructionKind) String() string {
 		return "lockcmpxchg"
 	case lockxadd:
 		return "lockxadd"
+	case tailCall:
+		return "tailCall"
+	case tailCallIndirect:
+		return "tailCallIndirect"
 	default:
 		panic("BUG")
 	}
@@ -1161,7 +1156,7 @@ func (i *instruction) asJmp(target operand) *instruction {
 	return i
 }
 
-func (i *instruction) jmpLabel() backend.Label {
+func (i *instruction) jmpLabel() label {
 	switch i.kind {
 	case jmp, jmpIf, lea, xmmUnaryRmR:
 		return i.op1.label()
@@ -1191,6 +1186,27 @@ func (i *instruction) asCallIndirect(ptr operand, abi *backend.FunctionABI) *ins
 		panic("BUG")
 	}
 	i.kind = callIndirect
+	i.op1 = ptr
+	if abi != nil {
+		i.u2 = abi.ABIInfoAsUint64()
+	}
+	return i
+}
+
+func (i *instruction) asTailCallReturnCall(ref ssa.FuncRef, abi *backend.FunctionABI) *instruction {
+	i.kind = tailCall
+	i.u1 = uint64(ref)
+	if abi != nil {
+		i.u2 = abi.ABIInfoAsUint64()
+	}
+	return i
+}
+
+func (i *instruction) asTailCallReturnCallIndirect(ptr operand, abi *backend.FunctionABI) *instruction {
+	if ptr.kind != operandKindReg && ptr.kind != operandKindMem {
+		panic("BUG")
+	}
+	i.kind = tailCallIndirect
 	i.op1 = ptr
 	if abi != nil {
 		i.u2 = abi.ABIInfoAsUint64()
@@ -2366,7 +2382,9 @@ var defKinds = [instrMax]defKind{
 	lockcmpxchg:            defKindNone,
 	lockxadd:               defKindNone,
 	neg:                    defKindNone,
-	keepAlive:              defKindNone,
+	nopUseReg:              defKindNone,
+	tailCall:               defKindCall,
+	tailCallIndirect:       defKindCall,
 }
 
 // String implements fmt.Stringer.
@@ -2400,6 +2418,7 @@ const (
 	useKindBlendvpd
 	useKindCall
 	useKindCallInd
+	useKindTailCallInd
 	useKindFcvtToSintSequence
 	useKindFcvtToUintSequence
 )
@@ -2449,7 +2468,9 @@ var useKinds = [instrMax]useKind{
 	lockcmpxchg:            useKindRaxOp1RegOp2,
 	lockxadd:               useKindOp1RegOp2,
 	neg:                    useKindOp1,
-	keepAlive:              useKindOp1,
+	nopUseReg:              useKindOp1,
+	tailCall:               useKindCall,
+	tailCallIndirect:       useKindTailCallInd,
 }
 
 func (u useKind) String() string {
@@ -2466,6 +2487,8 @@ func (u useKind) String() string {
 		return "call"
 	case useKindCallInd:
 		return "callInd"
+	case useKindTailCallInd:
+		return "tailCallInd"
 	default:
 		return "invalid"
 	}

@@ -23,8 +23,6 @@ import (
 //
 // This heuristic is done in maybeInvertBranches function.
 func passLayoutBlocks(b *builder) {
-	b.clearBlkVisited()
-
 	// We might end up splitting critical edges which adds more basic blocks,
 	// so we store the currently existing basic blocks in nonSplitBlocks temporarily.
 	// That way we can iterate over the original basic blocks while appending new ones into reversePostOrderedBasicBlocks.
@@ -35,7 +33,7 @@ func passLayoutBlocks(b *builder) {
 		}
 		nonSplitBlocks = append(nonSplitBlocks, blk)
 		if i != len(b.reversePostOrderedBasicBlocks)-1 {
-			_ = maybeInvertBranches(blk, b.reversePostOrderedBasicBlocks[i+1])
+			_ = maybeInvertBranches(b, blk, b.reversePostOrderedBasicBlocks[i+1])
 		}
 	}
 
@@ -47,20 +45,20 @@ func passLayoutBlocks(b *builder) {
 	for _, blk := range nonSplitBlocks {
 		for i := range blk.preds {
 			pred := blk.preds[i].blk
-			if _, ok := b.blkVisited[pred]; ok || !pred.Valid() {
+			if pred.visited == 1 || !pred.Valid() {
 				continue
 			} else if pred.reversePostOrder < blk.reversePostOrder {
 				// This means the edge is critical, and this pred is the trampoline and yet to be inserted.
 				// Split edge trampolines must come before the destination in reverse post-order.
 				b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, pred)
-				b.blkVisited[pred] = 0 // mark as inserted, the value is not used.
+				pred.visited = 1 // mark as inserted.
 			}
 		}
 
 		// Now that we've already added all the potential trampoline blocks incoming to this block,
 		// we can add this block itself.
 		b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, blk)
-		b.blkVisited[blk] = 0 // mark as inserted, the value is not used.
+		blk.visited = 1 // mark as inserted.
 
 		if len(blk.success) < 2 {
 			// There won't be critical edge originating from this block.
@@ -113,10 +111,10 @@ func passLayoutBlocks(b *builder) {
 			}
 
 			fallthroughBranch := blk.currentInstr
-			if fallthroughBranch.opcode == OpcodeJump && fallthroughBranch.blk == trampoline {
+			if fallthroughBranch.opcode == OpcodeJump && BasicBlockID(fallthroughBranch.rValue) == trampoline.id {
 				// This can be lowered as fallthrough at the end of the block.
 				b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, trampoline)
-				b.blkVisited[trampoline] = 0 // mark as inserted, the value is not used.
+				trampoline.visited = 1 // mark as inserted.
 			} else {
 				uninsertedTrampolines = append(uninsertedTrampolines, trampoline)
 			}
@@ -126,7 +124,7 @@ func passLayoutBlocks(b *builder) {
 			if trampoline.success[0].reversePostOrder <= trampoline.reversePostOrder { // "<=", not "<" because the target might be itself.
 				// This means the critical edge was backward, so we insert after the current block immediately.
 				b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, trampoline)
-				b.blkVisited[trampoline] = 0 // mark as inserted, the value is not used.
+				trampoline.visited = 1 // mark as inserted.
 			} // If the target is forward, we can wait to insert until the target is inserted.
 		}
 		uninsertedTrampolines = uninsertedTrampolines[:0] // Reuse the stack for the next block.
@@ -142,8 +140,8 @@ func passLayoutBlocks(b *builder) {
 
 	if wazevoapi.SSAValidationEnabled {
 		for _, trampoline := range trampolines {
-			if _, ok := b.blkVisited[trampoline]; !ok {
-				panic("BUG: trampoline block not inserted: " + trampoline.FormatHeader(b))
+			if trampoline.visited != 1 {
+				panic("BUG: trampoline block not inserted: " + trampoline.formatHeader(b))
 			}
 			trampoline.validate(b)
 		}
@@ -159,7 +157,7 @@ func (b *builder) markFallthroughJumps() {
 	for i, blk := range b.reversePostOrderedBasicBlocks {
 		if i < l {
 			cur := blk.currentInstr
-			if cur.opcode == OpcodeJump && cur.blk == b.reversePostOrderedBasicBlocks[i+1] {
+			if cur.opcode == OpcodeJump && BasicBlockID(cur.rValue) == b.reversePostOrderedBasicBlocks[i+1].id {
 				cur.AsFallthroughJump()
 			}
 		}
@@ -170,7 +168,7 @@ func (b *builder) markFallthroughJumps() {
 // nextInRPO is the next block in the reverse post-order.
 //
 // Returns true if the branch is inverted for testing purpose.
-func maybeInvertBranches(now *basicBlock, nextInRPO *basicBlock) bool {
+func maybeInvertBranches(b *builder, now *basicBlock, nextInRPO *basicBlock) bool {
 	fallthroughBranch := now.currentInstr
 	if fallthroughBranch.opcode == OpcodeBrTable {
 		return false
@@ -189,7 +187,8 @@ func maybeInvertBranches(now *basicBlock, nextInRPO *basicBlock) bool {
 	// So this block has two branches (a conditional branch followed by an unconditional branch) at the end.
 	// We can invert the condition of the branch if it makes the fallthrough more likely.
 
-	fallthroughTarget, condTarget := fallthroughBranch.blk.(*basicBlock), condBranch.blk.(*basicBlock)
+	fallthroughTarget := b.basicBlock(BasicBlockID(fallthroughBranch.rValue))
+	condTarget := b.basicBlock(BasicBlockID(condBranch.rValue))
 
 	if fallthroughTarget.loopHeader {
 		// First, if the tail's target is loopHeader, we don't need to do anything here,
@@ -233,8 +232,8 @@ invert:
 	}
 
 	condBranch.InvertBrx()
-	condBranch.blk = fallthroughTarget
-	fallthroughBranch.blk = condTarget
+	condBranch.rValue = Value(fallthroughTarget.ID())
+	fallthroughBranch.rValue = Value(condTarget.ID())
 	if wazevoapi.SSALoggingEnabled {
 		fmt.Printf("inverting branches at %d->%d and %d->%d\n",
 			now.ID(), fallthroughTarget.ID(), now.ID(), condTarget.ID())
@@ -277,7 +276,7 @@ func (b *builder) splitCriticalEdge(pred, succ *basicBlock, predInfo *basicBlock
 	// Replace originalBranch with the newBranch.
 	newBranch := b.AllocateInstruction()
 	newBranch.opcode = originalBranch.opcode
-	newBranch.blk = trampoline
+	newBranch.rValue = Value(trampoline.ID())
 	switch originalBranch.opcode {
 	case OpcodeJump:
 	case OpcodeBrz, OpcodeBrnz:
@@ -305,7 +304,7 @@ func (b *builder) splitCriticalEdge(pred, succ *basicBlock, predInfo *basicBlock
 		trampoline.validate(b)
 	}
 
-	if len(trampoline.params) > 0 {
+	if len(trampoline.params.View()) > 0 {
 		panic("trampoline should not have params")
 	}
 

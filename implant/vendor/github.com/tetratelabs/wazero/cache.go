@@ -24,6 +24,13 @@ import (
 //     All implementations are in wazero.
 //   - Instances of this can be reused across multiple runtimes, if configured
 //     via RuntimeConfig.
+//   - The cache check happens before the compilation, so if multiple Goroutines are
+//     trying to compile the same module simultaneously, it is possible that they
+//     all compile the module. The design here is that the lock isn't held for the action "Compile"
+//     but only for checking and saving the compiled result. Therefore, we strongly recommend that the embedder
+//     does the centralized compilation in a single Goroutines (or multiple Goroutines per Wasm binary) to generate cache rather than
+//     trying to Compile in parallel for a single module. In other words, we always recommend to produce CompiledModule
+//     share it across multiple Goroutines to avoid trying to compile the same module simultaneously.
 type CompilationCache interface{ api.Closer }
 
 // NewCompilationCache returns a new CompilationCache to be passed to RuntimeConfig.
