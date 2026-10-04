@@ -304,7 +304,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
           a(anchorProps) {
             const { href, children, className, ...rest } = anchorProps;
 
-            if (href?.startsWith("/")) {
+            if (href?.startsWith("/") || href?.startsWith("#")) {
               return (
                 <a
                   {...rest}
