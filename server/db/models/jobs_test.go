@@ -1,6 +1,7 @@
 package models
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -74,6 +75,54 @@ func TestListenerJobFromProtobufRecordsWireGuardOptIn(t *testing.T) {
 	}
 	if !listener.MultiplayerListener.WireGuardOptIn {
 		t.Fatal("expected explicitly enabled listener to record WireGuard opt-in")
+	}
+}
+
+func TestTCPListenerProtobufRoundTrip(t *testing.T) {
+	want := &clientpb.StagerListenerReq{
+		Protocol:    clientpb.StageProtocol_TCP,
+		Host:        "127.0.0.1",
+		Port:        31337,
+		Data:        []byte{0, 1, 2, 255},
+		ProfileName: "test-profile",
+	}
+	listener := ListenerJobFromProtobuf(&clientpb.ListenerJob{
+		Type:    constants.StageListenerStr,
+		JobID:   1,
+		TCPConf: want,
+	})
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	database, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open in-memory database: %v", err)
+	}
+	sqlDB, err := database.DB()
+	if err != nil {
+		t.Fatalf("get database connection: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+	})
+
+	if err := database.AutoMigrate(&ListenerJob{}, &TCPListener{}); err != nil {
+		t.Fatalf("migrate TCP listener schema: %v", err)
+	}
+	if err := database.Create(listener).Error; err != nil {
+		t.Fatalf("save TCP listener: %v", err)
+	}
+	var reloaded ListenerJob
+	if err := database.Where("job_id = ?", listener.JobID).First(&reloaded).Error; err != nil {
+		t.Fatalf("load TCP listener job: %v", err)
+	}
+	var tcpListener TCPListener
+	if err := database.Where("listener_job_id = ?", reloaded.ID).First(&tcpListener).Error; err != nil {
+		t.Fatalf("load TCP listener configuration: %v", err)
+	}
+	reloaded.TcpListener = tcpListener
+	got := reloaded.ToProtobuf().TCPConf
+	if got.Protocol != want.Protocol || got.Host != want.Host || got.Port != want.Port ||
+		got.ProfileName != want.ProfileName || !bytes.Equal(got.Data, want.Data) {
+		t.Fatalf("TCP listener configuration did not round-trip: got %+v, want %+v", got, want)
 	}
 }
 
