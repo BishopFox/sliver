@@ -4,6 +4,8 @@ The Sliver server configuration file is located in the `configs` sub-directory o
 
 If no configuration file exists, a default YAML configuration is generated and written to disk on startup. If a legacy `server.json` file exists, Sliver reads it, writes `server.yaml`, and renames the old file to `.server.json-old`.
 
+AI configuration is stored separately in `configs/ai.yaml`. A legacy inline `ai` block is migrated only when that file does not already exist.
+
 #### Default Server Config
 
 ```yaml
@@ -18,20 +20,14 @@ logs:
     grpc_unary_payloads: false
     grpc_stream_payloads: false
     tls_key_logger: false
+    max_size_mb: 50
+    max_backups: 20
+    max_age_days: 90
+    compress: true
 grpc:
     keepalive:
         min_time_seconds: 30
         permit_without_stream: true
-ai:
-    provider: ""
-    model: ""
-    thinking_level: ""
-    anthropic:
-        api_key: ""
-        base_url: ""
-    openai:
-        api_key: ""
-        base_url: ""
 watch_tower: null
 go_proxy: ""
 http_default:
@@ -61,15 +57,11 @@ cxx: {}
   - `grpc_unary_payloads` - Log gRPC unary payloads.
   - `grpc_stream_payloads` - Log gRPC streaming payloads.
   - `tls_key_logger` - Enable TLS key logging (for debugging/traffic analysis only; sensitive).
+  - `max_size_mb`, `max_backups`, `max_age_days` - Log rotation size in MB, backup count, and maximum backup age in days (defaults: `50`, `20`, `90`).
+  - `compress` - Compress rotated logs (default: `true`).
 - `grpc.keepalive` - gRPC keepalive enforcement configuration.
   - `min_time_seconds` - Minimum time (seconds) between client pings before sending GOAWAY (`too_many_pings`).
   - `permit_without_stream` - Allow client pings when there are no active streams.
-- `ai` - Optional server-side AI defaults and provider credentials.
-  - `provider` - Default AI provider (`openai` or `anthropic`).
-  - `model` - Optional default model identifier.
-  - `thinking_level` - Optional reasoning level (for example `low`, `medium`, `high`, or `disabled`).
-  - `anthropic.api_key` / `openai.api_key` - Provider API key.
-  - `anthropic.base_url` / `openai.base_url` - Optional provider API endpoint override.
 - `watch_tower` - Optional API keys for Watchtower integrations.
   - `vt_api_key` - VirusTotal API key.
   - `xforce_api_key` - IBM X-Force API key.

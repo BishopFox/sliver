@@ -1,4 +1,4 @@
-This script installs the latest version of Sliver as a systemd service, installs Windows cross-compiler dependencies (mingw), and sets up multiplayer for all local users. After running the script, connect locally by running `sliver`.
+This script installs the latest version of Sliver as a systemd service and sets up multiplayer for local users. After running the script, connect locally by running `sliver`.
 
 https://sliver.sh/install
 
@@ -13,7 +13,6 @@ curl https://sliver.sh/install|sudo bash
 ```
 
 - Installs server binary to `/root/sliver-server`
-- Installs mingw
 - Runs the server in daemon mode using systemd
 - Installs client to `/usr/local/bin/sliver`
 - Generates multiplayer configurations for all users with a `/home` directory
