@@ -53,7 +53,7 @@ As you can see Sliver ran the Seatbelt assembly and provided us with the output 
 
 ## Bof’s
 
-Beacon object files are loaded using trustedsec’s coffloader. When you run a bof command the loader will first be loaded into memory and is used to run whichever bof you choose. From an operator’s perspective bof’s are similar to basic sliver commands.
+The transcript below shows the legacy COFF Loader path. Current Sliver supports built-in Reflektor execution, with legacy loader compatibility depending on the package and component versions. See [BOF and COFF Support](/docs?name=BOF+and+COFF+Support) for current behavior.
 
 ```bash
 [server] sliver (UNABLE_PRIDE) > sa-whoami
