@@ -617,6 +617,12 @@ func ListenerByJobID(JobID uint32) (*clientpb.ListenerJob, error) {
 			ListenerJobID: listenerJob.ID,
 		}).Find(&MultiplayerListener).Error
 		listenerJob.MultiplayerListener = MultiplayerListener
+	case constants.TCPListenerStr, constants.StageListenerStr:
+		TCPListener := models.TCPListener{}
+		err = Session().Where(&models.TCPListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&TCPListener).Error
+		listenerJob.TCPListener = TCPListener
 	}
 
 	if err != nil {
@@ -661,6 +667,8 @@ func DeleteListener(JobID uint32) error {
 		deleteErr = Session().Where(&models.WGListener{ListenerJobID: listenerID}).Delete(&models.WGListener{}).Error
 	case constants.MultiplayerModeStr:
 		deleteErr = Session().Where(&models.MultiplayerListener{ListenerJobID: listenerID}).Delete(&models.MultiplayerListener{}).Error
+	case constants.TCPListenerStr, constants.StageListenerStr:
+		deleteErr = Session().Where(&models.TCPListener{ListenerJobID: listenerID}).Delete(&models.TCPListener{}).Error
 	}
 
 	if deleteErr != nil {

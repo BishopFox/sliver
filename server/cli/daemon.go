@@ -175,7 +175,7 @@ func startPersistentListenerJob(jobType string, listenerJob *clientpb.ListenerJo
 			return 0, err
 		}
 		return uint32(id), nil
-	case constants.TCPListenerStr:
+	case constants.TCPListenerStr, constants.StageListenerStr:
 		if listenerJob.TCPConf == nil {
 			return 0, errors.New("missing TCP stager listener configuration")
 		}
@@ -225,7 +225,7 @@ func persistentJobStartupContext(jobType string, savedJobID uint32, listenerJob 
 			mode = "wireguard"
 		}
 		return fmt.Sprintf("%s [%s mode=%s]", prefix, listenerBind(listenerJob.MultiConf.Host, listenerJob.MultiConf.Port), mode)
-	case constants.TCPListenerStr:
+	case constants.TCPListenerStr, constants.StageListenerStr:
 		if listenerJob.TCPConf == nil {
 			return prefix
 		}
