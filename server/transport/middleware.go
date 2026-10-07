@@ -242,7 +242,18 @@ func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
 		"/rpcpb.SliverRPC/CrackTaskUpdate",
 		"/rpcpb.SliverRPC/CrackstationTrigger",
 		"/rpcpb.SliverRPC/CrackFileChunkUpload",
-		"/rpcpb.SliverRPC/CrackFileChunkDownload":
+		"/rpcpb.SliverRPC/CrackFileChunkDownload",
+		"/rpcpb.SliverRPC/Creds",
+		"/rpcpb.SliverRPC/CredsAdd",
+		"/rpcpb.SliverRPC/CredsRm",
+		"/rpcpb.SliverRPC/CredsUpdate",
+		"/rpcpb.SliverRPC/GetCredByID",
+		"/rpcpb.SliverRPC/GetCredsByHashType",
+		"/rpcpb.SliverRPC/GetPlaintextCredsByHashType",
+		"/rpcpb.SliverRPC/CredsSniffHashType",
+		"/rpcpb.SliverRPC/MonitorListConfig",
+		"/rpcpb.SliverRPC/MonitorAddConfig",
+		"/rpcpb.SliverRPC/MonitorDelConfig":
 		return false
 	}
 	return serverConfig.Logs.GRPCUnaryPayloads
@@ -306,8 +317,53 @@ type auditUnaryLogMsg struct {
 	User     string `json:"user"`
 }
 
+func auditCredentialMetadata(cred *clientpb.Credential) *clientpb.Credential {
+	if cred == nil {
+		return nil
+	}
+	return &clientpb.Credential{
+		ID:             cred.ID,
+		Username:       cred.Username,
+		HashType:       cred.HashType,
+		IsCracked:      cred.IsCracked,
+		OriginHostUUID: cred.OriginHostUUID,
+		Collection:     cred.Collection,
+	}
+}
+
 func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
 	switch fullMethod {
+	case "/rpcpb.SliverRPC/CredsAdd",
+		"/rpcpb.SliverRPC/CredsRm",
+		"/rpcpb.SliverRPC/CredsUpdate":
+		creds, ok := req.(*clientpb.Credentials)
+		if !ok || creds == nil {
+			return req
+		}
+		sanitized := &clientpb.Credentials{}
+		if creds.Credentials != nil {
+			sanitized.Credentials = make([]*clientpb.Credential, len(creds.Credentials))
+			for i, cred := range creds.Credentials {
+				sanitized.Credentials[i] = auditCredentialMetadata(cred)
+			}
+		}
+		return sanitized
+	case "/rpcpb.SliverRPC/GetCredByID",
+		"/rpcpb.SliverRPC/GetCredsByHashType",
+		"/rpcpb.SliverRPC/GetPlaintextCredsByHashType",
+		"/rpcpb.SliverRPC/CredsSniffHashType":
+		cred, ok := req.(*clientpb.Credential)
+		if !ok || cred == nil {
+			return req
+		}
+		return auditCredentialMetadata(cred)
+	case "/rpcpb.SliverRPC/MonitorAddConfig",
+		"/rpcpb.SliverRPC/MonitorDelConfig":
+		provider, ok := req.(*clientpb.MonitoringProvider)
+		if !ok || provider == nil {
+			return req
+		}
+		return &clientpb.MonitoringProvider{ID: provider.ID, Type: provider.Type}
 	case "/rpcpb.SliverRPC/CrackJobCancel",
 		"/rpcpb.SliverRPC/CrackJobPause",
 		"/rpcpb.SliverRPC/CrackJobResume",
@@ -373,7 +429,6 @@ func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			middlewareLog.Errorf("Failed to serialize %s", err)
 			return
 		}
-		middlewareLog.Debugf("Raw request: %s", string(rawRequest))
 		session, beacon, err := getActiveTarget(rawRequest)
 		if err != nil {
 			middlewareLog.Errorf("Middleware failed to insert details: %s", err)
@@ -436,8 +491,6 @@ func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, er
 	}
 
 	rpcRequest := request["Request"].(map[string]interface{})
-
-	middlewareLog.Debugf("RPC Request: %v", rpcRequest)
 
 	if rawBeaconID, ok := rpcRequest["BeaconID"]; ok {
 		beaconID := rawBeaconID.(string)
