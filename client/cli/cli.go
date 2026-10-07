@@ -34,6 +34,8 @@ const (
 	logFileName = "sliver-client.log"
 )
 
+var clientLogFile *os.File
+
 // Initialize logging.
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -47,8 +49,7 @@ func initLogging(appDir string) *os.File {
 
 func init() {
 	appDir := assets.GetRootAppDir()
-	logFile := initLogging(appDir)
-	defer logFile.Close()
+	clientLogFile = initLogging(appDir)
 
 	rootCmd.TraverseChildren = true
 	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
@@ -99,6 +100,7 @@ var rootCmd = &cobra.Command{
 
 // Execute - Execute root command.
 func Execute() {
+	defer clientLogFile.Close()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("root command: %s\n", err)
 		os.Exit(1)
