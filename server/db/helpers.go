@@ -831,15 +831,11 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 		if pbWebContent.ContentType != "" {
 			dbWebContent.ContentType = pbWebContent.ContentType
 		}
-		if pbWebContent.Size != 0 {
-			dbWebContent.Size = pbWebContent.Size
-		}
+		dbWebContent.Size = pbWebContent.Size
 		if pbWebContent.OriginalFile != "" {
 			dbWebContent.OriginalFile = pbWebContent.OriginalFile
 		}
-		if pbWebContent.Sha256 != "" {
-			dbWebContent.Sha256 = pbWebContent.Sha256
-		}
+		dbWebContent.Sha256 = pbWebContent.Sha256
 
 		dbModelWebContent := models.WebContentFromProtobuf(dbWebContent)
 		err = Session().Save(&dbModelWebContent).Error
