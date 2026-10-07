@@ -124,24 +124,16 @@ func crackConfigToYAML(config *clientpb.CrackConfig) ([]byte, error) {
 // Save - Save config file to disk
 func SaveCrackConfig(config *clientpb.CrackConfig) error {
 	configPath := getCrackConfigPath()
-	configDir := filepath.Dir(configPath)
-	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		crackConfigLog.Debugf("Creating config dir %s", configDir)
-		err := os.MkdirAll(configDir, 0700)
-		if err != nil {
-			return err
-		}
-	}
 	data, err := crackConfigToYAML(config)
 	if err != nil {
 		return err
 	}
 	crackConfigLog.Infof("Saving crack config to %s", configPath)
-	err = os.WriteFile(configPath, data, 0600)
+	err = atomicWriteConfig(configPath, data)
 	if err != nil {
-		crackConfigLog.Errorf("Failed to write config %s", err)
+		crackConfigLog.Errorf("Failed to write config %s: %s", configPath, err)
 	}
-	return nil
+	return err
 }
 
 // LoadCrackConfig - Get config value

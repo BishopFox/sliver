@@ -168,24 +168,16 @@ func encodeSQLiteParams(rawParams map[string]string, pragmas map[string]string) 
 // Save - Save config file to disk
 func (c *DatabaseConfig) Save() error {
 	configPath := GetDatabaseConfigPath()
-	configDir := filepath.Dir(configPath)
-	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		databaseConfigLog.Debugf("Creating config dir %s", configDir)
-		err := os.MkdirAll(configDir, 0700)
-		if err != nil {
-			return err
-		}
-	}
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return err
 	}
 	databaseConfigLog.Infof("Saving config to %s", configPath)
-	err = os.WriteFile(configPath, data, 0600)
+	err = atomicWriteConfig(configPath, data)
 	if err != nil {
-		databaseConfigLog.Errorf("Failed to write config %s", err)
+		databaseConfigLog.Errorf("Failed to write config %s: %s", configPath, err)
 	}
-	return nil
+	return err
 }
 
 // GetDatabaseConfig - Get config value
