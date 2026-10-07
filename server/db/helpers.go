@@ -850,6 +850,41 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 	return dbWebContent, nil
 }
 
+// UpdateWebContentTypes changes only MIME metadata for existing website paths.
+// All requested paths must exist before any update is committed.
+func UpdateWebContentTypes(websiteID string, contentTypes map[string]string) error {
+	id, err := models.ParseUUID(websiteID)
+	if err != nil {
+		return err
+	}
+	return Session().Transaction(func(tx *gorm.DB) error {
+		existing := make(map[string]models.WebContent, len(contentTypes))
+		for path := range contentTypes {
+			var content models.WebContent
+			if err := tx.Where("website_id = ? AND path = ?", id, path).First(&content).Error; err != nil {
+				return err
+			}
+			existing[path] = content
+		}
+		for path, contentType := range contentTypes {
+			content := existing[path]
+			if content.ContentType == contentType {
+				continue
+			}
+			result := tx.Model(&models.WebContent{}).
+				Where("id = ? AND website_id = ? AND path = ?", content.ID, id, path).
+				Update("content_type", contentType)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return ErrRecordNotFound
+			}
+		}
+		return nil
+	})
+}
+
 func RemoveContent(id string) error {
 	uuid, _ := models.ParseUUID(id)
 	err := Session().Delete(&models.WebContent{}, uuid).Error
