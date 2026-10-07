@@ -118,7 +118,7 @@ func TestTCPListenerProtobufRoundTrip(t *testing.T) {
 	if err := database.Where("listener_job_id = ?", reloaded.ID).First(&tcpListener).Error; err != nil {
 		t.Fatalf("load TCP listener configuration: %v", err)
 	}
-	reloaded.TcpListener = tcpListener
+	reloaded.TCPListener = tcpListener
 	got := reloaded.ToProtobuf().TCPConf
 	if got.Protocol != want.Protocol || got.Host != want.Host || got.Port != want.Port ||
 		got.ProfileName != want.ProfileName || !bytes.Equal(got.Data, want.Data) {

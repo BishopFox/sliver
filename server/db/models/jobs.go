@@ -37,7 +37,7 @@ type ListenerJob struct {
 	DnsListener         DNSListener
 	WgListener          WGListener
 	MultiplayerListener MultiplayerListener
-	TcpListener         TCPListener
+	TCPListener         TCPListener
 }
 
 type HTTPListener struct {
@@ -98,6 +98,7 @@ type MultiplayerListener struct {
 	WireGuardOptIn bool `gorm:"not null;default:false"`
 }
 
+// TCPListener contains the configuration for a TCP listener.
 type TCPListener struct {
 	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	ListenerJobID UUID `gorm:"type:uuid;"`
@@ -157,7 +158,7 @@ func (j *ListenerJob) ToProtobuf() *clientpb.ListenerJob {
 		DNSConf:   j.DnsListener.ToProtobuf(),
 		WGConf:    j.WgListener.ToProtobuf(),
 		MultiConf: j.MultiplayerListener.ToProtobuf(),
-		TCPConf:   j.TcpListener.ToProtobuf(),
+		TCPConf:   j.TCPListener.ToProtobuf(),
 	}
 }
 
@@ -299,7 +300,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			WireGuardOptIn: pbListenerJob.MultiConf.WireGuard,
 		}
 	case constants.TCPListenerStr, constants.StageListenerStr:
-		cfg.TcpListener = TCPListener{
+		cfg.TCPListener = TCPListener{
 			Protocol:    pbListenerJob.TCPConf.Protocol,
 			Host:        pbListenerJob.TCPConf.Host,
 			Port:        pbListenerJob.TCPConf.Port,

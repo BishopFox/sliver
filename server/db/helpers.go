@@ -622,7 +622,7 @@ func ListenerByJobID(JobID uint32) (*clientpb.ListenerJob, error) {
 		err = Session().Where(&models.TCPListener{
 			ListenerJobID: listenerJob.ID,
 		}).Find(&TCPListener).Error
-		listenerJob.TcpListener = TCPListener
+		listenerJob.TCPListener = TCPListener
 	}
 
 	if err != nil {
