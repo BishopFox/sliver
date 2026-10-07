@@ -1,10 +1,9 @@
 package sqlite3
 
 import (
-	"math"
 	"time"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/ncruces/go-sqlite3/internal/errutil"
 )
 
 // Value is any value that can be stored in a database table.
@@ -19,7 +18,7 @@ type Value struct {
 //
 // https://sqlite.org/c3ref/value_dup.html
 func (v Value) Dup() *Value {
-	ptr := ptr_t(v.c.call("sqlite3_value_dup", stk_t(v.handle)))
+	ptr := ptr_t(v.c.wrp.Xsqlite3_value_dup(int32(v.handle)))
 	return &Value{
 		c:      v.c,
 		handle: ptr,
@@ -30,7 +29,7 @@ func (v Value) Dup() *Value {
 //
 // https://sqlite.org/c3ref/value_dup.html
 func (v *Value) Close() error {
-	v.c.call("sqlite3_value_free", stk_t(v.handle))
+	v.c.wrp.Xsqlite3_value_free(int32(v.handle))
 	v.handle = 0
 	return nil
 }
@@ -39,21 +38,21 @@ func (v *Value) Close() error {
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) Type() Datatype {
-	return Datatype(v.c.call("sqlite3_value_type", stk_t(v.handle)))
+	return Datatype(v.c.wrp.Xsqlite3_value_type(int32(v.handle)))
 }
 
 // Subtype returns the subtype of the value.
 //
 // https://sqlite.org/c3ref/value_subtype.html
 func (v Value) Subtype() uint {
-	return uint(uint32(v.c.call("sqlite3_value_subtype", stk_t(v.handle))))
+	return uint(uint32(v.c.wrp.Xsqlite3_value_subtype(int32(v.handle))))
 }
 
 // NumericType returns the numeric datatype of the value.
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) NumericType() Datatype {
-	return Datatype(v.c.call("sqlite3_value_numeric_type", stk_t(v.handle)))
+	return Datatype(v.c.wrp.Xsqlite3_value_numeric_type(int32(v.handle)))
 }
 
 // Bool returns the value as a bool.
@@ -77,15 +76,14 @@ func (v Value) Int() int {
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) Int64() int64 {
-	return int64(v.c.call("sqlite3_value_int64", stk_t(v.handle)))
+	return v.c.wrp.Xsqlite3_value_int64(int32(v.handle))
 }
 
 // Float returns the value as a float64.
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) Float() float64 {
-	f := uint64(v.c.call("sqlite3_value_double", stk_t(v.handle)))
-	return math.Float64frombits(f)
+	return v.c.wrp.Xsqlite3_value_double(int32(v.handle))
 }
 
 // Time returns the value as a [time.Time].
@@ -103,7 +101,7 @@ func (v Value) Time(format TimeFormat) time.Time {
 	case NULL:
 		return time.Time{}
 	default:
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 	t, _ := format.Decode(a)
 	return t
@@ -130,7 +128,7 @@ func (v Value) Blob(buf []byte) []byte {
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) RawText() []byte {
-	ptr := ptr_t(v.c.call("sqlite3_value_text", stk_t(v.handle)))
+	ptr := ptr_t(v.c.wrp.Xsqlite3_value_text(int32(v.handle)))
 	return v.rawBytes(ptr, 1)
 }
 
@@ -140,7 +138,7 @@ func (v Value) RawText() []byte {
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) RawBlob() []byte {
-	ptr := ptr_t(v.c.call("sqlite3_value_blob", stk_t(v.handle)))
+	ptr := ptr_t(v.c.wrp.Xsqlite3_value_blob(int32(v.handle)))
 	return v.rawBytes(ptr, 0)
 }
 
@@ -149,15 +147,15 @@ func (v Value) rawBytes(ptr ptr_t, nul int32) []byte {
 		return nil
 	}
 
-	n := int32(v.c.call("sqlite3_value_bytes", stk_t(v.handle)))
-	return util.View(v.c.mod, ptr, int64(n+nul))[:n]
+	n := v.c.wrp.Xsqlite3_value_bytes(int32(v.handle))
+	return v.c.wrp.Bytes(ptr, int64(n+nul))[:n]
 }
 
 // Pointer gets the pointer associated with this value,
 // or nil if it has no associated pointer.
 func (v Value) Pointer() any {
-	ptr := ptr_t(v.c.call("sqlite3_value_pointer_go", stk_t(v.handle)))
-	return util.GetHandle(v.c.ctx, ptr)
+	ptr := ptr_t(v.c.wrp.Xsqlite3_value_pointer_go(int32(v.handle)))
+	return v.c.wrp.GetHandle(ptr)
 }
 
 // NoChange returns true if and only if the value is unchanged
@@ -165,7 +163,7 @@ func (v Value) Pointer() any {
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) NoChange() bool {
-	b := int32(v.c.call("sqlite3_value_nochange", stk_t(v.handle)))
+	b := v.c.wrp.Xsqlite3_value_nochange(int32(v.handle))
 	return b != 0
 }
 
@@ -173,7 +171,7 @@ func (v Value) NoChange() bool {
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) FromBind() bool {
-	b := int32(v.c.call("sqlite3_value_frombind", stk_t(v.handle)))
+	b := v.c.wrp.Xsqlite3_value_frombind(int32(v.handle))
 	return b != 0
 }
 
@@ -182,16 +180,7 @@ func (v Value) FromBind() bool {
 //
 // https://sqlite.org/c3ref/vtab_in_first.html
 func (v Value) InFirst() (Value, error) {
-	defer v.c.arena.mark()()
-	valPtr := v.c.arena.new(ptrlen)
-	rc := res_t(v.c.call("sqlite3_vtab_in_first", stk_t(v.handle), stk_t(valPtr)))
-	if err := v.c.error(rc); err != nil {
-		return Value{}, err
-	}
-	return Value{
-		c:      v.c,
-		handle: util.Read32[ptr_t](v.c.mod, valPtr),
-	}, nil
+	return v.c.returnValue(v.c.wrp.Xsqlite3_vtab_in_first, v.handle)
 }
 
 // InNext returns the next element
@@ -199,14 +188,25 @@ func (v Value) InFirst() (Value, error) {
 //
 // https://sqlite.org/c3ref/vtab_in_first.html
 func (v Value) InNext() (Value, error) {
-	defer v.c.arena.mark()()
-	valPtr := v.c.arena.new(ptrlen)
-	rc := res_t(v.c.call("sqlite3_vtab_in_next", stk_t(v.handle), stk_t(valPtr)))
-	if err := v.c.error(rc); err != nil {
+	return v.c.returnValue(v.c.wrp.Xsqlite3_vtab_in_next, v.handle)
+}
+
+func (c *Conn) returnValue(fn func(_, _ int32) int32, handle ptr_t) (Value, error) {
+	defer c.wrp.StackMark()()
+	valPtr := c.wrp.StackAlloc(ptrlen)
+	rc := res_t(fn(int32(handle), int32(valPtr)))
+	if err := c.error(rc); err != nil {
 		return Value{}, err
 	}
-	return Value{
-		c:      v.c,
-		handle: util.Read32[ptr_t](v.c.mod, valPtr),
-	}, nil
+	return Value{c: c, handle: ptr_t(c.wrp.Read32(valPtr))}, nil
+}
+
+func (c *Conn) columnValue(fn func(_, _, _ int32) int32, handle ptr_t, column int) (Value, error) {
+	defer c.wrp.StackMark()()
+	valPtr := c.wrp.StackAlloc(ptrlen)
+	rc := res_t(fn(int32(handle), int32(column), int32(valPtr)))
+	if err := c.error(rc); err != nil {
+		return Value{}, err
+	}
+	return Value{c: c, handle: ptr_t(c.wrp.Read32(valPtr))}, nil
 }

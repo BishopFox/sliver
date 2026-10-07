@@ -62,22 +62,22 @@ func (src *Conn) BackupInit(srcDB, dstURI string) (*Backup, error) {
 }
 
 func (c *Conn) backupInit(dst ptr_t, dstName string, src ptr_t, srcName string) (*Backup, error) {
-	defer c.arena.mark()()
-	dstPtr := c.arena.string(dstName)
-	srcPtr := c.arena.string(srcName)
+	defer c.arena.Mark()()
+	dstPtr := c.arena.String(dstName)
+	srcPtr := c.arena.String(srcName)
 
 	other := dst
 	if c.handle == dst {
 		other = src
 	}
 
-	ptr := ptr_t(c.call("sqlite3_backup_init",
-		stk_t(dst), stk_t(dstPtr),
-		stk_t(src), stk_t(srcPtr)))
+	ptr := ptr_t(c.wrp.Xsqlite3_backup_init(
+		int32(dst), int32(dstPtr),
+		int32(src), int32(srcPtr)))
 	if ptr == 0 {
 		defer c.closeDB(other)
-		rc := res_t(c.call("sqlite3_errcode", stk_t(dst)))
-		return nil, c.sqlite.error(rc, dst)
+		rc := res_t(c.wrp.Xsqlite3_errcode(int32(dst)))
+		return nil, c.errorFor(dst, rc)
 	}
 
 	return &Backup{
@@ -97,7 +97,7 @@ func (b *Backup) Close() error {
 		return nil
 	}
 
-	rc := res_t(b.c.call("sqlite3_backup_finish", stk_t(b.handle)))
+	rc := res_t(b.c.wrp.Xsqlite3_backup_finish(int32(b.handle)))
 	b.c.closeDB(b.otherc)
 	b.handle = 0
 	return b.c.error(rc)
@@ -108,7 +108,7 @@ func (b *Backup) Close() error {
 //
 // https://sqlite.org/c3ref/backup_finish.html#sqlite3backupstep
 func (b *Backup) Step(nPage int) (done bool, err error) {
-	rc := res_t(b.c.call("sqlite3_backup_step", stk_t(b.handle), stk_t(nPage)))
+	rc := res_t(b.c.wrp.Xsqlite3_backup_step(int32(b.handle), int32(nPage)))
 	if rc == _DONE {
 		return true, nil
 	}
@@ -120,8 +120,7 @@ func (b *Backup) Step(nPage int) (done bool, err error) {
 //
 // https://sqlite.org/c3ref/backup_finish.html#sqlite3backupremaining
 func (b *Backup) Remaining() int {
-	n := int32(b.c.call("sqlite3_backup_remaining", stk_t(b.handle)))
-	return int(n)
+	return int(b.c.wrp.Xsqlite3_backup_remaining(int32(b.handle)))
 }
 
 // PageCount returns the total number of pages in the source database
@@ -129,6 +128,5 @@ func (b *Backup) Remaining() int {
 //
 // https://sqlite.org/c3ref/backup_finish.html#sqlite3backuppagecount
 func (b *Backup) PageCount() int {
-	n := int32(b.c.call("sqlite3_backup_pagecount", stk_t(b.handle)))
-	return int(n)
+	return int(b.c.wrp.Xsqlite3_backup_pagecount(int32(b.handle)))
 }
