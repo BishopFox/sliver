@@ -243,6 +243,11 @@ func assetSuffixes(goos, goarch string) []string {
 	add(fmt.Sprintf("_%s.zip", goos))
 	add(fmt.Sprintf("_%s", goos))
 
+	if goos == "windows" {
+		add(fmt.Sprintf("_windows-%s.exe", goarch))
+		add("_windows.exe")
+	}
+
 	if goos == "darwin" {
 		add(fmt.Sprintf("_macos-%s.zip", goarch))
 		add(fmt.Sprintf("_macos-%s", goarch))
