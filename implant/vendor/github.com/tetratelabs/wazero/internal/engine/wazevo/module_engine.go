@@ -1,13 +1,17 @@
 package wazevo
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/internal/engine/wazevo/wazevoapi"
+	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/wasm"
+	"github.com/tetratelabs/wazero/internal/wasmdebug"
 	"github.com/tetratelabs/wazero/internal/wasmruntime"
 )
 
@@ -86,16 +90,6 @@ func newAlignedOpaque(size int) moduleContextOpaque {
 	return buf
 }
 
-func putLocalMemory(opaque []byte, offset wazevoapi.Offset, mem *wasm.MemoryInstance) {
-	s := uint64(len(mem.Buffer))
-	var b uint64
-	if len(mem.Buffer) > 0 {
-		b = uint64(uintptr(unsafe.Pointer(&mem.Buffer[0])))
-	}
-	binary.LittleEndian.PutUint64(opaque[offset:], b)
-	binary.LittleEndian.PutUint64(opaque[offset+8:], s)
-}
-
 func (m *moduleEngine) setupOpaque() {
 	inst := m.module
 	offsets := &m.parent.offsets
@@ -106,7 +100,7 @@ func (m *moduleEngine) setupOpaque() {
 	)
 
 	if lm := offsets.LocalMemoryBegin; lm >= 0 {
-		putLocalMemory(opaque, lm, inst.MemoryInstance)
+		m.putLocalMemory()
 	}
 
 	// Note: imported memory is resolved in ResolveImportedFunction.
@@ -142,6 +136,14 @@ func (m *moduleEngine) setupOpaque() {
 		}
 	}
 
+	if tagOffset := offsets.TagsBegin; tagOffset >= 0 {
+		for _, tag := range inst.Tags {
+			binary.LittleEndian.PutUint64(opaque[tagOffset:],
+				uint64(uintptr(unsafe.Pointer(tag))))
+			tagOffset += 8
+		}
+	}
+
 	if beforeListenerOffset := offsets.BeforeListenerTrampolines1stElement; beforeListenerOffset >= 0 {
 		binary.LittleEndian.PutUint64(opaque[beforeListenerOffset:], uint64(uintptr(unsafe.Pointer(&m.parent.listenerBeforeTrampolines[0]))))
 	}
@@ -170,6 +172,21 @@ func (m *moduleEngine) NewFunction(index wasm.Index) api.Function {
 		localIndex -= importedFnCount
 	}
 
+	if source := m.module.Source; source.IsHostModule {
+		// For host modules, we need to look up the GoFunction from the CodeSection.
+		def := source.FunctionDefinition(localIndex)
+		goF := source.CodeSection[localIndex].GoFunc
+		switch typed := goF.(type) {
+		case api.GoFunction:
+			// GoFunction doesn't need looked up module.
+			return &hostFunction{def: def, g: goFunctionAsGoModuleFunction(typed)}
+		case api.GoModuleFunction:
+			return &hostFunction{def: def, lookedUpModule: m.module, g: typed}
+		default:
+			panic(fmt.Sprintf("unexpected GoFunc type: %T", goF))
+		}
+	}
+
 	src := m.module.Source
 	typIndex := src.FunctionSection[localIndex]
 	typ := src.TypeSection[typIndex]
@@ -184,20 +201,25 @@ func (m *moduleEngine) NewFunction(index wasm.Index) api.Function {
 		indexInModule:          index,
 		executable:             &p.executable[offset],
 		parent:                 m,
-		preambleExecutable:     &m.parent.entryPreambles[typIndex][0],
+		preambleExecutable:     p.entryPreamblesPtrs[typIndex],
 		sizeOfParamResultSlice: sizeOfParamResultSlice,
 		requiredParams:         typ.ParamNumInUint64,
 		numberOfResults:        typ.ResultNumInUint64,
 	}
 
-	ce.execCtx.memoryGrowTrampolineAddress = &m.parent.sharedFunctions.memoryGrowExecutable[0]
-	ce.execCtx.stackGrowCallTrampolineAddress = &m.parent.sharedFunctions.stackGrowExecutable[0]
-	ce.execCtx.checkModuleExitCodeTrampolineAddress = &m.parent.sharedFunctions.checkModuleExitCode[0]
-	ce.execCtx.tableGrowTrampolineAddress = &m.parent.sharedFunctions.tableGrowExecutable[0]
-	ce.execCtx.refFuncTrampolineAddress = &m.parent.sharedFunctions.refFuncExecutable[0]
-	ce.execCtx.memoryWait32TrampolineAddress = &m.parent.sharedFunctions.memoryWait32Executable[0]
-	ce.execCtx.memoryWait64TrampolineAddress = &m.parent.sharedFunctions.memoryWait64Executable[0]
-	ce.execCtx.memoryNotifyTrampolineAddress = &m.parent.sharedFunctions.memoryNotifyExecutable[0]
+	sharedFunctions := p.sharedFunctions
+	ce.execCtx.memoryGrowTrampolineAddress = sharedFunctions.memoryGrowAddress
+	ce.execCtx.stackGrowCallTrampolineAddress = sharedFunctions.stackGrowAddress
+	ce.execCtx.checkModuleExitCodeTrampolineAddress = sharedFunctions.checkModuleExitCodeAddress
+	ce.execCtx.tableGrowTrampolineAddress = sharedFunctions.tableGrowAddress
+	ce.execCtx.refFuncTrampolineAddress = sharedFunctions.refFuncAddress
+	ce.execCtx.memoryWait32TrampolineAddress = sharedFunctions.memoryWait32Address
+	ce.execCtx.memoryWait64TrampolineAddress = sharedFunctions.memoryWait64Address
+	ce.execCtx.memoryNotifyTrampolineAddress = sharedFunctions.memoryNotifyAddress
+	ce.execCtx.throwAllocTrampolineAddress = sharedFunctions.throwAllocTrampolineAddress
+	ce.execCtx.throwTrampolineAddress = sharedFunctions.throwTrampolineAddress
+	ce.execCtx.tryTableEnterTrampolineAddress = sharedFunctions.tryTableEnterAddress
+	ce.execCtx.tryTableLeaveTrampolineAddress = sharedFunctions.tryTableLeaveAddress
 	ce.execCtx.memmoveAddress = memmovPtr
 	ce.init()
 	return ce
@@ -227,21 +249,38 @@ func (m *moduleEngine) SetGlobalValue(i wasm.Index, lo, hi uint64) {
 // OwnsGlobals implements the same method as documented on wasm.ModuleEngine.
 func (m *moduleEngine) OwnsGlobals() bool { return true }
 
+// MemoryGrown implements wasm.ModuleEngine.
+func (m *moduleEngine) MemoryGrown() {
+	m.putLocalMemory()
+}
+
+// putLocalMemory writes the local memory buffer pointer and length to the opaque buffer.
+func (m *moduleEngine) putLocalMemory() {
+	mem := m.module.MemoryInstance
+	offset := m.parent.offsets.LocalMemoryBegin
+
+	s := uint64(len(mem.Buffer))
+	var b uint64
+	if len(mem.Buffer) > 0 {
+		b = uint64(uintptr(unsafe.Pointer(&mem.Buffer[0])))
+	}
+	binary.LittleEndian.PutUint64(m.opaque[offset:], b)
+	binary.LittleEndian.PutUint64(m.opaque[offset+8:], s)
+}
+
 // ResolveImportedFunction implements wasm.ModuleEngine.
-func (m *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
+func (m *moduleEngine) ResolveImportedFunction(index, descFunc, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
 	executableOffset, moduleCtxOffset, typeIDOffset := m.parent.offsets.ImportedFunctionOffset(index)
 	importedME := importedModuleEngine.(*moduleEngine)
 
-	if int(indexInImportedModule) >= len(importedME.importedFunctions) {
-		indexInImportedModule -= wasm.Index(len(importedME.importedFunctions))
-	} else {
+	if int(indexInImportedModule) < len(importedME.importedFunctions) {
 		imported := &importedME.importedFunctions[indexInImportedModule]
-		m.ResolveImportedFunction(index, imported.indexInModule, imported.me)
+		m.ResolveImportedFunction(index, descFunc, imported.indexInModule, imported.me)
 		return // Recursively resolve the imported function.
 	}
 
-	offset := importedME.parent.functionOffsets[indexInImportedModule]
-	typeID := getTypeIDOf(indexInImportedModule, importedME.module)
+	offset := importedME.parent.functionOffsets[indexInImportedModule-wasm.Index(len(importedME.importedFunctions))]
+	typeID := m.module.TypeIDs[descFunc]
 	executable := &importedME.parent.executable[offset]
 	// Write functionInstance.
 	binary.LittleEndian.PutUint64(m.opaque[executableOffset:], uint64(uintptr(unsafe.Pointer(executable))))
@@ -250,28 +289,6 @@ func (m *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm
 
 	// Write importedFunction so that it can be used by NewFunction.
 	m.importedFunctions[index] = importedFunction{me: importedME, indexInModule: indexInImportedModule}
-}
-
-func getTypeIDOf(funcIndex wasm.Index, m *wasm.ModuleInstance) wasm.FunctionTypeID {
-	source := m.Source
-
-	var typeIndex wasm.Index
-	if funcIndex >= source.ImportFunctionCount {
-		funcIndex -= source.ImportFunctionCount
-		typeIndex = source.FunctionSection[funcIndex]
-	} else {
-		var cnt wasm.Index
-		for i := range source.ImportSection {
-			if source.ImportSection[i].Type == wasm.ExternTypeFunc {
-				if cnt == funcIndex {
-					typeIndex = source.ImportSection[i].DescFunc
-					break
-				}
-				cnt++
-			}
-		}
-	}
-	return m.TypeIDs[typeIndex]
 }
 
 // ResolveImportedMemory implements wasm.ModuleEngine.
@@ -341,4 +358,46 @@ func (m *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.Functio
 
 func moduleInstanceFromOpaquePtr(ptr *byte) *wasm.ModuleInstance {
 	return *(**wasm.ModuleInstance)(unsafe.Pointer(ptr))
+}
+
+type hostFunction struct {
+	internalapi.WazeroOnly
+	def            *wasm.FunctionDefinition
+	lookedUpModule *wasm.ModuleInstance
+	g              api.GoModuleFunction
+}
+
+// goFunctionAsGoModuleFunction converts api.GoFunction to api.GoModuleFunction which ignores the api.Module argument.
+func goFunctionAsGoModuleFunction(g api.GoFunction) api.GoModuleFunction {
+	return api.GoModuleFunc(func(ctx context.Context, _ api.Module, stack []uint64) {
+		g.Call(ctx, stack)
+	})
+}
+
+// Definition implements api.Function.
+func (f *hostFunction) Definition() api.FunctionDefinition { return f.def }
+
+// Call implements api.Function.
+func (f *hostFunction) Call(ctx context.Context, params ...uint64) ([]uint64, error) {
+	typ := f.def.Functype
+	stackSize := typ.ParamNumInUint64
+	rn := typ.ResultNumInUint64
+	if rn > stackSize {
+		stackSize = rn
+	}
+	stack := make([]uint64, stackSize)
+	copy(stack, params)
+	return stack[:rn], f.CallWithStack(ctx, stack)
+}
+
+// CallWithStack implements api.Function.
+func (f *hostFunction) CallWithStack(ctx context.Context, stack []uint64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			builder := wasmdebug.NewErrorBuilder()
+			err = builder.FromRecovered(r)
+		}
+	}()
+	f.g.Call(ctx, f.lookedUpModule, stack)
+	return nil
 }

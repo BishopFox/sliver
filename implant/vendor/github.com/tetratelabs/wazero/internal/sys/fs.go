@@ -7,7 +7,6 @@ import (
 
 	"github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/descriptor"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 	"github.com/tetratelabs/wazero/internal/sysfs"
 )
@@ -51,7 +50,7 @@ type FileEntry struct {
 	FS sys.FS
 
 	// File is always non-nil.
-	File fsapi.File
+	File sys.File
 
 	// direntCache is nil until DirentCache was called.
 	direntCache *DirentCache
@@ -251,9 +250,6 @@ func (d *DirentCache) cachedDirents(n uint32) []sys.Dirent {
 }
 
 type FSContext struct {
-	// rootFS is the root ("/") mount.
-	rootFS sys.FS
-
 	// openedFiles is a map of file descriptor numbers (>=FdPreopen) to open files
 	// (or directories) and defaults to empty.
 	// TODO: This is unguarded, so not goroutine-safe!
@@ -263,19 +259,6 @@ type FSContext struct {
 // FileTable is a specialization of the descriptor.Table type used to map file
 // descriptors to file entries.
 type FileTable = descriptor.Table[int32, *FileEntry]
-
-// RootFS returns a possibly unimplemented root filesystem. Any files that
-// should be added to the table should be inserted via InsertFile.
-//
-// TODO: This is only used by GOOS=js and tests: Remove when we remove GOOS=js
-// (after Go 1.22 is released).
-func (c *FSContext) RootFS() sys.FS {
-	if rootFS := c.rootFS; rootFS == nil {
-		return sys.UnimplementedFS{}
-	} else {
-		return rootFS
-	}
-}
 
 // LookupFile returns a file if it is in the table.
 func (c *FSContext) LookupFile(fd int32) (*FileEntry, bool) {
@@ -288,7 +271,7 @@ func (c *FSContext) OpenFile(fs sys.FS, path string, flag sys.Oflag, perm fs.Fil
 	if f, errno := fs.OpenFile(path, flag, perm); errno != 0 {
 		return 0, errno
 	} else {
-		fe := &FileEntry{FS: fs, File: fsapi.Adapt(f)}
+		fe := &FileEntry{FS: fs, File: f}
 		if path == "/" || path == "." {
 			fe.Name = ""
 		} else {
@@ -345,12 +328,14 @@ func (c *FSContext) SockAccept(sockFD int32, nonblock bool) (int32, sys.Errno) {
 		return 0, errno
 	}
 
-	fe := &FileEntry{File: fsapi.Adapt(conn)}
+	fe := &FileEntry{File: conn}
 
 	if nonblock {
-		if errno = fe.File.SetNonblock(true); errno != 0 {
-			_ = conn.Close()
-			return 0, errno
+		if pf, ok := fe.File.(sys.PollableFile); ok {
+			if errno = pf.SetNonblock(true); errno != 0 {
+				_ = conn.Close()
+				return 0, errno
+			}
 		}
 	}
 
@@ -412,24 +397,23 @@ func (c *Context) InitFSContext(
 	}
 	c.fsc.openedFiles.Insert(errWriter)
 
-	for i, fs := range fs {
+	for i, f := range fs {
 		guestPath := guestPaths[i]
 
 		if StripPrefixesAndTrailingSlash(guestPath) == "" {
 			// Default to bind to '/' when guestPath is effectively empty.
 			guestPath = "/"
-			c.fsc.rootFS = fs
 		}
 		c.fsc.openedFiles.Insert(&FileEntry{
-			FS:        fs,
+			FS:        f,
 			Name:      guestPath,
 			IsPreopen: true,
-			File:      &lazyDir{fs: fs},
+			File:      &lazyDir{fs: f},
 		})
 	}
 
 	for _, tl := range tcpListeners {
-		c.fsc.openedFiles.Insert(&FileEntry{IsPreopen: true, File: fsapi.Adapt(sysfs.NewTCPListenerFile(tl))})
+		c.fsc.openedFiles.Insert(&FileEntry{IsPreopen: true, File: sysfs.NewTCPListenerFile(tl)})
 	}
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 func (c *compiler) Lower() {
 	c.assignVirtualRegisters()
 	c.mach.SetCurrentABI(c.GetFunctionABI(c.ssaBuilder.Signature()))
-	c.mach.ExecutableContext().StartLoweringFunction(c.ssaBuilder.BlockIDMax())
+	c.mach.StartLoweringFunction(c.ssaBuilder.BlockIDMax())
 	c.lowerBlocks()
 }
 
@@ -20,12 +20,11 @@ func (c *compiler) lowerBlocks() {
 		c.lowerBlock(blk)
 	}
 
-	ectx := c.mach.ExecutableContext()
 	// After lowering all blocks, we need to link adjacent blocks to layout one single instruction list.
 	var prev ssa.BasicBlock
 	for next := builder.BlockIteratorReversePostOrderBegin(); next != nil; next = builder.BlockIteratorReversePostOrderNext() {
 		if prev != nil {
-			ectx.LinkAdjacentBlocks(prev, next)
+			c.mach.LinkAdjacentBlocks(prev, next)
 		}
 		prev = next
 	}
@@ -33,8 +32,7 @@ func (c *compiler) lowerBlocks() {
 
 func (c *compiler) lowerBlock(blk ssa.BasicBlock) {
 	mach := c.mach
-	ectx := mach.ExecutableContext()
-	ectx.StartBlock(blk)
+	mach.StartBlock(blk)
 
 	// We traverse the instructions in reverse order because we might want to lower multiple
 	// instructions together.
@@ -76,7 +74,7 @@ func (c *compiler) lowerBlock(blk ssa.BasicBlock) {
 		default:
 			mach.LowerInstr(cur)
 		}
-		ectx.FlushPendingInstructions()
+		mach.FlushPendingInstructions()
 	}
 
 	// Finally, if this is the entry block, we have to insert copies of arguments from the real location to the VReg.
@@ -84,7 +82,7 @@ func (c *compiler) lowerBlock(blk ssa.BasicBlock) {
 		c.lowerFunctionArguments(blk)
 	}
 
-	ectx.EndBlock()
+	mach.EndBlock()
 }
 
 // lowerBranches is called right after StartBlock and before any LowerInstr call if
@@ -93,23 +91,24 @@ func (c *compiler) lowerBlock(blk ssa.BasicBlock) {
 //
 // See ssa.Instruction IsBranching, and the comment on ssa.BasicBlock.
 func (c *compiler) lowerBranches(br0, br1 *ssa.Instruction) {
-	ectx := c.mach.ExecutableContext()
+	mach := c.mach
 
 	c.setCurrentGroupID(br0.GroupID())
 	c.mach.LowerSingleBranch(br0)
-	ectx.FlushPendingInstructions()
+	mach.FlushPendingInstructions()
 	if br1 != nil {
 		c.setCurrentGroupID(br1.GroupID())
 		c.mach.LowerConditionalBranch(br1)
-		ectx.FlushPendingInstructions()
+		mach.FlushPendingInstructions()
 	}
 
 	if br0.Opcode() == ssa.OpcodeJump {
-		_, args, target := br0.BranchData()
+		_, args, targetBlockID := br0.BranchData()
 		argExists := len(args) != 0
 		if argExists && br1 != nil {
 			panic("BUG: critical edge split failed")
 		}
+		target := c.ssaBuilder.BasicBlock(targetBlockID)
 		if argExists && target.ReturnBlock() {
 			if len(args) > 0 {
 				c.mach.LowerReturns(args)
@@ -118,24 +117,25 @@ func (c *compiler) lowerBranches(br0, br1 *ssa.Instruction) {
 			c.lowerBlockArguments(args, target)
 		}
 	}
-	ectx.FlushPendingInstructions()
+	mach.FlushPendingInstructions()
 }
 
 func (c *compiler) lowerFunctionArguments(entry ssa.BasicBlock) {
-	ectx := c.mach.ExecutableContext()
+	mach := c.mach
 
 	c.tmpVals = c.tmpVals[:0]
+	data := c.ssaBuilder.ValuesInfo()
 	for i := 0; i < entry.Params(); i++ {
 		p := entry.Param(i)
-		if c.ssaValueRefCounts[p.ID()] > 0 {
+		if data[p.ID()].RefCount > 0 {
 			c.tmpVals = append(c.tmpVals, p)
 		} else {
 			// If the argument is not used, we can just pass an invalid value.
 			c.tmpVals = append(c.tmpVals, ssa.ValueInvalid)
 		}
 	}
-	c.mach.LowerParams(c.tmpVals)
-	ectx.FlushPendingInstructions()
+	mach.LowerParams(c.tmpVals)
+	mach.FlushPendingInstructions()
 }
 
 // lowerBlockArguments lowers how to pass arguments to the given successor block.
@@ -152,12 +152,12 @@ func (c *compiler) lowerBlockArguments(args []ssa.Value, succ ssa.BasicBlock) {
 		src := args[i]
 
 		dstReg := c.VRegOf(dst)
-		srcDef := c.ssaValueDefinitions[src.ID()]
-		if srcDef.IsFromInstr() && srcDef.Instr.Constant() {
+		srcInstr := c.ssaBuilder.InstructionOfValue(src)
+		if srcInstr != nil && srcInstr.Constant() {
 			c.constEdges = append(c.constEdges, struct {
 				cInst *ssa.Instruction
 				dst   regalloc.VReg
-			}{cInst: srcDef.Instr, dst: dstReg})
+			}{cInst: srcInstr, dst: dstReg})
 		} else {
 			srcReg := c.VRegOf(src)
 			// Even when the src=dst, insert the move so that we can keep such registers keep-alive.

@@ -197,6 +197,33 @@ func TestCompatibilityGzip(t *testing.T) {
 	}
 }
 
+func TestRegisteredEncoderPreservesDecodeLimit(t *testing.T) {
+	payload := bytes.Repeat([]byte("limited-decoder"), 256)
+	for _, test := range []struct {
+		name      string
+		encoderID uint64
+		encoder   util.Encoder
+	}{
+		{name: "gzip", encoderID: GzipEncoderID, encoder: Gzip},
+		{name: "png", encoderID: PNGEncoderID, encoder: PNG},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := test.encoder.Encode(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var proxy util.Encoder = registeredEncoder{id: test.encoderID}
+			limitedDecoder, ok := proxy.(util.LimitedDecoder)
+			if !ok {
+				t.Fatal("registered encoder does not preserve LimitedDecoder")
+			}
+			if _, err := limitedDecoder.DecodeWithMaxLen(encoded, int64(len(payload)-1)); err == nil {
+				t.Fatal("registered encoder accepted oversized decoded output")
+			}
+		})
+	}
+}
+
 func TestCompatibilityPNG(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		sample := randomDataRandomSize(sampleSizeMax)

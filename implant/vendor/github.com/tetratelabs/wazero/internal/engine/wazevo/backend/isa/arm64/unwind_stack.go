@@ -14,7 +14,7 @@ func UnwindStack(sp, _, top uintptr, returnAddresses []uintptr) []uintptr {
 
 	var stackBuf []byte
 	{
-		// TODO: use unsafe.Slice after floor version is set to Go 1.20.
+		//nolint:staticcheck
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&stackBuf))
 		hdr.Data = sp
 		hdr.Len = l
@@ -78,13 +78,7 @@ func GoCallStackView(stackPointerBeforeGoCall *uint64) []uint64 {
 	//              +-----------------+ <---- stackPointerBeforeGoCall
 	//                 (low address)
 	ptr := unsafe.Pointer(stackPointerBeforeGoCall)
+	data := (*uint64)(unsafe.Add(ptr, 16)) // skips the (frame_size, sliceSize).
 	size := *(*uint64)(unsafe.Add(ptr, 8))
-	var view []uint64
-	{
-		sh := (*reflect.SliceHeader)(unsafe.Pointer(&view))
-		sh.Data = uintptr(unsafe.Add(ptr, 16)) // skips the (frame_size, sliceSize).
-		sh.Len = int(size)
-		sh.Cap = int(size)
-	}
-	return view
+	return unsafe.Slice(data, size)
 }
