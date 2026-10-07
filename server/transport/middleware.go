@@ -105,11 +105,14 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 }
 
 var (
-	tokenCache sync.Map
+	tokenCache   sync.Map
+	tokenCacheMu sync.RWMutex
 )
 
 // ClearTokenCache - Clear the auth token cache
 func ClearTokenCache() {
+	tokenCacheMu.Lock()
+	defer tokenCacheMu.Unlock()
 	tokenCache.Clear()
 }
 
@@ -131,6 +134,10 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
 	newCtx := context.WithValue(ctx, Transport, "mtls")
+	// Keep lookup and insertion ordered with revocation. Otherwise an auth
+	// request can repopulate the cache after ClearTokenCache returns.
+	tokenCacheMu.RLock()
+	defer tokenCacheMu.RUnlock()
 	if op, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
 		newCtx = context.WithValue(newCtx, Operator, op.(*models.Operator))

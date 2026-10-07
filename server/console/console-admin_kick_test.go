@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,12 +19,15 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	servertransport "github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"gorm.io/gorm"
 )
 
 func TestKickOperatorClosesActiveEventStreams(t *testing.T) {
@@ -110,6 +114,166 @@ func TestKickOperatorClosesActiveEventStreams(t *testing.T) {
 	_, _, err = certs.OperatorClientGetCertificate(operatorName)
 	if !errors.Is(err, certs.ErrCertDoesNotExist) {
 		t.Fatalf("expected operator certificate to be removed after kick, got %v", err)
+	}
+}
+
+func TestKickOperatorRevokesAccessWhenWireGuardIPReleaseFails(t *testing.T) {
+	certs.SetupCAs()
+	certs.SetupMultiplayerWGKeys()
+
+	listener := bufconn.Listen(2 * 1024 * 1024)
+	grpcServer, err := servertransport.StartMtlsClientServer(listener)
+	if err != nil {
+		t.Fatalf("start mTLS client server: %v", err)
+	}
+	defer grpcServer.Stop()
+	defer listener.Close()
+
+	operatorName := uniqueKickOperatorName(t)
+	t.Cleanup(func() {
+		_ = removeOperator(operatorName)
+		_ = revokeOperatorClientCertificate(operatorName)
+		closeOperatorStreams(operatorName)
+	})
+
+	configJSON, err := NewOperatorConfig(operatorName, "bufnet", 31337, []string{"all"}, true)
+	if err != nil {
+		t.Fatalf("generate WireGuard operator config: %v", err)
+	}
+	config := &clientassets.ClientConfig{}
+	if err := json.Unmarshal(configJSON, config); err != nil {
+		t.Fatalf("parse WireGuard operator config: %v", err)
+	}
+	if config.WG == nil || config.WG.ClientIP == "" {
+		t.Fatal("expected WireGuard operator to have a reserved tunnel IP")
+	}
+	t.Cleanup(func() { _ = db.ReleaseWGIP(config.WG.ClientIP) })
+
+	rpcClient, conn, err := mustMTLSBufconnClient(t, listener, config)
+	if err != nil {
+		t.Fatalf("connect operator client: %v", err)
+	}
+	defer conn.Close()
+
+	// A successful RPC puts the operator in the authentication cache. Revocation
+	// must invalidate that entry even when reservation cleanup fails.
+	if _, err := rpcClient.GetVersion(context.Background(), &commonpb.Empty{}); err != nil {
+		t.Fatalf("warm operator authentication cache: %v", err)
+	}
+	stream, err := rpcClient.Events(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		t.Fatalf("start events stream: %v", err)
+	}
+	waitForCondition(t, 3*time.Second, func() bool {
+		return operatorActive(operatorName)
+	}, "operator to appear in the active client registry")
+
+	recvErr := make(chan error, 1)
+	go func() {
+		for {
+			if _, err := stream.Recv(); err != nil {
+				recvErr <- err
+				return
+			}
+		}
+	}()
+
+	injectedErr := errors.New("injected WireGuard IP release failure")
+	callbackName := "test:reject-wg-ip-release-" + operatorName
+	var rejectRelease atomic.Bool
+	rejectRelease.Store(true)
+	if err := db.Client.Callback().Delete().Before("gorm:delete").Register(callbackName, func(tx *gorm.DB) {
+		if !rejectRelease.Load() {
+			return
+		}
+		if _, ok := tx.Statement.Dest.(*models.WGIPReservation); ok {
+			_ = tx.AddError(injectedErr)
+		}
+	}); err != nil {
+		t.Fatalf("register WireGuard IP deletion failure: %v", err)
+	}
+	t.Cleanup(func() {
+		rejectRelease.Store(false)
+		_ = db.Client.Callback().Delete().Remove(callbackName)
+	})
+
+	if err := kickOperator(operatorName); !errors.Is(err, injectedErr) {
+		t.Fatalf("kick operator error = %v, want injected WireGuard IP release failure", err)
+	}
+
+	exists, err := operatorExists(operatorName)
+	if err != nil {
+		t.Fatalf("lookup operator after failed cleanup: %v", err)
+	}
+	if exists {
+		t.Fatal("expected operator record to be removed despite WireGuard IP release failure")
+	}
+	names, err := operatorNames()
+	if err != nil {
+		t.Fatalf("list operators after partial cleanup: %v", err)
+	}
+	listed := false
+	for _, name := range names {
+		listed = listed || name == operatorName
+	}
+	if !listed {
+		t.Fatal("expected pending WireGuard cleanup to remain selectable for retry")
+	}
+
+	callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err = rpcClient.GetVersion(callCtx, &commonpb.Empty{})
+	code := status.Code(err)
+	if code != codes.Unauthenticated && code != codes.Unavailable {
+		t.Fatalf("expected cached operator token to be rejected, got %v", err)
+	}
+	newStream, err := rpcClient.Events(callCtx, &commonpb.Empty{})
+	if err == nil {
+		_, err = newStream.Recv()
+	}
+	code = status.Code(err)
+	if code != codes.Unauthenticated && code != codes.Unavailable {
+		t.Fatalf("expected a new event stream to be rejected after kick, got %v", err)
+	}
+
+	_, _, err = certs.OperatorClientGetCertificate(operatorName)
+	if !errors.Is(err, certs.ErrCertDoesNotExist) {
+		t.Fatalf("expected operator certificate to be removed despite cleanup failure, got %v", err)
+	}
+
+	select {
+	case err := <-recvErr:
+		if err == nil {
+			t.Fatal("expected kicked operator event stream to close")
+		}
+		if !errors.Is(err, io.EOF) {
+			code := status.Code(err)
+			if code != codes.Canceled && code != codes.Unavailable && code != codes.Unknown {
+				t.Fatalf("expected stream cancellation after kick, got %v", err)
+			}
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for kicked operator event stream to close")
+	}
+	waitForCondition(t, 3*time.Second, func() bool {
+		return !operatorActive(operatorName)
+	}, "operator to leave the active client registry")
+
+	reservation := &models.WGIPReservation{}
+	if err := db.Session().Where(&models.WGIPReservation{TunIP: config.WG.ClientIP}).First(reservation).Error; err != nil {
+		t.Fatalf("expected failed release to leave WireGuard IP reservation: %v", err)
+	}
+	if reservation.OwnerType != models.WGIPOwnerTypeOperator || reservation.OwnerID != operatorName {
+		t.Fatalf("unexpected WireGuard IP reservation owner: %s/%s", reservation.OwnerType, reservation.OwnerID)
+	}
+
+	rejectRelease.Store(false)
+	if err := kickOperator(operatorName); err != nil {
+		t.Fatalf("retry kick operator after WireGuard IP release recovers: %v", err)
+	}
+	err = db.Session().Where(&models.WGIPReservation{TunIP: config.WG.ClientIP}).First(&models.WGIPReservation{}).Error
+	if !errors.Is(err, db.ErrRecordNotFound) {
+		t.Fatalf("expected retry to release WireGuard IP reservation, got %v", err)
 	}
 }
 
