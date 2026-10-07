@@ -22,10 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -98,25 +101,41 @@ func (c *DatabaseConfig) DSN() (string, error) {
 		params := encodeSQLiteParams(c.Params, c.Pragmas)
 		return fmt.Sprintf("file:%s?%s", filePath, params), nil
 	case MySQL:
-		user := url.QueryEscape(c.Username)
-		password := url.QueryEscape(c.Password)
-		db := url.QueryEscape(c.Database)
-		host := fmt.Sprintf("%s:%d", url.QueryEscape(c.Host), c.Port)
+		if strings.Contains(c.Username, ":") {
+			return "", errors.New("MySQL DSN cannot represent a colon in the username")
+		}
+		host := net.JoinHostPort(c.Host, strconv.Itoa(int(c.Port)))
 		params := encodeParams(c.Params)
-		databaseConfigLog.Infof("Connecting to MySQL database %s@%s/%s", user, host, db)
-		return fmt.Sprintf("%s:%s@tcp(%s)/%s?%s", user, password, host, db, params), nil
+		databaseConfigLog.Infof("Connecting to MySQL database %q at %q", c.Database, host)
+		return fmt.Sprintf("%s:%s@tcp(%s)/%s?%s", c.Username, c.Password, host, url.PathEscape(c.Database), params), nil
 	case Postgres:
-		user := url.QueryEscape(c.Username)
-		password := url.QueryEscape(c.Password)
-		db := url.QueryEscape(c.Database)
-		host := url.QueryEscape(c.Host)
-		port := c.Port
-		params := encodeParams(c.Params)
-		databaseConfigLog.Infof("Connecting to Postgres database %s@%s:%d/%s", user, host, port, db)
-		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s %s", host, port, user, password, db, params), nil
+		parts := []string{
+			"host=" + quotePostgresDSNValue(c.Host),
+			"port=" + strconv.Itoa(int(c.Port)),
+			"user=" + quotePostgresDSNValue(c.Username),
+			"password=" + quotePostgresDSNValue(c.Password),
+			"dbname=" + quotePostgresDSNValue(c.Database),
+		}
+		keys := make([]string, 0, len(c.Params))
+		for key := range c.Params {
+			if key == "" || strings.ContainsAny(key, "= \t\n\r\v\f'\\\x00") {
+				return "", fmt.Errorf("invalid PostgreSQL parameter key %q", key)
+			}
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			parts = append(parts, key+"="+quotePostgresDSNValue(c.Params[key]))
+		}
+		databaseConfigLog.Infof("Connecting to Postgres database %q at %q:%d", c.Database, c.Host, c.Port)
+		return strings.Join(parts, " "), nil
 	default:
 		return "", ErrInvalidDialect
 	}
+}
+
+func quotePostgresDSNValue(value string) string {
+	return "'" + strings.ReplaceAll(strings.ReplaceAll(value, `\`, `\\`), `'`, `\'`) + "'"
 }
 
 func encodeParams(rawParams map[string]string) string {
