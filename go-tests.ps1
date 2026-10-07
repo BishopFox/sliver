@@ -131,7 +131,7 @@ function Test-SkipPackage {
 }
 
 function Get-TestDirectories {
-    Get-ChildItem -Path @("client", "implant", "server", "util") -Recurse -Filter "*_test.go" -File |
+    Get-ChildItem -Path @("client", "docs", "implant", "protobuf", "server", "test", "util") -Recurse -Filter "*_test.go" -File |
         ForEach-Object {
             [string](Resolve-Path -LiteralPath $_.DirectoryName -Relative).Replace("\", "/")
         } |
@@ -273,6 +273,8 @@ try {
     $clientTestPkgs = @()
     $implantTestPkgs = @()
     $serverUtilTestPkgs = @()
+    $untaggedTestPkgs = @()
+    $e2eSupportTestPkgs = @()
 
     foreach ($testDir in $testDirs) {
         $pkg = if ($testDir.StartsWith(".")) { $testDir } else { "./$testDir" }
@@ -295,6 +297,25 @@ try {
                 $serverUtilTestPkgs += $pkg
                 continue
             }
+            "./docs" {
+                $untaggedTestPkgs += $pkg
+                continue
+            }
+            "./protobuf/*" {
+                $untaggedTestPkgs += $pkg
+                continue
+            }
+            "./test/e2e" {
+                $e2eSupportTestPkgs += $pkg
+                continue
+            }
+            "./test/e2e/*" {
+                $e2eSupportTestPkgs += $pkg
+                continue
+            }
+            default {
+                throw "No test runner configured for discovered package: $pkg"
+            }
         }
     }
 
@@ -308,7 +329,27 @@ try {
         }
     }
 
+    foreach ($pkg in $e2eSupportTestPkgs) {
+        if (Test-SkipPackage -Package $pkg -Tags "client,$tags") {
+            continue
+        }
+
+        Invoke-TestStep -Name $pkg -Action {
+            Invoke-ExternalCommand -FilePath "go" -Arguments @("test", "-tags=client,$tags", $pkg)
+        }
+    }
+
     foreach ($pkg in $implantTestPkgs) {
+        if (Test-SkipPackage -Package $pkg) {
+            continue
+        }
+
+        Invoke-TestStep -Name $pkg -Action {
+            Invoke-ExternalCommand -FilePath "go" -Arguments @("test", $pkg)
+        }
+    }
+
+    foreach ($pkg in $untaggedTestPkgs) {
         if (Test-SkipPackage -Package $pkg) {
             continue
         }

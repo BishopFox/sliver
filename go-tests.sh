@@ -161,7 +161,7 @@ collect_test_dirs() {
 	if command -v rg >/dev/null 2>&1; then
 		rg --files -g '*_test.go'
 	else
-		find client implant server test util -type f -name '*_test.go' -print
+		find client docs implant protobuf server test util -type f -name '*_test.go' -print
 	fi
 }
 
@@ -183,6 +183,7 @@ while IFS= read -r test_dir; do
 done < <(collect_test_dirs | xargs -n1 dirname | sort -u)
 
 CLIENT_TEST_PKGS=()
+UNTAGGED_TEST_PKGS=()
 IMPLANT_TEST_PKGS=()
 SERVER_UTIL_TEST_PKGS=()
 E2E_SUPPORT_TEST_PKGS=()
@@ -196,6 +197,9 @@ for test_dir in "${TEST_DIRS[@]}"; do
 	./client/*)
 		CLIENT_TEST_PKGS+=("$pkg")
 		;;
+	./docs | ./protobuf/*)
+		UNTAGGED_TEST_PKGS+=("$pkg")
+		;;
 	./implant/*)
 		IMPLANT_TEST_PKGS+=("$pkg")
 		;;
@@ -205,7 +209,19 @@ for test_dir in "${TEST_DIRS[@]}"; do
 	./test/e2e | ./test/e2e/*)
 		E2E_SUPPORT_TEST_PKGS+=("$pkg")
 		;;
+	*)
+		echo "No test runner configured for $pkg" >&2
+		exit 1
+		;;
 	esac
+done
+
+## Packages without client, implant, or server build tags.
+for pkg in "${UNTAGGED_TEST_PKGS[@]}"; do
+	if should_skip_package "$pkg"; then
+		continue
+	fi
+	run_test_cmd "$pkg" "$HOST_GO" test "$pkg" || exit 1
 done
 
 ## Client
