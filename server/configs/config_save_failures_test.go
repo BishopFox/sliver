@@ -63,7 +63,7 @@ func TestAtomicWriteConfigPreservesPreviousFileOnRenameFailure(t *testing.T) {
 	oldRename := renameConfigFile
 	t.Cleanup(func() { renameConfigFile = oldRename })
 	injectedErr := errors.New("injected rename failure")
-	renameConfigFile = func(oldPath, newPath string) error {
+	renameConfigFile = func(_, newPath string) error {
 		if newPath != path {
 			t.Fatalf("rename targeted %q; want %q", newPath, path)
 		}

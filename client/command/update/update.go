@@ -1,3 +1,4 @@
+// Package update implements release download and verification commands.
 package update
 
 /*
@@ -337,7 +338,7 @@ func downloadAssetWithSignature(con *console.SliverClient, client *http.Client, 
 	if err != nil {
 		return fmt.Errorf("download asset: %w", err)
 	}
-	defer os.Remove(assetTempPath)
+	defer func() { _ = os.Remove(assetTempPath) }()
 
 	sigData, err := downloadBytesWithRetries(client, sigURL, sigLimit, "signature")
 	if err != nil {

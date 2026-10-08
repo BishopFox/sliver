@@ -32,7 +32,7 @@ func importCmd() *cobra.Command {
 		Use:   "import",
 		Short: "Import a client configuration file",
 		Long:  `import [config files]`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return importConfigs(args)
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

@@ -32,8 +32,10 @@ func atomicWriteConfig(path string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("create temporary config: %w", err)
 	}
-	defer os.Remove(temp.Name())
-	defer temp.Close()
+	defer func() {
+		_ = temp.Close()
+		_ = os.Remove(temp.Name())
+	}()
 
 	if err := temp.Chmod(0600); err != nil {
 		return fmt.Errorf("set temporary config permissions: %w", err)

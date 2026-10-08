@@ -30,6 +30,22 @@ func assertEmptyWebsiteContent(t *testing.T, name, path, contentType string) {
 	wantHash := sha256.Sum256(nil)
 	wantSHA256 := hex.EncodeToString(wantHash[:])
 
+	assertEmptyWebsiteMappedContent(t, name, path, contentType, wantSHA256)
+
+	content, err := website.GetContent(name, path)
+	if err != nil {
+		t.Fatalf("get empty website content: %v", err)
+	}
+	if content.Size != 0 || len(content.Content) != 0 || content.Sha256 != wantSHA256 || content.ContentType != contentType {
+		t.Errorf("fetched content = size %d, bytes %d, SHA256 %q, MIME %q; want 0, 0, %q, %q", content.Size, len(content.Content), content.Sha256, content.ContentType, wantSHA256, contentType)
+	}
+
+	assertEmptyWebsiteStoredContent(t, content.ID, path, contentType, wantSHA256)
+	assertEmptyWebsiteBackingFile(t, content.ID)
+}
+
+func assertEmptyWebsiteMappedContent(t *testing.T, name, path, contentType, wantSHA256 string) {
+	t.Helper()
 	for _, eager := range []bool{false, true} {
 		site, err := website.MapContent(name, eager)
 		if err != nil {
@@ -46,24 +62,22 @@ func assertEmptyWebsiteContent(t *testing.T, name, path, contentType string) {
 			t.Errorf("mapped content (eager=%t) = size %d, bytes %d, SHA256 %q, MIME %q; want 0, 0, %q, %q", eager, content.Size, len(content.Content), content.Sha256, content.ContentType, wantSHA256, contentType)
 		}
 	}
+}
 
-	content, err := website.GetContent(name, path)
-	if err != nil {
-		t.Fatalf("get empty website content: %v", err)
-	}
-	if content.Size != 0 || len(content.Content) != 0 || content.Sha256 != wantSHA256 || content.ContentType != contentType {
-		t.Errorf("fetched content = size %d, bytes %d, SHA256 %q, MIME %q; want 0, 0, %q, %q", content.Size, len(content.Content), content.Sha256, content.ContentType, wantSHA256, contentType)
-	}
-
+func assertEmptyWebsiteStoredContent(t *testing.T, contentID, path, contentType, wantSHA256 string) {
+	t.Helper()
 	var row models.WebContent
-	if err := db.Session().Where("id = ?", content.ID).First(&row).Error; err != nil {
+	if err := db.Session().Where("id = ?", contentID).First(&row).Error; err != nil {
 		t.Fatalf("find empty content row: %v", err)
 	}
 	if row.Size != 0 || row.Sha256 != wantSHA256 || row.ContentType != contentType || row.Path != path {
 		t.Errorf("stored row = size %d, SHA256 %q, MIME %q, path %q; want 0, %q, %q, %q", row.Size, row.Sha256, row.ContentType, row.Path, wantSHA256, contentType, path)
 	}
+}
 
-	backingFile := filepath.Join(assets.GetRootAppDir(), "web", content.ID)
+func assertEmptyWebsiteBackingFile(t *testing.T, contentID string) {
+	t.Helper()
+	backingFile := filepath.Join(assets.GetRootAppDir(), "web", contentID)
 	fileInfo, err := os.Stat(backingFile)
 	if err != nil {
 		t.Fatalf("stat empty content backing file: %v", err)

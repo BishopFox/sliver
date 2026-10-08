@@ -100,7 +100,7 @@ var rootCmd = &cobra.Command{
 
 // Execute - Execute root command.
 func Execute() {
-	defer clientLogFile.Close()
+	defer func() { _ = clientLogFile.Close() }()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("root command: %s\n", err)
 		os.Exit(1)
