@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -103,7 +104,8 @@ func TestAtomicWriteConfigPreservesPreviousFileOnRenameFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0600 {
+	// Windows reports synthetic permission bits instead of POSIX owner modes.
+	if got := info.Mode().Perm(); runtime.GOOS != "windows" && got != 0600 {
 		t.Fatalf("saved config mode = %04o; want 0600", got)
 	}
 }

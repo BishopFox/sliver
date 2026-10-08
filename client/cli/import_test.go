@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -22,7 +23,7 @@ func TestImportCommandReportsInvalidConfig(t *testing.T) {
 
 	cmd := importCmd()
 	err := cmd.RunE(cmd, []string{path})
-	if err == nil || !strings.Contains(err.Error(), path) {
+	if err == nil || !strings.Contains(err.Error(), strconv.Quote(path)) {
 		t.Fatalf("import error = %v, want error identifying %q", err, path)
 	}
 }
@@ -39,7 +40,7 @@ func TestImportCommandReportsConfigWriteFailure(t *testing.T) {
 
 	cmd := importCmd()
 	err := cmd.RunE(cmd, []string{path})
-	if err == nil || !strings.Contains(err.Error(), path) {
+	if err == nil || !strings.Contains(err.Error(), strconv.Quote(path)) {
 		t.Fatalf("import error = %v, want write error identifying %q", err, path)
 	}
 }
@@ -52,7 +53,7 @@ func TestImportCommandStopsAfterFirstFailure(t *testing.T) {
 
 	cmd := importCmd()
 	err := cmd.RunE(cmd, []string{invalidPath, validPath})
-	if err == nil || !strings.Contains(err.Error(), invalidPath) {
+	if err == nil || !strings.Contains(err.Error(), strconv.Quote(invalidPath)) {
 		t.Fatalf("import error = %v, want first file %q", err, invalidPath)
 	}
 	if _, err := os.Stat(filepath.Join(clientRoot, "configs", "alice_server.cfg")); !os.IsNotExist(err) {
