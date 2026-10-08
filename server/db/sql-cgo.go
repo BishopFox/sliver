@@ -32,7 +32,7 @@ func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	clientLog.Debugf("sqlite -> %s", dsn)
+	clientLog.Debug("Connecting to SQLite database")
 
 	dbClient, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
