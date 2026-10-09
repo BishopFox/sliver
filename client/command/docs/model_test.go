@@ -106,6 +106,62 @@ func TestDocsModelFilteringUpdatesVisibleEntries(t *testing.T) {
 	}
 }
 
+func TestDocsModelFilteringMatchesContentAndNormalizedTerms(t *testing.T) {
+	entries := []docEntry{
+		{
+			Name:        "HTTP C2",
+			Content:     "# HTTP C2\n\nUse the staging listener and HTTPS transports.",
+			Description: "Transport details",
+		},
+		{
+			Name:        "Networking",
+			Content:     "# Networking\n\nTCP and UDP details",
+			Description: "Network basics",
+		},
+	}
+	model := newDocsModel(entries)
+	model.applyWindowSize(120, 32)
+
+	model.startFiltering()
+	model.browserFilter.SetValue("https transport")
+	model.updateFilteredEntries(false)
+	if len(model.visibleEntries()) != 1 || model.visibleEntries()[0].Name != "HTTP C2" {
+		t.Fatalf("expected HTTP C2 to match multi-term query, got %+v", model.visibleEntries())
+	}
+
+	model.browserFilter.SetValue("https-transport")
+	model.updateFilteredEntries(false)
+	if len(model.visibleEntries()) != 1 || model.visibleEntries()[0].Name != "HTTP C2" {
+		t.Fatalf("expected punctuation normalization to match HTTP C2, got %+v", model.visibleEntries())
+	}
+}
+
+func TestDocsModelFilteringRanksTitleMatchesFirst(t *testing.T) {
+	entries := []docEntry{
+		{
+			Name:    "Advanced Setup",
+			Content: "This section explains listener configuration.",
+		},
+		{
+			Name:    "Listener Configuration",
+			Content: "Configure network settings.",
+		},
+	}
+	model := newDocsModel(entries)
+	model.applyWindowSize(120, 32)
+	model.startFiltering()
+	model.browserFilter.SetValue("listener")
+	model.updateFilteredEntries(false)
+
+	visible := model.visibleEntries()
+	if len(visible) != 2 {
+		t.Fatalf("expected both documents to match, got %+v", visible)
+	}
+	if visible[0].Name != "Listener Configuration" {
+		t.Fatalf("expected title match to rank first, got %q", visible[0].Name)
+	}
+}
+
 func TestDocsModelEnterMovesFocusToViewer(t *testing.T) {
 	model := newDocsModel(sampleDocs())
 	model.applyWindowSize(120, 32)
