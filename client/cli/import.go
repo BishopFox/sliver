@@ -19,7 +19,6 @@ package cli
 */
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -32,7 +31,11 @@ func importCmd() *cobra.Command {
 		Use:   "import",
 		Short: "Import a client configuration file",
 		Long:  `import [config files]`,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Missing config file path, see --help")
+				return nil
+			}
 			return importConfigs(args)
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -46,13 +49,13 @@ func importCmd() *cobra.Command {
 }
 
 func importConfigs(paths []string) error {
-	if len(paths) == 0 {
-		return errors.New("missing config file path, see --help")
-	}
 	for _, path := range paths {
 		conf, err := assets.ReadConfig(path)
 		if err != nil {
-			return fmt.Errorf("read import %q: %w", path, err)
+			return &commandExitError{
+				code: 3,
+				err:  fmt.Errorf("read import %q: %w", path, err),
+			}
 		}
 		if err := assets.SaveConfig(conf); err != nil {
 			return fmt.Errorf("save import %q: %w", path, err)
