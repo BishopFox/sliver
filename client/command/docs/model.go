@@ -68,9 +68,12 @@ const (
 )
 
 type docEntry struct {
-	Name        string
-	Content     string
-	Description string
+	Name              string
+	Content           string
+	Description       string
+	searchTitle       string
+	searchDescription string
+	searchContent     string
 }
 
 type docsHelpEntry struct {
@@ -181,8 +184,12 @@ func newDocsModel(entries []docEntry) *docsModel {
 		styles:           newDocsStyles(),
 	}
 
-	for _, entry := range entries {
-		model.entriesByName[entry.Name] = entry
+	for i := range model.entries {
+		entry := &model.entries[i]
+		entry.searchTitle = normalizeDocSearchText(entry.Name)
+		entry.searchDescription = normalizeDocSearchText(entry.Description)
+		entry.searchContent = normalizeDocSearchText(entry.Content)
+		model.entriesByName[entry.Name] = *entry
 	}
 
 	if idx := preferredDocIndex(entries); idx >= 0 {
@@ -522,13 +529,23 @@ func (m *docsModel) updateFilteredEntries(preferCurrent bool) {
 		return
 	}
 
-	filtered := make([]docEntry, 0, len(m.entries))
+	type rankedEntry struct {
+		entry docEntry
+		score int
+	}
+	filtered := make([]rankedEntry, 0, len(m.entries))
 	for _, entry := range m.entries {
-		if matchesDocQuery(entry, query) {
-			filtered = append(filtered, entry)
+		if score, matches := docQueryScore(entry, query); matches {
+			filtered = append(filtered, rankedEntry{entry: entry, score: score})
 		}
 	}
-	m.filteredEntries = filtered
+	sort.SliceStable(filtered, func(i, j int) bool {
+		return filtered[i].score > filtered[j].score
+	})
+	m.filteredEntries = make([]docEntry, len(filtered))
+	for i, result := range filtered {
+		m.filteredEntries[i] = result.entry
+	}
 	m.updateBrowserPagination()
 
 	if preferCurrent && m.selectDocInVisible(m.currentDocName) {
@@ -539,12 +556,58 @@ func (m *docsModel) updateFilteredEntries(preferCurrent bool) {
 	m.syncSelectionFromBrowser()
 }
 
-func matchesDocQuery(entry docEntry, query string) bool {
-	if query == "" {
-		return true
+func docQueryScore(entry docEntry, query string) (int, bool) {
+	normalizedQuery := strings.TrimSpace(normalizeDocSearchText(query))
+	if normalizedQuery == "" {
+		return 0, true
 	}
-	haystack := strings.ToLower(entry.Name + ".md\n" + entry.Description)
-	return strings.Contains(haystack, query)
+
+	title := entry.searchTitle
+	terms := strings.Fields(normalizedQuery)
+	for _, term := range terms {
+		if !strings.Contains(title, term) &&
+			!strings.Contains(entry.searchDescription, term) &&
+			!strings.Contains(entry.searchContent, term) {
+			return 0, false
+		}
+	}
+
+	score := 0
+	switch {
+	case title == normalizedQuery:
+		score += 1000
+	case strings.HasPrefix(title, normalizedQuery):
+		score += 500
+	case strings.Contains(title, normalizedQuery):
+		score += 300
+	}
+	for _, term := range terms {
+		if strings.Contains(title, term) {
+			score += 100
+		}
+		if strings.Contains(entry.searchDescription, term) {
+			score += 30
+		}
+		if strings.Contains(entry.searchContent, term) {
+			score++
+		}
+	}
+	return score, true
+}
+
+func normalizeDocSearchText(value string) string {
+	value = strings.ToLower(value)
+	value = strings.Map(func(r rune) rune {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r):
+			return r
+		case unicode.IsSpace(r):
+			return ' '
+		default:
+			return ' '
+		}
+	}, value)
+	return strings.Join(strings.Fields(value), " ")
 }
 
 func (m *docsModel) moveBrowserCursorUp() {
