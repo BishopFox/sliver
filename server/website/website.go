@@ -21,6 +21,7 @@ package website
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -89,8 +90,9 @@ func AddContent(name string, pbWebContent *clientpb.WebContent) error {
 		pbWebContent.WebsiteID = website.ID
 	}
 
+	replaceContent := pbWebContent.ReplaceContent || len(pbWebContent.Content) > 0
 	pbWebContent.Size = uint64(len(pbWebContent.Content))
-	if pbWebContent.OriginalFile == "" {
+	if replaceContent && pbWebContent.OriginalFile == "" {
 		pbWebContent.OriginalFile = filepath.Base(pbWebContent.Path)
 	}
 
@@ -103,7 +105,23 @@ func AddContent(name string, pbWebContent *clientpb.WebContent) error {
 	}
 
 	webContentPath := filepath.Join(webContentDir, webContent.ID)
-	return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
+	if replaceContent {
+		return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
+	}
+	if webContent.Size != 0 || webContent.Sha256 != pbWebContent.Sha256 {
+		return nil
+	}
+
+	// Legacy metadata-only requests must not truncate existing bytes. Create a
+	// backing file only when the stored metadata also describes empty content.
+	file, err := os.OpenFile(webContentPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if errors.Is(err, os.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }
 
 // RemoveContent - Remove website content for a path

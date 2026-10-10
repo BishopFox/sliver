@@ -818,6 +818,9 @@ func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, er
 func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clientpb.WebContent, error) {
 	dbWebContent, err := WebContentByIDAndPath(pbWebContent.WebsiteID, pbWebContent.Path, webContentDir, false)
 	if errors.Is(err, ErrRecordNotFound) {
+		if pbWebContent.OriginalFile == "" {
+			pbWebContent.OriginalFile = filepath.Base(pbWebContent.Path)
+		}
 		dbModelWebContent := models.WebContentFromProtobuf(pbWebContent)
 		err = Session().Create(&dbModelWebContent).Error
 		if err != nil {
@@ -827,15 +830,19 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 		if err != nil {
 			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	} else {
 		if pbWebContent.ContentType != "" {
 			dbWebContent.ContentType = pbWebContent.ContentType
 		}
-		dbWebContent.Size = pbWebContent.Size
+		if pbWebContent.ReplaceContent || len(pbWebContent.Content) > 0 {
+			dbWebContent.Size = pbWebContent.Size
+			dbWebContent.Sha256 = pbWebContent.Sha256
+		}
 		if pbWebContent.OriginalFile != "" {
 			dbWebContent.OriginalFile = pbWebContent.OriginalFile
 		}
-		dbWebContent.Sha256 = pbWebContent.Sha256
 
 		dbModelWebContent := models.WebContentFromProtobuf(dbWebContent)
 		err = Session().Save(&dbModelWebContent).Error

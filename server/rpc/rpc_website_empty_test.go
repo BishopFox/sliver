@@ -92,12 +92,13 @@ func TestWebsiteAddZeroByteContent(t *testing.T) {
 	const path = "/empty.txt"
 	const contentType = "text/plain; charset=utf-8"
 
-	site, err := (&Server{}).WebsiteAddContent(context.Background(), &clientpb.WebsiteAddContent{
+	req := roundTripWebsiteAddContent(t, &clientpb.WebsiteAddContent{
 		Name: name,
 		Contents: map[string]*clientpb.WebContent{
 			path: {Path: path, ContentType: contentType, Content: []byte{}},
 		},
 	})
+	site, err := (&Server{}).WebsiteAddContent(context.Background(), req)
 	if err != nil {
 		t.Fatalf("add zero-byte website content: %v", err)
 	}
@@ -124,12 +125,16 @@ func TestWebsiteReplaceWithZeroByteContent(t *testing.T) {
 		t.Fatalf("add initial website content: %v", err)
 	}
 
-	_, err = rpcServer.WebsiteAddContent(context.Background(), &clientpb.WebsiteAddContent{
+	req := roundTripWebsiteAddContent(t, &clientpb.WebsiteAddContent{
 		Name: name,
 		Contents: map[string]*clientpb.WebContent{
-			path: {Path: path, ContentType: originalMIME, Content: []byte{}},
+			path: {Path: path, ContentType: originalMIME, Content: []byte{}, ReplaceContent: true},
 		},
 	})
+	if req.Contents[path].Content != nil {
+		t.Fatal("expected empty content to decode as nil after protobuf round trip")
+	}
+	_, err = rpcServer.WebsiteAddContent(context.Background(), req)
 	if err != nil {
 		t.Fatalf("replace website content with zero bytes: %v", err)
 	}
