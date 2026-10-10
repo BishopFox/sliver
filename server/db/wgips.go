@@ -144,6 +144,45 @@ func ReleaseWGIP(tunIP string) error {
 	return Session().Where(&models.WGIPReservation{TunIP: tunIP}).Delete(&models.WGIPReservation{}).Error
 }
 
+// ReleaseOperatorWGIPs removes reservations by owner so an interrupted
+// operator revocation can be retried after its operator row has been deleted.
+func ReleaseOperatorWGIPs(operator string) error {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return errors.New("operator name is required")
+	}
+	return Session().Where(&models.WGIPReservation{
+		OwnerType: models.WGIPOwnerTypeOperator,
+		OwnerID:   operator,
+	}).Delete(&models.WGIPReservation{}).Error
+}
+
+// HasOperatorWGIPReservation reports whether an operator still owns a
+// reservation that needs cleanup after revocation.
+func HasOperatorWGIPReservation(operator string) (bool, error) {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return false, nil
+	}
+	var count int64
+	err := Session().Model(&models.WGIPReservation{}).Where(&models.WGIPReservation{
+		OwnerType: models.WGIPOwnerTypeOperator,
+		OwnerID:   operator,
+	}).Count(&count).Error
+	return count > 0, err
+}
+
+// OperatorWGIPReservationOwners includes operators whose account row was
+// removed before reservation cleanup completed.
+func OperatorWGIPReservationOwners() ([]string, error) {
+	owners := []string{}
+	err := Session().Model(&models.WGIPReservation{}).
+		Distinct("owner_id").
+		Where("owner_type = ?", models.WGIPOwnerTypeOperator).
+		Pluck("owner_id", &owners).Error
+	return owners, err
+}
+
 func ensureWGIPNotAllocated(tx *gorm.DB, tunIP string) error {
 	operator := &models.Operator{}
 	result := tx.Select("id").Where("wg_tun_ip = ?", tunIP).First(operator)

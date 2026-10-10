@@ -21,6 +21,7 @@ package website
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -89,30 +90,38 @@ func AddContent(name string, pbWebContent *clientpb.WebContent) error {
 		pbWebContent.WebsiteID = website.ID
 	}
 
-	if pbWebContent.Size == 0 && len(pbWebContent.Content) > 0 {
-		pbWebContent.Size = uint64(len(pbWebContent.Content))
-	}
-	if pbWebContent.OriginalFile == "" {
+	replaceContent := pbWebContent.ReplaceContent || len(pbWebContent.Content) > 0
+	pbWebContent.Size = uint64(len(pbWebContent.Content))
+	if replaceContent && pbWebContent.OriginalFile == "" {
 		pbWebContent.OriginalFile = filepath.Base(pbWebContent.Path)
 	}
 
-	if len(pbWebContent.Content) > 0 {
-		sha := sha256.Sum256(pbWebContent.Content)
-		pbWebContent.Sha256 = hex.EncodeToString(sha[:])
-	}
+	sha := sha256.Sum256(pbWebContent.Content)
+	pbWebContent.Sha256 = hex.EncodeToString(sha[:])
 
 	webContent, err := db.AddContent(pbWebContent, webContentDir)
 	if err != nil {
 		return err
 	}
 
-	// Write content to disk when provided (metadata-only updates skip disk writes)
-	if len(pbWebContent.Content) > 0 {
-		webContentPath := filepath.Join(webContentDir, webContent.ID)
+	webContentPath := filepath.Join(webContentDir, webContent.ID)
+	if replaceContent {
 		return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
 	}
+	if webContent.Size != 0 || webContent.Sha256 != pbWebContent.Sha256 {
+		return nil
+	}
 
-	return nil
+	// Legacy metadata-only requests must not truncate existing bytes. Create a
+	// backing file only when the stored metadata also describes empty content.
+	file, err := os.OpenFile(webContentPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if errors.Is(err, os.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }
 
 // RemoveContent - Remove website content for a path

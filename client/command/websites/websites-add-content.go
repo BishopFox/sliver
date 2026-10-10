@@ -123,10 +123,11 @@ func webAddFile(web *clientpb.WebsiteAddContent, webpath string, contentType str
 	}
 
 	web.Contents[webpath] = &clientpb.WebContent{
-		Path:         webpath,
-		ContentType:  contentType,
-		OriginalFile: filepath.Base(contentPath),
-		Content:      data,
+		Path:           webpath,
+		ContentType:    contentType,
+		OriginalFile:   filepath.Base(contentPath),
+		Content:        data,
+		ReplaceContent: true,
 	}
 	return nil
 }

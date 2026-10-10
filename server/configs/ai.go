@@ -147,22 +147,14 @@ func defaultAIConfig() *AIConfig {
 func (c *AIConfig) Save() error {
 	config := normalizeAIConfig(c)
 	configPath := GetAIConfigPath()
-	configDir := filepath.Dir(configPath)
-	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		aiConfigLog.Debugf("Creating config dir %s", configDir)
-		err := os.MkdirAll(configDir, 0700)
-		if err != nil {
-			return err
-		}
-	}
 	data, err := yaml.Marshal(config)
 	if err != nil {
 		return err
 	}
 	aiConfigLog.Infof("Saving config to %s", configPath)
-	err = os.WriteFile(configPath, data, 0600)
+	err = atomicWriteConfig(configPath, data)
 	if err != nil {
-		aiConfigLog.Errorf("Failed to write config %s", err)
+		aiConfigLog.Errorf("Failed to write config %s: %s", configPath, err)
 	}
 	return err
 }
