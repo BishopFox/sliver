@@ -54,6 +54,7 @@ const (
 	tailscaleFlagStr   = "tailscale"
 	enableWGFlagStr    = "enable-wg"
 	disableWGFlagStr   = "disable-wg"
+	healthAddrFlagStr  = "health-addr"
 
 	// Cert flags
 	caTypeFlagStr = "type"
@@ -106,6 +107,7 @@ func init() {
 	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
 	daemonCmd.Flags().BoolP(tailscaleFlagStr, "t", false, "enable tailscale")
 	daemonCmd.Flags().Bool(enableWGFlagStr, false, "wrap the multiplayer listener in WireGuard")
+	daemonCmd.Flags().String(healthAddrFlagStr, "", "health endpoint listen address (host:port), 'off' to disable; defaults to daemon config")
 	rootCmd.AddCommand(daemonCmd)
 
 	// Builder
@@ -153,7 +155,7 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("[!] %s\n", err)
 		}
 		if serverConfig.DaemonMode {
-			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale, serverConfig.DaemonConfig.WireGuardEnabled())
+			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale, serverConfig.DaemonConfig.WireGuardEnabled(), "")
 			return nil
 		} else {
 			rcScript, err := clientcli.ReadRCScript(cmd)

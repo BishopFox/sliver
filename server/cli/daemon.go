@@ -55,6 +55,11 @@ var daemonCmd = &cobra.Command{
 		if !cmd.Flags().Changed(enableWGFlagStr) {
 			enableWG = configs.GetServerConfig().DaemonConfig.WireGuardEnabled()
 		}
+		healthAddr, err := cmd.Flags().GetString(healthAddrFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", healthAddrFlagStr, err)
+			return
+		}
 
 		appDir := assets.GetRootAppDir()
 		logFile := initConsoleLogging(appDir)
@@ -86,7 +91,7 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("[!] %s\n", err)
 		}
 
-		daemon.Start(lhost, uint16(lport), tailscale, enableWG)
+		daemon.Start(lhost, uint16(lport), tailscale, enableWG, healthAddr)
 	},
 }
 

@@ -19,13 +19,17 @@ package daemon
 */
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/health"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/transport"
 )
@@ -40,8 +44,12 @@ var (
 	BlankPort = uint16(0)
 )
 
+const (
+	healthShutdownTimeout = 5 * time.Second
+)
+
 // Start - Start as daemon process
-func Start(host string, port uint16, tailscale bool, enableWG bool) {
+func Start(host string, port uint16, tailscale bool, enableWG bool, healthAddr string) {
 	var (
 		ln  net.Listener
 		err error
@@ -72,12 +80,33 @@ func Start(host string, port uint16, tailscale bool, enableWG bool) {
 		os.Exit(1)
 	}
 
+	// cli args take president over config
+	if healthAddr == "" {
+		healthAddr = serverConfig.DaemonConfig.HealthAddr
+	}
+	var healthServer *health.Server
+	if strings.EqualFold(healthAddr, "off") {
+		daemonLog.Info("Health endpoint disabled")
+	} else {
+		healthServer, err = health.Start(healthAddr)
+		if err != nil {
+			daemonLog.Errorf("Failed to start health endpoint on %s: %s (continuing without it)", healthAddr, err)
+		} else {
+			daemonLog.Infof("Health endpoint listening on %s", healthServer.Addr())
+		}
+	}
+
 	done := make(chan bool)
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM)
 	go func() {
 		<-signals
 		daemonLog.Infof("Received SIGTERM, exiting ...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), healthShutdownTimeout)
+		defer cancel()
+		if shutdownErr := healthServer.Shutdown(shutdownCtx); shutdownErr != nil {
+			daemonLog.Errorf("Health endpoint shutdown error: %s", shutdownErr)
+		}
 		ln.Close()
 		done <- true
 	}()
