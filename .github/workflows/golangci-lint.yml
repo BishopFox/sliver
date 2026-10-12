@@ -39,7 +39,7 @@ jobs:
       CGO_ENABLED: "0"
     steps:
       - name: Check Out Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
