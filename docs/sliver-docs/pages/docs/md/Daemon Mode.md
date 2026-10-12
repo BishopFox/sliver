@@ -2,6 +2,8 @@ Sliver supports running in daemon mode, which automatically starts the multiplay
 
 By default, daemon mode exposes the multiplayer listener directly over TCP gRPC/mTLS on port `31337`. The multiplayer WireGuard wrapper is opt-in with `--enable-wg` or `daemon.enable_wg: true`.
 
+The daemon also serves a minimal health endpoint for liveness probes (systemd, Docker, Kubernetes) at `GET /healthz` on `127.0.0.1:31339` by default. It responds with `{"status":"ok"}` and discloses no version or build information. The endpoint is bound to loopback by default; a non-loopback address is allowed but logs a warning. Set `--health-addr off` or `daemon.health_addr: off` to disable it.
+
 There are two ways to run in daemon mode:
 
 1. Start daemon directly from CLI: `sliver-server daemon`
@@ -16,8 +18,10 @@ If `server.yaml` does not exist, Sliver generates it. If a legacy `server.json` 
   - `-p, --lport` multiplayer listener port
   - `-t, --tailscale` enable Tailscale listener
   - `--enable-wg` wrap multiplayer in WireGuard instead of exposing it directly over mTLS
+  - `--health-addr` health endpoint listen address (`host:port`), or `off` to disable
   - `-f, --force` force unpack static assets
 - For `sliver-server daemon`, `--lhost` and `--lport` override config values. If omitted, Sliver uses `daemon.host` and `daemon.port` from `server.yaml`.
+- For `sliver-server daemon`, `--health-addr` overrides `daemon.health_addr`. If omitted, Sliver uses the config value, which defaults to `127.0.0.1:31339`.
 - For normal startup (`sliver-server`) with `daemon_mode: true`, Sliver uses `daemon.tailscale` and `daemon.enable_wg` from `server.yaml`.
 - With `--enable-wg` or `daemon.enable_wg: true`, multiplayer is wrapped in WireGuard. Otherwise it stays on direct TCP mTLS.
 
@@ -30,6 +34,7 @@ daemon:
     port: 31337
     tailscale: false
     enable_wg: false
+    health_addr: 127.0.0.1:31339
 logs:
     level: 4
     grpc_unary_payloads: false
@@ -53,7 +58,7 @@ The `operator` CLI generates direct multiplayer profiles by default. When the da
 
 ### Shutdown Behavior
 
-On Unix-like systems, daemon mode handles `SIGTERM` and exits cleanly.
+On Unix-like systems, daemon mode handles `SIGTERM` and exits cleanly. The health endpoint drains in-flight requests (up to five seconds) before the listener closes.
 
 ### systemd
 

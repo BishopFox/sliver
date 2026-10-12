@@ -488,6 +488,67 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	}
 }
 
+func TestDaemonConfigHealthAddrDefaults(t *testing.T) {
+	t.Run("missing health_addr is backfilled with the default", func(t *testing.T) {
+		t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
+
+		configPath := GetServerConfigPath()
+		if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+			t.Fatalf("failed to create config dir: %v", err)
+		}
+		data := []byte(`daemon_mode: true
+daemon:
+  host: "127.0.0.1"
+  port: 4444
+`)
+		if err := os.WriteFile(configPath, data, 0600); err != nil {
+			t.Fatalf("failed to write yaml config: %v", err)
+		}
+
+		config := GetServerConfig()
+		if config.DaemonConfig == nil {
+			t.Fatalf("expected daemon config")
+		}
+		if config.DaemonConfig.HealthAddr != defaultDaemonHealthAddr {
+			t.Fatalf("expected health addr %q, got %q", defaultDaemonHealthAddr, config.DaemonConfig.HealthAddr)
+		}
+
+		saved, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatalf("failed to read saved config: %v", err)
+		}
+		if !strings.Contains(string(saved), "health_addr: "+defaultDaemonHealthAddr) {
+			t.Fatalf("expected saved config to contain health_addr: %s, got:\n%s", defaultDaemonHealthAddr, string(saved))
+		}
+	})
+
+	t.Run("configured health_addr is preserved", func(t *testing.T) {
+		t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
+
+		configPath := GetServerConfigPath()
+		if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+			t.Fatalf("failed to create config dir: %v", err)
+		}
+		data := []byte(`daemon_mode: true
+daemon:
+  host: "127.0.0.1"
+  port: 4444
+  health_addr: "127.0.0.1:39999"
+`)
+		if err := os.WriteFile(configPath, data, 0600); err != nil {
+			t.Fatalf("failed to write yaml config: %v", err)
+		}
+
+		config := GetServerConfig()
+		if config.DaemonConfig == nil {
+			t.Fatalf("expected daemon config")
+		}
+		if config.DaemonConfig.HealthAddr != "127.0.0.1:39999" {
+			t.Fatalf("expected configured health addr to be preserved, got %q", config.DaemonConfig.HealthAddr)
+		}
+	})
+}
+
 func boolPtr(value bool) *bool {
 	return &value
 }

@@ -33,6 +33,8 @@ const (
 	serverConfigFileName                     = "server.yaml"
 	serverLegacyConfigFileName               = "server.json"
 	defaultGRPCKeepaliveMinTimeSeconds int64 = 30
+
+	defaultDaemonHealthAddr = "127.0.0.1:31339"
 )
 
 var (
@@ -88,6 +90,9 @@ type DaemonConfig struct {
 	// WireGuard-by-default release can be normalized without preserving an
 	// implicit opt-in.
 	LegacyDisableWG *bool `json:"disable_wg,omitempty" yaml:"disable_wg,omitempty"`
+	// HealthAddr is the daemon health endpoint listen address; loopback by
+	// default. Set to "off" to disable the endpoint.
+	HealthAddr string `json:"health_addr,omitempty" yaml:"health_addr,omitempty"`
 }
 
 func (c *DaemonConfig) WireGuardEnabled() bool {
@@ -341,8 +346,9 @@ func getDefaultServerConfig() *ServerConfig {
 	return &ServerConfig{
 		DaemonMode: false,
 		DaemonConfig: &DaemonConfig{
-			Host: "",
-			Port: 31337,
+			Host:       "",
+			Port:       31337,
+			HealthAddr: defaultDaemonHealthAddr,
 		},
 		Logs: &LogConfig{
 			Level:              int(logrus.InfoLevel),
@@ -382,6 +388,9 @@ func normalizeServerConfig(config *ServerConfig) {
 	}
 	if config.DaemonConfig == nil {
 		config.DaemonConfig = &DaemonConfig{}
+	}
+	if config.DaemonConfig.HealthAddr == "" {
+		config.DaemonConfig.HealthAddr = defaultDaemonHealthAddr
 	}
 	config.DaemonConfig.SetWireGuardEnabled(config.DaemonConfig.WireGuardEnabled())
 }
