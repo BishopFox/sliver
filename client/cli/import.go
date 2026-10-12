@@ -20,7 +20,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/rsteube/carapace"
@@ -32,19 +31,12 @@ func importCmd() *cobra.Command {
 		Use:   "import",
 		Short: "Import a client configuration file",
 		Long:  `import [config files]`,
-		Run: func(cmd *cobra.Command, args []string) {
-			if 0 < len(args) {
-				for _, arg := range args {
-					conf, err := assets.ReadConfig(arg)
-					if err != nil {
-						fmt.Printf("[!] %s\n", err)
-						os.Exit(3)
-					}
-					assets.SaveConfig(conf)
-				}
-			} else {
-				fmt.Printf("Missing config file path, see --help")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Missing config file path, see --help")
+				return nil
 			}
+			return importConfigs(args)
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return []string{}, cobra.ShellCompDirectiveDefault
@@ -54,4 +46,20 @@ func importCmd() *cobra.Command {
 	carapace.Gen(cmdImport).PositionalCompletion(carapace.ActionFiles().Tag("server configuration"))
 
 	return cmdImport
+}
+
+func importConfigs(paths []string) error {
+	for _, path := range paths {
+		conf, err := assets.ReadConfig(path)
+		if err != nil {
+			return &commandExitError{
+				code: 3,
+				err:  fmt.Errorf("read import %q: %w", path, err),
+			}
+		}
+		if err := assets.SaveConfig(conf); err != nil {
+			return fmt.Errorf("save import %q: %w", path, err)
+		}
+	}
+	return nil
 }

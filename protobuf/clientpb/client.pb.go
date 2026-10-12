@@ -8743,17 +8743,20 @@ func (x *Operator) GetName() string {
 
 // [ Websites ] ----------------------------------------
 type WebContent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ID            string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	WebsiteID     string                 `protobuf:"bytes,2,opt,name=WebsiteID,proto3" json:"WebsiteID,omitempty"`
-	Path          string                 `protobuf:"bytes,3,opt,name=Path,proto3" json:"Path,omitempty"`
-	ContentType   string                 `protobuf:"bytes,4,opt,name=ContentType,proto3" json:"ContentType,omitempty"`
-	Size          uint64                 `protobuf:"varint,5,opt,name=Size,proto3" json:"Size,omitempty"`
-	OriginalFile  string                 `protobuf:"bytes,6,opt,name=OriginalFile,proto3" json:"OriginalFile,omitempty"`
-	Sha256        string                 `protobuf:"bytes,7,opt,name=Sha256,proto3" json:"Sha256,omitempty"`
-	Content       []byte                 `protobuf:"bytes,9,opt,name=Content,proto3" json:"Content,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	ID           string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	WebsiteID    string                 `protobuf:"bytes,2,opt,name=WebsiteID,proto3" json:"WebsiteID,omitempty"`
+	Path         string                 `protobuf:"bytes,3,opt,name=Path,proto3" json:"Path,omitempty"`
+	ContentType  string                 `protobuf:"bytes,4,opt,name=ContentType,proto3" json:"ContentType,omitempty"`
+	Size         uint64                 `protobuf:"varint,5,opt,name=Size,proto3" json:"Size,omitempty"`
+	OriginalFile string                 `protobuf:"bytes,6,opt,name=OriginalFile,proto3" json:"OriginalFile,omitempty"`
+	Sha256       string                 `protobuf:"bytes,7,opt,name=Sha256,proto3" json:"Sha256,omitempty"`
+	Content      []byte                 `protobuf:"bytes,9,opt,name=Content,proto3" json:"Content,omitempty"`
+	// Upload request only: replace stored bytes even when Content is empty.
+	// Empty Content without this flag preserves existing content during metadata updates.
+	ReplaceContent bool `protobuf:"varint,10,opt,name=ReplaceContent,proto3" json:"ReplaceContent,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *WebContent) Reset() {
@@ -8840,6 +8843,13 @@ func (x *WebContent) GetContent() []byte {
 		return x.Content
 	}
 	return nil
+}
+
+func (x *WebContent) GetReplaceContent() bool {
+	if x != nil {
+		return x.ReplaceContent
+	}
+	return false
 }
 
 type WebsiteAddContent struct {
@@ -17281,7 +17291,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\tOperators\x18\x01 \x03(\v2\x12.clientpb.OperatorR\tOperators\"6\n" +
 	"\bOperator\x12\x16\n" +
 	"\x06Online\x18\x01 \x01(\bR\x06Online\x12\x12\n" +
-	"\x04Name\x18\x02 \x01(\tR\x04Name\"\xde\x01\n" +
+	"\x04Name\x18\x02 \x01(\tR\x04Name\"\x86\x02\n" +
 	"\n" +
 	"WebContent\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1c\n" +
@@ -17291,7 +17301,9 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04Size\x18\x05 \x01(\x04B\x020\x01R\x04Size\x12\"\n" +
 	"\fOriginalFile\x18\x06 \x01(\tR\fOriginalFile\x12\x16\n" +
 	"\x06Sha256\x18\a \x01(\tR\x06Sha256\x12\x18\n" +
-	"\aContent\x18\t \x01(\fR\aContent\"\xc1\x01\n" +
+	"\aContent\x18\t \x01(\fR\aContent\x12&\n" +
+	"\x0eReplaceContent\x18\n" +
+	" \x01(\bR\x0eReplaceContent\"\xc1\x01\n" +
 	"\x11WebsiteAddContent\x12\x12\n" +
 	"\x04Name\x18\x01 \x01(\tR\x04Name\x12E\n" +
 	"\bContents\x18\x02 \x03(\v2).clientpb.WebsiteAddContent.ContentsEntryR\bContents\x1aQ\n" +

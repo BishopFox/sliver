@@ -261,7 +261,7 @@ func kickOperatorCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	exists, err := operatorExists(operator)
+	exists, err := operatorNeedsRevocation(operator)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to lookup operator %s: %v\n", operator, err)
 		return
@@ -288,24 +288,21 @@ func shouldPromptKickOperator(cmd *cobra.Command, args []string) bool {
 }
 
 func removeOperator(operator string) error {
-	operators, err := operatorRecordsByName(operator)
-	if err != nil {
+	if err := deleteOperatorRecords(operator); err != nil {
 		return err
 	}
-	err = db.Session().Where(&models.Operator{
-		Name: operator,
-	}).Delete(&models.Operator{}).Error
-	if err != nil {
+	return db.ReleaseOperatorWGIPs(operator)
+}
+
+func deleteOperatorRecords(operator string) error {
+	if strings.TrimSpace(operator) == "" {
+		return errors.New("operator name required")
+	}
+	if err := db.Session().Where("name = ?", operator).Delete(&models.Operator{}).Error; err != nil {
 		return err
 	}
-	for _, dbOperator := range operators {
-		if dbOperator == nil {
-			continue
-		}
-		if err := db.ReleaseWGIP(dbOperator.WGTunIP); err != nil {
-			return err
-		}
-	}
+	// Invalidate cached authorization immediately after the account is removed.
+	// Ancillary WireGuard and certificate cleanup must not defer this step.
 	transport.ClearTokenCache()
 	return nil
 }
@@ -324,14 +321,32 @@ func kickOperator(operator string) error {
 		return err
 	}
 
-	if err := removeOperator(operator); err != nil {
+	if err := deleteOperatorRecords(operator); err != nil {
 		return err
 	}
 	defer closeOperatorStreams(operator)
 	for _, dbOperator := range dbOperators {
 		publishOperatorWGPeerRemoval(dbOperator)
 	}
-	return revokeOperatorClientCertificate(operator)
+	// Continue revocation even if reservation cleanup fails. A later retry can
+	// find the reservation by owner after the operator record has gone.
+	return errors.Join(db.ReleaseOperatorWGIPs(operator), revokeOperatorClientCertificate(operator))
+}
+
+func operatorNeedsRevocation(operator string) (bool, error) {
+	exists, err := operatorExists(operator)
+	if err != nil || exists {
+		return exists, err
+	}
+	exists, err = db.HasOperatorWGIPReservation(operator)
+	if err != nil || exists {
+		return exists, err
+	}
+	_, _, err = certs.OperatorClientGetCertificate(operator)
+	if errors.Is(err, certs.ErrCertDoesNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func operatorNames() ([]string, error) {
@@ -339,14 +354,29 @@ func operatorNames() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	pendingWG, err := db.OperatorWGIPReservationOwners()
+	if err != nil {
+		return nil, err
+	}
 
-	names := make([]string, 0, len(operators))
-	seen := make(map[string]struct{}, len(operators))
+	names := make([]string, 0, len(operators)+len(pendingWG))
+	seen := make(map[string]struct{}, len(operators)+len(pendingWG))
 	for _, operator := range operators {
 		if operator == nil {
 			continue
 		}
 		name := strings.TrimSpace(operator.Name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	for _, name := range pendingWG {
+		name = strings.TrimSpace(name)
 		if name == "" {
 			continue
 		}

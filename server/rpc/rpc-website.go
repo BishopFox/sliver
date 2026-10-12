@@ -31,6 +31,8 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -138,14 +140,25 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 	return website.MapContent(req.Name, true)
 }
 
-// WebsiteUpdateContent - Update specific content from a website, currently you can only the update Content-type field
+// WebsiteUpdateContent - Update content types of existing website paths.
 func (rpc *Server) WebsiteUpdateContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
+	if req == nil || req.Name == "" || len(req.Contents) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "website name and content paths are required")
+	}
+	contentTypes := make(map[string]string, len(req.Contents))
+	for path, content := range req.Contents {
+		if path == "" || content == nil || content.ContentType == "" || (content.Path != "" && content.Path != path) {
+			return nil, status.Error(codes.InvalidArgument, "invalid website content path or content type")
+		}
+		contentTypes[path] = content.ContentType
+	}
+
 	dbWebsite, err := website.WebsiteByName(req.Name)
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	for _, content := range req.Contents {
-		website.AddContent(dbWebsite.Name, content)
+	if err := db.UpdateWebContentTypes(dbWebsite.ID, contentTypes); err != nil {
+		return nil, rpcError(err)
 	}
 
 	core.EventBroker.Publish(core.Event{

@@ -19,6 +19,7 @@ package cli
 */
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -34,6 +35,8 @@ const (
 	logFileName = "sliver-client.log"
 )
 
+var clientLogFile *os.File
+
 // Initialize logging.
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -47,8 +50,7 @@ func initLogging(appDir string) *os.File {
 
 func init() {
 	appDir := assets.GetRootAppDir()
-	logFile := initLogging(appDir)
-	defer logFile.Close()
+	clientLogFile = initLogging(appDir)
 
 	rootCmd.TraverseChildren = true
 	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
@@ -97,10 +99,34 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 }
 
+type commandExitError struct {
+	code int
+	err  error
+}
+
+func (e *commandExitError) Error() string {
+	return e.err.Error()
+}
+
+func (e *commandExitError) Unwrap() error {
+	return e.err
+}
+
+func commandExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	if exitErr, ok := errors.AsType[*commandExitError](err); ok {
+		return exitErr.code
+	}
+	return 1
+}
+
 // Execute - Execute root command.
 func Execute() {
+	defer func() { _ = clientLogFile.Close() }()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("root command: %s\n", err)
-		os.Exit(1)
+		os.Exit(commandExitCode(err))
 	}
 }

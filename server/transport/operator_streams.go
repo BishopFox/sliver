@@ -6,8 +6,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type trackedServerStream struct {
@@ -115,8 +118,18 @@ func trackOperatorStreamInterceptor() grpc.StreamServerInterceptor {
 			return handler(srv, ss)
 		}
 
+		// Token authentication can finish before a concurrent kick. Recheck the
+		// account and register the stream under the cache invalidation gate so
+		// CloseOperatorStreams cannot miss a late registration.
+		tokenCacheMu.RLock()
+		stored := &models.Operator{}
+		if err := db.Session().Select("id").Where("id = ?", operator.ID).First(stored).Error; err != nil {
+			tokenCacheMu.RUnlock()
+			return status.Error(codes.Unauthenticated, "Authentication failure")
+		}
 		ctx, cancel := context.WithCancel(ss.Context())
 		streamID := activeOperatorStreams.register(operator.Name, cancel)
+		tokenCacheMu.RUnlock()
 		defer func() {
 			activeOperatorStreams.unregister(operator.Name, streamID)
 			cancel()

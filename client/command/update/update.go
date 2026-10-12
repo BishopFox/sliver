@@ -1,3 +1,4 @@
+// Package update implements release download and verification commands.
 package update
 
 /*
@@ -243,6 +244,11 @@ func assetSuffixes(goos, goarch string) []string {
 	add(fmt.Sprintf("_%s.zip", goos))
 	add(fmt.Sprintf("_%s", goos))
 
+	if goos == "windows" {
+		add(fmt.Sprintf("_windows-%s.exe", goarch))
+		add("_windows.exe")
+	}
+
 	if goos == "darwin" {
 		add(fmt.Sprintf("_macos-%s.zip", goarch))
 		add(fmt.Sprintf("_macos-%s", goarch))
@@ -332,21 +338,19 @@ func downloadAssetWithSignature(con *console.SliverClient, client *http.Client, 
 	if err != nil {
 		return fmt.Errorf("download asset: %w", err)
 	}
+	defer func() { _ = os.Remove(assetTempPath) }()
 
 	sigData, err := downloadBytesWithRetries(client, sigURL, sigLimit, "signature")
 	if err != nil {
-		cleanupAssetFiles(assetTempPath, finalPath)
 		return fmt.Errorf("download signature: %w", err)
 	}
 
 	if err := verifyMinisignSignature(assetTempPath, sigData, assetFileName, publicKey); err != nil {
-		cleanupAssetFiles(assetTempPath, finalPath)
 		return err
 	}
 	con.PrintSuccessf("Signature verified for %s\n", finalPath)
 
 	if err := replaceFile(assetTempPath, finalPath); err != nil {
-		os.Remove(assetTempPath)
 		return err
 	}
 	return nil
@@ -628,17 +632,5 @@ func trustedCommentFile(trustedComment string) string {
 }
 
 func replaceFile(src, dst string) error {
-	if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
-		return err
-	}
 	return os.Rename(src, dst)
-}
-
-func cleanupAssetFiles(tempPath, finalPath string) {
-	if tempPath != "" {
-		_ = os.Remove(tempPath)
-	}
-	if finalPath != "" {
-		_ = os.Remove(finalPath)
-	}
 }
