@@ -38,7 +38,7 @@ jobs:
           git build-essential zlib1g zlib1g-dev wget zip unzip
 
       - name: Check Out Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -82,7 +82,7 @@ jobs:
         run: choco install make -y --no-progress
 
       - name: Check Out Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -123,7 +123,7 @@ jobs:
           go-version: "1.27.1"
 
       - name: Check Out Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -161,7 +161,7 @@ jobs:
           go-version: "1.27.1"
 
       - name: Check Out Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
