@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tetratelabs/wazero/api"
-
-	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/ncruces/go-sqlite3/internal/errutil"
+	"github.com/ncruces/go-sqlite3/internal/sqlite3_wrap"
 	"github.com/ncruces/go-sqlite3/vfs"
 )
 
@@ -22,7 +21,7 @@ import (
 //
 // https://sqlite.org/c3ref/sqlite3.html
 type Conn struct {
-	*sqlite
+	wrp *sqlite3_wrap.Wrapper
 
 	interrupt  context.Context
 	stmts      []*Stmt
@@ -35,10 +34,11 @@ type Conn struct {
 	update     func(AuthorizerActionCode, string, string, int64)
 	commit     func() bool
 	rollback   func()
+	preupdate  func(PreUpdateData)
 
 	busy1st time.Time
 	busylst time.Time
-	arena   arena
+	arena   sqlite3_wrap.Arena
 	handle  ptr_t
 	gosched uint8
 }
@@ -69,8 +69,6 @@ func OpenFlags(filename string, flags OpenFlag) (*Conn, error) {
 	return newConn(context.Background(), filename, flags)
 }
 
-type connKey = util.ConnKey
-
 func newConn(ctx context.Context, filename string, flags OpenFlag) (ret *Conn, _ error) {
 	err := ctx.Err()
 	if err != nil {
@@ -78,24 +76,23 @@ func newConn(ctx context.Context, filename string, flags OpenFlag) (ret *Conn, _
 	}
 
 	c := &Conn{interrupt: ctx}
-	c.sqlite, err = instantiateSQLite()
+	c.wrp, err = createWrapper(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if ret == nil {
 			c.Close()
-			c.sqlite.close()
 		} else {
 			c.interrupt = context.Background()
 		}
 	}()
 
-	c.ctx = context.WithValue(c.ctx, connKey{}, c)
+	c.wrp.DB = c
 	if logger := defaultLogger.Load(); logger != nil {
 		c.ConfigLog(*logger)
 	}
-	c.arena = c.newArena()
+	c.arena = c.wrp.NewArena()
 	c.handle, err = c.openDB(filename, flags)
 	if err == nil {
 		err = initExtensions(c)
@@ -107,24 +104,24 @@ func newConn(ctx context.Context, filename string, flags OpenFlag) (ret *Conn, _
 }
 
 func (c *Conn) openDB(filename string, flags OpenFlag) (ptr_t, error) {
-	defer c.arena.mark()()
-	connPtr := c.arena.new(ptrlen)
-	namePtr := c.arena.string(filename)
+	defer c.arena.Mark()()
+	connPtr := c.arena.New(ptrlen)
+	namePtr := c.arena.String(filename)
 
 	flags |= OPEN_EXRESCODE
-	rc := res_t(c.call("sqlite3_open_v2", stk_t(namePtr), stk_t(connPtr), stk_t(flags), 0))
+	rc := res_t(c.wrp.Xsqlite3_open_v2(int32(namePtr), int32(connPtr), int32(flags), 0))
 
-	handle := util.Read32[ptr_t](c.mod, connPtr)
-	if err := c.sqlite.error(rc, handle); err != nil {
+	handle := ptr_t(c.wrp.Read32(connPtr))
+	if err := c.errorFor(handle, rc); err != nil {
 		c.closeDB(handle)
 		return 0, err
 	}
 
-	c.call("sqlite3_progress_handler_go", stk_t(handle), 1000)
+	c.wrp.Xsqlite3_progress_handler_go(int32(handle), 1000)
 	if flags|OPEN_URI != 0 && strings.HasPrefix(filename, "file:") {
 		var pragmas strings.Builder
-		if _, after, ok := strings.Cut(filename, "?"); ok {
-			query, _ := url.ParseQuery(after)
+		if u, err := url.Parse(filename); err == nil {
+			query := u.Query()
 			for _, p := range query["_pragma"] {
 				pragmas.WriteString(`PRAGMA `)
 				pragmas.WriteString(p)
@@ -132,9 +129,9 @@ func (c *Conn) openDB(filename string, flags OpenFlag) (ptr_t, error) {
 			}
 		}
 		if pragmas.Len() != 0 {
-			pragmaPtr := c.arena.string(pragmas.String())
-			rc := res_t(c.call("sqlite3_exec", stk_t(handle), stk_t(pragmaPtr), 0, 0, 0))
-			if err := c.sqlite.error(rc, handle, pragmas.String()); err != nil {
+			pragmaPtr := c.arena.String(pragmas.String())
+			rc := res_t(c.wrp.Xsqlite3_exec(int32(handle), int32(pragmaPtr), 0, 0, 0))
+			if err := c.errorFor(handle, rc, pragmas.String()); err != nil {
 				err = fmt.Errorf("sqlite3: invalid _pragma: %w", err)
 				c.closeDB(handle)
 				return 0, err
@@ -145,9 +142,9 @@ func (c *Conn) openDB(filename string, flags OpenFlag) (ptr_t, error) {
 }
 
 func (c *Conn) closeDB(handle ptr_t) {
-	rc := res_t(c.call("sqlite3_close_v2", stk_t(handle)))
-	if err := c.sqlite.error(rc, handle); err != nil {
-		panic(err)
+	rc := res_t(c.wrp.Xsqlite3_close_v2(int32(handle)))
+	if err := c.errorFor(handle, rc); err != nil {
+		panic(err) // MISUSE
 	}
 }
 
@@ -165,13 +162,13 @@ func (c *Conn) Close() error {
 		return nil
 	}
 
-	rc := res_t(c.call("sqlite3_close", stk_t(c.handle)))
+	rc := res_t(c.wrp.Xsqlite3_close(int32(c.handle)))
 	if err := c.error(rc); err != nil {
 		return err
 	}
 
 	c.handle = 0
-	return c.close()
+	return c.wrp.Close()
 }
 
 // Exec is a convenience function that allows an application to run
@@ -186,9 +183,9 @@ func (c *Conn) Exec(sql string) error {
 }
 
 func (c *Conn) exec(sql string) error {
-	defer c.arena.mark()()
-	textPtr := c.arena.string(sql)
-	rc := res_t(c.call("sqlite3_exec", stk_t(c.handle), stk_t(textPtr), 0, 0, 0))
+	defer c.arena.Mark()()
+	textPtr := c.arena.String(sql)
+	rc := res_t(c.wrp.Xsqlite3_exec(int32(c.handle), int32(textPtr), 0, 0, 0))
 	return c.error(rc, sql)
 }
 
@@ -211,18 +208,18 @@ func (c *Conn) PrepareFlags(sql string, flags PrepareFlag) (stmt *Stmt, tail str
 		return nil, "", INTERRUPT
 	}
 
-	defer c.arena.mark()()
-	stmtPtr := c.arena.new(ptrlen)
-	tailPtr := c.arena.new(ptrlen)
-	textPtr := c.arena.string(sql)
+	defer c.arena.Mark()()
+	stmtPtr := c.arena.New(ptrlen)
+	tailPtr := c.arena.New(ptrlen)
+	textPtr := c.arena.String(sql)
 
-	rc := res_t(c.call("sqlite3_prepare_v3", stk_t(c.handle),
-		stk_t(textPtr), stk_t(len(sql)+1), stk_t(flags),
-		stk_t(stmtPtr), stk_t(tailPtr)))
+	rc := res_t(c.wrp.Xsqlite3_prepare_v3(int32(c.handle),
+		int32(textPtr), int32(len(sql)+1), int32(flags),
+		int32(stmtPtr), int32(tailPtr)))
 
 	stmt = &Stmt{c: c, sql: sql}
-	stmt.handle = util.Read32[ptr_t](c.mod, stmtPtr)
-	if sql := sql[util.Read32[ptr_t](c.mod, tailPtr)-textPtr:]; sql != "" {
+	stmt.handle = ptr_t(c.wrp.Read32(stmtPtr))
+	if sql := sql[ptr_t(c.wrp.Read32(tailPtr))-textPtr:]; sql != "" {
 		tail = sql
 	}
 
@@ -240,11 +237,11 @@ func (c *Conn) PrepareFlags(sql string, flags PrepareFlag) (stmt *Stmt, tail str
 //
 // https://sqlite.org/c3ref/db_name.html
 func (c *Conn) DBName(n int) string {
-	ptr := ptr_t(c.call("sqlite3_db_name", stk_t(c.handle), stk_t(n)))
+	ptr := ptr_t(c.wrp.Xsqlite3_db_name(int32(c.handle), int32(n)))
 	if ptr == 0 {
 		return ""
 	}
-	return util.ReadString(c.mod, ptr, _MAX_NAME)
+	return c.wrp.ReadString(ptr, _MAX_NAME)
 }
 
 // Filename returns the filename for a database.
@@ -253,23 +250,23 @@ func (c *Conn) DBName(n int) string {
 func (c *Conn) Filename(schema string) *vfs.Filename {
 	var ptr ptr_t
 	if schema != "" {
-		defer c.arena.mark()()
-		ptr = c.arena.string(schema)
+		defer c.arena.Mark()()
+		ptr = c.arena.String(schema)
 	}
-	ptr = ptr_t(c.call("sqlite3_db_filename", stk_t(c.handle), stk_t(ptr)))
-	return vfs.GetFilename(c.ctx, c.mod, ptr, vfs.OPEN_MAIN_DB)
+	ptr = ptr_t(c.wrp.Xsqlite3_db_filename(int32(c.handle), int32(ptr)))
+	return vfs.GetFilename(c.wrp, ptr, vfs.OPEN_MAIN_DB)
 }
 
 // ReadOnly determines if a database is read-only.
 //
 // https://sqlite.org/c3ref/db_readonly.html
-func (c *Conn) ReadOnly(schema string) (ro bool, ok bool) {
+func (c *Conn) ReadOnly(schema string) (ro, ok bool) {
 	var ptr ptr_t
 	if schema != "" {
-		defer c.arena.mark()()
-		ptr = c.arena.string(schema)
+		defer c.arena.Mark()()
+		ptr = c.arena.String(schema)
 	}
-	b := int32(c.call("sqlite3_db_readonly", stk_t(c.handle), stk_t(ptr)))
+	b := c.wrp.Xsqlite3_db_readonly(int32(c.handle), int32(ptr))
 	return b > 0, b < 0
 }
 
@@ -277,7 +274,7 @@ func (c *Conn) ReadOnly(schema string) (ro bool, ok bool) {
 //
 // https://sqlite.org/c3ref/get_autocommit.html
 func (c *Conn) GetAutocommit() bool {
-	b := int32(c.call("sqlite3_get_autocommit", stk_t(c.handle)))
+	b := c.wrp.Xsqlite3_get_autocommit(int32(c.handle))
 	return b != 0
 }
 
@@ -286,7 +283,7 @@ func (c *Conn) GetAutocommit() bool {
 //
 // https://sqlite.org/c3ref/last_insert_rowid.html
 func (c *Conn) LastInsertRowID() int64 {
-	return int64(c.call("sqlite3_last_insert_rowid", stk_t(c.handle)))
+	return c.wrp.Xsqlite3_last_insert_rowid(int32(c.handle))
 }
 
 // SetLastInsertRowID allows the application to set the value returned by
@@ -294,7 +291,7 @@ func (c *Conn) LastInsertRowID() int64 {
 //
 // https://sqlite.org/c3ref/set_last_insert_rowid.html
 func (c *Conn) SetLastInsertRowID(id int64) {
-	c.call("sqlite3_set_last_insert_rowid", stk_t(c.handle), stk_t(id))
+	c.wrp.Xsqlite3_set_last_insert_rowid(int32(c.handle), id)
 }
 
 // Changes returns the number of rows modified, inserted or deleted
@@ -303,7 +300,7 @@ func (c *Conn) SetLastInsertRowID(id int64) {
 //
 // https://sqlite.org/c3ref/changes.html
 func (c *Conn) Changes() int64 {
-	return int64(c.call("sqlite3_changes64", stk_t(c.handle)))
+	return c.wrp.Xsqlite3_changes64(int32(c.handle))
 }
 
 // TotalChanges returns the number of rows modified, inserted or deleted
@@ -312,14 +309,14 @@ func (c *Conn) Changes() int64 {
 //
 // https://sqlite.org/c3ref/total_changes.html
 func (c *Conn) TotalChanges() int64 {
-	return int64(c.call("sqlite3_total_changes64", stk_t(c.handle)))
+	return c.wrp.Xsqlite3_total_changes64(int32(c.handle))
 }
 
 // ReleaseMemory frees memory used by a database connection.
 //
 // https://sqlite.org/c3ref/db_release_memory.html
 func (c *Conn) ReleaseMemory() error {
-	rc := res_t(c.call("sqlite3_db_release_memory", stk_t(c.handle)))
+	rc := res_t(c.wrp.Xsqlite3_db_release_memory(int32(c.handle)))
 	return c.error(rc)
 }
 
@@ -351,8 +348,8 @@ func (c *Conn) SetInterrupt(ctx context.Context) (old context.Context) {
 	return old
 }
 
-func progressCallback(ctx context.Context, mod api.Module, _ ptr_t) (interrupt int32) {
-	if c, ok := ctx.Value(connKey{}).(*Conn); ok {
+func (e env) Xgo_progress_handler(_ int32) (interrupt int32) {
+	if c, ok := e.DB.(*Conn); ok {
 		if c.gosched++; c.gosched%16 == 0 {
 			runtime.Gosched()
 		}
@@ -368,13 +365,13 @@ func progressCallback(ctx context.Context, mod api.Module, _ ptr_t) (interrupt i
 // https://sqlite.org/c3ref/busy_timeout.html
 func (c *Conn) BusyTimeout(timeout time.Duration) error {
 	ms := min((timeout+time.Millisecond-1)/time.Millisecond, math.MaxInt32)
-	rc := res_t(c.call("sqlite3_busy_timeout", stk_t(c.handle), stk_t(ms)))
+	rc := res_t(c.wrp.Xsqlite3_busy_timeout(int32(c.handle), int32(ms)))
 	return c.error(rc)
 }
 
-func timeoutCallback(ctx context.Context, mod api.Module, count, tmout int32) (retry int32) {
+func (e env) Xgo_busy_timeout(count, tmout int32) (retry int32) {
 	// https://fractaledmind.github.io/2024/04/15/sqlite-on-rails-the-how-and-why-of-optimal-performance/
-	if c, ok := ctx.Value(connKey{}).(*Conn); ok && c.interrupt.Err() == nil {
+	if c, ok := e.DB.(*Conn); ok && c.interrupt.Err() == nil {
 		switch {
 		case count == 0:
 			c.busy1st = time.Now()
@@ -399,7 +396,7 @@ func (c *Conn) BusyHandler(cb func(ctx context.Context, count int) (retry bool))
 	if cb != nil {
 		enable = 1
 	}
-	rc := res_t(c.call("sqlite3_busy_handler_go", stk_t(c.handle), stk_t(enable)))
+	rc := res_t(c.wrp.Xsqlite3_busy_handler_go(int32(c.handle), enable))
 	if err := c.error(rc); err != nil {
 		return err
 	}
@@ -407,8 +404,8 @@ func (c *Conn) BusyHandler(cb func(ctx context.Context, count int) (retry bool))
 	return nil
 }
 
-func busyCallback(ctx context.Context, mod api.Module, pDB ptr_t, count int32) (retry int32) {
-	if c, ok := ctx.Value(connKey{}).(*Conn); ok && c.handle == pDB && c.busy != nil {
+func (e env) Xgo_busy_handler(pDB, count int32) (retry int32) {
+	if c, ok := e.DB.(*Conn); ok && c.handle == ptr_t(pDB) && c.busy != nil {
 		if interrupt := c.interrupt; interrupt.Err() == nil &&
 			c.busy(interrupt, int(count)) {
 			retry = 1
@@ -421,20 +418,20 @@ func busyCallback(ctx context.Context, mod api.Module, pDB ptr_t, count int32) (
 //
 // https://sqlite.org/c3ref/db_status.html
 func (c *Conn) Status(op DBStatus, reset bool) (current, highwater int64, err error) {
-	defer c.arena.mark()()
-	hiPtr := c.arena.new(8)
-	curPtr := c.arena.new(8)
+	defer c.wrp.StackMark()()
+	hiPtr := c.wrp.StackAlloc(8)
+	curPtr := c.wrp.StackAlloc(8)
 
 	var i int32
 	if reset {
 		i = 1
 	}
 
-	rc := res_t(c.call("sqlite3_db_status64", stk_t(c.handle),
-		stk_t(op), stk_t(curPtr), stk_t(hiPtr), stk_t(i)))
+	rc := res_t(c.wrp.Xsqlite3_db_status64(int32(c.handle),
+		int32(op), int32(curPtr), int32(hiPtr), i))
 	if err = c.error(rc); err == nil {
-		current = util.Read64[int64](c.mod, curPtr)
-		highwater = util.Read64[int64](c.mod, hiPtr)
+		current = int64(c.wrp.Read64(curPtr))
+		highwater = int64(c.wrp.Read64(hiPtr))
 	}
 	return
 }
@@ -443,7 +440,7 @@ func (c *Conn) Status(op DBStatus, reset bool) (current, highwater int64, err er
 //
 // https://sqlite.org/c3ref/table_column_metadata.html
 func (c *Conn) TableColumnMetadata(schema, table, column string) (declType, collSeq string, notNull, primaryKey, autoInc bool, err error) {
-	defer c.arena.mark()()
+	defer c.arena.Mark()()
 	var (
 		declTypePtr   ptr_t
 		collSeqPtr    ptr_t
@@ -454,38 +451,78 @@ func (c *Conn) TableColumnMetadata(schema, table, column string) (declType, coll
 		schemaPtr     ptr_t
 	)
 	if column != "" {
-		declTypePtr = c.arena.new(ptrlen)
-		collSeqPtr = c.arena.new(ptrlen)
-		notNullPtr = c.arena.new(ptrlen)
-		primaryKeyPtr = c.arena.new(ptrlen)
-		autoIncPtr = c.arena.new(ptrlen)
-		columnPtr = c.arena.string(column)
+		declTypePtr = c.arena.New(ptrlen)
+		collSeqPtr = c.arena.New(ptrlen)
+		notNullPtr = c.arena.New(ptrlen)
+		primaryKeyPtr = c.arena.New(ptrlen)
+		autoIncPtr = c.arena.New(ptrlen)
+		columnPtr = c.arena.String(column)
 	}
 	if schema != "" {
-		schemaPtr = c.arena.string(schema)
+		schemaPtr = c.arena.String(schema)
 	}
-	tablePtr := c.arena.string(table)
+	tablePtr := c.arena.String(table)
 
-	rc := res_t(c.call("sqlite3_table_column_metadata", stk_t(c.handle),
-		stk_t(schemaPtr), stk_t(tablePtr), stk_t(columnPtr),
-		stk_t(declTypePtr), stk_t(collSeqPtr),
-		stk_t(notNullPtr), stk_t(primaryKeyPtr), stk_t(autoIncPtr)))
+	rc := res_t(c.wrp.Xsqlite3_table_column_metadata(int32(c.handle),
+		int32(schemaPtr), int32(tablePtr), int32(columnPtr),
+		int32(declTypePtr), int32(collSeqPtr),
+		int32(notNullPtr), int32(primaryKeyPtr), int32(autoIncPtr)))
 	if err = c.error(rc); err == nil && column != "" {
-		if ptr := util.Read32[ptr_t](c.mod, declTypePtr); ptr != 0 {
-			declType = util.ReadString(c.mod, ptr, _MAX_NAME)
+		if ptr := ptr_t(c.wrp.Read32(declTypePtr)); ptr != 0 {
+			declType = c.wrp.ReadString(ptr, _MAX_NAME)
 		}
-		if ptr := util.Read32[ptr_t](c.mod, collSeqPtr); ptr != 0 {
-			collSeq = util.ReadString(c.mod, ptr, _MAX_NAME)
+		if ptr := ptr_t(c.wrp.Read32(collSeqPtr)); ptr != 0 {
+			collSeq = c.wrp.ReadString(ptr, _MAX_NAME)
 		}
-		notNull = util.ReadBool(c.mod, notNullPtr)
-		autoInc = util.ReadBool(c.mod, autoIncPtr)
-		primaryKey = util.ReadBool(c.mod, primaryKeyPtr)
+		notNull = c.wrp.ReadBool(notNullPtr)
+		autoInc = c.wrp.ReadBool(autoIncPtr)
+		primaryKey = c.wrp.ReadBool(primaryKeyPtr)
 	}
 	return
 }
 
 func (c *Conn) error(rc res_t, sql ...string) error {
-	return c.sqlite.error(rc, c.handle, sql...)
+	return c.errorFor(c.handle, rc, sql...)
+}
+
+func (c *Conn) errorFor(handle ptr_t, rc res_t, sql ...string) error {
+	if rc == _OK {
+		return nil
+	}
+
+	if ErrorCode(rc) == NOMEM || xErrorCode(rc) == IOERR_NOMEM {
+		panic(errutil.OOMErr)
+	}
+
+	var msg, query string
+	if handle != 0 {
+		if ptr := ptr_t(c.wrp.Xsqlite3_errmsg(int32(handle))); ptr != 0 {
+			msg = c.wrp.ReadString(ptr, _MAX_LENGTH)
+			msg = strings.TrimPrefix(msg, "sqlite3: ")
+			msg = strings.TrimPrefix(msg, sqlite3_wrap.ErrorCodeString(rc)[len("sqlite3: "):])
+			msg = strings.TrimPrefix(msg, ": ")
+			if msg == "" || msg == "not an error" {
+				msg = ""
+			}
+		}
+
+		if len(sql) != 0 {
+			if i := c.wrp.Xsqlite3_error_offset(int32(handle)); i != -1 {
+				query = sql[0][i:]
+			}
+		}
+	}
+
+	var sys error
+	switch ErrorCode(rc) {
+	case CANTOPEN, IOERR:
+		sys = c.wrp.SysError
+	}
+
+	if sys != nil || msg != "" || query != "" {
+		return &Error{code: rc, sys: sys, msg: msg, sql: query}
+	}
+	return xErrorCode(rc)
 }
 
 // Stmts returns an iterator for the prepared statements
