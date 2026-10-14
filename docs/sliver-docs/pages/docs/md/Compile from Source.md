@@ -2,7 +2,7 @@ Sliver can be compiled on Linux, macOS, and native Windows. Windows users can al
 
 To compile from source you'll need:
 
-- Go v1.27.1 or later
+- Go v1.27.2 or later
 - `make` (on MacOS you may need to install XCode and accompanying cli tools)
 
 ```asciinema
