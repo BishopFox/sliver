@@ -127,9 +127,10 @@ type MultiplayerJobConfig struct {
 
 // MTLSJobConfig - Per-type job configs
 type MTLSJobConfig struct {
-	Host  string `json:"host" yaml:"host"`
-	Port  uint16 `json:"port" yaml:"port"`
-	JobID string `json:"job_id" yaml:"job_id"`
+	Host          string `json:"host" yaml:"host"`
+	Port          uint16 `json:"port" yaml:"port"`
+	JobID         string `json:"job_id" yaml:"job_id"`
+	EnforceConLog bool   `json:"enforce_console_log" yaml:"enforce_console_log"`
 }
 
 // WGJobConfig - Per-type job configs
@@ -165,6 +166,7 @@ type HTTPJobConfig struct {
 	LongPollTimeout int64  `json:"long_poll_timeout" yaml:"long_poll_timeout"`
 	LongPollJitter  int64  `json:"long_poll_jitter" yaml:"long_poll_jitter"`
 	RandomizeJARM   bool   `json:"randomize_jarm" yaml:"randomize_jarm"`
+	EnforceConLog   bool   `json:"enforce_console_log" yaml:"enforce_console_log"`
 }
 
 // WatchTowerConfig - Watch Tower job config
