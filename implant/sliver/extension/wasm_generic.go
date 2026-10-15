@@ -1,4 +1,4 @@
-//go:build !((windows && (amd64 || 386)) || (darwin && (arm64 || amd64)) || (linux && (amd64 || 386)))
+//go:build !((windows && (arm64 || amd64 || 386)) || (darwin && (arm64 || amd64)) || (linux && (arm64 || amd64 || 386)))
 
 package extension
 
@@ -56,5 +56,10 @@ func (w *WasmExtension) Close() error {
 
 // NewWasmExtension - For platforms that don't support Wasm extensions
 func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmExtension, error) {
+	return NewWasmExtensionWithOptions(name, wasm, memFS)
+}
+
+// NewWasmExtensionWithOptions - For platforms that don't support Wasm extensions
+func NewWasmExtensionWithOptions(name string, wasm []byte, memFS map[string][]byte, options ...WasmExtensionOption) (*WasmExtension, error) {
 	return nil, errors.New("Wasm extensions are not supported on this platform")
 }

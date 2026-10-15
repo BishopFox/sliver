@@ -35,6 +35,7 @@ ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
 CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
 SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
+ASSET_BUILD_SOURCES = $(filter-out %_test.go,$(wildcard util/assets/*.go util/cmd/assets/*.go util/cmd/sliver-wasm-go/*.go util/cmd/sliver-wasm-go/overlay/*.go.txt))
 
 .PHONY: lint
 lint:
@@ -199,7 +200,7 @@ clean-all: clean
 clean:
 	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
-.downloaded_assets:
+.downloaded_assets: $(ASSET_BUILD_SOURCES)
 	$(ENV) $(GO) run -mod=vendor ./util/cmd/assets
 	touch ./.downloaded_assets
 
@@ -324,7 +325,7 @@ clean-all: clean
 clean:
 	-del /Q /F sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe 2>NUL
 
-.downloaded_assets:
+.downloaded_assets: $(ASSET_BUILD_SOURCES)
 	$(call windows_exec,$(ENV),"$(GO)" run -mod=vendor ./util/cmd/assets)
 	@type NUL > .downloaded_assets
 
