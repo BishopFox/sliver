@@ -39,18 +39,18 @@ jobs:
       CGO_ENABLED: "0"
     steps:
       - name: Check Out Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Go 1.27.1
+      - name: Go 1.27.2
         uses: actions/setup-go@v6
         with:
-          go-version: "1.27.1"
+          go-version: "1.27.2"
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.1
+          version: v2.14.0
           # Gate only findings introduced since the event base revision.
           args: --new-from-rev=${{ github.event.pull_request.base.sha || github.event.before }} ./client/... ./server/... ./util/... ./protobuf/... ./docs ./implant/...
