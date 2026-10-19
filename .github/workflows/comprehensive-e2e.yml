@@ -78,7 +78,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -128,7 +128,7 @@ jobs:
           printf 'darwin/%s\n' '${{ matrix.goarch }}' > e2e-results/target-darwin-${{ matrix.goarch }}.txt
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -220,7 +220,7 @@ jobs:
           printf 'linux/%s\n' '${{ matrix.goarch }}' > e2e-results/target-linux-${{ matrix.goarch }}.txt
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -312,7 +312,7 @@ jobs:
           printf 'windows/%s\n' '${{ matrix.goarch }}' > e2e-results/target-windows-${{ matrix.goarch }}.txt
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -395,7 +395,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -470,7 +470,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
