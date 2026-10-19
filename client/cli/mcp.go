@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	clientmcp "github.com/bishopfox/sliver/client/mcp"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/keepalive"
 )
 
 func mcpCmd(con *console.SliverClient) *cobra.Command {
@@ -53,6 +55,14 @@ func runMCP(cmd *cobra.Command, con *console.SliverClient) error {
 		return nil
 	}
 
+	// Keep the gRPC link alive while the MCP bridge sits idle between tool calls.
+	// The daemon permits pings >=30s without streams (server.yaml: grpc.keepalive).
+	transport.SetKeepaliveParams(keepalive.ClientParameters{
+		Time:                60 * time.Second,
+		Timeout:             20 * time.Second,
+		PermitWithoutStream: true,
+	})
+
 	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf("Connection to server failed %s\n", err)
@@ -61,7 +71,10 @@ func runMCP(cmd *cobra.Command, con *console.SliverClient) error {
 	defer transport.CloseGRPCConnection(ln)
 
 	con.Rpc = rpc
-	go handleConnectionLost(ln)
+	// Do not install the connection-lost watchdog here: gRPC channels idle
+	// out after 30 minutes without RPCs (grpc-go default) and transparently
+	// reconnect on the next call. Exiting on the Idle state would kill an
+	// otherwise healthy MCP bridge between tool calls.
 
 	cfg := clientmcp.DefaultConfig()
 	if err := clientmcp.ServeStdio(cfg, con.Rpc); err != nil {
