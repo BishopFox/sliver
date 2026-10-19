@@ -288,13 +288,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	implantBuildsCmd.AddCommand(implantsRmCmd)
 
 	implantsStageCmd := &cobra.Command{
-		Use:   consts.StageStr,
+		Use:   consts.StageStr + " [implant-name] ...",
 		Short: "Serve a previously generated build",
 		Long:  help.GetHelpFor([]string{consts.ImplantBuildsStr, consts.StageStr}),
+		Args:  cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			ImplantsStageCmd(cmd, con, args)
 		},
 	}
+	carapace.Gen(implantsStageCmd).PositionalAnyCompletion(ImplantBuildNameCompleter(con))
 	implantBuildsCmd.AddCommand(implantsStageCmd)
 
 	canariesCmd := &cobra.Command{

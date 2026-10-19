@@ -37,6 +37,23 @@ func ImplantsStageCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		return
 	}
 
+	if len(args) > 0 {
+		selected := []string{}
+		for _, name := range args {
+			if _, ok := builds.Configs[name]; !ok {
+				con.PrintErrorf("No implant build found with name '%s'\n", name)
+				return
+			}
+			selected = append(selected, name)
+		}
+		_, err = con.Rpc.StageImplantBuild(context.Background(), &clientpb.ImplantStageReq{Build: selected})
+		if err != nil {
+			con.PrintErrorf("Failed to serve implant %s\n", err)
+			return
+		}
+		return
+	}
+
 	options := []string{}
 	for name := range builds.Configs {
 		options = append(options, name)
