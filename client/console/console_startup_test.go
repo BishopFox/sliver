@@ -66,7 +66,7 @@ func TestCheckLastUpdateBeforeReadline(t *testing.T) {
 	}
 }
 
-func captureStartupOutput(t *testing.T, print func()) string {
+func captureStartupOutput(t *testing.T, writeOutput func()) string {
 	t.Helper()
 
 	// An unexpected cursor query must fail the assertion rather than wait
@@ -90,7 +90,7 @@ func captureStartupOutput(t *testing.T, print func()) string {
 	os.Stdout = writer
 	t.Cleanup(func() { os.Stdout = previousStdout })
 
-	print()
+	writeOutput()
 	os.Stdout = previousStdout
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
