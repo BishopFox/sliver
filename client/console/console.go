@@ -826,7 +826,9 @@ func (con *SliverClient) CheckLastUpdate() {
 	day := 24 * time.Hour
 	if compiledAt.Add(30 * day).Before(now) {
 		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			con.Printf("%sCheck for updates with the 'update' command\n\n", Info)
+			// The startup banner runs before readline enables raw terminal mode.
+			// Print directly so the reminder cannot redraw the prompt or query the cursor.
+			fmt.Printf("%sCheck for updates with the 'update' command\n\n", Info)
 		}
 	}
 }
