@@ -149,7 +149,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := goToolPath(config.GOROOT, "garble")
-	garbleFlags := []string{"-seed=random", "-literals", "-literals-shared", "-tiny"}
+	garbleFlags := []string{"-seed=random", "-literals", "-literals-shared", "-literals-shared-short", "-tiny"}
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
