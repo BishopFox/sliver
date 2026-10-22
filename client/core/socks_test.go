@@ -1598,6 +1598,8 @@ func TestSocksReceiveLoopOverloadedConnectionDoesNotBlockHealthyConnection(t *te
 		t.Fatal("healthy SOCKS terminal did not close after ordered data")
 	}
 
+	// Start local shutdown before releasing the fake receive stream.
+	proxy.beginStop()
 	stream.results <- socksReceiveTestResult{err: io.EOF}
 	if err := proxy.Stop(); err != nil {
 		t.Fatalf("stop SOCKS receive test proxy: %v", err)
@@ -1689,6 +1691,8 @@ func TestSocksReceiveLoopRejectsInvalidAcknowledgementAtExactTunnelScope(t *test
 				t.Fatal("invalid acknowledgement closed healthy sibling")
 			}
 
+			// Start local shutdown before releasing the fake receive stream.
+			proxy.beginStop()
 			stream.results <- socksReceiveTestResult{err: io.EOF}
 			if err := proxy.Stop(); err != nil {
 				t.Fatalf("stop acknowledgement test proxy: %v", err)
@@ -1754,6 +1758,8 @@ func TestSocksReceiveLoopAppliesValidAcknowledgementOutOfBand(t *testing.T) {
 		}
 	}
 
+	// Start local shutdown before releasing the fake receive stream.
+	proxy.beginStop()
 	stream.results <- socksReceiveTestResult{err: io.EOF}
 	if err := proxy.Stop(); err != nil {
 		t.Fatalf("stop valid acknowledgement test proxy: %v", err)
