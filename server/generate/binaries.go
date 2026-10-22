@@ -802,6 +802,9 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 		tags = append(tags, "netgo")
 	}
 	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	if !config.Debug && !config.ObfuscateSymbols {
+		ldflags[0] = "-s -w"
+	}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
