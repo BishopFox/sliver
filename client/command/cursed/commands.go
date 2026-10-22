@@ -72,6 +72,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("payload", "p", "", "cursed chrome payload file path (.js)")
 		f.BoolP("keep-alive", "k", false, "keeps browser alive after last browser window closes")
 		f.BoolP("headless", "H", false, "start browser process in headless mode")
+		f.Uint32P("ppid", "P", 0, "parent process id to spoof")
 	})
 	flags.BindFlagCompletions(cursedChromeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["payload"] = carapace.ActionFiles("js").Tag("javascript files")
@@ -97,6 +98,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("payload", "p", "", "cursed chrome payload file path (.js)")
 		f.BoolP("keep-alive", "k", false, "keeps browser alive after last browser window closes")
 		f.BoolP("headless", "H", false, "start browser process in headless mode")
+		f.Uint32P("ppid", "P", 0, "parent process id to spoof")
 	})
 	flags.BindFlagCompletions(cursedEdgeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["payload"] = carapace.ActionFiles("js").Tag("javascript files")
@@ -117,6 +119,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, cursedElectronCmd, func(f *pflag.FlagSet) {
 		f.StringP("exe", "e", "", "remote electron executable absolute path")
 		f.IntP("remote-debugging-port", "r", 0, "remote debugging tcp port (0 = random)")
+		f.Uint32P("ppid", "P", 0, "parent process id to spoof")
 	})
 	cursedElectronCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
 	carapace.Gen(cursedElectronCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("additional Electron CLI arguments"))
