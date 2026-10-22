@@ -165,6 +165,20 @@ CGO_ENABLED=0 go test -c -mod=vendor -trimpath \
   -implant-modes session,beacon
 ```
 
+To verify the WASM extension path on a generated, obfuscated implant, use the same server and driver build commands above, then run the focused lifecycle scope. The driver starts a loopback listener and generates fresh session and beacon implants. Both modes register a tiny deterministic gzip-compressed WASI module, confirm inventory, and complete a subsequent `Ping`; the session also executes the module and asserts its distinctive exit code. Beacon execution uses a tunnel handler that the beacon task dispatcher does not route, so the focused run logs that cell as unsupported. For example, on a native Darwin/arm64 host:
+
+```sh
+./sliver-comprehensive-e2e \
+  -test.v -test.run=^TestComprehensiveE2E$ -test.timeout=0 \
+  -repo . -server ./sliver-server-e2e \
+  -target-os darwin -target-arch arm64 \
+  -results ./e2e-results -suite-scope wasm \
+  -transports mtls -implant-modes session,beacon \
+  -implant-obfuscate
+```
+
+Run the same command natively on `linux/amd64` or `windows/amd64`, changing the target flags and executable suffix on Windows. WASM extensions are unsupported on Linux/arm64 and Windows/arm64. The `wasm` scope writes PASS/FAIL details to the driver log; it does not claim the full comprehensive command matrix passed.
+
 For a local feature-only run, add either `-suite-scope rportfwd` or `-suite-scope portfwd-socks5`. Both scopes automatically select sessions even if the default `session,beacon` mode list is retained. The latter is intentionally local/Proxmox-only for now: the existing GitHub Actions dispatch input has not been changed to accept it. Its default `base` profile is diagnostic only; add `-tunnel-acceptance-profile proxmox` together with all required range target flags for an acceptance run. In GitHub Actions, `rportfwd` remains the only focused choice on the manually dispatched **Comprehensive e2e Tests** workflow.
 
 Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. The default four SGN samples match the workflow; `-shellcode-sgn-samples` can request a higher stress depth. Shellcode aggregation expects the complete four-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
