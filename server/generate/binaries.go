@@ -198,6 +198,21 @@ func appendToLDFlags(ldflags []string, extra string) []string {
 	return []string{joined}
 }
 
+// applyCompactExecutableFunctionAlignment removes unnecessary padding between
+// functions in non-debug obfuscated executables. Go's linker keeps explicit
+// per-symbol alignments, so functions that require them remain aligned.
+func applyCompactExecutableFunctionAlignment(config *clientpb.ImplantConfig, ldflags []string) []string {
+	if config.Debug || !config.ObfuscateSymbols {
+		return ldflags
+	}
+	switch config.GOARCH {
+	case "amd64":
+		return appendToLDFlags(ldflags, "-funcalign=1")
+	default:
+		return ldflags
+	}
+}
+
 const linuxShellcodeBuildIDLDFlag = "-extldflags=-Wl,--build-id"
 
 func applyLinuxShellcodeBuildID(ldflags []string) []string {
@@ -811,6 +826,7 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 		gcFlags = "all=-N -l"
 		ldflags = []string{}
 	}
+	ldflags = applyCompactExecutableFunctionAlignment(config, ldflags)
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err

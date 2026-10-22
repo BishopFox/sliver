@@ -165,6 +165,8 @@ CGO_ENABLED=0 go test -c -mod=vendor -trimpath \
   -implant-modes session,beacon
 ```
 
+Pass `-implant-obfuscate` to generate implants with Garble symbol and literal obfuscation during a local run. The driver logs each generated implant size and SHA256, and verifies that amd64 builds outside debug mode used `-funcalign=1` before launching them.
+
 For a local feature-only run, add either `-suite-scope rportfwd` or `-suite-scope portfwd-socks5`. Both scopes automatically select sessions even if the default `session,beacon` mode list is retained. The latter is intentionally local/Proxmox-only for now: the existing GitHub Actions dispatch input has not been changed to accept it. Its default `base` profile is diagnostic only; add `-tunnel-acceptance-profile proxmox` together with all required range target flags for an acceptance run. In GitHub Actions, `rportfwd` remains the only focused choice on the manually dispatched **Comprehensive e2e Tests** workflow.
 
 Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. The default four SGN samples match the workflow; `-shellcode-sgn-samples` can request a higher stress depth. Shellcode aggregation expects the complete four-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.

@@ -51,6 +51,7 @@ func init() {
 	flag.IntVar(&testOptions.rdpCredentialsFD, "tunnel-rdp-credentials-fd", -1, "optional descriptor containing one runtime-only RDP credential and certificate-pin JSON object")
 	flag.StringVar(&testOptions.tunnelAcceptanceProfile, "tunnel-acceptance-profile", tunnelAcceptanceProfileBase, "focused tunnel evidence profile (base or proxmox)")
 	flag.BoolVar(&testOptions.implantDebug, "implant-debug", false, "generate debug implants and capture their transport logs")
+	flag.BoolVar(&testOptions.implantObfuscate, "implant-obfuscate", false, "generate implants with Garble symbol and literal obfuscation")
 	flag.BoolVar(&goroutineLeakProfile, "goroutine-leak-profile", false, "write the goroutine leak profile at comprehensive E2E shutdown")
 }
 

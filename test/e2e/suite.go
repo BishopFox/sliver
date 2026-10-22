@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -76,6 +77,7 @@ type options struct {
 	rdpCredentialsFD        int
 	tunnelAcceptanceProfile string
 	implantDebug            bool
+	implantObfuscate        bool
 }
 
 type suite struct {
@@ -861,7 +863,7 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 		GOARCH:              s.opts.targetArch,
 		TemplateName:        "sliver",
 		Debug:               s.opts.implantDebug,
-		ObfuscateSymbols:    false,
+		ObfuscateSymbols:    s.opts.implantObfuscate,
 		IsBeacon:            beacon,
 		BeaconInterval:      int64(s.opts.beaconInterval),
 		BeaconJitter:        0,
@@ -904,6 +906,15 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	if generated.File == nil || generated.File.Name == "" || len(generated.File.Data) == 0 {
 		return fmt.Errorf("generate %s returned an empty executable", implantName)
+	}
+	if s.opts.implantObfuscate {
+		hash := sha256.Sum256(generated.File.Data)
+		s.t.Logf("Generated obfuscated implant %s: %d bytes, SHA256 %x", implantName, len(generated.File.Data), hash)
+		if s.opts.targetArch == "amd64" && !s.opts.implantDebug {
+			if err := verifyCompactExecutableBuild(filepath.Join(s.serverRoot, "logs", "sliver.json"), implantName); err != nil {
+				return fmt.Errorf("verify compact obfuscated build for %s: %w", implantName, err)
+			}
+		}
 	}
 
 	remoteRoot := filepath.Join(s.workDir, "targets", implantName)
@@ -1301,6 +1312,25 @@ func readLogTailBytes(path string, limit int64) string {
 		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
 	return strings.TrimSpace(string(data))
+}
+
+// verifyCompactExecutableBuild checks the server's recorded compiler command
+// for the exact generated implant before the E2E driver launches it.
+func verifyCompactExecutableBuild(logPath, implantName string) error {
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		return fmt.Errorf("read compiler log: %w", err)
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.Contains(line, "garble cmd:") || !strings.Contains(line, implantName) {
+			continue
+		}
+		if !slices.Contains(strings.Fields(line), "-funcalign=1") {
+			return fmt.Errorf("compiler command for %s omitted -funcalign=1", implantName)
+		}
+		return nil
+	}
+	return fmt.Errorf("compiler command for %s not found", implantName)
 }
 
 func readCompilerStderr(path string) string {
