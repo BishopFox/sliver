@@ -308,6 +308,77 @@ func TestWasmMemoryFSEdgeCreateThroughDanglingSymlink(t *testing.T) {
 	}
 }
 
+func TestWasmMemoryFSEdgeSymlinkParentTraversal(t *testing.T) {
+	memFS := memFSTestNew(t, map[string][]byte{
+		"file.txt":      []byte("root-sentinel"),
+		"real/file.txt": []byte("target-data"),
+	})
+	memFSTestRequireErrno(t, 0, memFS.Mkdir("real/subdir", 0o700))
+	memFSTestRequireErrno(t, 0, memFS.Symlink("real/subdir", "alias"))
+	memFSTestRequireErrno(t, 0, memFS.Symlink("alias/../file.txt", "link"))
+	if got := string(memFSTestReadPath(t, memFS, "link")); got != "target-data" {
+		t.Fatalf("nested symlink resolved to the wrong file: %q", got)
+	}
+
+	file := memFSTestOpen(t, memFS, "link", experimentalsys.O_WRONLY|experimentalsys.O_TRUNC)
+	if n, errno := file.Write([]byte("updated")); errno != 0 || n != len("updated") {
+		_ = file.Close()
+		t.Fatalf("write through nested symlink: n=%d errno=%v", n, errno)
+	}
+	memFSTestRequireErrno(t, 0, file.Close())
+	if got := string(memFSTestReadPath(t, memFS, "real/file.txt")); got != "updated" {
+		t.Fatalf("nested symlink did not update its target: %q", got)
+	}
+	if got := string(memFSTestReadPath(t, memFS, "file.txt")); got != "root-sentinel" {
+		t.Fatalf("nested symlink changed the root file: %q", got)
+	}
+
+	memFSTestRequireErrno(t, 0, memFS.Symlink("alias/../created.txt", "dangling"))
+	created := memFSTestOpen(t, memFS, "dangling", experimentalsys.O_CREAT|experimentalsys.O_RDWR)
+	memFSTestRequireErrno(t, 0, created.Close())
+	_, errno := memFS.Stat("real/created.txt")
+	memFSTestRequireErrno(t, 0, errno)
+	_, errno = memFS.Stat("created.txt")
+	memFSTestRequireErrno(t, experimentalsys.ENOENT, errno)
+	if target, errno := memFS.Readlink("dangling"); errno != 0 || target != "alias/../created.txt" {
+		t.Fatalf("create replaced the nested symlink: target=%q errno=%v", target, errno)
+	}
+}
+
+func TestWasmMemoryFSEdgeSymlinkParentTraversalRejectsInvalid(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		target string
+		errno  experimentalsys.Errno
+	}{
+		{name: "escape root", target: "root/../sentinel", errno: experimentalsys.EINVAL},
+		{name: "regular file parent", target: "file/../sentinel", errno: experimentalsys.ENOTDIR},
+		{name: "missing parent", target: "missing/../sentinel", errno: experimentalsys.ENOENT},
+		{name: "link loop", target: "loop/../sentinel", errno: experimentalsys.ELOOP},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			memFS := memFSTestNew(t, map[string][]byte{"sentinel": []byte("unchanged")})
+			memFSTestRequireErrno(t, 0, memFS.Symlink(".", "root"))
+			memFSTestRequireErrno(t, 0, memFS.Symlink("sentinel", "file"))
+			memFSTestRequireErrno(t, 0, memFS.Symlink("loop", "loop"))
+			memFSTestRequireErrno(t, 0, memFS.Symlink(test.target, "link"))
+			for _, flags := range []experimentalsys.Oflag{
+				experimentalsys.O_RDONLY,
+				experimentalsys.O_CREAT | experimentalsys.O_RDWR | experimentalsys.O_TRUNC,
+			} {
+				file, errno := memFS.OpenFile("link", flags, 0o600)
+				if file != nil {
+					_ = file.Close()
+				}
+				memFSTestRequireErrno(t, test.errno, errno)
+			}
+			if got := string(memFSTestReadPath(t, memFS, "sentinel")); got != "unchanged" {
+				t.Fatalf("invalid symlink changed the sentinel: %q", got)
+			}
+		})
+	}
+}
+
 func TestWasmMemoryFSEdgeSymlinkTargetBounds(t *testing.T) {
 	memFS := memFSTestNew(t, nil)
 	componentLimit := strings.Repeat("a", wasmMemoryFSMaxNameBytes)

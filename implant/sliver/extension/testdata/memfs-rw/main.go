@@ -22,7 +22,7 @@ const (
 
 func main() {
 	if len(os.Args) != 2 {
-		fail("usage: memfs-rw <write|read|readonly>")
+		fail("usage: memfs-rw <write|read|symlinks|readonly>")
 	}
 
 	var err error
@@ -31,6 +31,8 @@ func main() {
 		err = writeAndMutate()
 	case "read":
 		err = readPersistedState()
+	case "symlinks":
+		err = verifyNestedSymlinks()
 	case "readonly":
 		err = verifyReadOnly()
 	default:
@@ -119,6 +121,53 @@ func readPersistedState() error {
 		return fmt.Errorf("read state from prior execution: %w", err)
 	}
 	fmt.Println("memfs-rw-state-ok")
+	return nil
+}
+
+func verifyNestedSymlinks() error {
+	const root = "/memfs/symlinks"
+	if err := os.MkdirAll(root+"/real/subdir", 0o700); err != nil {
+		return fmt.Errorf("create symlink directories: %w", err)
+	}
+	for name, contents := range map[string]string{
+		root + "/file.txt":      "root-sentinel",
+		root + "/real/file.txt": "target-data",
+	} {
+		if err := os.WriteFile(name, []byte(contents), 0o600); err != nil {
+			return fmt.Errorf("seed symlink file: %w", err)
+		}
+	}
+	for name, target := range map[string]string{
+		root + "/alias":    "real/subdir",
+		root + "/link":     "alias/../file.txt",
+		root + "/dangling": "alias/../created.txt",
+	} {
+		if err := os.Symlink(target, name); err != nil {
+			return fmt.Errorf("create symlink: %w", err)
+		}
+	}
+	if err := expectFileContents(root+"/link", "target-data"); err != nil {
+		return err
+	}
+	if err := os.WriteFile(root+"/link", []byte("updated"), 0o600); err != nil {
+		return fmt.Errorf("truncate through nested symlink: %w", err)
+	}
+	if err := expectFileContents(root+"/real/file.txt", "updated"); err != nil {
+		return err
+	}
+	if err := expectFileContents(root+"/file.txt", "root-sentinel"); err != nil {
+		return err
+	}
+	if err := os.WriteFile(root+"/dangling", []byte("created"), 0o600); err != nil {
+		return fmt.Errorf("create through nested symlink: %w", err)
+	}
+	if err := expectFileContents(root+"/real/created.txt", "created"); err != nil {
+		return err
+	}
+	if _, err := os.Stat(root + "/created.txt"); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("nested symlink created a root file: %v", err)
+	}
+	fmt.Println("memfs-symlinks-ok")
 	return nil
 }
 

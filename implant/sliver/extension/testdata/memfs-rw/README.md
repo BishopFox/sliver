@@ -3,7 +3,9 @@
 This Go/WASI program is the integration fixture for the extension runtime's
 `/memfs` implementation. It creates directories and files, performs sequential
 and append I/O, renames entries, reopens persisted data, and removes files and
-directories. Its `readonly` mode verifies that seeded data remains readable
+directories. Its `symlinks` mode verifies that nested symbolic links resolve
+before parent-directory traversal during reads, truncation, and creation.
+Its `readonly` mode verifies that seeded data remains readable
 while create and truncate operations fail.
 
 Build it outside the Sliver console with the bundled wrapper:

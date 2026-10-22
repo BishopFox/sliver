@@ -480,6 +480,9 @@ func (w *Host) listen(network, local string) (uint32, uint32) {
 			return 0, wasmNetworkErrno(err)
 		}
 		socket = &wasmNetworkSocket{network: network, packet: packet}
+		if conn, ok := packet.(net.Conn); ok {
+			socket.conn = conn
+		}
 	}
 	handle, errno := w.addHandle(socket)
 	if errno != 0 {

@@ -54,6 +54,10 @@ func lookupProtocol(_ context.Context, name string) (int, error) {
 }
 
 func (r *Resolver) lookupHost(ctx context.Context, host string) ([]string, error) {
+	if r != nil && r.Dial != nil {
+		order, conf := systemConf().hostLookupOrder(r, host)
+		return r.goLookupHostOrder(ctx, host, order, conf)
+	}
 	return wasiNetLookup(ctx, "ip", host)
 }
 
@@ -61,6 +65,10 @@ func (r *Resolver) lookupIP(ctx context.Context, network, host string) ([]IPAddr
 	lookupNetwork := wasiNetLookupNetwork(network)
 	if lookupNetwork == "" {
 		return nil, UnknownNetworkError(network)
+	}
+	if r != nil && r.Dial != nil {
+		order, conf := systemConf().hostLookupOrder(r, host)
+		return r.goLookupIP(ctx, lookupNetwork, host, order, conf)
 	}
 
 	addresses, err := wasiNetLookup(ctx, lookupNetwork, host)

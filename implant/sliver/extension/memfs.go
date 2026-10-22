@@ -476,20 +476,12 @@ func resolveWasmMemoryLinkPath(base []string, target string, remaining []string)
 	}
 	segments := append([]string(nil), base...)
 	for _, segment := range strings.Split(target, "/") {
-		switch segment {
-		case "", ".":
-			continue
-		case "..":
-			if len(segments) == 0 {
-				return nil, experimentalsys.EINVAL
-			}
-			segments = segments[:len(segments)-1]
-		default:
-			if len(segment) > wasmMemoryFSMaxNameBytes {
-				return nil, experimentalsys.ENAMETOOLONG
-			}
-			segments = append(segments, segment)
+		if len(segment) > wasmMemoryFSMaxNameBytes {
+			return nil, experimentalsys.ENAMETOOLONG
 		}
+		// Preserve dot components until lookup has followed preceding links.
+		// For example, alias/../file depends on the directory alias targets.
+		segments = append(segments, segment)
 	}
 	segments = append(segments, remaining...)
 	if len(strings.Join(segments, "/")) > wasmMemoryFSMaxPathBytes {
@@ -507,60 +499,67 @@ func (state *wasmMemoryFSState) lookupLocked(name string, followFinal bool) (*wa
 }
 
 func (state *wasmMemoryFSState) lookupSegmentsLocked(segments []string, followFinal bool, depth int) (*wasmMemoryNode, experimentalsys.Errno) {
+	node, _, errno := state.walkPathSegmentsLocked(segments, followFinal, depth)
+	return node, errno
+}
+
+// walkPathSegmentsLocked resolves components in filesystem order. On ENOENT,
+// resolved is nonempty only when the final component is missing, allowing
+// O_CREAT to use the same resolution rules as ordinary lookup.
+func (state *wasmMemoryFSState) walkPathSegmentsLocked(segments []string, followFinal bool, depth int) (*wasmMemoryNode, []string, experimentalsys.Errno) {
 	if depth > wasmMemoryFSMaxLinkDepth {
-		return nil, experimentalsys.ELOOP
+		return nil, nil, experimentalsys.ELOOP
 	}
 	current := state.root
+	resolved := make([]string, 0, len(segments))
+	parents := make([]*wasmMemoryNode, 0, len(segments))
 	for index, segment := range segments {
 		if !current.isDir() {
-			return nil, experimentalsys.ENOTDIR
+			return nil, nil, experimentalsys.ENOTDIR
+		}
+		switch segment {
+		case "", ".":
+			continue
+		case "..":
+			if len(parents) == 0 {
+				return nil, nil, experimentalsys.EINVAL
+			}
+			current = parents[len(parents)-1]
+			parents = parents[:len(parents)-1]
+			resolved = resolved[:len(resolved)-1]
+			continue
 		}
 		next, ok := current.children[segment]
 		if !ok {
-			return nil, experimentalsys.ENOENT
+			if index == len(segments)-1 {
+				return nil, append(resolved, segment), experimentalsys.ENOENT
+			}
+			return nil, nil, experimentalsys.ENOENT
 		}
 		if next.isSymlink() && (followFinal || index < len(segments)-1) {
-			resolved, errno := resolveWasmMemoryLinkPath(segments[:index], next.linkTarget, segments[index+1:])
+			expanded, errno := resolveWasmMemoryLinkPath(resolved, next.linkTarget, segments[index+1:])
 			if errno != 0 {
-				return nil, errno
+				return nil, nil, errno
 			}
-			return state.lookupSegmentsLocked(resolved, followFinal, depth+1)
+			return state.walkPathSegmentsLocked(expanded, followFinal, depth+1)
 		}
+		parents = append(parents, current)
+		resolved = append(resolved, segment)
 		current = next
 	}
-	return current, 0
+	return current, resolved, 0
 }
 
 // createPathSegmentsLocked resolves all symbolic links and returns a path
 // whose final entry does not yet exist. This lets O_CREAT follow a dangling
 // final symlink without replacing the link itself.
 func (state *wasmMemoryFSState) createPathSegmentsLocked(segments []string, depth int) ([]string, experimentalsys.Errno) {
-	if depth > wasmMemoryFSMaxLinkDepth {
-		return nil, experimentalsys.ELOOP
+	_, resolved, errno := state.walkPathSegmentsLocked(segments, true, depth)
+	if errno == experimentalsys.ENOENT && len(resolved) != 0 {
+		return resolved, 0
 	}
-	if len(segments) == 0 {
-		return nil, experimentalsys.EEXIST
-	}
-	current := state.root
-	for index, segment := range segments {
-		if !current.isDir() {
-			return nil, experimentalsys.ENOTDIR
-		}
-		next, ok := current.children[segment]
-		if !ok {
-			if index != len(segments)-1 {
-				return nil, experimentalsys.ENOENT
-			}
-			return segments, 0
-		}
-		if next.isSymlink() {
-			resolved, errno := resolveWasmMemoryLinkPath(segments[:index], next.linkTarget, segments[index+1:])
-			if errno != 0 {
-				return nil, errno
-			}
-			return state.createPathSegmentsLocked(resolved, depth+1)
-		}
-		current = next
+	if errno != 0 {
+		return nil, errno
 	}
 	return nil, experimentalsys.EEXIST
 }

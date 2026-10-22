@@ -149,6 +149,50 @@ func TestWasmNetworkUnconnectedUDP(t *testing.T) {
 	n, _, err := client.ReadFrom(buffer)
 	mustNoError(t, err)
 	assert.Equal(t, []byte("pong"), buffer[:n])
+
+	// UDPConn.Read also works on an unconnected listener, discarding the source
+	// address while retaining datagram boundaries, including empty datagrams.
+	mustZero(t, network.hostSetDeadline(context.Background(), handle, 1, deadline))
+	for _, payload := range [][]byte{[]byte("read"), {}} {
+		_, err = client.WriteTo(payload, socket.localAddr())
+		mustNoError(t, err)
+		readResult := runWasmNetworkOperation(t, network, func(ctx context.Context) wasmNetworkResult {
+			return network.read(ctx, handle, 32, deadline)
+		})
+		mustZero(t, readResult.errno)
+		assert.Equal(t, payload, readResult.data)
+		assert.Equal(t, uint32(len(payload)), readResult.n)
+	}
+}
+
+func TestWasmNetworkUnconnectedUDPReadDeadlineAndCancel(t *testing.T) {
+	network := newWasmNetwork(context.Background())
+	t.Cleanup(func() {
+		mustNoError(t, network.Close())
+	})
+	handle, errno := network.listen("udp4", "127.0.0.1:0")
+	mustZero(t, errno)
+
+	mustZero(t, network.hostSetDeadline(context.Background(), handle, 1, time.Now().Add(-time.Second).UnixNano()))
+	result := runWasmNetworkOperation(t, network, func(ctx context.Context) wasmNetworkResult {
+		return network.read(ctx, handle, 32, 0)
+	})
+	assert.Equal(t, uint32(wasiErrnoTimedOut), result.errno)
+
+	mustZero(t, network.hostSetDeadline(context.Background(), handle, 1, 0))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	readResult := make(chan wasmNetworkResult, 1)
+	go func() {
+		readResult <- network.read(ctx, handle, 32, 0)
+	}()
+	cancel()
+	select {
+	case result := <-readResult:
+		assert.Equal(t, uint32(wasiErrnoCanceled), result.errno)
+	case <-time.After(5 * time.Second):
+		t.Fatal("UDP read remained blocked after cancellation")
+	}
 }
 
 func TestWasmNetworkLookupAndCleanup(t *testing.T) {

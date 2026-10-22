@@ -21,6 +21,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "UDP round trip: %v\n", err)
 		os.Exit(1)
 	}
+	if err := udpReadRoundTrip(); err != nil {
+		fmt.Fprintf(os.Stderr, "UDP listener read: %v\n", err)
+		os.Exit(1)
+	}
 	if err := closeRace(); err != nil {
 		fmt.Fprintf(os.Stderr, "close race: %v\n", err)
 		os.Exit(1)
@@ -163,6 +167,40 @@ func udpRoundTrip() error {
 	}
 	if !bytes.Equal(response[:n], []byte("pong")) {
 		return fmt.Errorf("response = %q", response[:n])
+	}
+	return nil
+}
+
+func udpReadRoundTrip() error {
+	listener, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	client, err := net.DialUDP("udp4", nil, listener.LocalAddr().(*net.UDPAddr))
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	deadline := time.Now().Add(networkTimeout)
+	if err := listener.SetReadDeadline(deadline); err != nil {
+		return err
+	}
+	if err := client.SetWriteDeadline(deadline); err != nil {
+		return err
+	}
+	for _, payload := range [][]byte{[]byte("ping"), {}} {
+		if _, err := client.Write(payload); err != nil {
+			return err
+		}
+		request := make([]byte, 32)
+		n, err := listener.Read(request)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(request[:n], payload) {
+			return fmt.Errorf("request = %q, want %q", request[:n], payload)
+		}
 	}
 	return nil
 }

@@ -39,6 +39,20 @@ func TestWasmMemFSGuestIntegration(t *testing.T) {
 		assert.Contains(t, stdout, "memfs-rw-state-ok")
 	})
 
+	t.Run("nested symlinks resolve before parent traversal", func(t *testing.T) {
+		extension, err := NewWasmExtension(t.Name(), wasm, nil)
+		mustNoError(t, err)
+
+		stdout, stderr, exitCodes, executeErrors := executeWasmMemFSGuest(
+			t,
+			extension,
+			[]string{"symlinks"},
+		)
+		mustNoError(t, executeErrors[0], stderr)
+		mustZero(t, exitCodes[0], stderr)
+		assert.Contains(t, stdout, "memfs-symlinks-ok")
+	})
+
 	t.Run("read-only rejects guest mutations", func(t *testing.T) {
 		extension, err := NewWasmExtensionWithOptions(
 			t.Name(),

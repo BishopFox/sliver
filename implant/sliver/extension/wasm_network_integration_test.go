@@ -62,6 +62,21 @@ func TestWasmNetworkGuestRoundTrip(t *testing.T) {
 	assert.Contains(t, string(stdout), "network-smoke-ok")
 }
 
+func TestWasmResolverDial(t *testing.T) {
+	wasmPath := buildWasmTestModule(
+		t,
+		"SLIVER_WASM_RESOLVER_DIAL_WASM",
+		"./implant/sliver/extension/testdata/resolver-dial",
+	)
+	wasm, err := os.ReadFile(wasmPath)
+	mustNoError(t, err)
+
+	stdout, stderr, exitCode, err := runWasmTestModule(t, wasm, nil)
+	mustNoError(t, err, string(stderr))
+	mustZero(t, exitCode, string(stderr))
+	assert.Contains(t, string(stdout), "resolver-dial-ok")
+}
+
 func buildWasmTestModule(t *testing.T, environmentName, packagePath string) string {
 	t.Helper()
 	if path := os.Getenv(environmentName); path != "" {
