@@ -35,6 +35,7 @@ import (
 const (
 	operatorName                   = "e2e-operator"
 	suiteScopeComprehensive        = "comprehensive"
+	suiteScopeWasm                 = "wasm"
 	suiteScopeRportFwd             = "rportfwd"
 	suiteScopePortfwdSocks5        = "portfwd-socks5"
 	tunnelAcceptanceProfileBase    = "base"
@@ -76,6 +77,7 @@ type options struct {
 	rdpCredentialsFD        int
 	tunnelAcceptanceProfile string
 	implantDebug            bool
+	implantObfuscate        bool
 }
 
 type suite struct {
@@ -402,6 +404,9 @@ func validateOptions(opts *options) error {
 	if !supported[target] {
 		return fmt.Errorf("target %s is not in the comprehensive E2E matrix", target)
 	}
+	if opts.suiteScope == suiteScopeWasm && (target == "linux/arm64" || target == "windows/arm64") {
+		return fmt.Errorf("WASM extensions are not supported on %s", target)
+	}
 	if runtime.GOOS != opts.targetOS || runtime.GOARCH != opts.targetArch {
 		return fmt.Errorf("E2E driver must run as the implant target: driver is %s/%s, target is %s", runtime.GOOS, runtime.GOARCH, target)
 	}
@@ -528,8 +533,8 @@ func validateSocksFuzzOptions(caseCount int, replayCase int) error {
 
 func normalizeSuiteScope(value string) (string, error) {
 	scope := strings.TrimSpace(value)
-	if scope != suiteScopeComprehensive && scope != suiteScopeRportFwd && scope != suiteScopePortfwdSocks5 {
-		return "", fmt.Errorf("unknown E2E suite scope %q (want %s, %s, or %s)", scope, suiteScopeComprehensive, suiteScopeRportFwd, suiteScopePortfwdSocks5)
+	if scope != suiteScopeComprehensive && scope != suiteScopeWasm && scope != suiteScopeRportFwd && scope != suiteScopePortfwdSocks5 {
+		return "", fmt.Errorf("unknown E2E suite scope %q (want %s, %s, %s, or %s)", scope, suiteScopeComprehensive, suiteScopeWasm, suiteScopeRportFwd, suiteScopePortfwdSocks5)
 	}
 	return scope, nil
 }
@@ -861,7 +866,7 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 		GOARCH:              s.opts.targetArch,
 		TemplateName:        "sliver",
 		Debug:               s.opts.implantDebug,
-		ObfuscateSymbols:    false,
+		ObfuscateSymbols:    s.opts.implantObfuscate,
 		IsBeacon:            beacon,
 		BeaconInterval:      int64(s.opts.beaconInterval),
 		BeaconJitter:        0,
@@ -959,6 +964,9 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	if s.opts.suiteScope == suiteScopeComprehensive {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseCommands(target, remoteRoot, listener.transport))
+	}
+	if s.opts.suiteScope == suiteScopeWasm {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseWasmExtensionLifecycle(target, listener.transport))
 	}
 	if target.session != nil && s.opts.suiteScope == suiteScopePortfwdSocks5 {
 		exerciseErrors = appendIfError(exerciseErrors, s.exercisePortForward(target, listener.transport))

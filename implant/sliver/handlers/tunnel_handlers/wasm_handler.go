@@ -2,6 +2,7 @@ package tunnel_handlers
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -39,7 +39,7 @@ func ExecWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 		return
 	}
 
-	wasmBin, err := encoders.Gzip.Decode(extReq.WasmGz)
+	wasmBin, err := decodeWasmGzip(extReq.WasmGz)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("error decoding Wasm extension: %v", err)
@@ -74,6 +74,19 @@ func ExecWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 			connection.CloseTunnelRemote(tunnel)
 		}
 	}
+}
+
+func decodeWasmGzip(data []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(reader)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtension) ([]byte, error) {
