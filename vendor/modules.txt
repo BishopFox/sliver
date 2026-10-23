@@ -930,8 +930,8 @@ github.com/kevinburke/rest/resterror
 # github.com/kevinburke/twilio-go v0.0.0-20260522200016-74f727d55757
 ## explicit; go 1.23.0
 github.com/kevinburke/twilio-go
-# github.com/klauspost/compress v1.18.4
-## explicit; go 1.23
+# github.com/klauspost/compress v1.18.7
+## explicit; go 1.24
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
