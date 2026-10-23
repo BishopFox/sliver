@@ -37,6 +37,7 @@ type ListenerJob struct {
 	DnsListener         DNSListener
 	WgListener          WGListener
 	MultiplayerListener MultiplayerListener
+	TCPListener         TCPListener
 }
 
 type HTTPListener struct {
@@ -97,6 +98,17 @@ type MultiplayerListener struct {
 	WireGuardOptIn bool `gorm:"not null;default:false"`
 }
 
+// TCPListener contains the configuration for a TCP listener.
+type TCPListener struct {
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID UUID `gorm:"type:uuid;"`
+	Protocol      clientpb.StageProtocol
+	Host          string
+	Port          uint32
+	Data          []byte
+	ProfileName   string
+}
+
 type DnsDomain struct {
 	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	DNSListenerID UUID `gorm:"type:uuid;"`
@@ -130,6 +142,11 @@ func (j *MtlsListener) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+func (j *TCPListener) BeforeCreate(tx *gorm.DB) (err error) {
+	j.ID = NewUUID()
+	return nil
+}
+
 // To Protobuf
 func (j *ListenerJob) ToProtobuf() *clientpb.ListenerJob {
 	return &clientpb.ListenerJob{
@@ -141,6 +158,7 @@ func (j *ListenerJob) ToProtobuf() *clientpb.ListenerJob {
 		DNSConf:   j.DnsListener.ToProtobuf(),
 		WGConf:    j.WgListener.ToProtobuf(),
 		MultiConf: j.MultiplayerListener.ToProtobuf(),
+		TCPConf:   j.TCPListener.ToProtobuf(),
 	}
 }
 
@@ -198,6 +216,16 @@ func (j *MultiplayerListener) ToProtobuf() *clientpb.MultiplayerListenerReq {
 		Host:      j.Host,
 		Port:      j.Port,
 		WireGuard: j.WireGuard && j.WireGuardOptIn,
+	}
+}
+
+func (j *TCPListener) ToProtobuf() *clientpb.StagerListenerReq {
+	return &clientpb.StagerListenerReq{
+		Protocol:    j.Protocol,
+		Host:        j.Host,
+		Port:        j.Port,
+		Data:        j.Data,
+		ProfileName: j.ProfileName,
 	}
 }
 
@@ -270,6 +298,14 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			Port:           pbListenerJob.MultiConf.Port,
 			WireGuard:      pbListenerJob.MultiConf.WireGuard,
 			WireGuardOptIn: pbListenerJob.MultiConf.WireGuard,
+		}
+	case constants.TCPListenerStr, constants.StageListenerStr:
+		cfg.TCPListener = TCPListener{
+			Protocol:    pbListenerJob.TCPConf.Protocol,
+			Host:        pbListenerJob.TCPConf.Host,
+			Port:        pbListenerJob.TCPConf.Port,
+			Data:        pbListenerJob.TCPConf.Data,
+			ProfileName: pbListenerJob.TCPConf.ProfileName,
 		}
 	}
 
