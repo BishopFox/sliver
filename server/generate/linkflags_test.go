@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/gogo"
 )
 
@@ -133,5 +134,32 @@ func TestSanitizeZigForBuild_Windows(t *testing.T) {
 	}
 	if !strings.Contains(cfg.CXX, "-fdebug-prefix-map=") {
 		t.Fatalf("expected -fdebug-prefix-map to be set for zig builds, got CXX=%q", cfg.CXX)
+	}
+}
+
+func TestApplyCompactExecutableFunctionAlignment(t *testing.T) {
+	tests := []struct {
+		name      string
+		arch      string
+		debug     bool
+		obfuscate bool
+		input     string
+		want      string
+	}{
+		{name: "amd64", arch: "amd64", obfuscate: true, want: "-funcalign=1"},
+		{name: "arm64 unchanged", arch: "arm64", obfuscate: true, want: ""},
+		{name: "windows gui", arch: "amd64", obfuscate: true, input: "-H=windowsgui", want: "-H=windowsgui -funcalign=1"},
+		{name: "debug", arch: "amd64", debug: true, obfuscate: true, want: ""},
+		{name: "plain", arch: "amd64", want: ""},
+		{name: "unsupported arch", arch: "386", obfuscate: true, want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &clientpb.ImplantConfig{GOARCH: tt.arch, Debug: tt.debug, ObfuscateSymbols: tt.obfuscate}
+			got := applyCompactExecutableFunctionAlignment(config, []string{tt.input})
+			if len(got) != 1 || got[0] != tt.want {
+				t.Fatalf("applyCompactExecutableFunctionAlignment() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

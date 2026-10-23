@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ import (
 const (
 	operatorName                   = "e2e-operator"
 	suiteScopeComprehensive        = "comprehensive"
+	suiteScopeWasm                 = "wasm"
 	suiteScopeRportFwd             = "rportfwd"
 	suiteScopePortfwdSocks5        = "portfwd-socks5"
 	tunnelAcceptanceProfileBase    = "base"
@@ -76,6 +78,7 @@ type options struct {
 	rdpCredentialsFD        int
 	tunnelAcceptanceProfile string
 	implantDebug            bool
+	implantObfuscate        bool
 }
 
 type suite struct {
@@ -402,6 +405,9 @@ func validateOptions(opts *options) error {
 	if !supported[target] {
 		return fmt.Errorf("target %s is not in the comprehensive E2E matrix", target)
 	}
+	if opts.suiteScope == suiteScopeWasm && (target == "linux/arm64" || target == "windows/arm64") {
+		return fmt.Errorf("WASM extensions are not supported on %s", target)
+	}
 	if runtime.GOOS != opts.targetOS || runtime.GOARCH != opts.targetArch {
 		return fmt.Errorf("E2E driver must run as the implant target: driver is %s/%s, target is %s", runtime.GOOS, runtime.GOARCH, target)
 	}
@@ -528,8 +534,8 @@ func validateSocksFuzzOptions(caseCount int, replayCase int) error {
 
 func normalizeSuiteScope(value string) (string, error) {
 	scope := strings.TrimSpace(value)
-	if scope != suiteScopeComprehensive && scope != suiteScopeRportFwd && scope != suiteScopePortfwdSocks5 {
-		return "", fmt.Errorf("unknown E2E suite scope %q (want %s, %s, or %s)", scope, suiteScopeComprehensive, suiteScopeRportFwd, suiteScopePortfwdSocks5)
+	if scope != suiteScopeComprehensive && scope != suiteScopeWasm && scope != suiteScopeRportFwd && scope != suiteScopePortfwdSocks5 {
+		return "", fmt.Errorf("unknown E2E suite scope %q (want %s, %s, %s, or %s)", scope, suiteScopeComprehensive, suiteScopeWasm, suiteScopeRportFwd, suiteScopePortfwdSocks5)
 	}
 	return scope, nil
 }
@@ -861,7 +867,7 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 		GOARCH:              s.opts.targetArch,
 		TemplateName:        "sliver",
 		Debug:               s.opts.implantDebug,
-		ObfuscateSymbols:    false,
+		ObfuscateSymbols:    s.opts.implantObfuscate,
 		IsBeacon:            beacon,
 		BeaconInterval:      int64(s.opts.beaconInterval),
 		BeaconJitter:        0,
@@ -904,6 +910,15 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	if generated.File == nil || generated.File.Name == "" || len(generated.File.Data) == 0 {
 		return fmt.Errorf("generate %s returned an empty executable", implantName)
+	}
+	if s.opts.implantObfuscate {
+		hash := sha256.Sum256(generated.File.Data)
+		s.t.Logf("Generated obfuscated implant %s: %d bytes, SHA256 %x", implantName, len(generated.File.Data), hash)
+		if s.opts.targetArch == "amd64" && !s.opts.implantDebug {
+			if err := verifyCompactExecutableBuild(filepath.Join(s.serverRoot, "logs", "sliver.json"), implantName); err != nil {
+				return fmt.Errorf("verify compact obfuscated build for %s: %w", implantName, err)
+			}
+		}
 	}
 
 	remoteRoot := filepath.Join(s.workDir, "targets", implantName)
@@ -959,6 +974,9 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	if s.opts.suiteScope == suiteScopeComprehensive {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseCommands(target, remoteRoot, listener.transport))
+	}
+	if s.opts.suiteScope == suiteScopeWasm {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseWasmExtensionLifecycle(target, listener.transport))
 	}
 	if target.session != nil && s.opts.suiteScope == suiteScopePortfwdSocks5 {
 		exerciseErrors = appendIfError(exerciseErrors, s.exercisePortForward(target, listener.transport))
@@ -1301,6 +1319,25 @@ func readLogTailBytes(path string, limit int64) string {
 		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
 	return strings.TrimSpace(string(data))
+}
+
+// verifyCompactExecutableBuild checks the server's recorded compiler command
+// for the exact generated implant before the E2E driver launches it.
+func verifyCompactExecutableBuild(logPath, implantName string) error {
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		return fmt.Errorf("read compiler log: %w", err)
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.Contains(line, "garble cmd:") || !strings.Contains(line, implantName) {
+			continue
+		}
+		if !slices.Contains(strings.Fields(line), "-funcalign=1") {
+			return fmt.Errorf("compiler command for %s omitted -funcalign=1", implantName)
+		}
+		return nil
+	}
+	return fmt.Errorf("compiler command for %s not found", implantName)
 }
 
 func readCompilerStderr(path string) string {

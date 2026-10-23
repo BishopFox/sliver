@@ -199,7 +199,7 @@ clean-all: clean
 clean:
 	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
-.downloaded_assets:
+.downloaded_assets: util/assets/constants.go util/assets/garble.go
 	$(ENV) $(GO) run -mod=vendor ./util/cmd/assets
 	touch ./.downloaded_assets
 
@@ -324,7 +324,7 @@ clean-all: clean
 clean:
 	-del /Q /F sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe 2>NUL
 
-.downloaded_assets:
+.downloaded_assets: util/assets/constants.go util/assets/garble.go
 	$(call windows_exec,$(ENV),"$(GO)" run -mod=vendor ./util/cmd/assets)
 	@type NUL > .downloaded_assets
 
