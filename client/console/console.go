@@ -47,6 +47,7 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	uuid "uuid"
@@ -62,6 +63,10 @@ const (
 	UpN     = "\033[%dA"
 	DownN   = "\033[%dB"
 )
+
+// isTerminal reports whether fd is a connected terminal.
+// Variable rather than direct call so tests can override it.
+var isTerminal = term.IsTerminal
 
 // Observer - A function to call when the sessions changes.
 type (
@@ -201,6 +206,7 @@ func NewConsole(isServer bool) *SliverClient {
 	// Global console settings
 	con.App.NewlineBefore = true
 	con.App.NewlineAfter = true
+	con.App.ExecuteMultiline = true
 
 	// Server menu.
 	server := con.App.Menu(consts.ServerMenu)
@@ -227,6 +233,7 @@ func NewConsole(isServer bool) *SliverClient {
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
 func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.ClientConn, details *ConnectionDetails, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
+	interactive := run && isTerminal(int(os.Stdin.Fd()))
 	con.IsCLI = !run
 	con.serverCmds = serverCmds
 	con.sliverCmds = sliverCmds
@@ -235,7 +242,7 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	// when asynchronously printing logs (that is, when no command is running).
 	// If ran from a system shell, however, those queries will block because
 	// the system shell is in control of stdin. So just use the classic Printf.
-	if con.IsCLI {
+	if !interactive {
 		con.printf = fmt.Printf
 	} else {
 		con.printf = con.App.TransientPrintf
@@ -260,7 +267,7 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 
 		// Ascii cast sessions (complete terminal interface) are only useful
 		// for the interactive console. In CLI mode they would clobber stdout.
-		if !con.IsCLI {
+		if interactive {
 			asciicastLog := getConsoleAsciicastFile()
 			defer asciicastLog.Close()
 
@@ -276,20 +283,36 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	if rcScript != "" {
 		originalPrintf := con.printf
 		con.printf = fmt.Printf
-		con.runRCScript(serverCmds, sliverCmds, rcScript)
+		err := con.runCommandScript(serverCmds, sliverCmds, strings.NewReader(rcScript), "rc")
 		con.printf = originalPrintf
+		// An rc script is often a startup convenience in an interactive
+		// console. Keep opening the prompt after reporting its line errors.
+		if err != nil && !interactive {
+			return err
+		}
 	}
 
-	if !con.IsCLI {
+	if !run {
+		return nil
+	}
+
+	if interactive {
 		return con.App.Start()
 	}
-
-	return nil
+	if rcScript != "" {
+		return nil
+	}
+	// Readline needs a terminal. A pipe or redirected file is instead executed
+	// as a sequence of commands, ending cleanly at EOF.
+	return con.runCommandScript(serverCmds, sliverCmds, os.Stdin, "stdin")
 }
 
-func (con *SliverClient) runRCScript(serverCmds, sliverCmds console.Commands, rcScript string) {
-	scanner := bufio.NewScanner(strings.NewReader(rcScript))
+func (con *SliverClient) runCommandScript(serverCmds, sliverCmds console.Commands, input io.Reader, source string) error {
+	scanner := bufio.NewScanner(input)
+	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	lineNumber := 0
+	var firstError error
+	errorCount := 0
 
 	for scanner.Scan() {
 		lineNumber++
@@ -297,17 +320,31 @@ func (con *SliverClient) runRCScript(serverCmds, sliverCmds console.Commands, rc
 		if line == "" {
 			continue
 		}
-		if err := con.runRCLine(serverCmds, sliverCmds, line); err != nil {
-			con.PrintErrorf("rc line %d error: %s", lineNumber, err)
+		if err := con.runCommandLine(serverCmds, sliverCmds, line); err != nil {
+			lineError := fmt.Errorf("%s line %d: %w", source, lineNumber, err)
+			con.PrintErrorf("%s\n", lineError)
+			if firstError == nil {
+				firstError = lineError
+			}
+			errorCount++
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		con.PrintErrorf("rc script error: %s", err)
+		readError := fmt.Errorf("%s line %d: %w", source, lineNumber+1, err)
+		con.PrintErrorf("%s\n", readError)
+		if firstError == nil {
+			firstError = readError
+		}
+		errorCount++
 	}
+	if errorCount > 0 {
+		return fmt.Errorf("%s: %d error(s) (first: %w)", source, errorCount, firstError)
+	}
+	return nil
 }
 
-func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line string) error {
+func (con *SliverClient) runCommandLine(serverCmds, sliverCmds console.Commands, line string) error {
 	args, err := shellquote.Split(line)
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
@@ -789,7 +826,9 @@ func (con *SliverClient) CheckLastUpdate() {
 	day := 24 * time.Hour
 	if compiledAt.Add(30 * day).Before(now) {
 		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			con.Printf("%sCheck for updates with the 'update' command\n\n", Info)
+			// The startup banner runs before readline enables raw terminal mode.
+			// Print directly so the reminder cannot redraw the prompt or query the cursor.
+			fmt.Printf("%sCheck for updates with the 'update' command\n\n", Info)
 		}
 	}
 }

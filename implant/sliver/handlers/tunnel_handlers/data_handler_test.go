@@ -139,18 +139,21 @@ func TestTunnelCloseUnblocksInboundWriter(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("closing tunnel did not unblock inbound writer")
 			}
-			if active := connection.Tunnel(tunnel.ID); active != nil {
-				t.Fatalf("closed tunnel remained published: %p", active)
-			}
-			select {
-			case <-connection.Done():
-				if !test.wantC2Cleanup {
-					t.Fatal("legacy close unexpectedly tore down the C2 connection")
-				}
-			default:
-				if test.wantC2Cleanup {
+			if test.wantC2Cleanup {
+				select {
+				case <-connection.Done():
+				case <-time.After(time.Second):
 					t.Fatal("incomplete sequenced close did not fail the C2 connection closed")
 				}
+			} else {
+				select {
+				case <-connection.Done():
+					t.Fatal("legacy close unexpectedly tore down the C2 connection")
+				default:
+				}
+			}
+			if active := connection.Tunnel(tunnel.ID); active != nil {
+				t.Fatalf("closed tunnel remained published: %p", active)
 			}
 		})
 	}

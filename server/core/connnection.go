@@ -97,30 +97,46 @@ type ImplantConnection struct {
 // the bounded ID domain is exhausted, the connection is failed closed after
 // releasing lifecycleMutex so cleanup can safely re-enter connection methods.
 func (c *ImplantConnection) TryClaimReverseTunnelID(tunnelID uint64) ReverseTunnelIDClaimResult {
+	result, cleanup := c.TryClaimReverseTunnelIDDeferredCleanup(tunnelID)
+	if cleanup != nil {
+		cleanup()
+	}
+	return result
+}
+
+// TryClaimReverseTunnelIDDeferredCleanup is the claim primitive for routing
+// registries which must keep their own linearization lock while reserving an
+// ID. Capacity exhaustion marks the connection closed and publishes Done
+// immediately, but returns its potentially re-entrant cleanup callback for the
+// caller to invoke after releasing that routing lock.
+func (c *ImplantConnection) TryClaimReverseTunnelIDDeferredCleanup(tunnelID uint64) (ReverseTunnelIDClaimResult, func()) {
 	if c == nil {
-		return ReverseTunnelIDConnectionClosed
+		return ReverseTunnelIDConnectionClosed, nil
 	}
 	c.initializeLifecycle()
 	c.lifecycleMutex.Lock()
 	if c.closed {
 		c.lifecycleMutex.Unlock()
-		return ReverseTunnelIDConnectionClosed
+		return ReverseTunnelIDConnectionClosed, nil
 	}
 	if c.claimedTunnelIDs == nil {
 		c.claimedTunnelIDs = map[uint64]struct{}{}
 	}
 	if _, claimed := c.claimedTunnelIDs[tunnelID]; claimed {
 		c.lifecycleMutex.Unlock()
-		return ReverseTunnelIDDuplicate
+		return ReverseTunnelIDDuplicate, nil
 	}
 	if len(c.claimedTunnelIDs) >= maxClaimedReverseTunnelIDsPerConnection {
+		c.closed = true
+		close(c.done)
+		cleanup := c.cleanup
+		c.cleanup = nil
 		c.lifecycleMutex.Unlock()
-		c.Close()
-		return ReverseTunnelIDCapacityExhausted
+		return ReverseTunnelIDCapacityExhausted, cleanup
 	}
 	c.claimedTunnelIDs[tunnelID] = struct{}{}
 	c.lifecycleMutex.Unlock()
-	return ReverseTunnelIDClaimed
+	return ReverseTunnelIDClaimed, nil
 }
 
 // ClaimReverseTunnelID is the compatibility boolean wrapper for callers that

@@ -697,6 +697,9 @@ message WebContent {
   string Sha256 = 7;
 
   bytes Content = 9;
+  // Upload request only: replace stored bytes even when Content is empty.
+  // Empty Content without this flag preserves existing content during metadata updates.
+  bool ReplaceContent = 10;
 }
 
 message WebsiteAddContent {

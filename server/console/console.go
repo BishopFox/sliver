@@ -38,8 +38,11 @@ import (
 )
 
 // Start - Starts the server console
-func Start(rcScript string) {
-	_, ln, _ := transport.LocalListener()
+func Start(rcScript string) error {
+	_, ln, err := transport.LocalListener()
+	if err != nil {
+		return fmt.Errorf("start local listener: %w", err)
+	}
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return ln.Dial()
 	})
@@ -51,13 +54,12 @@ func Start(rcScript string) {
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to dial bufnet: %s\n", err)
-		return
+		return fmt.Errorf("dial local console: %w", err)
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
 	con := console.NewConsole(true)
-	_ = console.StartClient(con, localRPC, conn, nil, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true, rcScript)
+	return console.StartClient(con, localRPC, conn, nil, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true, rcScript)
 }
 
 // serverOnlyCmds - Server only commands

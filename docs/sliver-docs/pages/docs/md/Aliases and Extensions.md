@@ -65,7 +65,7 @@ From an end-user perspective there's not much of a difference between the two, e
 
 An alias is essentially just a thin wrapper around the existing `sideload` and `execute-assembly` commands, and aliases cannot have dependencies.
 
-An extension is a shared library that is reflectively loaded into the Sliver implant process, and is passed several callbacks to return data to the implant. As such these extensions must implement the Sliver API. Extensions may also have dependencies, which are other extensions. For example, the COFF Loader is a DLL extension that loads and executes BOFs, in turn BOFs simply extensions that rely on the COFF Loader as a dependency. These types of extensions do not need to implement any Sliver-specific API, since the Sliver API is abstracted by their dependency.
+An extension can be a native shared library or a BOF. Shared libraries are reflectively loaded into the Sliver implant process and must implement the Sliver extension API to return output. BOFs use Beacon callbacks and can execute through the built-in Reflektor executor. The COFF Loader DLL remains available as a dependency for legacy Windows BOF execution. For supported platforms and basic examples, see [Cross-platform BOFs](/docs?name=Cross-platform+BOFs).
 
 ## Aliases
 
@@ -170,6 +170,6 @@ As the alias support relies on Sliver side loading capabilities, please make sur
 
 Native extensions are supported by Windows implants (`386`, `amd64`, and `arm64`), Linux implants (`386`, `amd64`, and `arm64`), and macOS implants (`amd64` and `arm64`). Each manifest must include a platform-native shared library for every target it supports: `.dll` on Windows, `.so` on Linux, and `.dylib` on macOS.
 
-Extensions are similar in structure to an alias, but internally work differently. An extension is an artifact of native code that is reflectively loaded by the implant and passed certain callbacks. These callbacks allow the extension to return data to the C2 server. Extensions may also have dependencies (other extensions), which Sliver will load prior to the extension; circular dependencies are not allowed. For example, all BOF extensions (`.o` files) rely on the COFF Loader extension (a `.dll`).
+Extensions are similar in structure to an alias, but internally work differently. An extension is an artifact of native code that is reflectively loaded by the implant and passed certain callbacks. These callbacks allow the extension to return data to the C2 server. Extensions may also have dependencies (other extensions), which Sliver will load prior to the extension; circular dependencies are not allowed. BOF extensions can use built-in Reflektor execution without a loader dependency, or retain a COFF Loader dependency for legacy Windows execution. See [BOF and COFF Support](/docs?name=BOF+and+COFF+Support) for executor selection and fallback behavior.
 
 Native exports use the same Sliver extension ABI on every supported operating system. The export receives the argument buffer, its size, and a callback used to return output. The optional `init` export in the extension manifest is called once after the library is loaded and before any command export is invoked.

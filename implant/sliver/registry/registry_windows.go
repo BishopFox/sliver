@@ -13,6 +13,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -51,58 +52,79 @@ func openKey(hostname string, hive string, path string, access uint32) (*registr
 	return &key, nil
 }
 
-// ReadKey reads a registry key value and returns it as a string
-func ReadKey(hostname string, hive string, path string, key string) (string, error) {
-	var (
-		buf    []byte
-		result string
-	)
-
+// ReadKey reads a registry key value and returns its decoded string or raw
+// binary representation together with its registry type.
+func ReadKey(hostname string, hive string, path string, key string) (string, []byte, sliverpb.RegistryType, error) {
 	k, err := openKey(hostname, hive, path, registry.QUERY_VALUE)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("could not open key %s: %s\n", path, err.Error())
 		// {{end}}
-		return "", err
+		return "", nil, sliverpb.RegistryType_Unknown, err
 	}
 
-	_, valType, err := k.GetValue(key, buf)
+	valueSize, valType, err := k.GetValue(key, nil)
 	if err != nil {
-		return "", err
+		return "", nil, sliverpb.RegistryType_Unknown, err
 	}
 	switch valType {
 	case registry.BINARY:
-		val, _, err := k.GetBinaryValue(key)
-		if err != nil {
-			return "", err
-		}
-		result = fmt.Sprintf("%v", val)
+		value, err := readRawValue(k, key, valueSize, valType)
+		return "", value, sliverpb.RegistryType_Binary, err
 	case registry.SZ:
 		fallthrough
 	case registry.EXPAND_SZ:
 		val, _, err := k.GetStringValue(key)
 		if err != nil {
-			return "", err
+			return "", nil, sliverpb.RegistryType_String, err
 		}
-		result = val
+		return val, nil, sliverpb.RegistryType_String, nil
 	case registry.DWORD:
-		fallthrough
-	case registry.QWORD:
-		val, _, err := k.GetIntegerValue(key)
-		if err != nil {
-			return "", err
+		value, err := readRawValue(k, key, valueSize, valType)
+		if err == nil && len(value) != 4 {
+			err = fmt.Errorf("DWORD value is not 4 bytes long")
 		}
-		result = fmt.Sprintf("0x%08x", val)
+		return "", value, sliverpb.RegistryType_DWORD, err
+	case registry.QWORD:
+		value, err := readRawValue(k, key, valueSize, valType)
+		if err == nil && len(value) != 8 {
+			err = fmt.Errorf("QWORD value is not 8 bytes long")
+		}
+		return "", value, sliverpb.RegistryType_QWORD, err
 	case registry.MULTI_SZ:
 		val, _, err := k.GetStringsValue(key)
 		if err != nil {
-			return "", err
+			return "", nil, sliverpb.RegistryType_String, err
 		}
-		result = strings.Join(val, "\n")
+		return strings.Join(val, "\n"), nil, sliverpb.RegistryType_String, nil
 	default:
-		return "", fmt.Errorf("unhandled type: %d", valType)
+		return "", nil, sliverpb.RegistryType_Unknown, fmt.Errorf("unhandled type: %d", valType)
 	}
-	return result, nil
+}
+
+func readRawValue(k *registry.Key, key string, valueSize int, valueType uint32) ([]byte, error) {
+	for {
+		value := make([]byte, valueSize)
+		readSize, readType, err := k.GetValue(key, value)
+		if errors.Is(err, registry.ErrShortBuffer) {
+			if readSize <= len(value) {
+				return nil, err
+			}
+			valueSize = readSize
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if readType != valueType {
+			return nil, fmt.Errorf("registry value type changed while reading: %d to %d", valueType, readType)
+		}
+		if readSize > len(value) {
+			valueSize = readSize
+			continue
+		}
+		return value[:readSize], nil
+	}
 }
 
 // WriteKey writes a value to an existing key.

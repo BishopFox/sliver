@@ -1,12 +1,12 @@
 module github.com/bishopfox/sliver
 
-go 1.27.1
+go 1.27.3
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
 replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a
 
-replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701
+replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20261002031128-9c7d5fba75f5
 
 require (
 	charm.land/bubbles/v2 v2.0.0

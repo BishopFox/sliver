@@ -77,7 +77,6 @@ func (rpc *Server) CredsRm(ctx context.Context, req *clientpb.Credentials) (*com
 			credsRpcLog.Errorf("Failed to get credential: %s", err)
 			return nil, ErrCredNotFound
 		}
-		credsRpcLog.Infof("got cred: %#v", dbCred)
 		err = db.Session().Delete(dbCred).Error
 		if err != nil {
 			credsRpcLog.Errorf("Failed to remove credential: %s", err)

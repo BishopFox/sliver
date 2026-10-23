@@ -1,5 +1,7 @@
 Sliver supports the loading and execution of BOFs and COFFs, generally no code changes are needed to use BOFs with a Sliver implant. However, you may need to define a manifest file so that Sliver is aware of BOF arguments and their types.
 
+For platform formats, supported architectures, and basic C examples for Windows, macOS, and Linux, see [Cross-platform BOFs](/docs?name=Cross-platform+BOFs).
+
 ### BOF Extensions
 
 New Sliver implants execute BOFs with the built-in [Reflektor](https://github.com/sliverarmory/reflektor) executor by default. Armory packages can retain a [COFF Loader](https://github.com/sliverarmory/COFFLoader) dependency as a compatibility fallback for older clients, servers, and implants; Armory installs that dependency automatically.

@@ -359,3 +359,27 @@ func TestReadCompilerStderrReturnsLatestCompilerMessageOnly(t *testing.T) {
 		t.Fatalf("compiler stderr included unrelated log content: %q", diagnostics)
 	}
 }
+
+func TestVerifyCompactExecutableBuildRequiresExactAlignmentFlag(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		ldflags string
+		wantErr bool
+	}{
+		{name: "exact flag", ldflags: "-funcalign=1"},
+		{name: "larger alignment", ldflags: "-funcalign=16", wantErr: true},
+		{name: "missing flag", ldflags: "-s -w", wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sliver.json")
+			line := `{"msg":"garble cmd: '/tmp/garble -literals build -ldflags ` + test.ldflags + ` -o /tmp/e2e-test/bin/e2e-test .'"}`
+			if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			err := verifyCompactExecutableBuild(path, "e2e-test")
+			if (err != nil) != test.wantErr {
+				t.Fatalf("verifyCompactExecutableBuild() error = %v, want error %t", err, test.wantErr)
+			}
+		})
+	}
+}

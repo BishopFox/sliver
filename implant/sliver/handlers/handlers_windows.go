@@ -680,9 +680,11 @@ func regReadHandler(data []byte, resp RPCResponse) {
 	if err != nil {
 		return
 	}
-	res, err := registry.ReadKey(regReadReq.Hostname, regReadReq.Hive, regReadReq.Path, regReadReq.Key)
+	value, binaryValue, valueType, err := registry.ReadKey(regReadReq.Hostname, regReadReq.Hive, regReadReq.Path, regReadReq.Key)
 	regReadResp := &sliverpb.RegistryRead{
-		Value:    res,
+		Value:    value,
+		Binary:   binaryValue,
+		Type:     valueType,
 		Response: &commonpb.Response{},
 	}
 	if err != nil {

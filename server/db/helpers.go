@@ -818,6 +818,9 @@ func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, er
 func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clientpb.WebContent, error) {
 	dbWebContent, err := WebContentByIDAndPath(pbWebContent.WebsiteID, pbWebContent.Path, webContentDir, false)
 	if errors.Is(err, ErrRecordNotFound) {
+		if pbWebContent.OriginalFile == "" {
+			pbWebContent.OriginalFile = filepath.Base(pbWebContent.Path)
+		}
 		dbModelWebContent := models.WebContentFromProtobuf(pbWebContent)
 		err = Session().Create(&dbModelWebContent).Error
 		if err != nil {
@@ -827,18 +830,18 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 		if err != nil {
 			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	} else {
 		if pbWebContent.ContentType != "" {
 			dbWebContent.ContentType = pbWebContent.ContentType
 		}
-		if pbWebContent.Size != 0 {
+		if pbWebContent.ReplaceContent || len(pbWebContent.Content) > 0 {
 			dbWebContent.Size = pbWebContent.Size
+			dbWebContent.Sha256 = pbWebContent.Sha256
 		}
 		if pbWebContent.OriginalFile != "" {
 			dbWebContent.OriginalFile = pbWebContent.OriginalFile
-		}
-		if pbWebContent.Sha256 != "" {
-			dbWebContent.Sha256 = pbWebContent.Sha256
 		}
 
 		dbModelWebContent := models.WebContentFromProtobuf(dbWebContent)
@@ -848,6 +851,41 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 		}
 	}
 	return dbWebContent, nil
+}
+
+// UpdateWebContentTypes changes only MIME metadata for existing website paths.
+// All requested paths must exist before any update is committed.
+func UpdateWebContentTypes(websiteID string, contentTypes map[string]string) error {
+	id, err := models.ParseUUID(websiteID)
+	if err != nil {
+		return err
+	}
+	return Session().Transaction(func(tx *gorm.DB) error {
+		existing := make(map[string]models.WebContent, len(contentTypes))
+		for path := range contentTypes {
+			var content models.WebContent
+			if err := tx.Where("website_id = ? AND path = ?", id, path).First(&content).Error; err != nil {
+				return err
+			}
+			existing[path] = content
+		}
+		for path, contentType := range contentTypes {
+			content := existing[path]
+			if content.ContentType == contentType {
+				continue
+			}
+			result := tx.Model(&models.WebContent{}).
+				Where("id = ? AND website_id = ? AND path = ?", content.ID, id, path).
+				Update("content_type", contentType)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return ErrRecordNotFound
+			}
+		}
+		return nil
+	})
 }
 
 func RemoveContent(id string) error {

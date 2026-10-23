@@ -753,6 +753,9 @@ message RegistryReadReq {
 
 message RegistryRead {
   string Value = 1;
+  bytes Binary = 2;
+
+  RegistryType Type = 8;
   commonpb.Response Response = 9;
 }
 

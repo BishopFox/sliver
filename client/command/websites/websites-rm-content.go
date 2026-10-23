@@ -56,7 +56,7 @@ func WebsitesRmContent(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 	if recursive {
 		for contentPath := range website.Contents {
-			if strings.HasPrefix(contentPath, webPath) {
+			if isWebPathOrDescendant(contentPath, webPath) {
 				rmWebContent.Paths = append(rmWebContent.Paths, contentPath)
 			}
 		}
@@ -69,4 +69,15 @@ func WebsitesRmContent(cmd *cobra.Command, con *console.SliverClient, args []str
 		return
 	}
 	PrintWebsite(web, con)
+}
+
+func isWebPathOrDescendant(contentPath, webPath string) bool {
+	if webPath == "" {
+		return false
+	}
+	webPath = strings.TrimRight(webPath, "/")
+	if webPath == "" {
+		return strings.HasPrefix(contentPath, "/")
+	}
+	return contentPath == webPath || strings.HasPrefix(contentPath, webPath+"/")
 }

@@ -1,0 +1,2 @@
+# Preserve pinned upstream script bytes for SHA-256 verification on every OS.
+*.cna -text

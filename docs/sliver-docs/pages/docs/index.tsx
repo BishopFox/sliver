@@ -121,7 +121,7 @@ const DocsIndexPage: NextPage = () => {
       <Head>
         <title>{name ? `${name} · Sliver Docs` : "Sliver Documentation"}</title>
       </Head>
-      <div className="mx-auto w-full max-w-[90rem] px-4 pt-8 sm:px-6 lg:px-8 lg:pt-10">
+      <div className="w-full px-4 pt-8 sm:px-6 lg:px-8 lg:pt-10">
         <div className="mb-8 lg:hidden">
           <div className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
@@ -202,10 +202,10 @@ const DocsIndexPage: NextPage = () => {
 
           <div
             key={name || "documentation-overview"}
-            className="min-w-0 pb-16 lg:pr-4"
+            className="min-w-0 pb-16"
           >
             {name !== "" ? (
-              <article className="mx-auto w-full max-w-4xl">
+              <article className="w-full min-w-0">
                 <header className="mb-8 border-b border-separator/70 pb-8">
                   <p className="text-sm font-medium text-accent">Reference</p>
                   <h1 className="mt-2 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
@@ -219,11 +219,11 @@ const DocsIndexPage: NextPage = () => {
                 />
               </article>
             ) : (
-              <div className="mx-auto w-full max-w-5xl pt-4 lg:pt-8">
+              <div className="w-full min-w-0 pt-4 lg:pt-8">
                 <h1 className="text-sm font-medium text-accent">
                   Sliver reference
                 </h1>
-                <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
+                <p className="mt-4 text-lg leading-8 text-muted">
                   Browse configuration, transports, extensions, payloads, and
                   troubleshooting guidance for the Sliver framework.
                 </p>

@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-**NOTE:** The markdown is compiled into a static JSON object at build time. This means if you edit a `.md` file you will need to restart the dev server to see your changes.
+Markdown is compiled into JSON for the site. `npm run dev` watches Markdown files and regenerates this content automatically.
 
 ### Offline Docs
 
@@ -27,7 +27,7 @@ This will produce a `www.zip` file that contains the static html and JavaScript 
 ```bash
 unzip -o www.zip
 cd out/
-python -m http.server 8000
+python3 -m http.server 8000
 ```
 
 Then open your browser to `http://localhost:8000/` to view the documentation.

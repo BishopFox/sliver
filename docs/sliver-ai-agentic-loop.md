@@ -1,5 +1,7 @@
 # Sliver AI Agentic Loop
 
+**Historical design note:** This document describes the initial agentic-loop port. The current tool surface includes operations that modify remote state and is not read-only.
+
 ## Goal
 
 Port the example agentic loop from `examples/codex/codex-rs` into Sliver's AI chat so the server can:
@@ -141,7 +143,7 @@ If anything fails:
 
 ## Tool Surface
 
-The first port exposes a safe read-only tool set:
+The initial port exposed a read-only tool set:
 
 - `list_sessions_and_beacons`
 - `fs_ls`
@@ -221,7 +223,7 @@ Because UI-only items live in the database:
 This port intentionally differs from the example in a few places.
 
 - Sliver currently uses non-streaming Responses API requests, so reasoning items arrive as completed items rather than token deltas.
-- Tool execution is currently a bounded read-only server-side function set, not the full Codex local tool surface.
+- The initial port used a bounded read-only server-side function set, not the full Codex local tool surface.
 - Sliver persists intermediate items in its conversation DB rather than only in a transient thread runtime.
 
 The important invariant is still the same:

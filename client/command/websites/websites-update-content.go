@@ -49,6 +49,7 @@ func WebsitesUpdateContentCmd(cmd *cobra.Command, con *console.SliverClient, arg
 		Contents: map[string]*clientpb.WebContent{},
 	}
 	updateWeb.Contents[webPath] = &clientpb.WebContent{
+		Path:        webPath,
 		ContentType: contentType,
 	}
 

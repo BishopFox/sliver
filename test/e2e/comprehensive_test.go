@@ -35,7 +35,7 @@ func init() {
 	flag.StringVar(&testOptions.resultsDir, "results", "", "directory for JSON and Markdown coverage reports")
 	flag.StringVar(&testOptions.transportCSV, "transports", strings.Join(transportOrder, ","), "comma-separated transports to run (mtls,wg,http)")
 	flag.StringVar(&testOptions.modeCSV, "implant-modes", "session,beacon", "comma-separated implant modes to run (session,beacon)")
-	flag.StringVar(&testOptions.suiteScope, "suite-scope", defaultSuiteScope(), "E2E suite scope (comprehensive, rportfwd, or portfwd-socks5)")
+	flag.StringVar(&testOptions.suiteScope, "suite-scope", defaultSuiteScope(), "E2E suite scope (comprehensive, wasm, rportfwd, or portfwd-socks5)")
 	flag.DurationVar(&testOptions.timeout, "e2e-timeout", 4*time.Hour, "overall comprehensive E2E timeout")
 	flag.DurationVar(&testOptions.startupTimeout, "startup-timeout", 10*time.Minute, "Sliver daemon startup timeout")
 	flag.DurationVar(&testOptions.connectTimeout, "connect-timeout", 5*time.Minute, "implant connection timeout")
@@ -51,6 +51,7 @@ func init() {
 	flag.IntVar(&testOptions.rdpCredentialsFD, "tunnel-rdp-credentials-fd", -1, "optional descriptor containing one runtime-only RDP credential and certificate-pin JSON object")
 	flag.StringVar(&testOptions.tunnelAcceptanceProfile, "tunnel-acceptance-profile", tunnelAcceptanceProfileBase, "focused tunnel evidence profile (base or proxmox)")
 	flag.BoolVar(&testOptions.implantDebug, "implant-debug", false, "generate debug implants and capture their transport logs")
+	flag.BoolVar(&testOptions.implantObfuscate, "implant-obfuscate", false, "generate implants with Garble symbol and literal obfuscation")
 	flag.BoolVar(&goroutineLeakProfile, "goroutine-leak-profile", false, "write the goroutine leak profile at comprehensive E2E shutdown")
 }
 

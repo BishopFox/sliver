@@ -69,7 +69,7 @@ export default function Home() {
             </div>
 
             <Card className="h-full bg-surface/80 shadow-surface backdrop-blur-2xl lg:col-span-5">
-              <Card.Header className="pb-3">
+              <Card.Header>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-accent">
                     Operator documentation
@@ -80,7 +80,7 @@ export default function Home() {
                 </div>
               </Card.Header>
 
-              <Card.Content className="pt-2">
+              <Card.Content>
                 <p className="text-pretty text-base leading-7 text-muted">
                   Sliver is a cross-platform command and control framework for
                   professional red teams. Operate over mTLS, WireGuard, HTTP(S),
@@ -94,39 +94,48 @@ export default function Home() {
               </Card.Content>
 
               <Card.Footer className="mt-auto flex-col items-stretch gap-3 pt-5">
+                <Button
+                  fullWidth
+                  variant="primary"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/docs",
+                      query: { name: "Getting Started" },
+                    })
+                  }
+                >
+                  Getting started
+                </Button>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Button
-                    fullWidth
-                    variant="primary"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/docs",
-                        query: { name: "Getting Started" },
-                      })
-                    }
-                  >
-                    Get started
-                  </Button>
-                  <Button
-                    className="[--button-bg-hover:var(--color-purple-700)] [--button-bg-pressed:var(--color-purple-700)] [--button-bg:var(--color-purple-600)] [--button-fg:var(--color-white)]"
-                    fullWidth
-                    variant="tertiary"
-                    onPress={() => {
-                      window.open(
-                        "https://github.com/BishopFox/sliver/releases/latest",
-                        "_blank",
-                        "noopener,noreferrer",
-                      );
-                    }}
+                  <a
+                    className={buttonVariants({
+                      fullWidth: true,
+                      variant: "secondary",
+                    })}
+                    href="https://github.com/BishopFox/sliver/releases/latest"
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
                     <FontAwesomeIcon icon={faDownload} />
                     Latest release
-                  </Button>
+                  </a>
+                  <a
+                    className={buttonVariants({
+                      fullWidth: true,
+                      variant: "secondary",
+                    })}
+                    href="https://github.com/sliverarmory/sliver-gui/releases/latest"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <SliversIcon height={16} width={16} />
+                    Sliver GUI
+                  </a>
                 </div>
                 <a
                   className={buttonVariants({
                     fullWidth: true,
-                    variant: "secondary",
+                    variant: "ghost",
                   })}
                   href="https://github.com/sliverarmory"
                   target="_blank"

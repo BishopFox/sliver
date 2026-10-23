@@ -554,6 +554,8 @@ github.com/moloch--/asciicast v0.1.1 h1:btwwniCK9br3ys33XZ71IG/M3ZujSSCcBzsH/sie
 github.com/moloch--/asciicast v0.1.1/go.mod h1:OckO16UDLgxVLclrCnbocL1ix15Br/8Xv/caBoYq98o=
 github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701 h1:6caCgDZpovjvv+eclRytFDf0GpVEnjDmoJRHpfkb42E=
 github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701/go.mod h1:UdqyqqCSnPu3Zc8Q3kpDszrq1hcyBHsG17hlWlRJmWI=
+github.com/moloch--/console v0.0.0-20261002031128-9c7d5fba75f5 h1:BwamAdS8GG5tsxKisLphOOC5RVmTcy8Ixf+oGyhh/Jc=
+github.com/moloch--/console v0.0.0-20261002031128-9c7d5fba75f5/go.mod h1:UdqyqqCSnPu3Zc8Q3kpDszrq1hcyBHsG17hlWlRJmWI=
 github.com/moloch--/go-keystone v0.0.2 h1:xThbYs45CSzoDUz5kBZxAyTPIpK3t5M7NB1x+NTTRL8=
 github.com/moloch--/go-keystone v0.0.2/go.mod h1:kpGRJpw9b7Eq3MluHrba+GPKZhSyDrvhLULSwH5nGGM=
 github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a h1:Q69DxLWF+Z8oIjuNbeKC6Xygk8Z4heWzzO79Io1cEYA=

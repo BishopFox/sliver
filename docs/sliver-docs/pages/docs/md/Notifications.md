@@ -134,7 +134,7 @@ services:
     secret_key: "$AWS_SECRET_ACCESS_KEY"
     region: "us-east-1"
     receivers:
-      - "https://sns.us-east-1.amazonaws.com/123456789012/my-topic"
+      - "arn:aws:sns:us-east-1:123456789012:my-topic"
 ```
 
 ##### Bark
@@ -239,13 +239,7 @@ services:
 
 ##### Line Notify
 
-```yaml
-services:
-  line_notify:
-    enabled: true
-    receivers:
-      - "$LINE_NOTIFY_TOKEN"
-```
+LINE Notify [ended service on March 31, 2025](https://developers.line.biz/en/news/2025/04/01/line-notify/); its APIs and the `line_notify` integration are no longer usable.
 
 ##### Mail (SMTP)
 
@@ -303,6 +297,8 @@ services:
 ```
 
 ##### Microsoft Teams
+
+Use a Teams Workflows webhook. Legacy Office 365 connector webhooks [were retired in May 2026](https://devblogs.microsoft.com/microsoft365dev/retirement-of-office-365-connectors-within-microsoft-teams/).
 
 ```yaml
 services:
