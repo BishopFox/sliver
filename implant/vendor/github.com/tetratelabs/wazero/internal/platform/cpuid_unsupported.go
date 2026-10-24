@@ -1,14 +1,5 @@
-//go:build !amd64 || tinygo
+//go:build !(amd64 || arm64)
 
 package platform
 
-var CpuFeatures CpuFeatureFlags = &cpuFeatureFlags{}
-
-// cpuFeatureFlags implements CpuFeatureFlags for unsupported platforms
-type cpuFeatureFlags struct{}
-
-// Has implements the same method on the CpuFeatureFlags interface
-func (c *cpuFeatureFlags) Has(cpuFeature CpuFeature) bool { return false }
-
-// HasExtra implements the same method on the CpuFeatureFlags interface
-func (c *cpuFeatureFlags) HasExtra(cpuFeature CpuFeature) bool { return false }
+const CpuFeatures CpuFeatureFlags = 0

@@ -18,13 +18,13 @@ import (
 )
 
 // NewAllocator returns a new Allocator.
-func NewAllocator(allocatableRegs *RegisterInfo) Allocator {
-	a := Allocator{
+func NewAllocator[I Instr, B Block[I], F Function[I, B]](allocatableRegs *RegisterInfo) Allocator[I, B, F] {
+	a := Allocator[I, B, F]{
 		regInfo:            allocatableRegs,
-		phiDefInstListPool: wazevoapi.NewPool[phiDefInstList](resetPhiDefInstList),
-		blockStates:        wazevoapi.NewIDedPool[blockState](resetBlockState),
+		phiDefInstListPool: wazevoapi.NewPool[phiDefInstList[I]](resetPhiDefInstList[I]),
+		blockStates:        wazevoapi.NewIDedPool[blockState[I, B, F]](resetBlockState[I, B, F]),
 	}
-	a.state.vrStates = wazevoapi.NewIDedPool[vrState](resetVrState)
+	a.state.vrStates = wazevoapi.NewIDedPool[vrState[I, B, F]](resetVrState[I, B, F])
 	a.state.reset()
 	for _, regs := range allocatableRegs.AllocatableRegisters {
 		for _, r := range regs {
@@ -49,33 +49,39 @@ type (
 	}
 
 	// Allocator is a register allocator.
-	Allocator struct {
+	Allocator[I Instr, B Block[I], F Function[I, B]] struct {
 		// regInfo is static per ABI/ISA, and is initialized by the machine during Machine.PrepareRegisterAllocator.
 		regInfo *RegisterInfo
 		// allocatableSet is a set of allocatable RealReg derived from regInfo. Static per ABI/ISA.
 		allocatableSet           RegSet
 		allocatedCalleeSavedRegs []VReg
 		vs                       []VReg
-		vs2                      []VRegID
-		phiDefInstListPool       wazevoapi.Pool[phiDefInstList]
+		ss                       []*vrState[I, B, F]
+		copies                   []_copy[I, B, F]
+		phiDefInstListPool       wazevoapi.Pool[phiDefInstList[I]]
 
 		// Followings are re-used during various places.
-		blks             []Block
-		reals            []RealReg
-		currentOccupants regInUseSet
+		blks  []B
+		reals []RealReg
 
 		// Following two fields are updated while iterating the blocks in the reverse postorder.
-		state       state
-		blockStates wazevoapi.IDedPool[blockState]
+		state       state[I, B, F]
+		blockStates wazevoapi.IDedPool[blockState[I, B, F]]
+	}
+
+	// _copy represents a source and destination pair of a copy instruction.
+	_copy[I Instr, B Block[I], F Function[I, B]] struct {
+		src   *vrState[I, B, F]
+		dstID VRegID
 	}
 
 	// programCounter represents an opaque index into the program which is used to represents a LiveInterval of a VReg.
 	programCounter int32
 
-	state struct {
+	state[I Instr, B Block[I], F Function[I, B]] struct {
 		argRealRegs []VReg
-		regsInUse   regInUseSet
-		vrStates    wazevoapi.IDedPool[vrState]
+		regsInUse   regInUseSet[I, B, F]
+		vrStates    wazevoapi.IDedPool[vrState[I, B, F]]
 
 		currentBlockID int32
 
@@ -83,30 +89,30 @@ type (
 		allocatedRegSet RegSet
 	}
 
-	blockState struct {
+	blockState[I Instr, B Block[I], F Function[I, B]] struct {
 		// liveIns is a list of VReg that are live at the beginning of the block.
-		liveIns []VRegID
+		liveIns []*vrState[I, B, F]
 		// seen is true if the block is visited during the liveness analysis.
 		seen bool
 		// visited is true if the block is visited during the allocation phase.
 		visited            bool
 		startFromPredIndex int
 		// startRegs is a list of RealReg that are used at the beginning of the block. This is used to fix the merge edges.
-		startRegs regInUseSet
+		startRegs regInUseSet[I, B, F]
 		// endRegs is a list of RealReg that are used at the end of the block. This is used to fix the merge edges.
-		endRegs regInUseSet
+		endRegs regInUseSet[I, B, F]
 	}
 
-	vrState struct {
+	vrState[I Instr, B Block[I], f Function[I, B]] struct {
 		v VReg
 		r RealReg
 		// defInstr is the instruction that defines this value. If this is the phi value and not the entry block, this is nil.
-		defInstr Instr
+		defInstr I
 		// defBlk is the block that defines this value. If this is the phi value, this is the block whose arguments contain this value.
-		defBlk Block
+		defBlk B
 		// lca = lowest common ancestor. This is the block that is the lowest common ancestor of all the blocks that
 		// reloads this value. This is used to determine the spill location. Only valid if spilled=true.
-		lca Block
+		lca B
 		// lastUse is the program counter of the last use of this value. This changes while iterating the block, and
 		// should not be used across the blocks as it becomes invalid. To check the validity, use lastUseUpdatedAtBlockID.
 		lastUse                 programCounter
@@ -121,14 +127,14 @@ type (
 		desiredLoc desiredLoc
 		// phiDefInstList is a list of instructions that defines this phi value.
 		// This is used to determine the spill location, and only valid if isPhi=true.
-		*phiDefInstList
+		*phiDefInstList[I]
 	}
 
 	// phiDefInstList is a linked list of instructions that defines a phi value.
-	phiDefInstList struct {
-		instr Instr
+	phiDefInstList[I Instr] struct {
+		instr I
 		v     VReg
-		next  *phiDefInstList
+		next  *phiDefInstList[I]
 	}
 
 	// desiredLoc represents a desired location for a VReg.
@@ -160,13 +166,14 @@ func (d desiredLoc) stack() bool {
 	return d&3 == desiredLoc(desiredLocKindStack)
 }
 
-func resetPhiDefInstList(l *phiDefInstList) {
-	l.instr = nil
+func resetPhiDefInstList[I Instr](l *phiDefInstList[I]) {
+	var nilInstr I
+	l.instr = nilInstr
 	l.next = nil
 	l.v = VRegInvalid
 }
 
-func (s *state) dump(info *RegisterInfo) { //nolint:unused
+func (s *state[I, B, F]) dump(info *RegisterInfo) { //nolint:unused
 	fmt.Println("\t\tstate:")
 	fmt.Println("\t\t\targRealRegs:", s.argRealRegs)
 	fmt.Println("\t\t\tregsInUse", s.regsInUse.format(info))
@@ -185,7 +192,7 @@ func (s *state) dump(info *RegisterInfo) { //nolint:unused
 	fmt.Println("\t\t\tvrStates:", strings.Join(strs, ", "))
 }
 
-func (s *state) reset() {
+func (s *state[I, B, F]) reset() {
 	s.argRealRegs = s.argRealRegs[:0]
 	s.vrStates.Reset()
 	s.allocatedRegSet = RegSet(0)
@@ -193,79 +200,74 @@ func (s *state) reset() {
 	s.currentBlockID = -1
 }
 
-func (s *state) setVRegState(v VReg, r RealReg) {
-	id := int(v.ID())
-	st := s.vrStates.GetOrAllocate(id)
-	st.r = r
-	st.v = v
-}
-
-func resetVrState(vs *vrState) {
+func resetVrState[I Instr, B Block[I], F Function[I, B]](vs *vrState[I, B, F]) {
 	vs.v = VRegInvalid
 	vs.r = RealRegInvalid
-	vs.defInstr = nil
-	vs.defBlk = nil
+	var nilInstr I
+	vs.defInstr = nilInstr
+	var nilBlk B
+	vs.defBlk = nilBlk
 	vs.spilled = false
 	vs.lastUse = -1
 	vs.lastUseUpdatedAtBlockID = -1
-	vs.lca = nil
+	vs.lca = nilBlk
 	vs.isPhi = false
 	vs.phiDefInstList = nil
 	vs.desiredLoc = desiredLocUnspecified
 }
 
-func (s *state) getVRegState(v VRegID) *vrState {
-	return s.vrStates.GetOrAllocate(int(v))
+func (s *state[I, B, F]) getOrAllocateVRegState(v VReg) *vrState[I, B, F] {
+	st := s.vrStates.GetOrAllocate(int(v.ID()))
+	if st.v == VRegInvalid {
+		st.v = v
+	}
+	return st
 }
 
-func (s *state) useRealReg(r RealReg, v VReg) {
-	if s.regsInUse.has(r) {
-		panic("BUG: useRealReg: the given real register is already used")
-	}
-	s.regsInUse.add(r, v)
-	s.setVRegState(v, r)
+func (s *state[I, B, F]) getVRegState(v VRegID) *vrState[I, B, F] {
+	return s.vrStates.Get(int(v))
+}
+
+func (s *state[I, B, F]) useRealReg(r RealReg, vr *vrState[I, B, F]) {
+	s.regsInUse.add(r, vr)
+	vr.r = r
 	s.allocatedRegSet = s.allocatedRegSet.add(r)
 }
 
-func (s *state) releaseRealReg(r RealReg) {
+func (s *state[I, B, F]) releaseRealReg(r RealReg) {
 	current := s.regsInUse.get(r)
-	if current.Valid() {
+	if current != nil {
 		s.regsInUse.remove(r)
-		s.setVRegState(current, RealRegInvalid)
+		current.r = RealRegInvalid
 	}
 }
 
 // recordReload records that the given VReg is reloaded in the given block.
 // This is used to determine the spill location by tracking the lowest common ancestor of all the blocks that reloads the value.
-func (vs *vrState) recordReload(f Function, blk Block) {
+func (vs *vrState[I, B, F]) recordReload(f F, blk B) {
 	vs.spilled = true
-	if vs.lca == nil {
+	var nilBlk B
+	if lca := vs.lca; lca == nilBlk {
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("\t\tv%d is reloaded in blk%d,\n", vs.v.ID(), blk.ID())
 		}
 		vs.lca = blk
-	} else {
+	} else if lca != blk {
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("\t\tv%d is reloaded in blk%d, lca=%d\n", vs.v.ID(), blk.ID(), vs.lca.ID())
 		}
-		vs.lca = f.LowestCommonAncestor(vs.lca, blk)
+		vs.lca = f.LowestCommonAncestor(lca, blk)
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("updated lca=%d\n", vs.lca.ID())
 		}
 	}
 }
 
-func (s *state) findOrSpillAllocatable(a *Allocator, allocatable []RealReg, forbiddenMask RegSet, preferred RealReg) (r RealReg) {
+func (a *Allocator[I, B, F]) findOrSpillAllocatable(s *state[I, B, F], allocatable []RealReg, forbiddenMask RegSet, preferred RealReg) (r RealReg) {
 	r = RealRegInvalid
 	// First, check if the preferredMask has any allocatable register.
 	if preferred != RealRegInvalid && !forbiddenMask.has(preferred) && !s.regsInUse.has(preferred) {
-		for _, candidateReal := range allocatable {
-			// TODO: we should ensure the preferred register is in the allocatable set in the first place,
-			//  but right now, just in case, we check it here.
-			if candidateReal == preferred {
-				return preferred
-			}
-		}
+		return preferred
 	}
 
 	var lastUseAt programCounter
@@ -276,7 +278,7 @@ func (s *state) findOrSpillAllocatable(a *Allocator, allocatable []RealReg, forb
 		}
 
 		using := s.regsInUse.get(candidateReal)
-		if using == VRegInvalid {
+		if using == nil {
 			// This is not used at this point.
 			return candidateReal
 		}
@@ -285,17 +287,17 @@ func (s *state) findOrSpillAllocatable(a *Allocator, allocatable []RealReg, forb
 		// For example, if the register is used as an argument register, and it might be
 		// spilled and not reloaded when it ends up being used as a temporary to pass
 		// stack based argument.
-		if using.IsRealReg() {
+		if using.v.IsRealReg() {
 			continue
 		}
 
 		isPreferred := candidateReal == preferred
 
 		// last == -1 means the value won't be used anymore.
-		if last := s.getVRegState(using.ID()).lastUse; r == RealRegInvalid || isPreferred || last == -1 || (lastUseAt != -1 && last > lastUseAt) {
+		if last := using.lastUse; r == RealRegInvalid || isPreferred || last == -1 || (lastUseAt != -1 && last > lastUseAt) {
 			lastUseAt = last
 			r = candidateReal
-			spillVReg = using
+			spillVReg = using.v
 			if isPreferred {
 				break
 			}
@@ -313,7 +315,7 @@ func (s *state) findOrSpillAllocatable(a *Allocator, allocatable []RealReg, forb
 	return r
 }
 
-func (s *state) findAllocatable(allocatable []RealReg, forbiddenMask RegSet) RealReg {
+func (s *state[I, B, F]) findAllocatable(allocatable []RealReg, forbiddenMask RegSet) RealReg {
 	for _, r := range allocatable {
 		if !s.regsInUse.has(r) && !forbiddenMask.has(r) {
 			return r
@@ -322,22 +324,20 @@ func (s *state) findAllocatable(allocatable []RealReg, forbiddenMask RegSet) Rea
 	return RealRegInvalid
 }
 
-func (s *state) resetAt(bs *blockState) {
-	s.regsInUse.range_(func(_ RealReg, vr VReg) {
-		s.setVRegState(vr, RealRegInvalid)
+func (s *state[I, B, F]) resetAt(bs *blockState[I, B, F]) {
+	s.regsInUse.range_(func(_ RealReg, vs *vrState[I, B, F]) {
+		vs.r = RealRegInvalid
 	})
 	s.regsInUse.reset()
-	bs.endRegs.range_(func(r RealReg, v VReg) {
-		id := int(v.ID())
-		st := s.vrStates.GetOrAllocate(id)
-		if st.lastUseUpdatedAtBlockID == s.currentBlockID && st.lastUse == programCounterLiveIn {
-			s.regsInUse.add(r, v)
-			s.setVRegState(v, r)
+	bs.endRegs.range_(func(r RealReg, vs *vrState[I, B, F]) {
+		if vs.lastUseUpdatedAtBlockID == s.currentBlockID && vs.lastUse == programCounterLiveIn {
+			s.regsInUse.add(r, vs)
+			vs.r = r
 		}
 	})
 }
 
-func resetBlockState(b *blockState) {
+func resetBlockState[I Instr, B Block[I], F Function[I, B]](b *blockState[I, B, F]) {
 	b.seen = false
 	b.visited = false
 	b.endRegs.reset()
@@ -346,7 +346,7 @@ func resetBlockState(b *blockState) {
 	b.liveIns = b.liveIns[:0]
 }
 
-func (b *blockState) dump(a *RegisterInfo) {
+func (b *blockState[I, B, F]) dump(a *RegisterInfo) {
 	fmt.Println("\t\tblockState:")
 	fmt.Println("\t\t\tstartRegs:", b.startRegs.format(a))
 	fmt.Println("\t\t\tendRegs:", b.endRegs.format(a))
@@ -355,13 +355,13 @@ func (b *blockState) dump(a *RegisterInfo) {
 }
 
 // DoAllocation performs register allocation on the given Function.
-func (a *Allocator) DoAllocation(f Function) {
+func (a *Allocator[I, B, F]) DoAllocation(f F) {
 	a.livenessAnalysis(f)
 	a.alloc(f)
 	a.determineCalleeSavedRealRegs(f)
 }
 
-func (a *Allocator) determineCalleeSavedRealRegs(f Function) {
+func (a *Allocator[I, B, F]) determineCalleeSavedRealRegs(f F) {
 	a.allocatedCalleeSavedRegs = a.allocatedCalleeSavedRegs[:0]
 	a.state.allocatedRegSet.Range(func(allocatedRealReg RealReg) {
 		if a.regInfo.CalleeSavedRegisters.has(allocatedRealReg) {
@@ -371,17 +371,17 @@ func (a *Allocator) determineCalleeSavedRealRegs(f Function) {
 	f.ClobberedRegisters(a.allocatedCalleeSavedRegs)
 }
 
-func (a *Allocator) getOrAllocateBlockState(blockID int32) *blockState {
+func (a *Allocator[I, B, F]) getOrAllocateBlockState(blockID int32) *blockState[I, B, F] {
 	return a.blockStates.GetOrAllocate(int(blockID))
 }
 
 // phiBlk returns the block that defines the given phi value, nil otherwise.
-func (s *state) phiBlk(v VRegID) Block {
-	vs := s.getVRegState(v)
+func (vs *vrState[I, B, F]) phiBlk() B {
 	if vs.isPhi {
 		return vs.defBlk
 	}
-	return nil
+	var nilBlk B
+	return nilBlk
 }
 
 const (
@@ -391,31 +391,35 @@ const (
 
 // liveAnalysis constructs Allocator.blockLivenessData.
 // The algorithm here is described in https://pfalcon.github.io/ssabook/latest/book-full.pdf Chapter 9.2.
-func (a *Allocator) livenessAnalysis(f Function) {
+func (a *Allocator[I, B, F]) livenessAnalysis(f F) {
 	s := &a.state
-	for blk := f.PostOrderBlockIteratorBegin(); blk != nil; blk = f.PostOrderBlockIteratorNext() { // Order doesn't matter.
 
+	for i := VRegID(0); i < vRegIDReservedForRealNum; i++ {
+		s.getOrAllocateVRegState(VReg(i).SetRealReg(RealReg(i)))
+	}
+
+	var nilBlk B
+	var nilInstr I
+	for blk := f.PostOrderBlockIteratorBegin(); blk != nilBlk; blk = f.PostOrderBlockIteratorNext() {
 		// We should gather phi value data.
-		for _, p := range blk.BlockParams(&a.vs) {
-			vs := s.getVRegState(p.ID())
+		for _, p := range f.BlockParams(blk, &a.vs) {
+			vs := s.getOrAllocateVRegState(p)
 			vs.isPhi = true
 			vs.defBlk = blk
 		}
-	}
 
-	for blk := f.PostOrderBlockIteratorBegin(); blk != nil; blk = f.PostOrderBlockIteratorNext() {
 		blkID := blk.ID()
 		info := a.getOrAllocateBlockState(blkID)
 
-		a.vs2 = a.vs2[:0]
+		a.ss = a.ss[:0]
 		const (
 			flagDeleted = false
 			flagLive    = true
 		)
 		ns := blk.Succs()
 		for i := 0; i < ns; i++ {
-			succ := blk.Succ(i)
-			if succ == nil {
+			succ := f.Succ(blk, i)
+			if succ == nilBlk {
 				continue
 			}
 
@@ -425,39 +429,39 @@ func (a *Allocator) livenessAnalysis(f Function) {
 				continue
 			}
 
-			for _, v := range succInfo.liveIns {
-				if s.phiBlk(v) != succ {
-					st := s.getVRegState(v)
+			for _, st := range succInfo.liveIns {
+				if st.phiBlk() != succ && st.spilled != flagLive { //nolint:gosimple
 					// We use .spilled field to store the flag.
 					st.spilled = flagLive
-					a.vs2 = append(a.vs2, v)
+					a.ss = append(a.ss, st)
 				}
 			}
 		}
 
-		for instr := blk.InstrRevIteratorBegin(); instr != nil; instr = blk.InstrRevIteratorNext() {
+		for instr := blk.InstrRevIteratorBegin(); instr != nilInstr; instr = blk.InstrRevIteratorNext() {
 
 			var use, def VReg
+			var defIsPhi bool
 			for _, def = range instr.Defs(&a.vs) {
 				if !def.IsRealReg() {
-					id := def.ID()
-					st := s.getVRegState(id)
-					// We use .spilled field to store the flag.
+					st := s.getOrAllocateVRegState(def)
+					defIsPhi = st.isPhi
+					// Note: We use .spilled field to store the flag.
 					st.spilled = flagDeleted
-					a.vs2 = append(a.vs2, id)
 				}
 			}
 			for _, use = range instr.Uses(&a.vs) {
 				if !use.IsRealReg() {
-					id := use.ID()
-					st := s.getVRegState(id)
-					// We use .spilled field to store the flag.
-					st.spilled = flagLive
-					a.vs2 = append(a.vs2, id)
+					st := s.getOrAllocateVRegState(use)
+					// Note: We use .spilled field to store the flag.
+					if st.spilled != flagLive { //nolint:gosimple
+						st.spilled = flagLive
+						a.ss = append(a.ss, st)
+					}
 				}
 			}
 
-			if def.Valid() && s.phiBlk(def.ID()) != nil {
+			if defIsPhi {
 				if use.Valid() && use.IsRealReg() {
 					// If the destination is a phi value, and the source is a real register, this is the beginning of the function.
 					a.state.argRealRegs = append(a.state.argRealRegs, use)
@@ -465,11 +469,10 @@ func (a *Allocator) livenessAnalysis(f Function) {
 			}
 		}
 
-		for _, v := range a.vs2 {
-			st := s.getVRegState(v)
+		for _, st := range a.ss {
 			// We use .spilled field to store the flag.
 			if st.spilled == flagLive { //nolint:gosimple
-				info.liveIns = append(info.liveIns, v)
+				info.liveIns = append(info.liveIns, st)
 				st.spilled = false
 			}
 		}
@@ -480,51 +483,48 @@ func (a *Allocator) livenessAnalysis(f Function) {
 	nrs := f.LoopNestingForestRoots()
 	for i := 0; i < nrs; i++ {
 		root := f.LoopNestingForestRoot(i)
-		a.loopTreeDFS(root)
+		a.loopTreeDFS(f, root)
 	}
 }
 
 // loopTreeDFS implements the Algorithm 9.3 in the book in an iterative way.
-func (a *Allocator) loopTreeDFS(entry Block) {
+func (a *Allocator[I, B, F]) loopTreeDFS(f F, entry B) {
 	a.blks = a.blks[:0]
 	a.blks = append(a.blks, entry)
 
-	s := &a.state
 	for len(a.blks) > 0 {
 		tail := len(a.blks) - 1
 		loop := a.blks[tail]
 		a.blks = a.blks[:tail]
-		a.vs2 = a.vs2[:0]
+		a.ss = a.ss[:0]
 		const (
 			flagDone    = false
 			flagPending = true
 		)
 		info := a.getOrAllocateBlockState(loop.ID())
-		for _, v := range info.liveIns {
-			if s.phiBlk(v) != loop {
-				a.vs2 = append(a.vs2, v)
-				st := s.getVRegState(v)
+		for _, st := range info.liveIns {
+			if st.phiBlk() != loop {
+				a.ss = append(a.ss, st)
 				// We use .spilled field to store the flag.
 				st.spilled = flagPending
 			}
 		}
 
-		var siblingAddedView []VRegID
+		var siblingAddedView []*vrState[I, B, F]
 		cn := loop.LoopNestingForestChildren()
 		for i := 0; i < cn; i++ {
-			child := loop.LoopNestingForestChild(i)
+			child := f.LoopNestingForestChild(loop, i)
 			childID := child.ID()
 			childInfo := a.getOrAllocateBlockState(childID)
 
 			if i == 0 {
 				begin := len(childInfo.liveIns)
-				for _, v := range a.vs2 {
-					st := s.getVRegState(v)
+				for _, st := range a.ss {
 					// We use .spilled field to store the flag.
 					if st.spilled == flagPending { //nolint:gosimple
 						st.spilled = flagDone
 						// TODO: deduplicate, though I don't think it has much impact.
-						childInfo.liveIns = append(childInfo.liveIns, v)
+						childInfo.liveIns = append(childInfo.liveIns, st)
 					}
 				}
 				siblingAddedView = childInfo.liveIns[begin:]
@@ -540,8 +540,7 @@ func (a *Allocator) loopTreeDFS(entry Block) {
 
 		if cn == 0 {
 			// If there's no forest child, we haven't cleared the .spilled field at this point.
-			for _, v := range a.vs2 {
-				st := s.getVRegState(v)
+			for _, st := range a.ss {
 				st.spilled = false
 			}
 		}
@@ -558,37 +557,36 @@ func (a *Allocator) loopTreeDFS(entry Block) {
 // the spill happens in the block that is the lowest common ancestor of all the blocks that reloads the value.
 //
 // All of these logics are almost the same as Go's compiler which has a dedicated description in the source file ^^.
-func (a *Allocator) alloc(f Function) {
+func (a *Allocator[I, B, F]) alloc(f F) {
 	// First we allocate each block in the reverse postorder (at least one predecessor should be allocated for each block).
-	for blk := f.ReversePostOrderBlockIteratorBegin(); blk != nil; blk = f.ReversePostOrderBlockIteratorNext() {
+	var nilBlk B
+	for blk := f.ReversePostOrderBlockIteratorBegin(); blk != nilBlk; blk = f.ReversePostOrderBlockIteratorNext() {
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("========== allocating blk%d ========\n", blk.ID())
 		}
 		if blk.Entry() {
-			a.finalizeStartReg(blk)
+			a.finalizeStartReg(f, blk)
 		}
 		a.allocBlock(f, blk)
 	}
 	// After the allocation, we all know the start and end state of each block. So we can fix the merge states.
-	for blk := f.ReversePostOrderBlockIteratorBegin(); blk != nil; blk = f.ReversePostOrderBlockIteratorNext() {
+	for blk := f.ReversePostOrderBlockIteratorBegin(); blk != nilBlk; blk = f.ReversePostOrderBlockIteratorNext() {
 		a.fixMergeState(f, blk)
 	}
 	// Finally, we insert the spill instructions as we know all the places where the reloads happen.
 	a.scheduleSpills(f)
 }
 
-func (a *Allocator) updateLiveInVRState(liveness *blockState) {
+func (a *Allocator[I, B, F]) updateLiveInVRState(liveness *blockState[I, B, F]) {
 	currentBlockID := a.state.currentBlockID
-	for _, v := range liveness.liveIns {
-		vs := a.state.getVRegState(v)
+	for _, vs := range liveness.liveIns {
 		vs.lastUse = programCounterLiveIn
 		vs.lastUseUpdatedAtBlockID = currentBlockID
 	}
 }
 
-func (a *Allocator) finalizeStartReg(blk Block) {
+func (a *Allocator[I, B, F]) finalizeStartReg(f F, blk B) {
 	bID := blk.ID()
-	liveness := a.getOrAllocateBlockState(bID)
 	s := &a.state
 	currentBlkState := a.getOrAllocateBlockState(bID)
 	if currentBlkState.startFromPredIndex > -1 {
@@ -596,20 +594,20 @@ func (a *Allocator) finalizeStartReg(blk Block) {
 	}
 
 	s.currentBlockID = bID
-	a.updateLiveInVRState(liveness)
+	a.updateLiveInVRState(currentBlkState)
 
 	preds := blk.Preds()
-	var predState *blockState
+	var predState *blockState[I, B, F]
 	switch preds {
 	case 0: // This is the entry block.
 	case 1:
-		predID := blk.Pred(0).ID()
+		predID := f.Pred(blk, 0).ID()
 		predState = a.getOrAllocateBlockState(predID)
 		currentBlkState.startFromPredIndex = 0
 	default:
 		// TODO: there should be some better heuristic to choose the predecessor.
 		for i := 0; i < preds; i++ {
-			predID := blk.Pred(i).ID()
+			predID := f.Pred(blk, i).ID()
 			if _predState := a.getOrAllocateBlockState(predID); _predState.visited {
 				predState = _predState
 				currentBlkState.startFromPredIndex = i
@@ -622,18 +620,18 @@ func (a *Allocator) finalizeStartReg(blk Block) {
 			panic(fmt.Sprintf("BUG: at lease one predecessor should be visited for blk%d", blk.ID()))
 		}
 		for _, u := range s.argRealRegs {
-			s.useRealReg(u.RealReg(), u)
+			s.useRealReg(u.RealReg(), s.getVRegState(u.ID()))
 		}
 		currentBlkState.startFromPredIndex = 0
-	} else if predState != nil {
+	} else {
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("allocating blk%d starting from blk%d (on index=%d) \n",
-				bID, blk.Pred(currentBlkState.startFromPredIndex).ID(), currentBlkState.startFromPredIndex)
+				bID, f.Pred(blk, currentBlkState.startFromPredIndex).ID(), currentBlkState.startFromPredIndex)
 		}
 		s.resetAt(predState)
 	}
 
-	s.regsInUse.range_(func(allocated RealReg, v VReg) {
+	s.regsInUse.range_(func(allocated RealReg, v *vrState[I, B, F]) {
 		currentBlkState.startRegs.add(allocated, v)
 	})
 	if wazevoapi.RegAllocLoggingEnabled {
@@ -641,7 +639,7 @@ func (a *Allocator) finalizeStartReg(blk Block) {
 	}
 }
 
-func (a *Allocator) allocBlock(f Function, blk Block) {
+func (a *Allocator[I, B, F]) allocBlock(f F, blk B) {
 	bID := blk.ID()
 	s := &a.state
 	currentBlkState := a.getOrAllocateBlockState(bID)
@@ -652,36 +650,34 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 	}
 
 	// Clears the previous state.
-	s.regsInUse.range_(func(allocatedRealReg RealReg, vr VReg) {
-		s.setVRegState(vr, RealRegInvalid)
-	})
+	s.regsInUse.range_(func(allocatedRealReg RealReg, vr *vrState[I, B, F]) { vr.r = RealRegInvalid })
 	s.regsInUse.reset()
 	// Then set the start state.
-	currentBlkState.startRegs.range_(func(allocatedRealReg RealReg, vr VReg) {
-		s.useRealReg(allocatedRealReg, vr)
-	})
+	currentBlkState.startRegs.range_(func(allocatedRealReg RealReg, vr *vrState[I, B, F]) { s.useRealReg(allocatedRealReg, vr) })
 
-	desiredUpdated := a.vs2[:0]
+	desiredUpdated := a.ss[:0]
 
 	// Update the last use of each VReg.
+	a.copies = a.copies[:0] // Stores the copy instructions.
 	var pc programCounter
-	for instr := blk.InstrIteratorBegin(); instr != nil; instr = blk.InstrIteratorNext() {
-		var use, def VReg
-		for _, use = range instr.Uses(&a.vs) {
+	var nilInstr I
+	for instr := blk.InstrIteratorBegin(); instr != nilInstr; instr = blk.InstrIteratorNext() {
+		var useState *vrState[I, B, F]
+		for _, use := range instr.Uses(&a.vs) {
+			useState = s.getVRegState(use.ID())
 			if !use.IsRealReg() {
-				s.getVRegState(use.ID()).lastUse = pc
+				useState.lastUse = pc
 			}
 		}
 
 		if instr.IsCopy() {
-			def = instr.Defs(&a.vs)[0]
+			def := instr.Defs(&a.vs)[0]
+			a.copies = append(a.copies, _copy[I, B, F]{src: useState, dstID: def.ID()})
 			r := def.RealReg()
 			if r != RealRegInvalid {
-				useID := use.ID()
-				vs := s.getVRegState(useID)
-				if !vs.isPhi { // TODO: no idea why do we need this.
-					vs.desiredLoc = newDesiredLocReg(r)
-					desiredUpdated = append(desiredUpdated, useID)
+				if !useState.isPhi { // TODO: no idea why do we need this.
+					useState.desiredLoc = newDesiredLocReg(r)
+					desiredUpdated = append(desiredUpdated, useState)
 				}
 			}
 		}
@@ -690,18 +686,18 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 
 	// Mark all live-out values by checking live-in of the successors.
 	// While doing so, we also update the desired register values.
-	var succ Block
+	var succ B
+	var nilBlk B
 	for i, ns := 0, blk.Succs(); i < ns; i++ {
-		succ = blk.Succ(i)
-		if succ == nil {
+		succ = f.Succ(blk, i)
+		if succ == nilBlk {
 			continue
 		}
 
 		succID := succ.ID()
 		succState := a.getOrAllocateBlockState(succID)
-		for _, v := range succState.liveIns {
-			if s.phiBlk(v) != succ {
-				st := s.getVRegState(v)
+		for _, st := range succState.liveIns {
+			if st.phiBlk() != succ {
 				st.lastUse = programCounterLiveOut
 			}
 		}
@@ -710,43 +706,33 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 			if wazevoapi.RegAllocLoggingEnabled {
 				fmt.Printf("blk%d -> blk%d: start_regs: %s\n", bID, succID, succState.startRegs.format(a.regInfo))
 			}
-			succState.startRegs.range_(func(allocatedRealReg RealReg, vr VReg) {
-				vs := s.getVRegState(vr.ID())
+			succState.startRegs.range_(func(allocatedRealReg RealReg, vs *vrState[I, B, F]) {
 				vs.desiredLoc = newDesiredLocReg(allocatedRealReg)
-				desiredUpdated = append(desiredUpdated, vr.ID())
+				desiredUpdated = append(desiredUpdated, vs)
 			})
-			for _, p := range succ.BlockParams(&a.vs) {
+			for _, p := range f.BlockParams(succ, &a.vs) {
 				vs := s.getVRegState(p.ID())
 				if vs.desiredLoc.realReg() == RealRegInvalid {
 					vs.desiredLoc = desiredLocStack
-					desiredUpdated = append(desiredUpdated, p.ID())
+					desiredUpdated = append(desiredUpdated, vs)
 				}
 			}
 		}
 	}
 
 	// Propagate the desired register values from the end of the block to the beginning.
-	for instr := blk.InstrRevIteratorBegin(); instr != nil; instr = blk.InstrRevIteratorNext() {
-		if instr.IsCopy() {
-			def := instr.Defs(&a.vs)[0]
-			defState := s.getVRegState(def.ID())
-			desired := defState.desiredLoc.realReg()
-			if desired == RealRegInvalid {
-				continue
-			}
-
-			use := instr.Uses(&a.vs)[0]
-			useID := use.ID()
-			useState := s.getVRegState(useID)
-			if s.phiBlk(useID) != succ && useState.desiredLoc == desiredLocUnspecified {
-				useState.desiredLoc = newDesiredLocReg(desired)
-				desiredUpdated = append(desiredUpdated, useID)
-			}
+	for _, instr := range a.copies {
+		defState := s.getVRegState(instr.dstID)
+		desired := defState.desiredLoc.realReg()
+		useState := instr.src
+		if useState.phiBlk() != succ && useState.desiredLoc == desiredLocUnspecified {
+			useState.desiredLoc = newDesiredLocReg(desired)
+			desiredUpdated = append(desiredUpdated, useState)
 		}
 	}
 
 	pc = 0
-	for instr := blk.InstrIteratorBegin(); instr != nil; instr = blk.InstrIteratorNext() {
+	for instr := blk.InstrIteratorBegin(); instr != nilInstr; instr = blk.InstrIteratorNext() {
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Println(instr)
 		}
@@ -755,7 +741,8 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 		killSet := a.reals[:0]
 
 		// Gather the set of registers that will be used in the current instruction.
-		for _, use := range instr.Uses(&a.vs) {
+		uses := instr.Uses(&a.vs)
+		for _, use := range uses {
 			if use.IsRealReg() {
 				r := use.RealReg()
 				currentUsedSet = currentUsedSet.add(r)
@@ -770,19 +757,19 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 			}
 		}
 
-		for i, use := range instr.Uses(&a.vs) {
+		for i, use := range uses {
 			if !use.IsRealReg() {
 				vs := s.getVRegState(use.ID())
 				killed := vs.lastUse == pc
 				r := vs.r
 
 				if r == RealRegInvalid {
-					r = s.findOrSpillAllocatable(a, a.regInfo.AllocatableRegisters[use.RegType()], currentUsedSet,
+					r = a.findOrSpillAllocatable(s, a.regInfo.AllocatableRegisters[use.RegType()], currentUsedSet,
 						// Prefer the desired register if it's available.
 						vs.desiredLoc.realReg())
 					vs.recordReload(f, blk)
 					f.ReloadRegisterBefore(use.SetRealReg(r), instr)
-					s.useRealReg(r, use)
+					s.useRealReg(r, vs)
 				}
 				if wazevoapi.RegAllocLoggingEnabled {
 					fmt.Printf("\ttrying to use v%v on %s\n", use.ID(), a.regInfo.RealRegName(r))
@@ -799,10 +786,9 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 		}
 
 		isIndirect := instr.IsIndirectCall()
-		call := instr.IsCall() || isIndirect
-		if call {
+		if instr.IsCall() || isIndirect {
 			addr := RealRegInvalid
-			if instr.IsIndirectCall() {
+			if isIndirect {
 				addr = a.vs[0].RealReg()
 			}
 			a.releaseCallerSavedRegs(addr)
@@ -814,8 +800,8 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 		a.reals = killSet
 
 		defs := instr.Defs(&a.vs)
-		switch {
-		case len(defs) > 1:
+		switch len(defs) {
+		default:
 			// Some instructions define multiple values on real registers.
 			// E.g. call instructions (following calling convention) / div instruction on x64 that defines both rax and rdx.
 			//
@@ -830,20 +816,21 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 				if s.regsInUse.has(r) {
 					s.releaseRealReg(r)
 				}
-				s.useRealReg(r, def)
+				s.useRealReg(r, s.getVRegState(def.ID()))
 			}
-		case len(defs) == 1:
+		case 0:
+		case 1:
 			def := defs[0]
+			vState := s.getVRegState(def.ID())
 			if def.IsRealReg() {
 				r := def.RealReg()
 				if a.allocatableSet.has(r) {
 					if s.regsInUse.has(r) {
 						s.releaseRealReg(r)
 					}
-					s.useRealReg(r, def)
+					s.useRealReg(r, vState)
 				}
 			} else {
-				vState := s.getVRegState(def.ID())
 				r := vState.r
 
 				if desired := vState.desiredLoc.realReg(); desired != RealRegInvalid {
@@ -864,7 +851,7 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 							}
 							r = desired
 							s.releaseRealReg(r)
-							s.useRealReg(r, def)
+							s.useRealReg(r, vState)
 						}
 					}
 				}
@@ -880,9 +867,9 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 					}
 					if r == RealRegInvalid {
 						typ := def.RegType()
-						r = s.findOrSpillAllocatable(a, a.regInfo.AllocatableRegisters[typ], RegSet(0), RealRegInvalid)
+						r = a.findOrSpillAllocatable(s, a.regInfo.AllocatableRegisters[typ], RegSet(0), RealRegInvalid)
 					}
-					s.useRealReg(r, def)
+					s.useRealReg(r, vState)
 				}
 				dr := def.SetRealReg(r)
 				instr.AssignDef(dr)
@@ -915,9 +902,7 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 		pc++
 	}
 
-	s.regsInUse.range_(func(allocated RealReg, v VReg) {
-		currentBlkState.endRegs.add(allocated, v)
-	})
+	s.regsInUse.range_(func(allocated RealReg, v *vrState[I, B, F]) { currentBlkState.endRegs.add(allocated, v) })
 
 	currentBlkState.visited = true
 	if wazevoapi.RegAllocLoggingEnabled {
@@ -925,32 +910,30 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 	}
 
 	// Reset the desired end location.
-	for _, v := range desiredUpdated {
-		vs := s.getVRegState(v)
+	for _, vs := range desiredUpdated {
 		vs.desiredLoc = desiredLocUnspecified
 	}
-	a.vs2 = desiredUpdated[:0]
+	a.ss = desiredUpdated[:0]
 
 	for i := 0; i < blk.Succs(); i++ {
-		succ := blk.Succ(i)
-		if succ == nil {
+		succ := f.Succ(blk, i)
+		if succ == nilBlk {
 			continue
 		}
 		// If the successor is not visited yet, finalize the start state.
-		a.finalizeStartReg(succ)
+		a.finalizeStartReg(f, succ)
 	}
 }
 
-func (a *Allocator) releaseCallerSavedRegs(addrReg RealReg) {
+func (a *Allocator[I, B, F]) releaseCallerSavedRegs(addrReg RealReg) {
 	s := &a.state
 
-	for i := 0; i < 64; i++ {
-		allocated := RealReg(i)
+	for allocated := RealReg(0); allocated < 64; allocated++ {
 		if allocated == addrReg { // If this is the call indirect, we should not touch the addr register.
 			continue
 		}
-		if v := s.regsInUse.get(allocated); v.Valid() {
-			if v.IsRealReg() {
+		if vs := s.regsInUse.get(allocated); vs != nil {
+			if vs.v.IsRealReg() {
 				continue // This is the argument register as it's already used by VReg backed by the corresponding RealReg.
 			}
 			if !a.regInfo.CallerSavedRegisters.has(allocated) {
@@ -962,7 +945,7 @@ func (a *Allocator) releaseCallerSavedRegs(addrReg RealReg) {
 	}
 }
 
-func (a *Allocator) fixMergeState(f Function, blk Block) {
+func (a *Allocator[I, B, F]) fixMergeState(f F, blk B) {
 	preds := blk.Preds()
 	if preds <= 1 {
 		return
@@ -974,11 +957,10 @@ func (a *Allocator) fixMergeState(f Function, blk Block) {
 	bID := blk.ID()
 	blkSt := a.getOrAllocateBlockState(bID)
 	desiredOccupants := &blkSt.startRegs
-	aliveOnRegVRegs := make(map[VReg]RealReg)
-	for i := 0; i < 64; i++ {
-		r := RealReg(i)
-		if v := blkSt.startRegs.get(r); v.Valid() {
-			aliveOnRegVRegs[v] = r
+	var desiredOccupantsSet RegSet
+	for i, v := range desiredOccupants {
+		if v != nil {
+			desiredOccupantsSet = desiredOccupantsSet.add(RealReg(i))
 		}
 	}
 
@@ -987,151 +969,146 @@ func (a *Allocator) fixMergeState(f Function, blk Block) {
 	}
 
 	s.currentBlockID = bID
-	a.updateLiveInVRState(a.getOrAllocateBlockState(bID))
+	a.updateLiveInVRState(blkSt)
 
-	currentOccupants := &a.currentOccupants
 	for i := 0; i < preds; i++ {
-		currentOccupants.reset()
 		if i == blkSt.startFromPredIndex {
 			continue
 		}
 
-		currentOccupantsRev := make(map[VReg]RealReg)
-		pred := blk.Pred(i)
+		pred := f.Pred(blk, i)
 		predSt := a.getOrAllocateBlockState(pred.ID())
-		for ii := 0; ii < 64; ii++ {
-			r := RealReg(ii)
-			if v := predSt.endRegs.get(r); v.Valid() {
-				if _, ok := aliveOnRegVRegs[v]; !ok {
-					continue
-				}
-				currentOccupants.add(r, v)
-				currentOccupantsRev[v] = r
-			}
-		}
 
 		s.resetAt(predSt)
 
 		// Finds the free registers if any.
 		intTmp, floatTmp := VRegInvalid, VRegInvalid
 		if intFree := s.findAllocatable(
-			a.regInfo.AllocatableRegisters[RegTypeInt], desiredOccupants.set,
+			a.regInfo.AllocatableRegisters[RegTypeInt], desiredOccupantsSet,
 		); intFree != RealRegInvalid {
 			intTmp = FromRealReg(intFree, RegTypeInt)
 		}
 		if floatFree := s.findAllocatable(
-			a.regInfo.AllocatableRegisters[RegTypeFloat], desiredOccupants.set,
+			a.regInfo.AllocatableRegisters[RegTypeFloat], desiredOccupantsSet,
 		); floatFree != RealRegInvalid {
 			floatTmp = FromRealReg(floatFree, RegTypeFloat)
 		}
 
-		if wazevoapi.RegAllocLoggingEnabled {
-			fmt.Println("\t", pred.ID(), ":", currentOccupants.format(a.regInfo))
-		}
-
-		for ii := 0; ii < 64; ii++ {
-			r := RealReg(ii)
+		for r := RealReg(0); r < 64; r++ {
 			desiredVReg := desiredOccupants.get(r)
-			if !desiredVReg.Valid() {
+			if desiredVReg == nil {
 				continue
 			}
 
-			currentVReg := currentOccupants.get(r)
-			if desiredVReg.ID() == currentVReg.ID() {
+			currentVReg := s.regsInUse.get(r)
+			if currentVReg != nil && desiredVReg.v.ID() == currentVReg.v.ID() {
 				continue
 			}
 
-			typ := desiredVReg.RegType()
+			typ := desiredVReg.v.RegType()
 			var tmpRealReg VReg
 			if typ == RegTypeInt {
 				tmpRealReg = intTmp
 			} else {
 				tmpRealReg = floatTmp
 			}
-			a.reconcileEdge(f, r, pred, currentOccupants, currentOccupantsRev, currentVReg, desiredVReg, tmpRealReg, typ)
+			a.reconcileEdge(f, r, pred, currentVReg, desiredVReg, tmpRealReg, typ)
 		}
 	}
 }
 
-func (a *Allocator) reconcileEdge(f Function,
+// reconcileEdge reconciles the register state between the current block and the predecessor for the real register `r`.
+//
+//   - currentVReg is the current VReg value that sits on the register `r`. This can be VRegInvalid if the register is not used at the end of the predecessor.
+//   - desiredVReg is the desired VReg value that should be on the register `r`.
+//   - freeReg is the temporary register that can be used to swap the values, which may or may not be used.
+//   - typ is the register type of the `r`.
+func (a *Allocator[I, B, F]) reconcileEdge(f F,
 	r RealReg,
-	pred Block,
-	currentOccupants *regInUseSet,
-	currentOccupantsRev map[VReg]RealReg,
-	currentVReg, desiredVReg VReg,
+	pred B,
+	currentState, desiredState *vrState[I, B, F],
 	freeReg VReg,
 	typ RegType,
 ) {
+	desiredVReg := desiredState.v
+	currentVReg := VRegInvalid
+	if currentState != nil {
+		currentVReg = currentState.v
+	}
+	// There are four cases to consider:
+	// 1. currentVReg is valid, but desiredVReg is on the stack.
+	// 2. Both currentVReg and desiredVReg are valid.
+	// 3. Desired is on a different register than `r` and currentReg is not valid.
+	// 4. Desired is on the stack and currentReg is not valid.
+
 	s := &a.state
 	if currentVReg.Valid() {
-		// Both are on reg.
-		er, ok := currentOccupantsRev[desiredVReg]
-		if !ok {
+		er := desiredState.r
+		if er == RealRegInvalid {
+			// Case 1: currentVReg is valid, but desiredVReg is on the stack.
 			if wazevoapi.RegAllocLoggingEnabled {
 				fmt.Printf("\t\tv%d is desired to be on %s, but currently on the stack\n",
 					desiredVReg.ID(), a.regInfo.RealRegName(r),
 				)
 			}
-			// This case is that the desired value is on the stack, but currentVReg is on the target register.
-			// We need to move the current value to the stack, and reload the desired value.
+			// We need to move the current value to the stack, and reload the desired value into the register.
 			// TODO: we can do better here.
 			f.StoreRegisterBefore(currentVReg.SetRealReg(r), pred.LastInstrForInsertion())
-			delete(currentOccupantsRev, currentVReg)
+			s.releaseRealReg(r)
 
-			s.getVRegState(desiredVReg.ID()).recordReload(f, pred)
+			desiredState.recordReload(f, pred)
 			f.ReloadRegisterBefore(desiredVReg.SetRealReg(r), pred.LastInstrForInsertion())
-			currentOccupants.add(r, desiredVReg)
-			currentOccupantsRev[desiredVReg] = r
+			s.useRealReg(r, desiredState)
 			return
-		}
-
-		if wazevoapi.RegAllocLoggingEnabled {
-			fmt.Printf("\t\tv%d is desired to be on %s, but currently on %s\n",
-				desiredVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er),
+		} else {
+			// Case 2: Both currentVReg and desiredVReg are valid.
+			if wazevoapi.RegAllocLoggingEnabled {
+				fmt.Printf("\t\tv%d is desired to be on %s, but currently on %s\n",
+					desiredVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er),
+				)
+			}
+			// This case, we need to swap the values between the current and desired values.
+			f.SwapBefore(
+				currentVReg.SetRealReg(r),
+				desiredVReg.SetRealReg(er),
+				freeReg,
+				pred.LastInstrForInsertion(),
 			)
-		}
-		f.SwapBefore(
-			currentVReg.SetRealReg(r),
-			desiredVReg.SetRealReg(er),
-			freeReg,
-			pred.LastInstrForInsertion(),
-		)
-		s.allocatedRegSet = s.allocatedRegSet.add(freeReg.RealReg())
-		currentOccupantsRev[desiredVReg] = r
-		currentOccupantsRev[currentVReg] = er
-		currentOccupants.add(r, desiredVReg)
-		currentOccupants.add(er, currentVReg)
-		if wazevoapi.RegAllocLoggingEnabled {
-			fmt.Printf("\t\tv%d previously on %s moved to %s\n", currentVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er))
+			s.allocatedRegSet = s.allocatedRegSet.add(freeReg.RealReg())
+			s.releaseRealReg(r)
+			s.releaseRealReg(er)
+			s.useRealReg(r, desiredState)
+			s.useRealReg(er, currentState)
+			if wazevoapi.RegAllocLoggingEnabled {
+				fmt.Printf("\t\tv%d previously on %s moved to %s\n", currentVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er))
+			}
 		}
 	} else {
-		// Desired is on reg, but currently the target register is not used.
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("\t\tv%d is desired to be on %s, current not used\n",
 				desiredVReg.ID(), a.regInfo.RealRegName(r),
 			)
 		}
-		if currentReg, ok := currentOccupantsRev[desiredVReg]; ok {
+		if currentReg := desiredState.r; currentReg != RealRegInvalid {
+			// Case 3: Desired is on a different register than `r` and currentReg is not valid.
+			// We simply need to move the desired value to the register.
 			f.InsertMoveBefore(
 				FromRealReg(r, typ),
 				desiredVReg.SetRealReg(currentReg),
 				pred.LastInstrForInsertion(),
 			)
-			currentOccupants.remove(currentReg)
+			s.releaseRealReg(currentReg)
 		} else {
-			s.getVRegState(desiredVReg.ID()).recordReload(f, pred)
+			// Case 4: Both currentVReg and desiredVReg are not valid.
+			// We simply need to reload the desired value into the register.
+			desiredState.recordReload(f, pred)
 			f.ReloadRegisterBefore(desiredVReg.SetRealReg(r), pred.LastInstrForInsertion())
 		}
-		currentOccupantsRev[desiredVReg] = r
-		currentOccupants.add(r, desiredVReg)
-	}
-
-	if wazevoapi.RegAllocLoggingEnabled {
-		fmt.Println("\t", pred.ID(), ":", currentOccupants.format(a.regInfo))
+		s.useRealReg(r, desiredState)
 	}
 }
 
-func (a *Allocator) scheduleSpills(f Function) {
+func (a *Allocator[I, B, F]) scheduleSpills(f F) {
 	states := a.state.vrStates
 	for i := 0; i <= states.MaxIDEncountered(); i++ {
 		vs := states.Get(i)
@@ -1144,7 +1121,7 @@ func (a *Allocator) scheduleSpills(f Function) {
 	}
 }
 
-func (a *Allocator) scheduleSpill(f Function, vs *vrState) {
+func (a *Allocator[I, B, F]) scheduleSpill(f F, vs *vrState[I, B, F]) {
 	v := vs.v
 	// If the value is the phi value, we need to insert a spill after each phi definition.
 	if vs.isPhi {
@@ -1157,10 +1134,11 @@ func (a *Allocator) scheduleSpill(f Function, vs *vrState) {
 	pos := vs.lca
 	definingBlk := vs.defBlk
 	r := RealRegInvalid
-	if definingBlk == nil {
+	var nilBlk B
+	if definingBlk == nilBlk {
 		panic(fmt.Sprintf("BUG: definingBlk should not be nil for %s. This is likley a bug in backend lowering logic", vs.v.String()))
 	}
-	if pos == nil {
+	if pos == nilBlk {
 		panic(fmt.Sprintf("BUG: pos should not be nil for %s. This is likley a bug in backend lowering logic", vs.v.String()))
 	}
 
@@ -1169,9 +1147,8 @@ func (a *Allocator) scheduleSpill(f Function, vs *vrState) {
 	}
 	for pos != definingBlk {
 		st := a.getOrAllocateBlockState(pos.ID())
-		for ii := 0; ii < 64; ii++ {
-			rr := RealReg(ii)
-			if st.startRegs.get(rr) == v {
+		for rr := RealReg(0); rr < 64; rr++ {
+			if vs := st.startRegs.get(rr); vs != nil && vs.v == v {
 				r = rr
 				// Already in the register, so we can place the spill at the beginning of the block.
 				break
@@ -1204,7 +1181,7 @@ func (a *Allocator) scheduleSpill(f Function, vs *vrState) {
 }
 
 // Reset resets the allocator's internal state so that it can be reused.
-func (a *Allocator) Reset() {
+func (a *Allocator[I, B, F]) Reset() {
 	a.state.reset()
 	a.blockStates.Reset()
 	a.phiDefInstListPool.Reset()
