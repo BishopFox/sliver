@@ -382,6 +382,53 @@ func randomDifferentName(original string) string {
 	}
 }
 
+func rewriteProtobufTagValue(value string) (string, string, string, error) {
+	options := strings.Split(value, ",")
+	nameIndex, enumIndex := -1, -1
+	fieldNumberFound := false
+	for i, option := range options {
+		if _, err := strconv.ParseUint(option, 10, 32); err == nil {
+			fieldNumberFound = true
+		}
+		if strings.HasPrefix(option, "name=") {
+			if nameIndex >= 0 {
+				return "", "", "", fmt.Errorf("duplicate protobuf field name")
+			}
+			nameIndex = i
+		}
+		if strings.HasPrefix(option, "enum=") {
+			enumIndex = i
+		}
+	}
+	if !fieldNumberFound || nameIndex < 0 || len(options[nameIndex]) == len("name=") {
+		return "", "", "", fmt.Errorf("protobuf struct tag lacks a field number or name: %q", value)
+	}
+	originalName := strings.TrimPrefix(options[nameIndex], "name=")
+	newName := randomDifferentName(originalName)
+	options[nameIndex] = "name=" + newName
+	if enumIndex >= 0 {
+		enumName := strings.TrimPrefix(options[enumIndex], "enum=")
+		if enumName == "" {
+			return "", "", "", fmt.Errorf("empty protobuf enum name")
+		}
+		options[enumIndex] = "enum=" + randomDifferentName(enumName)
+	}
+	return strings.Join(options, ","), originalName, newName, nil
+}
+
+func rewriteJSONTagValue(value, originalName, newName string) (string, error) {
+	options := strings.SplitN(value, ",", 2)
+	if options[0] == "" || options[0] == "-" {
+		return "", fmt.Errorf("unsupported JSON field name %q", options[0])
+	}
+	if options[0] == originalName {
+		options[0] = newName
+	} else {
+		options[0] = randomDifferentName(options[0])
+	}
+	return strings.Join(options, ","), nil
+}
+
 func rewritePBStructTag(raw string, cache map[string]string) (string, bool, error) {
 	if rewritten, ok := cache[raw]; ok {
 		return rewritten, true, nil
@@ -411,47 +458,15 @@ func rewritePBStructTag(raw string, cache map[string]string) (string, bool, erro
 	if jsonIndex < 0 {
 		return "", false, fmt.Errorf("protobuf struct tag is missing a JSON tag")
 	}
-	options := strings.Split(parts[protobufIndex].value, ",")
-	nameIndex, enumIndex := -1, -1
-	fieldNumberFound := false
-	for i, option := range options {
-		if _, err := strconv.ParseUint(option, 10, 32); err == nil {
-			fieldNumberFound = true
-		}
-		if strings.HasPrefix(option, "name=") {
-			if nameIndex >= 0 {
-				return "", false, fmt.Errorf("duplicate protobuf field name")
-			}
-			nameIndex = i
-		}
-		if strings.HasPrefix(option, "enum=") {
-			enumIndex = i
-		}
+	protobufValue, originalName, newName, err := rewriteProtobufTagValue(parts[protobufIndex].value)
+	if err != nil {
+		return "", false, err
 	}
-	if !fieldNumberFound || nameIndex < 0 || len(options[nameIndex]) == len("name=") {
-		return "", false, fmt.Errorf("protobuf struct tag lacks a field number or name: %q", parts[protobufIndex].value)
+	parts[protobufIndex].value = protobufValue
+	parts[jsonIndex].value, err = rewriteJSONTagValue(parts[jsonIndex].value, originalName, newName)
+	if err != nil {
+		return "", false, err
 	}
-	originalName := strings.TrimPrefix(options[nameIndex], "name=")
-	newName := randomDifferentName(originalName)
-	options[nameIndex] = "name=" + newName
-	if enumIndex >= 0 {
-		enumName := strings.TrimPrefix(options[enumIndex], "enum=")
-		if enumName == "" {
-			return "", false, fmt.Errorf("empty protobuf enum name")
-		}
-		options[enumIndex] = "enum=" + randomDifferentName(enumName)
-	}
-	parts[protobufIndex].value = strings.Join(options, ",")
-	jsonOptions := strings.SplitN(parts[jsonIndex].value, ",", 2)
-	if jsonOptions[0] == "" || jsonOptions[0] == "-" {
-		return "", false, fmt.Errorf("unsupported JSON field name %q", jsonOptions[0])
-	}
-	if jsonOptions[0] == originalName {
-		jsonOptions[0] = newName
-	} else {
-		jsonOptions[0] = randomDifferentName(jsonOptions[0])
-	}
-	parts[jsonIndex].value = strings.Join(jsonOptions, ",")
 	rewritten := renderStructTagParts(parts)
 	cache[raw] = rewritten
 	return rewritten, true, nil
@@ -660,6 +675,42 @@ func xorPBRawBytes(src []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse protobuf source: %w", err)
 	}
+	declaration, valueSpec, descriptorName, err := findRawDescriptor(fileAst)
+	if err != nil {
+		return nil, err
+	}
+	if (declaration.Tok != token.CONST && declaration.Tok != token.VAR) ||
+		len(declaration.Specs) != 1 || len(valueSpec.Names) != 1 || len(valueSpec.Values) != 1 {
+		return nil, fmt.Errorf("%s has unsupported declaration shape", descriptorName)
+	}
+
+	functionName, stringLiterals, byteLiterals, byteValues, err := rawDescriptorLiterals(declaration, valueSpec, descriptorName)
+	if err != nil {
+		return nil, err
+	}
+	var xorKey [8]byte
+	if _, err := rand.Read(xorKey[:]); err != nil {
+		return nil, fmt.Errorf("generate protobuf descriptor key: %w", err)
+	}
+	encodeRawDescriptorLiterals(declaration, functionName, stringLiterals, byteLiterals, byteValues, xorKey[:])
+	valueSpec.Values[0] = &ast.CallExpr{
+		Fun: ast.NewIdent(functionName),
+		Args: []ast.Expr{
+			valueSpec.Values[0],
+			ast.NewIdent("xorKey"),
+		},
+	}
+	if err := appendRawDescriptorHelpers(fileAst, functionName, xorKey[:]); err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	if err := printer.Fprint(&out, fset, fileAst); err != nil {
+		return nil, fmt.Errorf("print rewritten protobuf source: %w", err)
+	}
+	return out.Bytes(), nil
+}
+
+func findRawDescriptor(fileAst *ast.File) (*ast.GenDecl, *ast.ValueSpec, string, error) {
 	var declaration *ast.GenDecl
 	var valueSpec *ast.ValueSpec
 	var descriptorName string
@@ -678,27 +729,27 @@ func xorPBRawBytes(src []byte) ([]byte, error) {
 					continue
 				}
 				if declaration != nil {
-					return nil, fmt.Errorf("multiple protobuf raw descriptors found")
+					return nil, nil, "", fmt.Errorf("multiple protobuf raw descriptors found")
 				}
 				declaration, valueSpec, descriptorName = genDecl, candidate, name.Name
 			}
 		}
 	}
 	if declaration == nil {
-		return nil, fmt.Errorf("no protobuf raw descriptor found")
+		return nil, nil, "", fmt.Errorf("no protobuf raw descriptor found")
 	}
-	if (declaration.Tok != token.CONST && declaration.Tok != token.VAR) ||
-		len(declaration.Specs) != 1 || len(valueSpec.Names) != 1 || len(valueSpec.Values) != 1 {
-		return nil, fmt.Errorf("%s has unsupported declaration shape", descriptorName)
-	}
+	return declaration, valueSpec, descriptorName, nil
+}
 
+func rawDescriptorLiterals(declaration *ast.GenDecl, valueSpec *ast.ValueSpec, descriptorName string) (string, []*ast.BasicLit, []*ast.BasicLit, []byte, error) {
 	var stringLiterals []*ast.BasicLit
 	var byteLiterals []*ast.BasicLit
 	var byteValues []byte
+	var err error
 	functionName := "xorString"
 	if byteExpr, ok := valueSpec.Values[0].(*ast.CompositeLit); ok {
 		if declaration.Tok != token.VAR {
-			return nil, fmt.Errorf("%s byte descriptor is not a variable", descriptorName)
+			return "", nil, nil, nil, fmt.Errorf("%s byte descriptor is not a variable", descriptorName)
 		}
 		byteLiterals, byteValues, err = descriptorByteLiterals(byteExpr)
 		functionName = "xorBytes"
@@ -706,13 +757,12 @@ func xorPBRawBytes(src []byte) ([]byte, error) {
 		stringLiterals, err = descriptorStringLiterals(valueSpec.Values[0])
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", descriptorName, err)
+		return "", nil, nil, nil, fmt.Errorf("%s: %w", descriptorName, err)
 	}
+	return functionName, stringLiterals, byteLiterals, byteValues, nil
+}
 
-	var xorKey [8]byte
-	if _, err := rand.Read(xorKey[:]); err != nil {
-		return nil, fmt.Errorf("generate protobuf descriptor key: %w", err)
-	}
+func encodeRawDescriptorLiterals(declaration *ast.GenDecl, functionName string, stringLiterals, byteLiterals []*ast.BasicLit, byteValues, xorKey []byte) {
 	if functionName == "xorString" {
 		offset := 0
 		for _, literal := range stringLiterals {
@@ -730,14 +780,9 @@ func xorPBRawBytes(src []byte) ([]byte, error) {
 			literal.Value = fmt.Sprintf("0x%02x", byteValues[i]^xorKey[i%len(xorKey)])
 		}
 	}
-	valueSpec.Values[0] = &ast.CallExpr{
-		Fun: ast.NewIdent(functionName),
-		Args: []ast.Expr{
-			valueSpec.Values[0],
-			ast.NewIdent("xorKey"),
-		},
-	}
+}
 
+func appendRawDescriptorHelpers(fileAst *ast.File, functionName string, xorKey []byte) error {
 	helper := `func xorString(input string, key []byte) string {
 	out := make([]byte, len(input))
 	for i := 0; i < len(input); i++ {
@@ -756,7 +801,7 @@ func xorPBRawBytes(src []byte) ([]byte, error) {
 	}
 	helperDecl, err := parseHelperDecl(helper)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	fileAst.Decls = append(fileAst.Decls, helperDecl)
 
@@ -771,11 +816,7 @@ func xorPBRawBytes(src []byte) ([]byte, error) {
 			Values: []ast.Expr{&ast.CompositeLit{Type: ast.NewIdent("[]byte"), Elts: xorTokens}},
 		}},
 	})
-	var out bytes.Buffer
-	if err := printer.Fprint(&out, fset, fileAst); err != nil {
-		return nil, fmt.Errorf("print rewritten protobuf source: %w", err)
-	}
-	return out.Bytes(), nil
+	return nil
 }
 
 func parseHelperDecl(src string) (ast.Decl, error) {

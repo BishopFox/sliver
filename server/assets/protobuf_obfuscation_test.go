@@ -258,6 +258,30 @@ func tagWithoutNames(value string) string {
 	return strings.Join(parts, ",")
 }
 
+func assertRewrittenProtobufFieldTag(t *testing.T, index int, old, newTag protobufFieldTag) {
+	t.Helper()
+	if old.structName != newTag.structName || old.fieldName != newTag.fieldName {
+		t.Fatalf("field %d changed from %s.%s to %s.%s", index, old.structName, old.fieldName, newTag.structName, newTag.fieldName)
+	}
+	if tagWithoutNames(old.protobuf) != tagWithoutNames(newTag.protobuf) {
+		t.Fatalf("wire tag changed for %s.%s: %q -> %q", old.structName, old.fieldName, old.protobuf, newTag.protobuf)
+	}
+	oldName := nameFromTag(t, old.protobuf)
+	newName := nameFromTag(t, newTag.protobuf)
+	if oldName == newName || len(oldName) != len(newName) {
+		t.Fatalf("field name was not rewritten with the same length for %s.%s: %q -> %q", old.structName, old.fieldName, oldName, newName)
+	}
+	oldJSON := strings.SplitN(old.json, ",", 2)
+	newJSON := strings.SplitN(newTag.json, ",", 2)
+	if len(oldJSON) != len(newJSON) || oldJSON[0] == newJSON[0] || len(oldJSON[0]) != len(newJSON[0]) || strings.Join(oldJSON[1:], ",") != strings.Join(newJSON[1:], ",") {
+		t.Fatalf("JSON tag options changed for %s.%s: %q -> %q", old.structName, old.fieldName, old.json, newTag.json)
+	}
+	oldEnum, newEnum := enumFromTag(old.protobuf), enumFromTag(newTag.protobuf)
+	if oldEnum != "" && (newEnum == oldEnum || len(newEnum) != len(oldEnum)) {
+		t.Fatalf("enum tag was not rewritten with the same length for %s.%s: %q -> %q", old.structName, old.fieldName, oldEnum, newEnum)
+	}
+}
+
 func TestStripSliverpbRewritesEveryFieldTagWithoutChangingWireNumbers(t *testing.T) {
 	source, err := protobufs.FS.ReadFile("sliverpb/sliver.pb.go")
 	if err != nil {
@@ -276,26 +300,7 @@ func TestStripSliverpbRewritesEveryFieldTagWithoutChangingWireNumbers(t *testing
 	packedFound := false
 	for i, old := range before {
 		newTag := after[i]
-		if old.structName != newTag.structName || old.fieldName != newTag.fieldName {
-			t.Fatalf("field %d changed from %s.%s to %s.%s", i, old.structName, old.fieldName, newTag.structName, newTag.fieldName)
-		}
-		if tagWithoutNames(old.protobuf) != tagWithoutNames(newTag.protobuf) {
-			t.Fatalf("wire tag changed for %s.%s: %q -> %q", old.structName, old.fieldName, old.protobuf, newTag.protobuf)
-		}
-		oldName := nameFromTag(t, old.protobuf)
-		newName := nameFromTag(t, newTag.protobuf)
-		if oldName == newName || len(oldName) != len(newName) {
-			t.Fatalf("field name was not rewritten with the same length for %s.%s: %q -> %q", old.structName, old.fieldName, oldName, newName)
-		}
-		oldJSON := strings.SplitN(old.json, ",", 2)
-		newJSON := strings.SplitN(newTag.json, ",", 2)
-		if len(oldJSON) != len(newJSON) || oldJSON[0] == newJSON[0] || len(oldJSON[0]) != len(newJSON[0]) || strings.Join(oldJSON[1:], ",") != strings.Join(newJSON[1:], ",") {
-			t.Fatalf("JSON tag options changed for %s.%s: %q -> %q", old.structName, old.fieldName, old.json, newTag.json)
-		}
-		oldEnum, newEnum := enumFromTag(old.protobuf), enumFromTag(newTag.protobuf)
-		if oldEnum != "" && (newEnum == oldEnum || len(newEnum) != len(oldEnum)) {
-			t.Fatalf("enum tag was not rewritten with the same length for %s.%s: %q -> %q", old.structName, old.fieldName, oldEnum, newEnum)
-		}
+		assertRewrittenProtobufFieldTag(t, i, old, newTag)
 		if old.structName == "PivotStartListenerReq" && old.fieldName == "Options" {
 			packedFound = true
 			if !strings.Contains(newTag.protobuf, ",packed,") {
