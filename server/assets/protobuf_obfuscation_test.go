@@ -282,12 +282,34 @@ func assertRewrittenProtobufFieldTag(t *testing.T, index int, old, newTag protob
 	}
 }
 
-func TestStripSliverpbRewritesEveryFieldTagWithoutChangingWireNumbers(t *testing.T) {
+func assertUnchangedMapEntryTags(t *testing.T, before, after []protobufFieldTag) int {
+	t.Helper()
+	count := 0
+	for i, old := range before {
+		original := reflect.StructTag(old.raw)
+		key, hasKey := original.Lookup("protobuf_key")
+		value, hasValue := original.Lookup("protobuf_val")
+		if !hasKey && !hasValue {
+			continue
+		}
+		if !hasKey || !hasValue {
+			t.Fatalf("incomplete map entry tags for %s.%s", old.structName, old.fieldName)
+		}
+		rewritten := reflect.StructTag(after[i].raw)
+		if rewritten.Get("protobuf_key") != key || rewritten.Get("protobuf_val") != value {
+			t.Fatalf("map entry tags changed for %s.%s", old.structName, old.fieldName)
+		}
+		count++
+	}
+	return count
+}
+
+func TestRewriteProtobufStructTagsPreservesSliverpbWireNumbers(t *testing.T) {
 	source, err := protobufs.FS.ReadFile("sliverpb/sliver.pb.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	transformed, err := stripSliverpb(source)
+	transformed, err := rewriteProtobufStructTags(source)
 	if err != nil {
 		t.Fatalf("rewrite protobuf tags: %v", err)
 	}
@@ -315,11 +337,48 @@ func TestStripSliverpbRewritesEveryFieldTagWithoutChangingWireNumbers(t *testing
 	if !packedFound {
 		t.Fatal("packed PivotStartListenerReq.Options tag not found")
 	}
+	if count := assertUnchangedMapEntryTags(t, before, after); count != 3 {
+		t.Fatalf("map entry tag coverage = %d, want 3", count)
+	}
 }
 
-func TestStripSliverpbRejectsMissingTags(t *testing.T) {
-	if _, err := stripSliverpb([]byte("package p\ntype Empty struct{}\n")); err == nil {
+func TestRewriteProtobufStructTagsRejectsMissingTags(t *testing.T) {
+	if _, err := rewriteProtobufStructTags([]byte("package p\ntype Empty struct{}\n")); err == nil {
 		t.Fatal("expected a source without protobuf field tags to fail")
+	}
+}
+
+func TestSetupGoPathRewritesAllImplantProtobufFieldTags(t *testing.T) {
+	destination := t.TempDir()
+	if err := SetupGoPath(destination, true); err != nil {
+		t.Fatalf("prepare implant protobuf source: %v", err)
+	}
+	for _, tc := range []struct {
+		path       string
+		fieldCount int
+	}{
+		{"sliverpb/sliver.pb.go", 656},
+		{"commonpb/common.pb.go", 19},
+		{"dnspb/dns.pb.go", 6},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			original, err := protobufs.FS.ReadFile(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			generated, err := os.ReadFile(filepath.Join(destination, "protobuf", filepath.FromSlash(tc.path)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := protobufFieldTags(t, original)
+			after := protobufFieldTags(t, generated)
+			if len(before) != tc.fieldCount || len(after) != len(before) {
+				t.Fatalf("protobuf field tags = %d original, %d generated; want %d each", len(before), len(after), tc.fieldCount)
+			}
+			for i := range before {
+				assertRewrittenProtobufFieldTag(t, i, before[i], after[i])
+			}
+		})
 	}
 }
 

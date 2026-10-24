@@ -251,7 +251,7 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	if err != nil {
 		return fmt.Errorf("obfuscate sliverpb descriptor: %w", err)
 	}
-	sliverpbGoSrc, err = stripSliverpb(sliverpbGoSrc)
+	sliverpbGoSrc, err = rewriteProtobufStructTags(sliverpbGoSrc)
 	if err != nil {
 		return fmt.Errorf("obfuscate sliverpb tags: %w", err)
 	}
@@ -280,6 +280,10 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	if err != nil {
 		return fmt.Errorf("obfuscate commonpb descriptor: %w", err)
 	}
+	commonpbSrc, err = rewriteProtobufStructTags(commonpbSrc)
+	if err != nil {
+		return fmt.Errorf("obfuscate commonpb tags: %w", err)
+	}
 	commonpbDir := filepath.Join(goPathSrc, "protobuf", "commonpb")
 	if err := os.MkdirAll(commonpbDir, 0700); err != nil {
 		return fmt.Errorf("create commonpb directory: %w", err)
@@ -298,6 +302,10 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		dnspbSrc, err = xorPBRawBytes(dnspbSrc)
 		if err != nil {
 			return fmt.Errorf("obfuscate dnspb descriptor: %w", err)
+		}
+		dnspbSrc, err = rewriteProtobufStructTags(dnspbSrc)
+		if err != nil {
+			return fmt.Errorf("obfuscate dnspb tags: %w", err)
 		}
 		dnspbDir := filepath.Join(goPathSrc, "protobuf", "dnspb")
 		if err := os.MkdirAll(dnspbDir, 0700); err != nil {
@@ -472,13 +480,13 @@ func rewritePBStructTag(raw string, cache map[string]string) (string, bool, erro
 	return rewritten, true, nil
 }
 
-// stripSliverpb rewrites generated protobuf struct tags after parsing their
+// rewriteProtobufStructTags rewrites generated protobuf struct tags after parsing their
 // syntax, including packed fields and future option ordering changes.
-func stripSliverpb(src []byte) ([]byte, error) {
+func rewriteProtobufStructTags(src []byte) ([]byte, error) {
 	fset := token.NewFileSet()
 	fileAst, err := parser.ParseFile(fset, "", src, parser.ParseComments)
 	if err != nil {
-		return nil, fmt.Errorf("parse sliverpb source: %w", err)
+		return nil, fmt.Errorf("parse protobuf source: %w", err)
 	}
 	cache := make(map[string]string)
 	rewritten := 0
@@ -520,11 +528,11 @@ func stripSliverpb(src []byte) ([]byte, error) {
 		return nil, rewriteErr
 	}
 	if rewritten == 0 {
-		return nil, fmt.Errorf("no protobuf struct tags found in sliverpb source")
+		return nil, fmt.Errorf("no protobuf struct tags found in source")
 	}
 	var out bytes.Buffer
 	if err := printer.Fprint(&out, fset, fileAst); err != nil {
-		return nil, fmt.Errorf("print rewritten sliverpb source: %w", err)
+		return nil, fmt.Errorf("print rewritten protobuf source: %w", err)
 	}
 	return out.Bytes(), nil
 }
