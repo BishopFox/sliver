@@ -35,6 +35,7 @@ type TerminalScreen struct {
 	backgroundColor      color.Color
 	foregroundColor      color.Color
 	progressBar          *ProgressBar
+	programStatus        *ProgramStatus
 	windowTitle          string
 	syncUpdates          bool // mode 2026
 	resetTabs            bool // DECST8C - reset terminal tabs on start
@@ -205,7 +206,6 @@ func (s *TerminalScreen) Resize(width, height int) {
 	s.rbuf.Resize(width, height)
 	s.rend.Resize(width, height)
 	s.rend.Erase()
-	s.rbuf.Touched = nil
 }
 
 // Display clears the screen and draws the given [Drawable] onto the terminal
@@ -621,6 +621,24 @@ func (s *TerminalScreen) ProgressBar() *ProgressBar {
 	return s.progressBar
 }
 
+// SetProgramStatus reports the program status to the terminal using the
+// Program Status Protocol (OSC 7501). A nil status removes every program
+// status record on the terminal.
+//
+// The changes can be committed to the underlying writer by calling the
+// [TerminalScreen.Flush] method.
+func (s *TerminalScreen) SetProgramStatus(ps *ProgramStatus) {
+	EncodeProgramStatus(s.buf, ps) //nolint:errcheck
+	s.programStatus = ps
+}
+
+// ProgramStatus returns the last program status reported to the terminal.
+//
+// A nil value indicates that no program status is currently set.
+func (s *TerminalScreen) ProgramStatus() *ProgramStatus {
+	return s.programStatus
+}
+
 // Reset resets the terminal screen to its default state, clearing the screen,
 // switching back to the main screen buffer if necessary, and resetting all
 // terminal settings to their defaults.
@@ -674,6 +692,10 @@ func (s *TerminalScreen) Reset() {
 	if s.progressBar != nil && s.progressBar.State != ProgressBarNone {
 		sb.WriteString(ansi.ResetProgressBar)
 	}
+	// The program status is deliberately left in place. The Program Status
+	// Protocol expects done and error records to outlive the program, and
+	// terminals drop working and blocked records on their own when the
+	// process exits or the next shell prompt starts.
 
 	s.buf.WriteString(sb.String())
 
@@ -741,6 +763,9 @@ func (s *TerminalScreen) Restore() {
 	}
 	if s.progressBar != nil && s.progressBar.State != ProgressBarNone {
 		EncodeProgressBar(&sb, s.progressBar)
+	}
+	if s.programStatus != nil {
+		EncodeProgramStatus(&sb, s.programStatus) //nolint:errcheck
 	}
 
 	s.buf.WriteString(sb.String())
