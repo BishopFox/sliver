@@ -59,7 +59,8 @@ jobs:
           set -euo pipefail
           base_sha="${{ github.event.pull_request.base.sha }}"
           head_sha="${{ github.sha }}"
-          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+          # Consume the full diff so pipefail cannot mistake SIGPIPE for no matching changes.
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '^(implant/|server/gogo/|server/generate/)' >/dev/null; then
             echo "args=" >> "$GITHUB_OUTPUT"
           else
             echo "args=--skip-generate" >> "$GITHUB_OUTPUT"
@@ -141,7 +142,8 @@ jobs:
           set -euo pipefail
           base_sha="${{ github.event.pull_request.base.sha }}"
           head_sha="${{ github.sha }}"
-          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+          # Consume the full diff so pipefail cannot mistake SIGPIPE for no matching changes.
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '^(implant/|server/gogo/|server/generate/)' >/dev/null; then
             echo "args=" >> "$GITHUB_OUTPUT"
           else
             echo "args=--skip-generate" >> "$GITHUB_OUTPUT"

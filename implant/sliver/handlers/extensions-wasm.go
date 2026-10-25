@@ -39,10 +39,7 @@ func listWasmExtensionsHandler(data []byte, resp RPCResponse) {
 	log.Printf("List Wasm extensions ...")
 	// {{end}}
 
-	names := []string{}
-	for name := range tunnel_handlers.WasmExtensionCache {
-		names = append(names, name)
-	}
+	names := tunnel_handlers.ListWasmExtensions()
 	wasmExt, _ := proto.Marshal(&pb.ListWasmExtensions{Names: names, Response: &commonpb.Response{}})
 	resp(wasmExt, nil)
 }
@@ -64,11 +61,11 @@ func registerWasmExtensionHandler(data []byte, resp RPCResponse) {
 
 	// Cache the Wasm extension in the map until we receive a
 	// MsgExecWasmExtensionReq message
-	tunnel_handlers.WasmExtensionCache[wasmExtReq.Name] = wasmExtReq
+	tunnel_handlers.SetWasmExtension(wasmExtReq)
 
 	// {{if .Config.Debug}}
 	log.Printf("*** Wasm extensions cache ***")
-	for name := range tunnel_handlers.WasmExtensionCache {
+	for _, name := range tunnel_handlers.ListWasmExtensions() {
 		log.Printf(" - %s", name)
 	}
 	// {{end}}
@@ -90,9 +87,7 @@ func deregisterWasmExtensionHandler(data []byte, resp RPCResponse) {
 
 	// Remove the Wasm extension from the map
 	errMsg := ""
-	if _, ok := tunnel_handlers.WasmExtensionCache[wasmExtReq.Name]; ok {
-		delete(tunnel_handlers.WasmExtensionCache, wasmExtReq.Name)
-	} else {
+	if !tunnel_handlers.DeleteWasmExtension(wasmExtReq.Name) {
 		errMsg = "Wasm extension not registered"
 	}
 	wasmExt, _ := proto.Marshal(&pb.RegisterWasmExtension{
