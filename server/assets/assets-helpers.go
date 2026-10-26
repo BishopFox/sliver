@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"embed"
-	"encoding/hex"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -35,7 +34,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -229,11 +227,8 @@ func setupGo(appDir string) error {
 
 // SetupGoPath - Extracts dependencies to goPathSrc
 func SetupGoPath(goPathSrc string, includeDNS bool) error {
-
-	// GOPATH setup
-	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
-		setupLog.Infof("Creating GOPATH directory: %s", goPathSrc)
-		os.MkdirAll(goPathSrc, 0700)
+	if err := os.MkdirAll(goPathSrc, 0700); err != nil {
+		return fmt.Errorf("create implant source directory %s: %w", goPathSrc, err)
 	}
 
 	// Sliver PB
@@ -252,17 +247,27 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		setupLog.Info("Static asset not found: capabilities.go")
 		return err
 	}
-	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
-	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
+	sliverpbGoSrc, err = xorPBRawBytes(sliverpbGoSrc)
+	if err != nil {
+		return fmt.Errorf("obfuscate sliverpb descriptor: %w", err)
+	}
+	sliverpbGoSrc, err = rewriteProtobufStructTags(sliverpbGoSrc)
+	if err != nil {
+		return fmt.Errorf("obfuscate sliverpb tags: %w", err)
+	}
 	sliverpbDir := filepath.Join(goPathSrc, "protobuf", "sliverpb")
 	setupLog.Infof("Creating sliverpb directory: %s", sliverpbDir)
-	os.MkdirAll(sliverpbDir, 0700)
-	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
-	os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
-	err = os.WriteFile(filepath.Join(sliverpbDir, "capabilities.go"), sliverpbCapabilitiesSrc, 0600)
-	if err != nil {
-		setupLog.Errorf("Failed to write capabilities.go: %s", err)
-		return err
+	if err := os.MkdirAll(sliverpbDir, 0700); err != nil {
+		return fmt.Errorf("create sliverpb directory: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600); err != nil {
+		return fmt.Errorf("write sliver.pb.go: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600); err != nil {
+		return fmt.Errorf("write sliverpb constants.go: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(sliverpbDir, "capabilities.go"), sliverpbCapabilitiesSrc, 0600); err != nil {
+		return fmt.Errorf("write sliverpb capabilities.go: %w", err)
 	}
 
 	// Common PB
@@ -271,10 +276,21 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		setupLog.Info("Static asset not found: common.pb.go")
 		return err
 	}
-	commonpbSrc = xorPBRawBytes(commonpbSrc)
+	commonpbSrc, err = xorPBRawBytes(commonpbSrc)
+	if err != nil {
+		return fmt.Errorf("obfuscate commonpb descriptor: %w", err)
+	}
+	commonpbSrc, err = rewriteProtobufStructTags(commonpbSrc)
+	if err != nil {
+		return fmt.Errorf("obfuscate commonpb tags: %w", err)
+	}
 	commonpbDir := filepath.Join(goPathSrc, "protobuf", "commonpb")
-	os.MkdirAll(commonpbDir, 0700)
-	os.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
+	if err := os.MkdirAll(commonpbDir, 0700); err != nil {
+		return fmt.Errorf("create commonpb directory: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600); err != nil {
+		return fmt.Errorf("write common.pb.go: %w", err)
+	}
 
 	// DNS PB
 	if includeDNS {
@@ -283,34 +299,242 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 			setupLog.Info("Static asset not found: dns.pb.go")
 			return err
 		}
-		dnspbSrc = xorPBRawBytes(dnspbSrc)
+		dnspbSrc, err = xorPBRawBytes(dnspbSrc)
+		if err != nil {
+			return fmt.Errorf("obfuscate dnspb descriptor: %w", err)
+		}
+		dnspbSrc, err = rewriteProtobufStructTags(dnspbSrc)
+		if err != nil {
+			return fmt.Errorf("obfuscate dnspb tags: %w", err)
+		}
 		dnspbDir := filepath.Join(goPathSrc, "protobuf", "dnspb")
-		os.MkdirAll(dnspbDir, 0700)
-		os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
+		if err := os.MkdirAll(dnspbDir, 0700); err != nil {
+			return fmt.Errorf("create dnspb directory: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600); err != nil {
+			return fmt.Errorf("write dns.pb.go: %w", err)
+		}
 	}
 	return nil
 }
 
-func stripSliverpb(src []byte) []byte {
-	out := src
-	re := regexp.MustCompile(`protobuf:"[a-z]+,\d+,[a-z]+,name=(?P<FieldName1>[a-zA-Z0-9]+),proto3(,enum=(?P<EnumName>[a-zA-Z\.]+))?" json:"(?P<FiledName2>[a-zA-Z0-9]+),[a-z]+"`)
-	found := re.FindAllSubmatch(src, -1)
-	for _, x := range found {
-		line := x[0]     // line that matched
-		typeName := x[1] // first named capturing group (FieldName1)
-		enumName := x[3]
-		if string(enumName) != "" {
-			newEnumName := pseudoRandStringRunes(len(enumName))
-			newEnumLine := bytes.ReplaceAll(line, enumName, []byte(newEnumName))
-			out = bytes.ReplaceAll(out, line, []byte(newEnumLine))
-			line = newEnumLine
+type structTagPart struct {
+	key   string
+	value string
+}
+
+// parseStructTagParts parses the key/value pairs in a Go struct tag without
+// assuming an order or a particular set of protobuf options.
+func parseStructTagParts(tag string) ([]structTagPart, error) {
+	var parts []structTagPart
+	for tag != "" {
+		tag = strings.TrimLeft(tag, " ")
+		if tag == "" {
+			break
 		}
-		// we don't care about FieldName2 because its value is the same as FieldName1
-		newItem := pseudoRandStringRunes(len(typeName))
-		newLine := bytes.ReplaceAll(line, typeName, []byte(newItem))
-		out = bytes.ReplaceAll(out, line, []byte(newLine))
+		colon := strings.IndexByte(tag, ':')
+		if colon <= 0 || strings.ContainsAny(tag[:colon], " \t\n\r\"`") {
+			return nil, fmt.Errorf("invalid struct tag key near %q", tag)
+		}
+		key := tag[:colon]
+		tag = tag[colon+1:]
+		if !strings.HasPrefix(tag, `"`) {
+			return nil, fmt.Errorf("missing quoted value for struct tag %q", key)
+		}
+		end := 1
+		for end < len(tag) {
+			if tag[end] == '\\' {
+				end += 2
+				continue
+			}
+			if tag[end] == '"' {
+				break
+			}
+			end++
+		}
+		if end >= len(tag) {
+			return nil, fmt.Errorf("unterminated struct tag value for %q", key)
+		}
+		value, err := strconv.Unquote(tag[:end+1])
+		if err != nil {
+			return nil, fmt.Errorf("unquote struct tag %q: %w", key, err)
+		}
+		parts = append(parts, structTagPart{key: key, value: value})
+		tag = tag[end+1:]
+		if tag != "" && tag[0] != ' ' {
+			return nil, fmt.Errorf("missing separator after struct tag %q", key)
+		}
 	}
-	return out
+	return parts, nil
+}
+
+func renderStructTagParts(parts []structTagPart) string {
+	var out strings.Builder
+	for i, part := range parts {
+		if i != 0 {
+			out.WriteByte(' ')
+		}
+		out.WriteString(part.key)
+		out.WriteByte(':')
+		out.WriteString(strconv.Quote(part.value))
+	}
+	return out.String()
+}
+
+func randomDifferentName(original string) string {
+	for {
+		candidate := pseudoRandStringRunes(len(original))
+		if candidate != original {
+			return candidate
+		}
+	}
+}
+
+func rewriteProtobufTagValue(value string) (string, string, string, error) {
+	options := strings.Split(value, ",")
+	nameIndex, enumIndex := -1, -1
+	fieldNumberFound := false
+	for i, option := range options {
+		if _, err := strconv.ParseUint(option, 10, 32); err == nil {
+			fieldNumberFound = true
+		}
+		if strings.HasPrefix(option, "name=") {
+			if nameIndex >= 0 {
+				return "", "", "", fmt.Errorf("duplicate protobuf field name")
+			}
+			nameIndex = i
+		}
+		if strings.HasPrefix(option, "enum=") {
+			enumIndex = i
+		}
+	}
+	if !fieldNumberFound || nameIndex < 0 || len(options[nameIndex]) == len("name=") {
+		return "", "", "", fmt.Errorf("protobuf struct tag lacks a field number or name: %q", value)
+	}
+	originalName := strings.TrimPrefix(options[nameIndex], "name=")
+	newName := randomDifferentName(originalName)
+	options[nameIndex] = "name=" + newName
+	if enumIndex >= 0 {
+		enumName := strings.TrimPrefix(options[enumIndex], "enum=")
+		if enumName == "" {
+			return "", "", "", fmt.Errorf("empty protobuf enum name")
+		}
+		options[enumIndex] = "enum=" + randomDifferentName(enumName)
+	}
+	return strings.Join(options, ","), originalName, newName, nil
+}
+
+func rewriteJSONTagValue(value, originalName, newName string) (string, error) {
+	options := strings.SplitN(value, ",", 2)
+	if options[0] == "" || options[0] == "-" {
+		return "", fmt.Errorf("unsupported JSON field name %q", options[0])
+	}
+	if options[0] == originalName {
+		options[0] = newName
+	} else {
+		options[0] = randomDifferentName(options[0])
+	}
+	return strings.Join(options, ","), nil
+}
+
+func rewritePBStructTag(raw string, cache map[string]string) (string, bool, error) {
+	if rewritten, ok := cache[raw]; ok {
+		return rewritten, true, nil
+	}
+	parts, err := parseStructTagParts(raw)
+	if err != nil {
+		return "", false, err
+	}
+	protobufIndex, jsonIndex := -1, -1
+	for i, part := range parts {
+		switch part.key {
+		case "protobuf":
+			if protobufIndex >= 0 {
+				return "", false, fmt.Errorf("duplicate protobuf struct tag")
+			}
+			protobufIndex = i
+		case "json":
+			if jsonIndex >= 0 {
+				return "", false, fmt.Errorf("duplicate JSON struct tag")
+			}
+			jsonIndex = i
+		}
+	}
+	if protobufIndex < 0 {
+		return raw, false, nil
+	}
+	if jsonIndex < 0 {
+		return "", false, fmt.Errorf("protobuf struct tag is missing a JSON tag")
+	}
+	protobufValue, originalName, newName, err := rewriteProtobufTagValue(parts[protobufIndex].value)
+	if err != nil {
+		return "", false, err
+	}
+	parts[protobufIndex].value = protobufValue
+	parts[jsonIndex].value, err = rewriteJSONTagValue(parts[jsonIndex].value, originalName, newName)
+	if err != nil {
+		return "", false, err
+	}
+	rewritten := renderStructTagParts(parts)
+	cache[raw] = rewritten
+	return rewritten, true, nil
+}
+
+// rewriteProtobufStructTags rewrites generated protobuf struct tags after parsing their
+// syntax, including packed fields and future option ordering changes.
+func rewriteProtobufStructTags(src []byte) ([]byte, error) {
+	fset := token.NewFileSet()
+	fileAst, err := parser.ParseFile(fset, "", src, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("parse protobuf source: %w", err)
+	}
+	cache := make(map[string]string)
+	rewritten := 0
+	var rewriteErr error
+	ast.Inspect(fileAst, func(node ast.Node) bool {
+		if rewriteErr != nil {
+			return false
+		}
+		structType, ok := node.(*ast.StructType)
+		if !ok || structType.Fields == nil {
+			return true
+		}
+		for _, field := range structType.Fields.List {
+			if field.Tag == nil {
+				continue
+			}
+			raw, err := strconv.Unquote(field.Tag.Value)
+			if err != nil {
+				rewriteErr = fmt.Errorf("parse struct tag at %s: %w", fset.Position(field.Pos()), err)
+				return false
+			}
+			newTag, changed, err := rewritePBStructTag(raw, cache)
+			if err != nil {
+				rewriteErr = fmt.Errorf("rewrite struct tag at %s: %w", fset.Position(field.Pos()), err)
+				return false
+			}
+			if changed {
+				rewritten++
+				if strings.ContainsRune(newTag, '`') {
+					field.Tag.Value = strconv.Quote(newTag)
+				} else {
+					field.Tag.Value = "`" + newTag + "`"
+				}
+			}
+		}
+		return true
+	})
+	if rewriteErr != nil {
+		return nil, rewriteErr
+	}
+	if rewritten == 0 {
+		return nil, fmt.Errorf("no protobuf struct tags found in source")
+	}
+	var out bytes.Buffer
+	if err := printer.Fprint(&out, fset, fileAst); err != nil {
+		return nil, fmt.Errorf("print rewritten protobuf source: %w", err)
+	}
+	return out.Bytes(), nil
 }
 
 // UntarSkipTopLevel - Untar a tar file, skipping the top level directory
@@ -390,174 +614,225 @@ func unzipSkipTopLevel(dst string, z *zip.Reader) error {
 	return err
 }
 
-func xorPBRawBytes(src []byte) []byte {
-	var (
-		fileAst    *ast.File
-		err        error
-		fset       = token.NewFileSet()
-		parserMode = parser.ParseComments
-	)
-	fileAst, err = parser.ParseFile(fset, "", src, parserMode)
-	if err != nil {
-		// Panic because this is mandatory for the agent to work
-		panic(err)
+func descriptorStringLiterals(expr ast.Expr) ([]*ast.BasicLit, error) {
+	var literals []*ast.BasicLit
+	var walk func(ast.Expr) error
+	walk = func(expr ast.Expr) error {
+		switch node := expr.(type) {
+		case *ast.BasicLit:
+			if node.Kind != token.STRING {
+				return fmt.Errorf("descriptor expression contains a non-string literal")
+			}
+			if _, err := strconv.Unquote(node.Value); err != nil {
+				return fmt.Errorf("decode descriptor string literal: %w", err)
+			}
+			literals = append(literals, node)
+			return nil
+		case *ast.BinaryExpr:
+			if node.Op != token.ADD {
+				return fmt.Errorf("descriptor expression uses operator %s", node.Op)
+			}
+			if err := walk(node.X); err != nil {
+				return err
+			}
+			return walk(node.Y)
+		case *ast.ParenExpr:
+			return walk(node.X)
+		default:
+			return fmt.Errorf("unsupported descriptor expression %T", expr)
+		}
 	}
-	var xorKey [8]byte
-	// generate random xor key
-	if _, err := rand.Read(xorKey[:]); err != nil {
-		// Panic because this is mandatory for the agent to work
-		panic(err)
+	if err := walk(expr); err != nil {
+		return nil, err
+	}
+	return literals, nil
+}
+
+func descriptorByteLiterals(expr *ast.CompositeLit) ([]*ast.BasicLit, []byte, error) {
+	arrayType, ok := expr.Type.(*ast.ArrayType)
+	if !ok || arrayType.Len != nil {
+		return nil, nil, fmt.Errorf("descriptor must be a byte slice literal")
+	}
+	elementType, ok := arrayType.Elt.(*ast.Ident)
+	if !ok || (elementType.Name != "byte" && elementType.Name != "uint8") {
+		return nil, nil, fmt.Errorf("descriptor must be a byte slice literal")
+	}
+	literals := make([]*ast.BasicLit, 0, len(expr.Elts))
+	values := make([]byte, 0, len(expr.Elts))
+	for _, element := range expr.Elts {
+		literal, ok := element.(*ast.BasicLit)
+		if !ok || literal.Kind != token.INT {
+			return nil, nil, fmt.Errorf("descriptor byte slice has unsupported element %T", element)
+		}
+		value, err := strconv.ParseUint(literal.Value, 0, 8)
+		if err != nil {
+			return nil, nil, fmt.Errorf("decode descriptor byte %q: %w", literal.Value, err)
+		}
+		literals = append(literals, literal)
+		values = append(values, byte(value))
+	}
+	return literals, values, nil
+}
+
+// xorPBRawBytes hides the one generated raw descriptor in a protobuf source.
+// The complete expression is validated before changing the AST so a new protoc
+// output shape cannot result in a partially encoded descriptor.
+func xorPBRawBytes(src []byte) ([]byte, error) {
+	fset := token.NewFileSet()
+	fileAst, err := parser.ParseFile(fset, "", src, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("parse protobuf source: %w", err)
+	}
+	declaration, valueSpec, descriptorName, err := findRawDescriptor(fileAst)
+	if err != nil {
+		return nil, err
+	}
+	if (declaration.Tok != token.CONST && declaration.Tok != token.VAR) ||
+		len(declaration.Specs) != 1 || len(valueSpec.Names) != 1 || len(valueSpec.Values) != 1 {
+		return nil, fmt.Errorf("%s has unsupported declaration shape", descriptorName)
 	}
 
-	ast.Inspect(fileAst, func(n ast.Node) bool {
-		node, ok := n.(*ast.GenDecl)
+	functionName, stringLiterals, byteLiterals, byteValues, err := rawDescriptorLiterals(declaration, valueSpec, descriptorName)
+	if err != nil {
+		return nil, err
+	}
+	var xorKey [8]byte
+	if _, err := rand.Read(xorKey[:]); err != nil {
+		return nil, fmt.Errorf("generate protobuf descriptor key: %w", err)
+	}
+	encodeRawDescriptorLiterals(declaration, functionName, stringLiterals, byteLiterals, byteValues, xorKey[:])
+	valueSpec.Values[0] = &ast.CallExpr{
+		Fun: ast.NewIdent(functionName),
+		Args: []ast.Expr{
+			valueSpec.Values[0],
+			ast.NewIdent("xorKey"),
+		},
+	}
+	if err := appendRawDescriptorHelpers(fileAst, functionName, xorKey[:]); err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	if err := printer.Fprint(&out, fset, fileAst); err != nil {
+		return nil, fmt.Errorf("print rewritten protobuf source: %w", err)
+	}
+	return out.Bytes(), nil
+}
+
+func findRawDescriptor(fileAst *ast.File) (*ast.GenDecl, *ast.ValueSpec, string, error) {
+	var declaration *ast.GenDecl
+	var valueSpec *ast.ValueSpec
+	var descriptorName string
+	for _, decl := range fileAst.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok {
-			return true
+			continue
 		}
-		for _, spec := range node.Specs {
-			valueSpec, ok := spec.(*ast.ValueSpec)
+		for _, spec := range genDecl.Specs {
+			candidate, ok := spec.(*ast.ValueSpec)
 			if !ok {
 				continue
 			}
-			for valueIndex, id := range valueSpec.Names {
-				if !strings.HasSuffix(id.Name, "_rawDesc") || strings.HasSuffix(id.Name, "_rawDescData") {
+			for _, name := range candidate.Names {
+				if !strings.HasSuffix(name.Name, "_rawDesc") {
 					continue
 				}
-				if valueIndex >= len(valueSpec.Values) {
-					continue
+				if declaration != nil {
+					return nil, nil, "", fmt.Errorf("multiple protobuf raw descriptors found")
 				}
-
-				switch rawDesc := valueSpec.Values[valueIndex].(type) {
-				case *ast.CompositeLit:
-					for i, v := range rawDesc.Elts {
-						elt := v.(*ast.BasicLit)
-						elt.Value = xorByte(elt.Value, xorKey[i%len(xorKey)])
-					}
-					valueSpec.Values[valueIndex] = &ast.CallExpr{
-						Fun: ast.NewIdent("xorBytes"),
-						Args: []ast.Expr{
-							rawDesc,
-							ast.NewIdent("xorKey"),
-						},
-					}
-				default:
-					offset := 0
-					if xorStringExpr(rawDesc, xorKey, &offset) {
-						node.Tok = token.VAR
-						valueSpec.Values[valueIndex] = &ast.CallExpr{
-							Fun: ast.NewIdent("xorString"),
-							Args: []ast.Expr{
-								rawDesc,
-								ast.NewIdent("xorKey"),
-							},
-						}
-					}
-				}
+				declaration, valueSpec, descriptorName = genDecl, candidate, name.Name
 			}
 		}
-		return true
-	})
-
-	fileAst.Decls = append(fileAst.Decls,
-		parseHelperDecl(`func xorBytes(input []byte, key []byte) []byte {
-	out := make([]byte, len(input))
-	for i := range input {
-		out[i] = input[i] ^ key[i%len(key)]
 	}
-	return out
-}`),
-		parseHelperDecl(`func xorString(input string, key []byte) string {
+	if declaration == nil {
+		return nil, nil, "", fmt.Errorf("no protobuf raw descriptor found")
+	}
+	return declaration, valueSpec, descriptorName, nil
+}
+
+func rawDescriptorLiterals(declaration *ast.GenDecl, valueSpec *ast.ValueSpec, descriptorName string) (string, []*ast.BasicLit, []*ast.BasicLit, []byte, error) {
+	var stringLiterals []*ast.BasicLit
+	var byteLiterals []*ast.BasicLit
+	var byteValues []byte
+	var err error
+	functionName := "xorString"
+	if byteExpr, ok := valueSpec.Values[0].(*ast.CompositeLit); ok {
+		if declaration.Tok != token.VAR {
+			return "", nil, nil, nil, fmt.Errorf("%s byte descriptor is not a variable", descriptorName)
+		}
+		byteLiterals, byteValues, err = descriptorByteLiterals(byteExpr)
+		functionName = "xorBytes"
+	} else {
+		stringLiterals, err = descriptorStringLiterals(valueSpec.Values[0])
+	}
+	if err != nil {
+		return "", nil, nil, nil, fmt.Errorf("%s: %w", descriptorName, err)
+	}
+	return functionName, stringLiterals, byteLiterals, byteValues, nil
+}
+
+func encodeRawDescriptorLiterals(declaration *ast.GenDecl, functionName string, stringLiterals, byteLiterals []*ast.BasicLit, byteValues, xorKey []byte) {
+	if functionName == "xorString" {
+		offset := 0
+		for _, literal := range stringLiterals {
+			plain, _ := strconv.Unquote(literal.Value) // Validated above.
+			encoded := []byte(plain)
+			for i := range encoded {
+				encoded[i] ^= xorKey[(offset+i)%len(xorKey)]
+			}
+			offset += len(encoded)
+			literal.Value = strconv.Quote(string(encoded))
+		}
+		declaration.Tok = token.VAR
+	} else {
+		for i, literal := range byteLiterals {
+			literal.Value = fmt.Sprintf("0x%02x", byteValues[i]^xorKey[i%len(xorKey)])
+		}
+	}
+}
+
+func appendRawDescriptorHelpers(fileAst *ast.File, functionName string, xorKey []byte) error {
+	helper := `func xorString(input string, key []byte) string {
 	out := make([]byte, len(input))
 	for i := 0; i < len(input); i++ {
 		out[i] = input[i] ^ key[i%len(key)]
 	}
 	return string(out)
-}`),
-	)
+}`
+	if functionName == "xorBytes" {
+		helper = `func xorBytes(input []byte, key []byte) []byte {
+	out := make([]byte, len(input))
+	for i := range input {
+		out[i] = input[i] ^ key[i%len(key)]
+	}
+	return out
+}`
+	}
+	helperDecl, err := parseHelperDecl(helper)
+	if err != nil {
+		return err
+	}
+	fileAst.Decls = append(fileAst.Decls, helperDecl)
 
 	xorTokens := make([]ast.Expr, len(xorKey))
-	// map xorKey to a slice of ast.BasicLit
 	for i, b := range xorKey {
-		xorTokens[i] = &ast.BasicLit{
-			Kind:  token.INT,
-			Value: fmt.Sprintf("0x%x", b),
-		}
+		xorTokens[i] = &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("0x%x", b)}
 	}
-
-	// add the global xorKey variable to the AST
-	fileAst.Decls = append(fileAst.Decls, ast.Decl(&ast.GenDecl{
+	fileAst.Decls = append(fileAst.Decls, &ast.GenDecl{
 		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{
-				Names: []*ast.Ident{ast.NewIdent("xorKey")},
-				Values: []ast.Expr{
-					&ast.CompositeLit{
-						Type: ast.NewIdent("[]byte"),
-						Elts: xorTokens,
-					},
-				},
-			},
-		},
-	}))
-
-	outBuff := bytes.Buffer{}
-	// Render the AST as Go code
-	printer.Fprint(&outBuff, fset, fileAst)
-	return outBuff.Bytes()
+		Specs: []ast.Spec{&ast.ValueSpec{
+			Names:  []*ast.Ident{ast.NewIdent("xorKey")},
+			Values: []ast.Expr{&ast.CompositeLit{Type: ast.NewIdent("[]byte"), Elts: xorTokens}},
+		}},
+	})
+	return nil
 }
 
-func parseHelperDecl(src string) ast.Decl {
+func parseHelperDecl(src string) (ast.Decl, error) {
 	fileAst, err := parser.ParseFile(token.NewFileSet(), "", "package assets\n"+src, 0)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parse protobuf descriptor helper: %w", err)
 	}
-	return fileAst.Decls[0]
-}
-
-func xorByte(raw string, key byte) string {
-	// strip 0x
-	raw = raw[2:]
-	if len(raw) == 1 {
-		// Because we got `0x8` at some point
-		raw = fmt.Sprintf("0%s", raw)
-	}
-	hexByte, err := hex.DecodeString(raw)
-	if err != nil {
-		panic(err)
-	}
-	newByte := hex.EncodeToString([]byte{hexByte[0] ^ key})
-	return fmt.Sprintf("0x%s", newByte)
-}
-
-func xorStringExpr(expr ast.Expr, key [8]byte, offset *int) bool {
-	switch node := expr.(type) {
-	case *ast.BasicLit:
-		if node.Kind != token.STRING {
-			return false
-		}
-		raw, err := strconv.Unquote(node.Value)
-		if err != nil {
-			panic(err)
-		}
-		rawBytes := []byte(raw)
-		for i := range rawBytes {
-			rawBytes[i] ^= key[(*offset+i)%len(key)]
-		}
-		*offset += len(rawBytes)
-		node.Value = strconv.Quote(string(rawBytes))
-		return true
-	case *ast.BinaryExpr:
-		if node.Op != token.ADD {
-			return false
-		}
-		leftOkay := xorStringExpr(node.X, key, offset)
-		rightOkay := xorStringExpr(node.Y, key, offset)
-		return leftOkay && rightOkay
-	case *ast.ParenExpr:
-		return xorStringExpr(node.X, key, offset)
-	default:
-		return false
-	}
+	return fileAst.Decls[0], nil
 }
 
 func unzip(src string, dest string) ([]string, error) {

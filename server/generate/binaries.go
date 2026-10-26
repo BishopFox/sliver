@@ -864,8 +864,11 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
 	srcDir := filepath.Join(projectGoPathDir, "src")
-	assets.SetupGoPath(srcDir, config.IncludeDNS) // Extract GOPATH dependency files
-	err := util.ChmodR(srcDir, 0600, 0700)        // Ensures src code files are writable
+	// Extract GOPATH dependency files before rendering the implant.
+	if err := assets.SetupGoPath(srcDir, config.IncludeDNS); err != nil {
+		return "", fmt.Errorf("setup implant source in %s: %w", srcDir, err)
+	}
+	err := util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
 	if err != nil {
 		buildLog.Errorf("fs perms: %v", err)
 		return "", err
