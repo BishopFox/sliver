@@ -87,33 +87,38 @@ func TestCanariesSurviveObfuscation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read obfuscated implant: %v", err)
 			}
-			if bytes.Contains(binary, []byte("[[GenerateCanary]]")) {
-				t.Error("unexpanded canary placeholder remains in binary")
-			}
-
 			var canaries []models.DNSCanary
 			if err := db.Session().Where("implant_name = ?", name).Find(&canaries).Error; err != nil {
 				t.Fatalf("read generated canaries: %v", err)
 			}
-			if len(canaries) != tt.wantCanaries {
-				t.Fatalf("registered %d canaries, want %d", len(canaries), tt.wantCanaries)
-			}
-			if tt.wantCanaries == 0 {
-				if bytes.Contains(binary, []byte(parentDomain)) {
-					t.Error("build without canaries contains the canary parent domain")
-				}
-				return
-			}
-			for _, canary := range canaries {
-				if canary.Domain == "" || !strings.HasSuffix(canary.Domain, "."+parentDomain) {
-					t.Errorf("unexpected generated canary domain %q", canary.Domain)
-					continue
-				}
-				if !bytes.Contains(binary, []byte(canary.Domain)) {
-					t.Errorf("registered canary %q is absent from the obfuscated binary", canary.Domain)
-				}
-			}
+			assertCanaryBinary(t, binary, canaries, parentDomain, tt.wantCanaries)
 			t.Logf("checked %d registered canaries in %s/%s obfuscated binary (%d bytes)", len(canaries), config.GOOS, config.GOARCH, len(binary))
 		})
+	}
+}
+
+func assertCanaryBinary(t *testing.T, binary []byte, canaries []models.DNSCanary, parentDomain string, wantCanaries int) {
+	t.Helper()
+
+	if bytes.Contains(binary, []byte("[[GenerateCanary]]")) {
+		t.Error("unexpanded canary placeholder remains in binary")
+	}
+	if len(canaries) != wantCanaries {
+		t.Fatalf("registered %d canaries, want %d", len(canaries), wantCanaries)
+	}
+	if wantCanaries == 0 {
+		if bytes.Contains(binary, []byte(parentDomain)) {
+			t.Error("build without canaries contains the canary parent domain")
+		}
+		return
+	}
+	for _, canary := range canaries {
+		if canary.Domain == "" || !strings.HasSuffix(canary.Domain, "."+parentDomain) {
+			t.Errorf("unexpected generated canary domain %q", canary.Domain)
+			continue
+		}
+		if !bytes.Contains(binary, []byte(canary.Domain)) {
+			t.Errorf("registered canary %q is absent from the obfuscated binary", canary.Domain)
+		}
 	}
 }
