@@ -27,15 +27,69 @@ fi
 
 SKIP_GENERATE=0
 UNIT_ONLY=0
-for arg in "$@"; do
-	if [ "$arg" = "--skip-generate" ]; then
+GENERATE_ONLY=0
+GENERATE_RUN=""
+
+usage() {
+	cat <<'EOF'
+Usage: ./go-tests.sh [--skip-generate | --unit-only | --generate-only] [--run REGEX]
+
+  --skip-generate  Skip implant generation tests.
+  --unit-only      Skip implant generation and C2 end-to-end tests.
+  --generate-only  Run only the server/generate package tests.
+  --run REGEX      Select generation tests by Go test name regex; requires --generate-only.
+  --help          Show this help.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	--skip-generate)
 		SKIP_GENERATE=1
-	fi
-	if [ "$arg" = "--unit-only" ]; then
+		;;
+	--unit-only)
 		UNIT_ONLY=1
 		SKIP_GENERATE=1
-	fi
+		;;
+	--generate-only)
+		GENERATE_ONLY=1
+		;;
+	--run)
+		if [ "$#" -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then
+			echo "--run requires a non-empty regex" >&2
+			exit 2
+		fi
+		GENERATE_RUN="$2"
+		shift
+		;;
+	--run=*)
+		GENERATE_RUN="${1#--run=}"
+		if [ -z "$GENERATE_RUN" ]; then
+			echo "--run requires a non-empty regex" >&2
+			exit 2
+		fi
+		;;
+	--help | -h)
+		usage
+		exit 0
+		;;
+	*)
+		echo "Unknown argument: $1" >&2
+		usage >&2
+		exit 2
+		;;
+	esac
+	shift
 done
+
+if [ "$GENERATE_ONLY" -eq 1 ] && [ "$SKIP_GENERATE" -eq 1 ]; then
+	echo "--generate-only cannot be combined with --skip-generate or --unit-only" >&2
+	exit 2
+fi
+if [ -n "$GENERATE_RUN" ] && [ "$GENERATE_ONLY" -eq 0 ]; then
+	echo "--run requires --generate-only" >&2
+	exit 2
+fi
 
 echo "----------------------------------------------------------------"
 echo "WARNING: Running unit tests on slow systems can take a LONG time"
@@ -175,7 +229,34 @@ unpack_server_assets() {
 	"$HOST_GO" run -tags=server,go_sqlite ./server unpack --force
 }
 
+run_generate_tests() {
+	# Reclaim the host build cache before generation so long CI runs do not
+	# exhaust the runner's disk while retaining the implant compiler cache.
+	run_test_cmd "clean Go build cache" "$HOST_GO" clean -cache || return 1
+	export GOPROXY=off
+	# Generate tests are memory intensive (garble/c-shared cross-builds). Keep
+	# parallelism conservative by default to avoid OOM kills on smaller systems.
+	local generate_gomaxprocs="${SLIVER_GENERATE_GOMAXPROCS:-2}"
+	local generate_go_p="${SLIVER_GENERATE_GO_P:-1}"
+	local generate_test_parallel="${SLIVER_GENERATE_TEST_PARALLEL:-1}"
+	local generate_test_cmd=(
+		"$HOST_GO" test -timeout 6h -p "$generate_go_p" -parallel "$generate_test_parallel" -tags="server,$TAGS"
+	)
+	if [ -n "$GENERATE_RUN" ]; then
+		# Keep test selection out of GOFLAGS, which implant compiler children inherit.
+		generate_test_cmd+=(-run "$GENERATE_RUN" -count=1 -v)
+	fi
+	generate_test_cmd+=(./server/generate)
+	run_test_cmd "./server/generate" \
+		env GOMAXPROCS="$generate_gomaxprocs" "${generate_test_cmd[@]}"
+}
+
 run_test_cmd "unpack server assets" unpack_server_assets || exit 1
+
+if [ "$GENERATE_ONLY" -eq 1 ]; then
+	run_generate_tests || exit 1
+	exit 0
+fi
 
 TEST_DIRS=()
 while IFS= read -r test_dir; do
@@ -279,19 +360,7 @@ fi
 
 ## Server generate
 if [ "$SKIP_GENERATE" -eq 0 ]; then
-	# The package tests above no longer need their Go build cache. Reclaim it
-	# before the cross-platform generation matrix starts so long CI runs do not
-	# exhaust the runner's disk while retaining the implant compiler cache.
-	run_test_cmd "clean Go build cache" "$HOST_GO" clean -cache || exit 1
-	export GOPROXY=off
-	# Generate tests are memory intensive (garble/c-shared cross-builds). Keep
-	# parallelism conservative by default to avoid OOM kills on smaller systems.
-	GENERATE_GOMAXPROCS="${SLIVER_GENERATE_GOMAXPROCS:-2}"
-	GENERATE_GO_P="${SLIVER_GENERATE_GO_P:-1}"
-	GENERATE_TEST_PARALLEL="${SLIVER_GENERATE_TEST_PARALLEL:-1}"
-	run_test_cmd "./server/generate" \
-		env GOMAXPROCS="$GENERATE_GOMAXPROCS" \
-		"$HOST_GO" test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS" ./server/generate || exit 1
+	run_generate_tests || exit 1
 else
 	echo
 	if [ "$UNIT_ONLY" -eq 1 ]; then

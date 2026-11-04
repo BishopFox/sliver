@@ -182,7 +182,7 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	rawSigBuf := make([]byte, cryptography.RawSigSize)
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	if len(rawSigBuf) == 0 || len(dataLengthBuf) == 0 || connection == nil {
-		panic("[[GenerateCanary]]")
+		panic("invalid envelope connection")
 	}
 
 	n, err := io.ReadFull(connection, rawSigBuf)
