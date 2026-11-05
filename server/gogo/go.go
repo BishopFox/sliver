@@ -131,7 +131,6 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 		"GOTOOLCHAIN=local",
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOARM=%s", goarm),
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
@@ -141,6 +140,9 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
 		fmt.Sprintf("PATH=%s", joinPathList(goBinDir, assets.GetZigDir(), os.Getenv("PATH"))),
 		fmt.Sprintf("HOME=%s", getHomeDir()),
+	}
+	if goarm != "" {
+		overrides = append(overrides, fmt.Sprintf("GOARM=%s", goarm))
 	}
 	for name, value := range extra {
 		overrides = append(overrides, fmt.Sprintf("%s=%s", name, value))
