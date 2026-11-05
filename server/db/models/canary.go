@@ -48,6 +48,7 @@ func (c *DNSCanary) BeforeCreate(tx *gorm.DB) (err error) {
 // ToProtobuf - Converts to protobuf object
 func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
 	return &clientpb.DNSCanary{
+		ID:             c.ID.String(),
 		ImplantName:    c.ImplantName,
 		Domain:         c.Domain,
 		Triggered:      c.Triggered,

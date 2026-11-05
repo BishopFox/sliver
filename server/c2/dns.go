@@ -46,6 +46,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -576,15 +577,7 @@ func (s *SliverDNSServer) HandleDNSRequest(domains []string, canaries bool, writ
 		return
 	}
 
-	var resp *dns.Msg
-	isC2, domain := s.isC2SubDomain(domains, req.Question[0].Name)
-	if isC2 {
-		dnsLog.Debugf("'%s' is subdomain of c2 parent '%s'", req.Question[0].Name, domain)
-		resp = s.handleC2(domain, req)
-	} else if canaries {
-		dnsLog.Debugf("checking '%s' for DNS canary matches", req.Question[0].Name)
-		resp = s.handleCanary(req)
-	}
+	resp := s.handleDNSQuery(domains, canaries, req)
 	if resp != nil {
 		// These responses often have near-max-length QNAMEs. Enable compression to
 		// keep UDP responses under the minimum DNS message size limits.
@@ -593,6 +586,27 @@ func (s *SliverDNSServer) HandleDNSRequest(domains []string, canaries bool, writ
 	} else {
 		dnsLog.Infof("Invalid query, no DNS response")
 	}
+}
+
+func (s *SliverDNSServer) handleDNSQuery(domains []string, canaries bool, req *dns.Msg) *dns.Msg {
+	if canaries {
+		canary, err := db.CanaryByDomain(req.Question[0].Name)
+		if err == nil && canary != nil {
+			return s.handleCanary(req, canary)
+		}
+		if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
+			dnsLog.Errorf("Failed to look up DNS canary: %s", err)
+		}
+	}
+
+	if isC2, domain := s.isC2SubDomain(domains, req.Question[0].Name); isC2 {
+		dnsLog.Debugf("'%s' is subdomain of c2 parent '%s'", req.Question[0].Name, domain)
+		return s.handleC2(domain, req)
+	}
+	if canaries {
+		return s.nameErrorResp(req)
+	}
+	return nil
 }
 
 // Returns true if the requested domain is a c2 subdomain, and the domain it matched with
@@ -1142,39 +1156,24 @@ func (s *SliverDNSServer) handleNOP(domain string, msg *dnspb.DNSMessage, checks
 // Canary Record Handler
 // ---------------------------
 // Canary -> valid? -> trigger alert event
-func (s *SliverDNSServer) handleCanary(req *dns.Msg) *dns.Msg {
-	// Don't block, return error as fast as possible
-	go func() {
-		defer recoverAndLogPanic(dnsLog.Errorf, "dns handleCanary")
+func (s *SliverDNSServer) handleCanary(req *dns.Msg, canary *clientpb.DNSCanary) *dns.Msg {
+	firstTrigger, err := generate.TriggerCanary(canary)
+	if err != nil {
+		dnsLog.Errorf("Failed to record DNS canary trigger for '%s': %s", canary.Domain, err)
+		return s.nameErrorResp(req)
+	}
 
-		reqDomain := strings.ToLower(req.Question[0].Name)
-		if !strings.HasSuffix(reqDomain, ".") {
-			reqDomain += "." // Ensure we have the FQDN
-		}
-		canary, err := db.CanaryByDomain(reqDomain)
-		if err != nil {
-			dnsLog.Errorf("Failed to find canary: %s", err)
-			return
-		}
-		if canary != nil {
-			dnsLog.Warnf("DNS canary tripped for '%s'", canary.ImplantName)
-			if !canary.Triggered {
-				// Defer publishing the event until we're sure the db is sync'd
-				defer core.EventBroker.Publish(core.Event{
-					Session: &core.Session{
-						Name: canary.ImplantName,
-					},
-					Data:      []byte(canary.Domain),
-					EventType: consts.CanaryEvent,
-				})
-				canary.Triggered = true
-				canary.FirstTriggered = time.Now().Format(time.RFC1123)
-			}
-			canary.LatestTrigger = time.Now().Format(time.RFC1123)
-			canary.Count++
-			generate.UpdateCanary(canary)
-		}
-	}()
+	dnsLog.Warnf("DNS canary tripped for '%s'", canary.ImplantName)
+	if firstTrigger {
+		// Publish only after the trigger transaction commits successfully.
+		core.EventBroker.Publish(core.Event{
+			Session: &core.Session{
+				Name: canary.ImplantName,
+			},
+			Data:      []byte(canary.Domain),
+			EventType: consts.CanaryEvent,
+		})
+	}
 	return s.nameErrorResp(req)
 }
 
