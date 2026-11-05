@@ -64,6 +64,7 @@ var (
 		"darwin/arm64":  true,
 		"linux/386":     true,
 		"linux/amd64":   true,
+		"linux/arm":     true,
 		"linux/arm64":   true,
 		"windows/386":   true,
 		"windows/amd64": true,
@@ -1302,6 +1303,7 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 			"windows/386":   "x86-windows-gnu",
 			"linux/amd64":   "x86_64-linux-musl",
 			"linux/386":     "x86-linux-musl",
+			"linux/arm":     "arm-linux-musleabihf",
 			"linux/arm64":   "aarch64-linux-musl",
 			"linux/ppc64":   "powerpc64le-linux-musl",
 		}[fmt.Sprintf("%s/%s", targetGOOS, targetGOARCH)]

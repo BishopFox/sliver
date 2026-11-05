@@ -46,6 +46,7 @@ type GoConfig struct {
 
 	GOOS       string
 	GOARCH     string
+	GOARM      string
 	GOROOT     string
 	GOCACHE    string
 	GOMODCACHE string
@@ -117,6 +118,11 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	}
 
 	env := append([]string{}, os.Environ()...)
+	goarm := config.GOARM
+	if config.GOARCH == "arm" && goarm == "" {
+		goarm = "7"
+	}
+
 	overrides := []string{
 		fmt.Sprintf("CC=%s", config.CC),
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
@@ -125,6 +131,7 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 		"GOTOOLCHAIN=local",
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
+		fmt.Sprintf("GOARM=%s", goarm),
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
