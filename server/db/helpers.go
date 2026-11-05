@@ -1,3 +1,4 @@
+// Package db provides persistence and queries for Sliver server state.
 package db
 
 /*
@@ -742,13 +743,25 @@ func ListCanaries() ([]*clientpb.DNSCanary, error) {
 
 // CanaryByDomain - Check if a canary exists
 func CanaryByDomain(domain string) (*clientpb.DNSCanary, error) {
-	if len(domain) < 1 {
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	if domain == "" {
 		return nil, ErrRecordNotFound
+	}
+	if !strings.HasSuffix(domain, ".") {
+		domain += "."
 	}
 	dbSession := Session()
 	canary := models.DNSCanary{}
-	err := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary).Error
-	return canary.ToProtobuf(), err
+	// Older builds may have stored mixed-case parent domains. DNS names are
+	// case-insensitive, so normalize both sides without rewriting those records.
+	result := dbSession.Where("LOWER(domain) = ?", domain).Limit(1).Find(&canary)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, ErrRecordNotFound
+	}
+	return canary.ToProtobuf(), nil
 }
 
 // WebsiteByName - Get website by name

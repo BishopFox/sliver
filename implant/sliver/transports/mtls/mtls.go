@@ -189,7 +189,7 @@ func ReadEnvelope(r io.Reader) (*pb.Envelope, error) {
 	rawSigBuf := make([]byte, cryptography.RawSigSize)
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	if len(rawSigBuf) == 0 || len(dataLengthBuf) == 0 || r == nil {
-		panic("[[GenerateCanary]]")
+		panic("invalid envelope reader")
 	}
 
 	n, err := io.ReadFull(r, rawSigBuf)

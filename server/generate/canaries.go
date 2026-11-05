@@ -21,11 +21,13 @@ package generate
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/util"
+	"gorm.io/gorm"
 )
 
 const (
@@ -50,11 +52,42 @@ func canarySubDomain() string {
 	return string(subdomain)
 }
 
-// UpdateCanary - Update an existing canary
-func UpdateCanary(canary *clientpb.DNSCanary) error {
-	dbSession := db.Session()
-	result := dbSession.Save(&canary)
-	return result.Error
+// TriggerCanary records a DNS query and reports whether it first triggered the
+// existing canary. The caller's status may be stale; only its ID is used.
+func TriggerCanary(canary *clientpb.DNSCanary) (bool, error) {
+	if canary == nil || canary.ID == "" {
+		return false, fmt.Errorf("missing canary ID")
+	}
+	id, err := models.ParseUUID(canary.ID)
+	if err != nil || id == models.NilUUID() {
+		return false, fmt.Errorf("invalid canary ID %q", canary.ID)
+	}
+
+	firstTrigger := false
+	err = db.Session().Transaction(func(tx *gorm.DB) error {
+		count := tx.Model(&models.DNSCanary{}).Where("id = ?", id).
+			UpdateColumn("count", gorm.Expr("count + ?", 1))
+		if count.Error != nil {
+			return count.Error
+		}
+		if count.RowsAffected != 1 {
+			return db.ErrRecordNotFound
+		}
+
+		// The increment locks the existing row before timestamps are sampled,
+		// so waiting queries cannot move LatestTrigger backwards.
+		first := tx.Model(&models.DNSCanary{}).
+			Where("id = ? AND triggered = ?", id, false).
+			Updates(models.DNSCanary{Triggered: true, FirstTrigger: time.Now()})
+		if first.Error != nil {
+			return first.Error
+		}
+		firstTrigger = first.RowsAffected == 1
+
+		return tx.Model(&models.DNSCanary{}).Where("id = ?", id).
+			Updates(models.DNSCanary{LatestTrigger: time.Now()}).Error
+	})
+	return firstTrigger && err == nil, err
 }
 
 // CanaryGenerator - Holds data related to canary generation
@@ -75,7 +108,7 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	// Don't need secure random here
 	index := util.Intn(len(g.ParentDomains))
 
-	parentDomain := g.ParentDomains[index]
+	parentDomain := strings.ToLower(strings.TrimSpace(g.ParentDomains[index]))
 	parentDomain = strings.TrimPrefix(parentDomain, ".")
 	if !strings.HasSuffix(parentDomain, ".") {
 		parentDomain += "." // Ensure we have the FQDN

@@ -25,10 +25,17 @@ var (
 	SliverName = `{{.Name}}`
 )
 
-// Message - Fake message for embedding canaries
+// Message carries canaries in struct tags, which remain plaintext under Garble.
 type Message struct {
 	Command string `c2:"[[GenerateCanary]]"`
+	// {{if .Config.IncludeMTLS}}
+	MTLS string `c2:"[[GenerateCanary]]"`
+	// {{end}}
+	// {{if .Config.IncludeWG}}
+	WireGuard string `c2:"[[GenerateCanary]]"`
+	// {{end}}
 }
 
-// never obfuscate the Message type
-var _ = reflect.TypeOf(Message{})
+// Access a field at runtime to retain the type metadata and its canary tags.
+// A discarded TypeOf call alone is optimized away, removing the canaries.
+var _ = reflect.TypeOf(Message{}).Field(0)
