@@ -9,6 +9,7 @@ run:
     - osusergo
     - netgo
     - go_sqlite
+    - sliver_generate
     # Raw implant entry points are Go templates; lint their supporting packages.
     - sliver_lint
 

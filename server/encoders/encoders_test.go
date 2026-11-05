@@ -20,206 +20,65 @@ package encoders
 
 import (
 	"bytes"
-	"crypto/rand"
-	insecureRand "math/rand"
+	"fmt"
 	"testing"
 
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	util "github.com/bishopfox/sliver/util/encoders"
 )
 
-const (
-	sampleSizeMax = 8192
-)
-
-func randomDataRandomSize(maxSize int) []byte {
-	buf := make([]byte, insecureRand.Intn(maxSize))
-	rand.Read(buf)
-	return buf
-}
-
-func TestCompatibilityBase64(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := Base64.Encode(sample)
-		data, err := implantEncoders.Base64.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base64")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = implantEncoders.Base64.Encode(sample2)
-		data, err = Base64.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base64")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func TestCompatibilityBase58(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := Base58.Encode(sample)
-		data, err := implantEncoders.Base58.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base58")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = Base58.Encode(sample2)
-		data, err = implantEncoders.Base58.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base58")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func TestCompatibilityBase32(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := Base32.Encode(sample)
-		data, err := implantEncoders.Base32.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base32")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = Base32.Encode(sample2)
-		data, err = implantEncoders.Base32.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base32")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func TestCompatibilityEnglish(t *testing.T) {
-
+func TestEncoderCompatibility(t *testing.T) {
 	util.SetEnglishDictionary(getTestEnglishDictionary())
 
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := English.Encode(sample)
-		data, err := implantEncoders.English.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into english")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = implantEncoders.English.Encode(sample2)
-		data, err = English.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into english")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
+	encoders := []struct {
+		name    string
+		server  util.Encoder
+		implant util.Encoder
+	}{
+		{"base64", Base64, implantEncoders.Base64},
+		{"base58", Base58, implantEncoders.Base58},
+		{"base32", Base32, implantEncoders.Base32},
+		{"english", English, implantEncoders.English},
+		{"hex", Hex, implantEncoders.Hex},
+		{"gzip", Gzip, implantEncoders.Gzip},
+		{"png", PNG, implantEncoders.PNG},
 	}
-}
-
-func TestCompatibilityHex(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := Hex.Encode(sample)
-		data, err := implantEncoders.Hex.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into hex")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = Hex.Encode(sample2)
-		data, err = implantEncoders.Hex.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into hex")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func TestCompatibilityGzip(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := Gzip.Encode(sample)
-		data, err := implantEncoders.Gzip.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into gzip")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = Gzip.Encode(sample2)
-		data, err = implantEncoders.Gzip.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into gzip")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func TestCompatibilityPNG(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(sampleSizeMax)
-		output, _ := PNG.Encode(sample)
-		data, err := implantEncoders.PNG.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into png")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomDataRandomSize(sampleSizeMax)
-		output, _ = PNG.Encode(sample2)
-		data, err = implantEncoders.PNG.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into png")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
+	for _, encoder := range encoders {
+		t.Run(encoder.name, func(t *testing.T) {
+			directions := []struct {
+				name    string
+				encoder util.Encoder
+				decoder util.Encoder
+			}{
+				{"server_to_implant", encoder.server, encoder.implant},
+				{"implant_to_server", encoder.implant, encoder.server},
+			}
+			for _, direction := range directions {
+				t.Run(direction.name, func(t *testing.T) {
+					// Cover encoding block boundaries, every byte value, leading and
+					// trailing zero bytes, and the old random corpus's upper bound.
+					for _, size := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 255, 256, 257, 8192} {
+						t.Run(fmt.Sprintf("bytes_%d", size), func(t *testing.T) {
+							payload := make([]byte, size)
+							for i := range payload {
+								payload[i] = byte(i)
+							}
+							encoded, err := direction.encoder.Encode(payload)
+							if err != nil {
+								t.Fatalf("encode: %v", err)
+							}
+							decoded, err := direction.decoder.Decode(encoded)
+							if err != nil {
+								t.Fatalf("decode: %v", err)
+							}
+							if !bytes.Equal(payload, decoded) {
+								t.Fatalf("round trip changed the %d-byte payload (decoded %d bytes)", len(payload), len(decoded))
+							}
+						})
+					}
+				})
+			}
+		})
 	}
 }
 

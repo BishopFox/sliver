@@ -191,7 +191,7 @@ E2E_SUPPORT_TEST_PKGS=()
 for test_dir in "${TEST_DIRS[@]}"; do
 	pkg="./$test_dir"
 	case "$pkg" in
-	./server/c2 | ./server/generate)
+	./server/c2)
 		# handled separately below
 		;;
 	./client/*)
@@ -249,7 +249,7 @@ for pkg in "${IMPLANT_TEST_PKGS[@]}"; do
 	run_test_cmd "$pkg" "$HOST_GO" test "$pkg" || exit 1
 done
 
-## Server + Util
+## Server + Util, including generation helpers without compilation tests.
 for pkg in "${SERVER_UTIL_TEST_PKGS[@]}"; do
 	if should_skip_package "$pkg" "server,$TAGS"; then
 		continue
@@ -277,7 +277,7 @@ else
 	run_test_cmd "./server/c2 (e2e dns)" "$HOST_GO" test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 || exit 1
 fi
 
-## Server generate
+## Implant compilation tests opt in with sliver_generate; helper tests run above.
 if [ "$SKIP_GENERATE" -eq 0 ]; then
 	# The package tests above no longer need their Go build cache. Reclaim it
 	# before the cross-platform generation matrix starts so long CI runs do not
@@ -291,12 +291,12 @@ if [ "$SKIP_GENERATE" -eq 0 ]; then
 	GENERATE_TEST_PARALLEL="${SLIVER_GENERATE_TEST_PARALLEL:-1}"
 	run_test_cmd "./server/generate" \
 		env GOMAXPROCS="$GENERATE_GOMAXPROCS" \
-		"$HOST_GO" test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS" ./server/generate || exit 1
+		"$HOST_GO" test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS,sliver_generate" ./server/generate || exit 1
 else
 	echo
 	if [ "$UNIT_ONLY" -eq 1 ]; then
-		echo "Skipping ./server/generate tests (--unit-only)"
+		echo "Skipping ./server/generate compilation tests (--unit-only)"
 	else
-		echo "Skipping ./server/generate tests (--skip-generate)"
+		echo "Skipping ./server/generate compilation tests (--skip-generate)"
 	fi
 fi

@@ -19,6 +19,8 @@ package extension
 */
 
 import (
+	"bytes"
+	"io"
 	"io/fs"
 	"testing"
 )
@@ -33,7 +35,11 @@ func TestBasicMemFSOpenFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "memfs/test.1" {
+	stat, err := fi.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat.Name() != "memfs/test.1" {
 		t.Fatalf("expected memfs/test.1, got %s", stat.Name())
 	}
 	defer fi.Close()
@@ -58,20 +64,24 @@ func TestMemFSOpenRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 3 {
-		for entry := range entries {
-			t.Logf("entry: %s", entries[entry].Name())
+	wantEntries := map[string]bool{"memfs/test.1": false, "memfs/test.2": false, "memfs/a": true}
+	if len(entries) != len(wantEntries) {
+		t.Fatalf("expected %d entries, got %d", len(wantEntries), len(entries))
+	}
+	for _, entry := range entries {
+		wantDir, ok := wantEntries[entry.Name()]
+		if !ok || entry.IsDir() != wantDir {
+			t.Fatalf("unexpected entry %q (directory=%v)", entry.Name(), entry.IsDir())
 		}
-		t.Fatalf("expected 3 entries, got %d", len(entries))
+		delete(wantEntries, entry.Name())
 	}
 
 	di, err := dirNode.Stat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("name: %s, is dir: %v", di.Name(), di.IsDir())
-	for _, entry := range entries {
-		t.Logf("entry: %s", entry.Name())
+	if di.Name() != "memfs" || !di.IsDir() {
+		t.Fatalf("expected memfs root directory, got %q (directory=%v)", di.Name(), di.IsDir())
 	}
 }
 
@@ -80,7 +90,7 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 		"test/foo.1":             {0x00},
 		"test/foo":               {0x00},
 		"testing/foo":            {0x00},
-		"a/b/c/d/e/f/test/a.txt": {0x00},
+		"a/b/c/d/e/f/test/a.txt": {0x31, 0x00, 0x7f},
 	}}
 
 	// Test Open File
@@ -91,7 +101,11 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 	if f == nil {
 		t.Fatal("expected file, got nil and no error")
 	}
-	if stat, _ := f.Stat(); stat.Name() != "memfs/test" || !stat.IsDir() {
+	stat, err := f.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat.Name() != "memfs/test" || !stat.IsDir() {
 		t.Fatalf("expected 'memfs/test' dir, got '%s'", stat.Name())
 	}
 	defer f.Close()
@@ -100,7 +114,16 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := dir.Stat(); stat.Name() != "memfs/a/b/c/d/e/f/test" || !stat.IsDir() {
+	defer func() {
+		if err := dir.Close(); err != nil {
+			t.Errorf("close directory: %v", err)
+		}
+	}()
+	stat, err = dir.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat.Name() != "memfs/a/b/c/d/e/f/test" || !stat.IsDir() {
 		t.Fatalf("expected 'memfs/a/b/c/d/e/f/test' dir, got '%s'", stat.Name())
 	}
 
@@ -108,19 +131,17 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := make([]byte, 1)
-	_, err = f.Read(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if data[0] != 0x00 {
-		t.Fatalf("expected 0x00, got %x", data[0])
-	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Errorf("close file: %v", err)
+		}
+	}()
+	assertMemFSFileContents(t, f, []byte{0x31, 0x00, 0x7f})
 }
 
 func TestMemFSReadFileData(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
-		"test/foo.1": {0x00},
+		"test/foo.1": {0x41, 0x00, 0xff, 0x42},
 	}}
 
 	// Test Open File
@@ -128,19 +149,31 @@ func TestMemFSReadFileData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "memfs/test/foo.1" {
+	stat, err := fi.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat.Name() != "memfs/test/foo.1" {
 		t.Fatalf("expected memfs/test/foo.1, got %s", stat.Name())
 	}
 	defer fi.Close()
 
-	// Read file
-	data := make([]byte, 1)
-	_, err = fi.Read(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if data[0] != 0x00 {
-		t.Fatalf("expected 0x00, got %x", data[0])
-	}
+	assertMemFSFileContents(t, fi, []byte{0x41, 0x00, 0xff, 0x42})
+}
 
+func assertMemFSFileContents(t *testing.T, file fs.File, want []byte) {
+	t.Helper()
+	// Read in chunks to verify byte counts and advancement of the file offset.
+	for offset := 0; offset < len(want); {
+		end := min(offset+2, len(want))
+		data := make([]byte, end-offset)
+		n, err := file.Read(data)
+		if err != nil || n != len(data) || !bytes.Equal(data, want[offset:end]) {
+			t.Fatalf("Read at %d = (%x, %d, %v), want (%x, %d, nil)", offset, data, n, err, want[offset:end], len(data))
+		}
+		offset = end
+	}
+	if n, err := file.Read(make([]byte, 1)); n != 0 || err != io.EOF {
+		t.Fatalf("Read after file contents = (%d, %v), want (0, EOF)", n, err)
+	}
 }
