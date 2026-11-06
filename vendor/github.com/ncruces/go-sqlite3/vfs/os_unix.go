@@ -22,7 +22,12 @@ func osAccess(path string, flags AccessFlag) error {
 	case ACCESS_READ:
 		access = unix.R_OK
 	}
-	return unix.Access(path, access)
+	for {
+		err := unix.Access(path, access)
+		if err != unix.EINTR {
+			return err
+		}
+	}
 }
 
 func osReadAt(file *os.File, p []byte, off int64) (int, error) {

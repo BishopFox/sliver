@@ -2,10 +2,9 @@
 package vfs
 
 import (
-	"context"
 	"io"
 
-	"github.com/tetratelabs/wazero/api"
+	"github.com/ncruces/go-sqlite3/internal/sqlite3_wrap"
 )
 
 // A VFS defines the interface between the SQLite core and the underlying operating system.
@@ -195,7 +194,7 @@ type FileSharedMemory interface {
 // SharedMemory is a shared-memory WAL-index implementation.
 // Use [NewSharedMemory] to create a shared-memory.
 type SharedMemory interface {
-	shmMap(context.Context, api.Module, int32, int32, bool) (ptr_t, error)
+	shmMap(*sqlite3_wrap.Wrapper, int32, int32, bool) (ptr_t, error)
 	shmLock(int32, int32, _ShmFlag) error
 	shmUnmap(bool)
 	shmBarrier()
@@ -207,13 +206,31 @@ type blockingSharedMemory interface {
 	shmEnableBlocking(block bool)
 }
 
+// FileMemoryMapper extends File to possibly implement
+// memory mapped files.
+// The same memory mapper instance must be returned
+// for the entire life of the file.
+// It's OK for MemoryMapper to return nil.
+type FileMemoryMapper interface {
+	File
+	MemoryMapper() MemoryMapper
+}
+
+// MemoryMapper is a file mapper implementation.
+// Use [NewMemoryMapper] to create a mapper.
+type MemoryMapper interface {
+	mmapSize(*sqlite3_wrap.Wrapper, ptr_t)
+	fetch(*sqlite3_wrap.Wrapper, int64, int32, ptr_t) error
+	io.Closer
+}
+
 // FileControl makes it easy to forward all fileControl methods,
 // which we want to do for the checksum VFS.
 // However, this is not a safe default, and other VFSes
 // should explicitly wrap the methods they want to wrap.
 type fileControl interface {
 	File
-	fileControl(ctx context.Context, mod api.Module, op _FcntlOpcode, pArg ptr_t) _ErrorCode
+	fileControl(*sqlite3_wrap.Wrapper, _FcntlOpcode, ptr_t) _ErrorCode
 }
 
 type filePDB interface {
