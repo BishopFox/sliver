@@ -152,6 +152,15 @@ func newServer(cfg Config, rpc rpcpb.SliverRPCClient, logger *log.Logger) *Slive
 		mcpapi.WithReadOnlyHintAnnotation(false),
 		mcpapi.WithDestructiveHintAnnotation(true),
 	)
+	// Execute tool - run commands on remote target
+	executeTool := mcpapi.NewTool(
+		executeToolName,
+		mcpapi.WithDescription("Execute a command on a remote session or beacon. Returns stdout, stderr, and exit status."),
+		mcpapi.WithInputSchema[executeArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(false),
+		mcpapi.WithDestructiveHintAnnotation(true),
+	)
+
 	srv := &SliverMCPServer{
 		Rpc:    rpc,
 		server: base,
@@ -168,6 +177,7 @@ func newServer(cfg Config, rpc rpcpb.SliverRPCClient, logger *log.Logger) *Slive
 	srv.server.AddTool(mkdirTool, srv.mkdirHandler)
 	srv.server.AddTool(chmodTool, srv.chmodHandler)
 	srv.server.AddTool(chownTool, srv.chownHandler)
+	srv.server.AddTool(executeTool, srv.executeHandler)
 	return srv
 }
 
