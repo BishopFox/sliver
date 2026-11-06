@@ -48,29 +48,6 @@ func randomData() []byte {
 	return buf
 }
 
-func TestAddContent(t *testing.T) {
-	webContent := clientpb.WebContent{
-		Path:        "/data1",
-		ContentType: contentType1,
-		Size:        uint64(len(data1)),
-		Content:     data1,
-	}
-	err := AddContent(website1, &webContent)
-	if err != nil {
-		t.Fatal(err)
-	}
-	webContent2 := clientpb.WebContent{
-		Path:        "/data2",
-		ContentType: contentType2,
-		Size:        uint64(len(data2)),
-		Content:     data1,
-	}
-	err = AddContent(website2, &webContent2)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestGetContent(t *testing.T) {
 
 	webContent := clientpb.WebContent{

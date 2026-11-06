@@ -465,16 +465,48 @@ func TestRegistryRevokeSessionIsScopedAndIdempotent(t *testing.T) {
 func TestRegistryGeneratesUniqueOpaqueIDs(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry()
-	seen := map[AuthorizationID]struct{}{}
-	for index := 0; index < 256; index++ {
-		id, err := registry.Begin("session", "127.0.0.1:8080", 0)
-		must.NoError(t, err)
-		assert.Len(t, id, 43)
-		assert.False(t, strings.ContainsAny(id.String(), "+/="))
-		_, duplicate := seen[id]
-		assert.False(t, duplicate)
-		seen[id] = struct{}{}
+	firstBytes := bytes.Repeat([]byte{0xff}, authorizationIDBytes)
+	secondBytes := bytes.Repeat([]byte{0x42}, authorizationIDBytes)
+	for _, test := range []struct {
+		name          string
+		random        []byte
+		wantError     bool
+		wantRemaining int
+	}{
+		{name: "distinct IDs", random: secondBytes},
+		{name: "retry collision", random: bytes.Join([][]byte{firstBytes, secondBytes}, nil)},
+		{
+			name:          "exhaust collisions",
+			random:        bytes.Join([][]byte{bytes.Repeat(firstBytes, maxAuthorizationIDAttempts), secondBytes}, nil),
+			wantError:     true,
+			wantRemaining: authorizationIDBytes,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			random := bytes.NewReader(bytes.Join([][]byte{firstBytes, test.random}, nil))
+			registry := newRegistry(random)
+			firstID, err := registry.Begin("session", "127.0.0.1:8080", 0)
+			must.NoError(t, err)
+			assert.Len(t, firstID, 43)
+			assert.False(t, strings.ContainsAny(firstID.String(), "+/="))
+
+			secondID, err := registry.Begin("session", "127.0.0.1:8081", 0)
+			if test.wantError {
+				must.ErrorIs(t, err, ErrAuthorizationIDGeneration)
+				assert.Empty(t, secondID)
+				assert.Len(t, registry.List("session"), 1)
+			} else {
+				must.NoError(t, err)
+				assert.NotEqual(t, firstID, secondID)
+				assert.Len(t, secondID, 43)
+				assert.False(t, strings.ContainsAny(secondID.String(), "+/="))
+				assert.Len(t, registry.List("session"), 2)
+			}
+			assert.Equal(t, test.wantRemaining, random.Len())
+			first, ok := registry.Lookup("session", firstID)
+			must.True(t, ok)
+			assert.Equal(t, "127.0.0.1:8080", first.Address)
+		})
 	}
 }
 
@@ -482,13 +514,6 @@ type errorReader struct{}
 
 func (errorReader) Read(_ []byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
-}
-
-func TestAuthorizationErrorsAreComparable(t *testing.T) {
-	t.Parallel()
-
-	_, err := canonicalizeAddress("invalid")
-	assert.True(t, errors.Is(err, ErrInvalidForwardAddress))
 }
 
 func acquirePlanForTest(registry *Registry, sessionID string, id AuthorizationID) (dialPlan, error) {

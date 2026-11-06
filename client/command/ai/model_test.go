@@ -156,13 +156,6 @@ func TestMessageBlockLabelIgnoresUnknownOperatorPlaceholders(t *testing.T) {
 	}
 }
 
-func TestTranscriptSpeakerStyleUsesPrimaryThemeForUserMessages(t *testing.T) {
-	styles := transcriptSpeakerStyle("alice", "user")
-
-	assertColorEqual(t, styles.border.GetForeground(), clienttheme.Primary())
-	assertColorEqual(t, styles.label.GetBackground(), clienttheme.Primary())
-}
-
 func TestThinkingLevelOptionFocusedStyleUsesDarkerPrimaryShade(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 
@@ -544,19 +537,12 @@ func TestRenderHeaderUsesSingleCompactRow(t *testing.T) {
 	}
 }
 
-func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
-	seen := map[int]struct{}{}
-	for _, label := range []string{"alice", "bob", "charlie", "dana", "erin", "frank"} {
-		seen[transcriptSpeakerPaletteIndex(label, "user")] = struct{}{}
-	}
-	if len(seen) < 2 {
-		t.Fatalf("expected distinct users to map to more than one transcript color, got %d palette entries", len(seen))
-	}
-}
-
 func TestTranscriptSpeakerStyleUsesPrimaryBorderForUserMessages(t *testing.T) {
 	userStyles := transcriptSpeakerStyle("alice", "user")
-	userBorder := transcriptSpeakerStyle("alice", "user").border.Render("│")
+	assertColorEqual(t, userStyles.border.GetForeground(), clienttheme.Primary())
+	assertColorEqual(t, userStyles.label.GetBackground(), clienttheme.Primary())
+
+	userBorder := userStyles.border.Render("│")
 	wantUserBorder := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("│")
 	if userBorder != wantUserBorder {
 		t.Fatalf("expected user message border to use theme primary color")

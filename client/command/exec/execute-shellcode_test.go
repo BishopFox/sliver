@@ -3,6 +3,8 @@ package exec
 import (
 	"testing"
 
+	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/spf13/cobra"
 )
 
@@ -87,14 +89,11 @@ func TestShouldConvertExecuteShellcodePE(t *testing.T) {
 func newExecuteShellcodeFlagsTestCommand(t *testing.T) *cobra.Command {
 	t.Helper()
 
-	cmd := &cobra.Command{Use: "execute-shellcode"}
-	cmd.Flags().Uint32("shellcode-entropy", 1, "")
-	cmd.Flags().Bool("shellcode-compress", false, "")
-	cmd.Flags().Uint32("shellcode-exitopt", 1, "")
-	cmd.Flags().Uint32("shellcode-bypass", 3, "")
-	cmd.Flags().Uint32("shellcode-headers", 1, "")
-	cmd.Flags().Bool("shellcode-thread", false, "")
-	cmd.Flags().Bool("shellcode-unicode", false, "")
-	cmd.Flags().Uint32("shellcode-oep", 0, "")
-	return cmd
+	for _, cmd := range Commands(&console.SliverClient{}) {
+		if cmd.Name() == consts.ExecuteShellcodeStr {
+			return cmd
+		}
+	}
+	t.Fatalf("missing %q command", consts.ExecuteShellcodeStr)
+	return nil
 }

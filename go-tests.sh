@@ -34,8 +34,8 @@ usage() {
 	cat <<'EOF'
 Usage: ./go-tests.sh [--skip-generate | --unit-only | --generate-only] [--run REGEX]
 
-  --skip-generate  Skip implant generation tests.
-  --unit-only      Skip implant generation and C2 end-to-end tests.
+  --skip-generate  Skip implant compilation tests.
+  --unit-only      Skip implant compilation and C2 end-to-end tests.
   --generate-only  Run only the server/generate package tests.
   --run REGEX      Select generation tests by Go test name regex; requires --generate-only.
   --help          Show this help.
@@ -240,7 +240,7 @@ run_generate_tests() {
 	local generate_go_p="${SLIVER_GENERATE_GO_P:-1}"
 	local generate_test_parallel="${SLIVER_GENERATE_TEST_PARALLEL:-1}"
 	local generate_test_cmd=(
-		"$HOST_GO" test -timeout 6h -p "$generate_go_p" -parallel "$generate_test_parallel" -tags="server,$TAGS"
+		"$HOST_GO" test -timeout 6h -p "$generate_go_p" -parallel "$generate_test_parallel" -tags="server,$TAGS,sliver_generate"
 	)
 	if [ -n "$GENERATE_RUN" ]; then
 		# Keep test selection out of GOFLAGS, which implant compiler children inherit.
@@ -272,7 +272,7 @@ E2E_SUPPORT_TEST_PKGS=()
 for test_dir in "${TEST_DIRS[@]}"; do
 	pkg="./$test_dir"
 	case "$pkg" in
-	./server/c2 | ./server/generate)
+	./server/c2)
 		# handled separately below
 		;;
 	./client/*)
@@ -330,7 +330,7 @@ for pkg in "${IMPLANT_TEST_PKGS[@]}"; do
 	run_test_cmd "$pkg" "$HOST_GO" test "$pkg" || exit 1
 done
 
-## Server + Util
+## Server + Util, including generation helpers without compilation tests.
 for pkg in "${SERVER_UTIL_TEST_PKGS[@]}"; do
 	if should_skip_package "$pkg" "server,$TAGS"; then
 		continue
@@ -358,14 +358,14 @@ else
 	run_test_cmd "./server/c2 (e2e dns)" "$HOST_GO" test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 || exit 1
 fi
 
-## Server generate
+## Implant compilation tests opt in with sliver_generate; helper tests run above.
 if [ "$SKIP_GENERATE" -eq 0 ]; then
 	run_generate_tests || exit 1
 else
 	echo
 	if [ "$UNIT_ONLY" -eq 1 ]; then
-		echo "Skipping ./server/generate tests (--unit-only)"
+		echo "Skipping ./server/generate compilation tests (--unit-only)"
 	else
-		echo "Skipping ./server/generate tests (--skip-generate)"
+		echo "Skipping ./server/generate compilation tests (--skip-generate)"
 	fi
 fi

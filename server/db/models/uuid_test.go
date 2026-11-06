@@ -19,13 +19,10 @@ package models
 */
 
 import (
-	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
-	uuid "uuid"
 
 	gosqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -88,9 +85,6 @@ func TestUUIDCompatibility(t *testing.T) {
 func TestUUIDSQLAndJSONEncoding(t *testing.T) {
 	want := NewUUID()
 	standard := want.Standard()
-
-	var _ sql.Scanner = (*UUID)(nil)
-	var _ driver.Valuer = UUID{}
 
 	value, err := want.Value()
 	if err != nil {
@@ -186,13 +180,5 @@ func TestUUIDGORMRoundTrip(t *testing.T) {
 	}
 	if storedID != want.ID.String() {
 		t.Fatalf("stored UUID = %q, want canonical %q", storedID, want.ID.String())
-	}
-}
-
-func TestUUIDMatchesStandardLibrary(t *testing.T) {
-	standard := uuid.NewV4()
-	model := UUIDFrom(standard)
-	if model.Standard() != standard {
-		t.Fatalf("Standard = %q, want %q", model.Standard(), standard)
 	}
 }

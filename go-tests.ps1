@@ -280,7 +280,6 @@ try {
         $pkg = if ($testDir.StartsWith(".")) { $testDir } else { "./$testDir" }
         switch -Wildcard ($pkg) {
             "./server/c2" { continue }
-            "./server/generate" { continue }
             "./client/*" {
                 $clientTestPkgs += $pkg
                 continue
@@ -359,6 +358,7 @@ try {
         }
     }
 
+    # Includes generation helpers without the sliver_generate compilation tests.
     foreach ($pkg in $serverUtilTestPkgs) {
         if (Test-SkipPackage -Package $pkg -Tags "server,$tags") {
             continue
@@ -421,7 +421,7 @@ try {
 
         Invoke-TestStep -Name "./server/generate" -Action {
             Invoke-ExternalCommand -FilePath "go" `
-                -Arguments @("test", "-timeout", "6h", "-p", $generateGoP, "-parallel", $generateTestParallel, "-tags=server,$tags", "./server/generate") `
+                -Arguments @("test", "-timeout", "6h", "-p", $generateGoP, "-parallel", $generateTestParallel, "-tags=server,$tags,sliver_generate", "./server/generate") `
                 -Environment @{
                     GOMAXPROCS = $generateGoMaxProcs
                     GOPROXY    = "off"
@@ -430,9 +430,9 @@ try {
     } else {
         Write-Host ""
         if ($UnitOnly) {
-            Write-Host "Skipping ./server/generate tests (--unit-only)"
+            Write-Host "Skipping ./server/generate compilation tests (--unit-only)"
         } else {
-            Write-Host "Skipping ./server/generate tests (--skip-generate)"
+            Write-Host "Skipping ./server/generate compilation tests (--skip-generate)"
         }
     }
 } finally {

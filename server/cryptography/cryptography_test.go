@@ -134,26 +134,27 @@ func TestAgeKeyExTamper(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Tamper with the ciphertext
-	ciphertext := allCiphertext[32:]
-	ciphertext[insecureRand.Intn(len(ciphertext))] ^= 0xFF
-	_, err = AgeKeyExFromImplant(
-		serverAgeKeyPair.Private,
-		implantPeerAgeKeyPair.Private,
-		ciphertext,
-	)
-	if err == nil {
-		t.Fatal(err)
-	}
+	tamperedCiphertext := bytes.Clone(allCiphertext[32:])
+	tamperedCiphertext[len(tamperedCiphertext)-1] ^= 0xFF
 
-	// Leave an invalid header with valid ciphertext
-	_, err = AgeKeyExFromImplant(
-		serverAgeKeyPair.Private,
-		implantPeerAgeKeyPair.Private,
-		allCiphertext,
-	)
-	if err == nil {
-		t.Fatal(err)
+	for _, test := range []struct {
+		name       string
+		ciphertext []byte
+	}{
+		{name: "tampered ciphertext", ciphertext: tamperedCiphertext},
+		// Retaining the public key hash adds an invalid header to otherwise valid ciphertext.
+		{name: "invalid header", ciphertext: bytes.Clone(allCiphertext)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := AgeKeyExFromImplant(
+				serverAgeKeyPair.Private,
+				implantPeerAgeKeyPair.Private,
+				test.ciphertext,
+			)
+			if err == nil {
+				t.Fatal("expected key exchange decryption to reject invalid ciphertext")
+			}
+		})
 	}
 }
 
