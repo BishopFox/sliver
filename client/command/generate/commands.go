@@ -313,7 +313,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
-	return []*cobra.Command{generateCmd, regenerateCmd, profilesCmd, implantBuildsCmd}
+	return []*cobra.Command{generateCmd, regenerateCmd, profilesCmd, implantBuildsCmd, canariesCmd}
 }
 
 // coreImplantFlags binds all flags common to all sliver implant types.

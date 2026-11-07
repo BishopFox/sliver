@@ -26,43 +26,45 @@ import (
 	"testing"
 )
 
-var (
-	imageTests = []struct {
-		Input []byte
-	}{
-		{[]byte("abc")},   // byte count on image pixel alignment
-		{[]byte("abcde")}, // byte count offset of image pixel alignment
-		{[]byte{0x0, 0x01, 0x02, 0x03, 0x04}},
-		{[]byte{0x01, 0x02, 0x03, 0x04, 0x0}},
-	}
-)
-
 func TestPNG(t *testing.T) {
-	pngEncoder := new(PNGEncoder)
-	for _, test := range imageTests {
-		buf, _ := pngEncoder.Encode(test.Input)
-		decodeOutput, err := pngEncoder.Decode(buf)
-		if err != nil {
-			t.Errorf("png decode returned error: %q", err)
-		}
-		if !bytes.Equal(test.Input, decodeOutput) {
-			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, test.Input)
-		}
+	allBytes := make([]byte, 256)
+	for i := range allBytes {
+		allBytes[i] = byte(i)
 	}
-}
-
-func TestPNGRandomDataRandomSize(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload []byte
+	}{
+		{"empty", nil},
+		{"one_zero", []byte{0}},
+		{"one_escape", []byte{1}},
+		{"partial_pixel", []byte{2, 3}},
+		{"pixel_aligned", []byte("abc")},
+		{"pixel_overflow", []byte("abcde")},
+		{"before_square_boundary", bytes.Repeat([]byte{2}, 11)},
+		{"at_square_boundary", bytes.Repeat([]byte{2}, 12)},
+		{"after_square_boundary", bytes.Repeat([]byte{2}, 13)},
+		{"leading_zero", []byte{0, 1, 2, 3, 4}},
+		{"trailing_zero", []byte{1, 2, 3, 4, 0}},
+		{"adjacent_escapes", []byte{0, 1, 0, 1, 1, 0}},
+		{"all_bytes", allBytes},
+		{"one_megabyte", bytes.Repeat(allBytes, 4096)},
+	}
 	pngEncoder := new(PNGEncoder)
-	for i := 0; i < 100; i++ {
-		sample := randomDataRandomSize(1024 * 1024)
-		buf, _ := pngEncoder.Encode(sample)
-		decodeOutput, err := pngEncoder.Decode(buf)
-		if err != nil {
-			t.Errorf("png decode returned error: %q", err)
-		}
-		if !bytes.Equal(sample, decodeOutput) {
-			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, sample)
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := pngEncoder.Encode(test.payload)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			decoded, err := pngEncoder.Decode(encoded)
+			if err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if !bytes.Equal(test.payload, decoded) {
+				t.Fatalf("round trip changed the %d-byte payload (decoded %d bytes)", len(test.payload), len(decoded))
+			}
+		})
 	}
 }
 

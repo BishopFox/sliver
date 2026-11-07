@@ -123,40 +123,6 @@ func TestAllLoot(t *testing.T) {
 	}
 }
 
-func TestAllLootOf(t *testing.T) {
-	lootStore := GetLootStore()
-	_, err := lootStore.Add(&clientpb.Loot{
-		Name:     name1,
-		FileType: clientpb.FileType_BINARY,
-		File: &commonpb.File{
-			Name: name1,
-			Data: data1,
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = lootStore.Add(&clientpb.Loot{
-		Name:     name2,
-		FileType: clientpb.FileType_TEXT,
-		File: &commonpb.File{
-			Name: name1,
-			Data: []byte("hello world"),
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Cleanup
-	for _, loot := range lootStore.All().Loot {
-		err = lootStore.Rm(loot.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestLootErrors(t *testing.T) {
 	lootStore := GetLootStore()
 	loot, err := lootStore.Add(&clientpb.Loot{

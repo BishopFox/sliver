@@ -16,113 +16,103 @@ func TestMultiplayerConnectModeDefaultsToAuto(t *testing.T) {
 	}
 }
 
-func TestSelectMultiplayerDialStrategyAutoWithoutWGConfigUsesDirectMTLS(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectAuto)
-
-	strategy, err := selectMultiplayerDialStrategy(&assets.ClientConfig{})
-	if err != nil {
-		t.Fatalf("select dial strategy: %v", err)
-	}
-	if strategy != multiplayerDialDirect {
-		t.Fatalf("expected direct mTLS strategy, got %v", strategy)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyAutoLegacyWGConfigUsesDirectMTLS(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectAuto)
-
-	strategy, err := selectMultiplayerDialStrategy(completeWGClientConfig(false))
-	if err != nil {
-		t.Fatalf("select dial strategy: %v", err)
-	}
-	if strategy != multiplayerDialDirect {
-		t.Fatalf("expected direct mTLS strategy, got %v", strategy)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyAutoEnabledWGConfigRequiresCompleteConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectAuto)
-
-	_, err := selectMultiplayerDialStrategy(&assets.ClientConfig{
-		WG: &assets.ClientWGConfig{
-			Enabled:      true,
-			ServerPubKey: "server-pub",
-			ClientIP:     "100.64.0.2",
+func TestSelectMultiplayerDialStrategy(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		mode        MultiplayerConnectMode
+		config      *assets.ClientConfig
+		want        multiplayerDialStrategy
+		wantErr     error
+		wantErrText string
+	}{
+		{
+			name:   "auto without WireGuard config",
+			mode:   MultiplayerConnectAuto,
+			config: &assets.ClientConfig{},
+			want:   multiplayerDialDirect,
 		},
-	})
-	if !errors.Is(err, ErrIncompleteWireGuardConfig) {
-		t.Fatalf("expected incomplete WG config error, got %v", err)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyAutoEnabledWGConfigUsesWireGuard(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectAuto)
-
-	strategy, err := selectMultiplayerDialStrategy(completeWGClientConfig(true))
-	if err != nil {
-		t.Fatalf("select dial strategy: %v", err)
-	}
-	if strategy != multiplayerDialWireGuard {
-		t.Fatalf("expected WireGuard strategy, got %v", strategy)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyEnableWGRejectsMissingWGConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectEnableWG)
-
-	_, err := selectMultiplayerDialStrategy(&assets.ClientConfig{})
-	if !errors.Is(err, ErrMissingWireGuardConfig) {
-		t.Fatalf("expected missing WG config error, got %v", err)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyEnableWGRejectsIncompleteWGConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectEnableWG)
-
-	_, err := selectMultiplayerDialStrategy(&assets.ClientConfig{
-		WG: &assets.ClientWGConfig{
-			ServerPubKey: "server-pub",
-			ClientIP:     "100.64.0.2",
+		{
+			name:   "auto with legacy WireGuard config",
+			mode:   MultiplayerConnectAuto,
+			config: completeWGClientConfig(false),
+			want:   multiplayerDialDirect,
 		},
-	})
-	if !errors.Is(err, ErrIncompleteWireGuardConfig) {
-		t.Fatalf("expected incomplete WG config error, got %v", err)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyEnableWGUsesCompleteLegacyConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectEnableWG)
-
-	strategy, err := selectMultiplayerDialStrategy(completeWGClientConfig(false))
-	if err != nil {
-		t.Fatalf("select dial strategy: %v", err)
-	}
-	if strategy != multiplayerDialWireGuard {
-		t.Fatalf("expected WireGuard strategy, got %v", strategy)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyDisableWGOverridesEnabledConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectDisableWG)
-
-	strategy, err := selectMultiplayerDialStrategy(completeWGClientConfig(true))
-	if err != nil {
-		t.Fatalf("select dial strategy: %v", err)
-	}
-	if strategy != multiplayerDialDirect {
-		t.Fatalf("expected direct strategy, got %v", strategy)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyRejectsInvalidMode(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectMode(255))
-
-	strategy, err := selectMultiplayerDialStrategy(completeWGClientConfig(true))
-	if strategy != multiplayerDialDirect {
-		t.Fatalf("expected invalid mode to fall back to direct strategy, got %v", strategy)
-	}
-	if err == nil || err.Error() != "invalid multiplayer connect mode 255" {
-		t.Fatalf("expected invalid mode error, got %v", err)
+		{
+			name: "auto with incomplete enabled config",
+			mode: MultiplayerConnectAuto,
+			config: &assets.ClientConfig{WG: &assets.ClientWGConfig{
+				Enabled: true, ServerPubKey: "server-pub", ClientIP: "100.64.0.2",
+			}},
+			want:    multiplayerDialDirect,
+			wantErr: ErrIncompleteWireGuardConfig,
+		},
+		{
+			name:   "auto with enabled WireGuard config",
+			mode:   MultiplayerConnectAuto,
+			config: completeWGClientConfig(true),
+			want:   multiplayerDialWireGuard,
+		},
+		{
+			name:    "enable with missing WireGuard config",
+			mode:    MultiplayerConnectEnableWG,
+			config:  &assets.ClientConfig{},
+			want:    multiplayerDialDirect,
+			wantErr: ErrMissingWireGuardConfig,
+		},
+		{
+			name: "enable with incomplete WireGuard config",
+			mode: MultiplayerConnectEnableWG,
+			config: &assets.ClientConfig{WG: &assets.ClientWGConfig{
+				ServerPubKey: "server-pub", ClientIP: "100.64.0.2",
+			}},
+			want:    multiplayerDialDirect,
+			wantErr: ErrIncompleteWireGuardConfig,
+		},
+		{
+			name:   "enable with complete legacy config",
+			mode:   MultiplayerConnectEnableWG,
+			config: completeWGClientConfig(false),
+			want:   multiplayerDialWireGuard,
+		},
+		{
+			name:   "disable overrides enabled config",
+			mode:   MultiplayerConnectDisableWG,
+			config: completeWGClientConfig(true),
+			want:   multiplayerDialDirect,
+		},
+		{
+			name:        "invalid mode",
+			mode:        MultiplayerConnectMode(255),
+			config:      completeWGClientConfig(true),
+			want:        multiplayerDialDirect,
+			wantErrText: "invalid multiplayer connect mode 255",
+		},
+		{
+			name:        "nil config",
+			mode:        MultiplayerConnectAuto,
+			want:        multiplayerDialDirect,
+			wantErrText: "client config is required",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			setTestMultiplayerConnectMode(t, test.mode)
+			strategy, err := selectMultiplayerDialStrategy(test.config)
+			if strategy != test.want {
+				t.Errorf("dial strategy = %v, want %v", strategy, test.want)
+			}
+			switch {
+			case test.wantErr != nil:
+				if !errors.Is(err, test.wantErr) {
+					t.Fatalf("select dial strategy error = %v, want %v", err, test.wantErr)
+				}
+			case test.wantErrText != "":
+				if err == nil || err.Error() != test.wantErrText {
+					t.Fatalf("select dial strategy error = %v, want %q", err, test.wantErrText)
+				}
+			case err != nil:
+				t.Fatalf("select dial strategy: %v", err)
+			}
+		})
 	}
 }
 
