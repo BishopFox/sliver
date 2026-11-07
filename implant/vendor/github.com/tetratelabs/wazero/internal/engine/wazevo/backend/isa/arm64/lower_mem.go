@@ -24,6 +24,14 @@ type (
 	addressModeKind byte
 )
 
+func resetAddressMode(a *addressMode) {
+	a.kind = 0
+	a.rn = 0
+	a.rm = 0
+	a.extOp = 0
+	a.imm = 0
+}
+
 const (
 	// addressModeKindRegExtended takes a base register and an index register. The index register is sign/zero-extended,
 	// and then scaled by bits(type)/8.
@@ -140,15 +148,17 @@ func (a addressMode) format(dstSizeBits byte) (ret string) {
 	return
 }
 
-func addressModePreOrPostIndex(rn regalloc.VReg, imm int64, preIndex bool) addressMode {
+func addressModePreOrPostIndex(m *machine, rn regalloc.VReg, imm int64, preIndex bool) *addressMode {
 	if !offsetFitsInAddressModeKindRegSignedImm9(imm) {
 		panic(fmt.Sprintf("BUG: offset %#x does not fit in addressModeKindRegSignedImm9", imm))
 	}
+	mode := m.amodePool.Allocate()
 	if preIndex {
-		return addressMode{kind: addressModeKindPreIndex, rn: rn, imm: imm}
+		*mode = addressMode{kind: addressModeKindPreIndex, rn: rn, imm: imm}
 	} else {
-		return addressMode{kind: addressModeKindPostIndex, rn: rn, imm: imm}
+		*mode = addressMode{kind: addressModeKindPostIndex, rn: rn, imm: imm}
 	}
+	return mode
 }
 
 func offsetFitsInAddressModeKindRegUnsignedImm12(dstSizeInBits byte, offset int64) bool {
@@ -207,9 +217,9 @@ func (m *machine) lowerExtLoad(op ssa.Opcode, ptr ssa.Value, offset uint32, ret 
 	amode := m.lowerToAddressMode(ptr, offset, size)
 	load := m.allocateInstr()
 	if signed {
-		load.asSLoad(operandNR(ret), amode, size)
+		load.asSLoad(ret, amode, size)
 	} else {
-		load.asULoad(operandNR(ret), amode, size)
+		load.asULoad(ret, amode, size)
 	}
 	m.insert(load)
 }
@@ -221,11 +231,11 @@ func (m *machine) lowerLoad(ptr ssa.Value, offset uint32, typ ssa.Type, ret ssa.
 	load := m.allocateInstr()
 	switch typ {
 	case ssa.TypeI32, ssa.TypeI64:
-		load.asULoad(operandNR(dst), amode, typ.Bits())
+		load.asULoad(dst, amode, typ.Bits())
 	case ssa.TypeF32, ssa.TypeF64:
-		load.asFpuLoad(operandNR(dst), amode, typ.Bits())
+		load.asFpuLoad(dst, amode, typ.Bits())
 	case ssa.TypeV128:
-		load.asFpuLoad(operandNR(dst), amode, 128)
+		load.asFpuLoad(dst, amode, 128)
 	default:
 		panic("TODO")
 	}
@@ -239,7 +249,7 @@ func (m *machine) lowerLoadSplat(ptr ssa.Value, offset uint32, lane ssa.VecLane,
 	m.lowerConstantI64(offsetReg, int64(offset))
 	addedBase := m.addReg64ToReg64(base, offsetReg)
 
-	rd := operandNR(m.compiler.VRegOf(ret))
+	rd := m.compiler.VRegOf(ret)
 
 	ld1r := m.allocateInstr()
 	ld1r.asVecLoad1R(rd, operandNR(addedBase), ssaLaneToArrangement(lane))
@@ -258,7 +268,7 @@ func (m *machine) lowerStore(si *ssa.Instruction) {
 }
 
 // lowerToAddressMode converts a pointer to an addressMode that can be used as an operand for load/store instructions.
-func (m *machine) lowerToAddressMode(ptr ssa.Value, offsetBase uint32, size byte) (amode addressMode) {
+func (m *machine) lowerToAddressMode(ptr ssa.Value, offsetBase uint32, size byte) (amode *addressMode) {
 	// TODO: currently the instruction selection logic doesn't support addressModeKindRegScaledExtended and
 	// addressModeKindRegScaled since collectAddends doesn't take ssa.OpcodeIshl into account. This should be fixed
 	// to support more efficient address resolution.
@@ -272,32 +282,33 @@ func (m *machine) lowerToAddressMode(ptr ssa.Value, offsetBase uint32, size byte
 // During the construction, this might emit additional instructions.
 //
 // Extracted as a separate function for easy testing.
-func (m *machine) lowerToAddressModeFromAddends(a32s *wazevoapi.Queue[addend32], a64s *wazevoapi.Queue[regalloc.VReg], size byte, offset int64) (amode addressMode) {
+func (m *machine) lowerToAddressModeFromAddends(a32s *wazevoapi.Queue[addend32], a64s *wazevoapi.Queue[regalloc.VReg], size byte, offset int64) (amode *addressMode) {
+	amode = m.amodePool.Allocate()
 	switch a64sExist, a32sExist := !a64s.Empty(), !a32s.Empty(); {
 	case a64sExist && a32sExist:
 		var base regalloc.VReg
 		base = a64s.Dequeue()
 		var a32 addend32
 		a32 = a32s.Dequeue()
-		amode = addressMode{kind: addressModeKindRegExtended, rn: base, rm: a32.r, extOp: a32.ext}
+		*amode = addressMode{kind: addressModeKindRegExtended, rn: base, rm: a32.r, extOp: a32.ext}
 	case a64sExist && offsetFitsInAddressModeKindRegUnsignedImm12(size, offset):
 		var base regalloc.VReg
 		base = a64s.Dequeue()
-		amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: base, imm: offset}
+		*amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: base, imm: offset}
 		offset = 0
 	case a64sExist && offsetFitsInAddressModeKindRegSignedImm9(offset):
 		var base regalloc.VReg
 		base = a64s.Dequeue()
-		amode = addressMode{kind: addressModeKindRegSignedImm9, rn: base, imm: offset}
+		*amode = addressMode{kind: addressModeKindRegSignedImm9, rn: base, imm: offset}
 		offset = 0
 	case a64sExist:
 		var base regalloc.VReg
 		base = a64s.Dequeue()
 		if !a64s.Empty() {
 			index := a64s.Dequeue()
-			amode = addressMode{kind: addressModeKindRegReg, rn: base, rm: index, extOp: extendOpUXTX /* indicates index reg is 64-bit */}
+			*amode = addressMode{kind: addressModeKindRegReg, rn: base, rm: index, extOp: extendOpUXTX /* indicates index reg is 64-bit */}
 		} else {
-			amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: base, imm: 0}
+			*amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: base, imm: 0}
 		}
 	case a32sExist:
 		base32 := a32s.Dequeue()
@@ -314,14 +325,14 @@ func (m *machine) lowerToAddressModeFromAddends(a32s *wazevoapi.Queue[addend32],
 
 		if !a32s.Empty() {
 			index := a32s.Dequeue()
-			amode = addressMode{kind: addressModeKindRegExtended, rn: base, rm: index.r, extOp: index.ext}
+			*amode = addressMode{kind: addressModeKindRegExtended, rn: base, rm: index.r, extOp: index.ext}
 		} else {
-			amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: base, imm: 0}
+			*amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: base, imm: 0}
 		}
 	default: // Only static offsets.
 		tmpReg := m.compiler.AllocateVReg(ssa.TypeI64)
 		m.lowerConstantI64(tmpReg, offset)
-		amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: tmpReg, imm: 0}
+		*amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: tmpReg, imm: 0}
 		offset = 0
 	}
 
@@ -411,13 +422,13 @@ func (m *machine) addConstToReg64(r regalloc.VReg, c int64) (rd regalloc.VReg) {
 	rd = m.compiler.AllocateVReg(ssa.TypeI64)
 	alu := m.allocateInstr()
 	if imm12Op, ok := asImm12Operand(uint64(c)); ok {
-		alu.asALU(aluOpAdd, operandNR(rd), operandNR(r), imm12Op, true)
+		alu.asALU(aluOpAdd, rd, operandNR(r), imm12Op, true)
 	} else if imm12Op, ok = asImm12Operand(uint64(-c)); ok {
-		alu.asALU(aluOpSub, operandNR(rd), operandNR(r), imm12Op, true)
+		alu.asALU(aluOpSub, rd, operandNR(r), imm12Op, true)
 	} else {
 		tmp := m.compiler.AllocateVReg(ssa.TypeI64)
 		m.load64bitConst(c, tmp)
-		alu.asALU(aluOpAdd, operandNR(rd), operandNR(r), operandNR(tmp), true)
+		alu.asALU(aluOpAdd, rd, operandNR(r), operandNR(tmp), true)
 	}
 	m.insert(alu)
 	return
@@ -426,7 +437,7 @@ func (m *machine) addConstToReg64(r regalloc.VReg, c int64) (rd regalloc.VReg) {
 func (m *machine) addReg64ToReg64(rn, rm regalloc.VReg) (rd regalloc.VReg) {
 	rd = m.compiler.AllocateVReg(ssa.TypeI64)
 	alu := m.allocateInstr()
-	alu.asALU(aluOpAdd, operandNR(rd), operandNR(rn), operandNR(rm), true)
+	alu.asALU(aluOpAdd, rd, operandNR(rn), operandNR(rm), true)
 	m.insert(alu)
 	return
 }
@@ -434,7 +445,7 @@ func (m *machine) addReg64ToReg64(rn, rm regalloc.VReg) (rd regalloc.VReg) {
 func (m *machine) addRegToReg64Ext(rn, rm regalloc.VReg, ext extendOp) (rd regalloc.VReg) {
 	rd = m.compiler.AllocateVReg(ssa.TypeI64)
 	alu := m.allocateInstr()
-	alu.asALU(aluOpAdd, operandNR(rd), operandNR(rn), operandER(rm, ext, 64), true)
+	alu.asALU(aluOpAdd, rd, operandNR(rn), operandER(rm, ext, 64), true)
 	m.insert(alu)
 	return
 }

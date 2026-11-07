@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/tetratelabs/wazero/internal/engine/wazevo/backend"
-	"github.com/tetratelabs/wazero/internal/engine/wazevo/ssa"
 )
 
 const (
@@ -22,7 +21,7 @@ const (
 
 	// trampolineIslandInterval is the range of the trampoline island.
 	// Half of the range is used for the trampoline island, and the other half is used for the function.
-	trampolineIslandInterval = maxUnconditionalBranchOffset / 2
+	trampolineIslandInterval = (maxUnconditionalBranchOffset - 1) / 2
 
 	// maxNumFunctions explicitly specifies the maximum number of functions that can be allowed in a single executable.
 	maxNumFunctions = trampolineIslandInterval >> 6
@@ -42,13 +41,14 @@ func (m *machine) CallTrampolineIslandInfo(numFunctions int) (interval, size int
 
 // ResolveRelocations implements backend.Machine ResolveRelocations.
 func (m *machine) ResolveRelocations(
-	refToBinaryOffset map[ssa.FuncRef]int,
+	refToBinaryOffset []int,
+	importedFns int,
 	executable []byte,
 	relocations []backend.RelocationInfo,
 	callTrampolineIslandOffsets []int,
 ) {
 	for _, islandOffset := range callTrampolineIslandOffsets {
-		encodeCallTrampolineIsland(refToBinaryOffset, islandOffset, executable)
+		encodeCallTrampolineIsland(refToBinaryOffset, importedFns, islandOffset, executable)
 	}
 
 	for _, r := range relocations {
@@ -59,24 +59,34 @@ func (m *machine) ResolveRelocations(
 		if diff < minUnconditionalBranchOffset || diff > maxUnconditionalBranchOffset {
 			// Find the near trampoline island from callTrampolineIslandOffsets.
 			islandOffset := searchTrampolineIsland(callTrampolineIslandOffsets, int(instrOffset))
-			islandTargetOffset := islandOffset + trampolineCallSize*int(r.FuncRef)
+			// Imported functions don't need trampolines, so we ignore them when we compute the offset
+			// (see also encodeCallTrampolineIsland)
+			funcOffset := int(r.FuncRef) - importedFns
+			islandTargetOffset := islandOffset + trampolineCallSize*funcOffset
 			diff = int64(islandTargetOffset) - (instrOffset)
 			if diff < minUnconditionalBranchOffset || diff > maxUnconditionalBranchOffset {
 				panic("BUG in trampoline placement")
 			}
 		}
-		binary.LittleEndian.PutUint32(executable[instrOffset:instrOffset+4], encodeUnconditionalBranch(true, diff))
+		// The unconditional branch instruction is usually encoded as a branch-and-link (BL),
+		// because it is a function call. However, if the instruction is a tail call,
+		// we encode it as a plain unconditional branch (B), so we won't overwrite the link register.
+		binary.LittleEndian.PutUint32(executable[instrOffset:instrOffset+4], encodeUnconditionalBranch(!r.IsTailCall, diff))
 	}
 }
 
 // encodeCallTrampolineIsland encodes a trampoline island for the given functions.
 // Each island consists of a trampoline instruction sequence for each function.
 // Each trampoline instruction sequence consists of 4 instructions + 32-bit immediate.
-func encodeCallTrampolineIsland(refToBinaryOffset map[ssa.FuncRef]int, islandOffset int, executable []byte) {
-	for i := 0; i < len(refToBinaryOffset); i++ {
+func encodeCallTrampolineIsland(refToBinaryOffset []int, importedFns int, islandOffset int, executable []byte) {
+	// We skip the imported functions: they don't need trampolines
+	// and are not accounted for.
+	binaryOffsets := refToBinaryOffset[importedFns:]
+
+	for i := 0; i < len(binaryOffsets); i++ {
 		trampolineOffset := islandOffset + trampolineCallSize*i
 
-		fnOffset := refToBinaryOffset[ssa.FuncRef(i)]
+		fnOffset := binaryOffsets[i]
 		diff := fnOffset - (trampolineOffset + 16)
 		if diff > math.MaxInt32 || diff < math.MinInt32 {
 			// This case even amd64 can't handle. 4GB is too big.
