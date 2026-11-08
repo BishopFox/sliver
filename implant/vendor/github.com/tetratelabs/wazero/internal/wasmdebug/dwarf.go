@@ -171,7 +171,6 @@ entry:
 	// Advance the line reader for the found position.
 	lineReader.Seek(ln.pos)
 	err = lineReader.Next(&le)
-
 	if err != nil {
 		// If we reach this block, that means there's a bug in the []line creation logic above.
 		panic("BUG: stored dwarf.LineReaderPos is invalid")

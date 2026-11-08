@@ -52,18 +52,22 @@ type MemoryInstance struct {
 	definition api.MemoryDefinition
 
 	// Mux is used in interpreter mode to prevent overlapping calls to atomic instructions,
-	// introduced with WebAssembly threads proposal.
+	// introduced with WebAssembly threads proposal, and in compiler mode to make memory modifications
+	// within Grow non-racy for the Go race detector.
 	Mux sync.Mutex
 
 	// waiters implements atomic wait and notify. It is implemented similarly to golang.org/x/sync/semaphore,
 	// with a fixed weight of 1 and no spurious notifications.
 	waiters sync.Map
 
+	// ownerModuleEngine is the module engine that owns this memory instance.
+	ownerModuleEngine ModuleEngine
+
 	expBuffer experimental.LinearMemory
 }
 
 // NewMemoryInstance creates a new instance based on the parameters in the SectionIDMemory.
-func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator) *MemoryInstance {
+func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator, moduleEngine ModuleEngine) *MemoryInstance {
 	minBytes := MemoryPagesToBytesNum(memSec.Min)
 	capBytes := MemoryPagesToBytesNum(memSec.Cap)
 	maxBytes := MemoryPagesToBytesNum(memSec.Max)
@@ -73,6 +77,7 @@ func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator) *
 	if allocator != nil {
 		expBuffer = allocator.Allocate(capBytes, maxBytes)
 		buffer = expBuffer.Reallocate(minBytes)
+		_ = buffer[:minBytes] // Bounds check that the minimum was allocated.
 	} else if memSec.IsShared {
 		// Shared memory needs a fixed buffer, so allocate with the maximum size.
 		//
@@ -82,19 +87,19 @@ func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator) *
 		//
 		// Also, allocating Max here isn't harmful as the Go runtime uses mmap for large allocations, therefore,
 		// the memory buffer allocation here is virtual and doesn't consume physical memory until it's used.
-		// 	* https://github.com/golang/go/blob/8121604559035734c9677d5281bbdac8b1c17a1e/src/runtime/malloc.go#L1059
-		//	* https://github.com/golang/go/blob/8121604559035734c9677d5281bbdac8b1c17a1e/src/runtime/malloc.go#L1165
+		// 	* https://github.com/golang/go/blob/go1.24.0/src/runtime/malloc.go#L1059
 		buffer = make([]byte, minBytes, maxBytes)
 	} else {
 		buffer = make([]byte, minBytes, capBytes)
 	}
 	return &MemoryInstance{
-		Buffer:    buffer,
-		Min:       memSec.Min,
-		Cap:       memoryBytesNumToPages(uint64(cap(buffer))),
-		Max:       memSec.Max,
-		Shared:    memSec.IsShared,
-		expBuffer: expBuffer,
+		Buffer:            buffer,
+		Min:               memSec.Min,
+		Cap:               memoryBytesNumToPages(uint64(cap(buffer))),
+		Max:               memSec.Max,
+		Shared:            memSec.IsShared,
+		expBuffer:         expBuffer,
+		ownerModuleEngine: moduleEngine,
 	}
 }
 
@@ -223,17 +228,25 @@ func MemoryPagesToBytesNum(pages uint32) (bytesNum uint64) {
 
 // Grow implements the same method as documented on api.Memory.
 func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
+	if m.Shared {
+		m.Mux.Lock()
+		defer m.Mux.Unlock()
+	}
+
 	currentPages := m.Pages()
 	if delta == 0 {
 		return currentPages, true
 	}
 
-	// If exceeds the max of memory size, we push -1 according to the spec.
 	newPages := currentPages + delta
 	if newPages > m.Max || int32(delta) < 0 {
 		return 0, false
 	} else if m.expBuffer != nil {
 		buffer := m.expBuffer.Reallocate(MemoryPagesToBytesNum(newPages))
+		if buffer == nil {
+			// Allocator failed to grow.
+			return 0, false
+		}
 		if m.Shared {
 			if unsafe.SliceData(buffer) != unsafe.SliceData(m.Buffer) {
 				panic("shared memory cannot move, this is a bug in the memory allocator")
@@ -241,20 +254,18 @@ func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
 			// We assume grow is called under a guest lock.
 			// But the memory length is accessed elsewhere,
 			// so use atomic to make the new length visible across threads.
-			atomicStoreLength(&m.Buffer, uintptr(len(buffer)))
+			atomicStoreLengthAndCap(&m.Buffer, uintptr(len(buffer)), uintptr(cap(buffer)))
 			m.Cap = memoryBytesNumToPages(uint64(cap(buffer)))
 		} else {
 			m.Buffer = buffer
 			m.Cap = newPages
 		}
-		return currentPages, true
 	} else if newPages > m.Cap { // grow the memory.
 		if m.Shared {
 			panic("shared memory cannot be grown, this is a bug in wazero")
 		}
 		m.Buffer = append(m.Buffer, make([]byte, MemoryPagesToBytesNum(delta))...)
 		m.Cap = newPages
-		return currentPages, true
 	} else { // We already have the capacity we need.
 		if m.Shared {
 			// We assume grow is called under a guest lock.
@@ -264,8 +275,9 @@ func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
 		} else {
 			m.Buffer = m.Buffer[:MemoryPagesToBytesNum(newPages)]
 		}
-		return currentPages, true
 	}
+	m.ownerModuleEngine.MemoryGrown()
+	return currentPages, true
 }
 
 // Pages implements the same method as documented on api.Memory.
@@ -295,7 +307,18 @@ func PagesToUnitOfBytes(pages uint32) string {
 // Below are raw functions used to implement the api.Memory API:
 
 // Uses atomic write to update the length of a slice.
+func atomicStoreLengthAndCap(slice *[]byte, length uintptr, cap uintptr) {
+	//nolint:staticcheck
+	slicePtr := (*reflect.SliceHeader)(unsafe.Pointer(slice))
+	capPtr := (*uintptr)(unsafe.Pointer(&slicePtr.Cap))
+	atomic.StoreUintptr(capPtr, cap)
+	lenPtr := (*uintptr)(unsafe.Pointer(&slicePtr.Len))
+	atomic.StoreUintptr(lenPtr, length)
+}
+
+// Uses atomic write to update the length of a slice.
 func atomicStoreLength(slice *[]byte, length uintptr) {
+	//nolint:staticcheck
 	slicePtr := (*reflect.SliceHeader)(unsafe.Pointer(slice))
 	lenPtr := (*uintptr)(unsafe.Pointer(&slicePtr.Len))
 	atomic.StoreUintptr(lenPtr, length)

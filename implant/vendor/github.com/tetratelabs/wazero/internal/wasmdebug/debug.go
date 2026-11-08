@@ -109,7 +109,10 @@ func NewErrorBuilder() ErrorBuilder {
 }
 
 type stackTrace struct {
-	frames []string
+	// frameCount is the number of stack frame currently pushed into lines.
+	frameCount int
+	// lines contains the stack trace and possibly the inlined source code information.
+	lines []string
 }
 
 // GoRuntimeErrorTracePrefix is the prefix coming before the Go runtime stack trace included in the face of runtime.Error.
@@ -125,7 +128,7 @@ func (s *stackTrace) FromRecovered(recovered interface{}) error {
 		return exitErr
 	}
 
-	stack := strings.Join(s.frames, "\n\t")
+	stack := strings.Join(s.lines, "\n\t")
 
 	// If the error was internal, don't mention it was recovered.
 	if wasmErr, ok := recovered.(*wasmruntime.Error); ok {
@@ -152,12 +155,16 @@ const MaxFrames = 30
 
 // AddFrame implements ErrorBuilder.AddFrame
 func (s *stackTrace) AddFrame(funcName string, paramTypes, resultTypes []api.ValueType, sources []string) {
-	sig := signature(funcName, paramTypes, resultTypes)
-	s.frames = append(s.frames, sig)
-	for _, source := range sources {
-		s.frames = append(s.frames, "\t"+source)
+	if s.frameCount == MaxFrames {
+		return
 	}
-	if len(s.frames) == MaxFrames {
-		s.frames = append(s.frames, "... maybe followed by omitted frames")
+	s.frameCount++
+	sig := signature(funcName, paramTypes, resultTypes)
+	s.lines = append(s.lines, sig)
+	for _, source := range sources {
+		s.lines = append(s.lines, "\t"+source)
+	}
+	if s.frameCount == MaxFrames {
+		s.lines = append(s.lines, "... maybe followed by omitted frames")
 	}
 }
