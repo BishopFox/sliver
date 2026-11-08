@@ -23,6 +23,7 @@
 - https://blog.ecapuano.com/p/so-you-want-to-be-a-soc-analyst-20
 - https://wsummerhill.github.io/redteam/2023/07/25/Sliver-C2-Usage-for-Red-Teams.html
 - https://rootsecdev.medium.com/hacking-active-directory-with-sliver-c2-19d7ceabbf13
+- [HackITA — Sliver C2: Guide to Listeners, Beacons, Implants and Armory](https://en.hackita.it/articoli/silver/)
 - https://dev.to/living_syn/sliver-and-cursed-chrome-for-post-exploitation-4gnk
 
 ### Opsec Blogs
