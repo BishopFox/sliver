@@ -2,14 +2,12 @@ package vfs
 
 import (
 	"bytes"
-	"context"
 	_ "embed"
 	"encoding/binary"
 
-	"github.com/tetratelabs/wazero/api"
-
+	"github.com/ncruces/go-sqlite3/internal/errutil"
+	"github.com/ncruces/go-sqlite3/internal/sqlite3_wrap"
 	"github.com/ncruces/go-sqlite3/internal/util"
-	"github.com/ncruces/go-sqlite3/util/sql3util"
 )
 
 func cksmWrapFile(file File, flags OpenFlag) File {
@@ -35,7 +33,7 @@ func (c *cksmFile) ReadAt(p []byte, off int64) (n int, err error) {
 	}
 
 	// Verify checksums.
-	if c.verifyCksm && sql3util.ValidPageSize(len(p)) {
+	if c.verifyCksm && util.ValidPageSize(len(p)) {
 		cksm1 := cksmCompute(p[:len(p)-8])
 		cksm2 := *(*[8]byte)(p[len(p)-8:])
 		if cksm1 != cksm2 {
@@ -51,17 +49,17 @@ func (c *cksmFile) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 
 	// Compute checksums.
-	if c.computeCksm && sql3util.ValidPageSize(len(p)) {
+	if c.computeCksm && util.ValidPageSize(len(p)) {
 		*(*[8]byte)(p[len(p)-8:]) = cksmCompute(p[:len(p)-8])
 	}
 
 	return c.File.WriteAt(p, off)
 }
 
-func (c *cksmFile) Pragma(name string, value string) (string, error) {
+func (c *cksmFile) Pragma(name, value string) (string, error) {
 	switch name {
 	case "checksum_verification":
-		b, ok := sql3util.ParseBool(value)
+		b, ok := util.ParseBool(value)
 		if ok {
 			c.verifyCksm = b && c.computeCksm
 		}
@@ -87,14 +85,14 @@ func (c *cksmFile) DeviceCharacteristics() DeviceCharacteristic {
 	return ret
 }
 
-func (c *cksmFile) fileControl(ctx context.Context, mod api.Module, op _FcntlOpcode, pArg ptr_t) _ErrorCode {
+func (c *cksmFile) fileControl(wrp *sqlite3_wrap.Wrapper, op _FcntlOpcode, pArg ptr_t) _ErrorCode {
 	if op == _FCNTL_PRAGMA {
-		rc := vfsFileControlImpl(ctx, mod, c, op, pArg)
+		rc := vfsFileControlImpl(wrp, c, op, pArg)
 		if rc != _NOTFOUND {
 			return rc
 		}
 	}
-	return vfsFileControlImpl(ctx, mod, c.File, op, pArg)
+	return vfsFileControlImpl(wrp, c.File, op, pArg)
 }
 
 func (c *cksmFile) init(header *[100]byte) {
@@ -107,6 +105,16 @@ func (c *cksmFile) init(header *[100]byte) {
 func (c *cksmFile) SharedMemory() SharedMemory {
 	if f, ok := c.File.(FileSharedMemory); ok {
 		return f.SharedMemory()
+	}
+	return nil
+}
+
+func (c *cksmFile) MemoryMapper() MemoryMapper {
+	if c.verifyCksm {
+		return nil
+	}
+	if f, ok := c.File.(FileMemoryMapper); ok {
+		return f.MemoryMapper()
 	}
 	return nil
 }
@@ -127,7 +135,7 @@ func cksmCompute(a []byte) (cksm [8]byte) {
 		a = a[8:]
 	}
 	if len(a) != 0 {
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 	binary.LittleEndian.PutUint32(cksm[0:4], s1)
 	binary.LittleEndian.PutUint32(cksm[4:8], s2)

@@ -20,18 +20,37 @@ const (
 // notest
 
 func osBatchAtomic(file *os.File) bool {
-	flags, err := unix.IoctlGetInt(int(file.Fd()), _F2FS_IOC_GET_FEATURES)
-	return err == nil && flags&_F2FS_FEATURE_ATOMIC_WRITE != 0
+	for {
+		flags, err := unix.IoctlGetInt(int(file.Fd()), _F2FS_IOC_GET_FEATURES)
+		if err != unix.EINTR {
+			return err == nil && flags&_F2FS_FEATURE_ATOMIC_WRITE != 0
+		}
+	}
 }
 
 func (f *vfsFile) BeginAtomicWrite() error {
-	return unix.IoctlSetInt(int(f.Fd()), _F2FS_IOC_START_ATOMIC_WRITE, 0)
+	for {
+		err := unix.IoctlSetInt(int(f.Fd()), _F2FS_IOC_START_ATOMIC_WRITE, 0)
+		if err != unix.EINTR {
+			return err
+		}
+	}
 }
 
 func (f *vfsFile) CommitAtomicWrite() error {
-	return unix.IoctlSetInt(int(f.Fd()), _F2FS_IOC_COMMIT_ATOMIC_WRITE, 0)
+	for {
+		err := unix.IoctlSetInt(int(f.Fd()), _F2FS_IOC_COMMIT_ATOMIC_WRITE, 0)
+		if err != unix.EINTR {
+			return err
+		}
+	}
 }
 
 func (f *vfsFile) RollbackAtomicWrite() error {
-	return unix.IoctlSetInt(int(f.Fd()), _F2FS_IOC_ABORT_ATOMIC_WRITE, 0)
+	for {
+		err := unix.IoctlSetInt(int(f.Fd()), _F2FS_IOC_ABORT_ATOMIC_WRITE, 0)
+		if err != unix.EINTR {
+			return err
+		}
+	}
 }
