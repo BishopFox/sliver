@@ -33,6 +33,7 @@ func (rpc *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer
 			pbEvent := &clientpb.Event{
 				EventType: event.EventType,
 				Data:      event.Data,
+				Level:     event.Level,
 			}
 
 			if event.Job != nil {

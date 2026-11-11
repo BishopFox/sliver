@@ -56,6 +56,7 @@ type HTTPListener struct {
 	LongPollJitter  int64
 	RandomizeJarm   bool
 	Staging         bool
+	EnforceConLog   bool
 }
 
 type DNSListener struct {
@@ -84,6 +85,7 @@ type MtlsListener struct {
 	ListenerJobID UUID `gorm:"type:uuid;"`
 	Host          string
 	Port          uint32
+	EnforceConLog bool
 }
 
 type MultiplayerListener struct {
@@ -159,6 +161,7 @@ func (j *HTTPListener) ToProtobuf() *clientpb.HTTPListenerReq {
 		LongPollTimeout: int64(j.LongPollTimeout),
 		LongPollJitter:  int64(j.LongPollJitter),
 		RandomizeJARM:   j.RandomizeJarm,
+		EnforceConLog:	 j.EnforceConLog,
 	}
 }
 
@@ -188,8 +191,9 @@ func (j *WGListener) ToProtobuf() *clientpb.WGListenerReq {
 
 func (j *MtlsListener) ToProtobuf() *clientpb.MTLSListenerReq {
 	return &clientpb.MTLSListenerReq{
-		Host: j.Host,
-		Port: j.Port,
+		Host: 			j.Host,
+		Port: 			j.Port,
+		EnforceConLog:	j.EnforceConLog,
 	}
 }
 
@@ -223,6 +227,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			LongPollTimeout: pbListenerJob.HTTPConf.LongPollTimeout,
 			LongPollJitter:  pbListenerJob.HTTPConf.LongPollJitter,
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
+			EnforceConLog:	 pbListenerJob.HTTPConf.EnforceConLog,
 		}
 	case constants.HttpsStr:
 		cfg.HttpListener = HTTPListener{
@@ -238,11 +243,13 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			LongPollTimeout: pbListenerJob.HTTPConf.LongPollTimeout,
 			LongPollJitter:  pbListenerJob.HTTPConf.LongPollJitter,
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
+			EnforceConLog:	 pbListenerJob.HTTPConf.EnforceConLog,
 		}
 	case constants.MtlsStr:
 		cfg.MtlsListener = MtlsListener{
-			Host: pbListenerJob.MTLSConf.Host,
-			Port: pbListenerJob.MTLSConf.Port,
+			Host: 			pbListenerJob.MTLSConf.Host,
+			Port: 			pbListenerJob.MTLSConf.Port,
+			EnforceConLog:	pbListenerJob.MTLSConf.EnforceConLog,
 		}
 	case constants.DnsStr:
 		var domains []DnsDomain
