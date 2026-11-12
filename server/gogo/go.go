@@ -46,6 +46,7 @@ type GoConfig struct {
 
 	GOOS       string
 	GOARCH     string
+	GOARM      string
 	GOROOT     string
 	GOCACHE    string
 	GOMODCACHE string
@@ -117,6 +118,11 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	}
 
 	env := append([]string{}, os.Environ()...)
+	goarm := config.GOARM
+	if config.GOARCH == "arm" && goarm == "" {
+		goarm = "7"
+	}
+
 	overrides := []string{
 		fmt.Sprintf("CC=%s", config.CC),
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
@@ -134,6 +140,9 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
 		fmt.Sprintf("PATH=%s", joinPathList(goBinDir, assets.GetZigDir(), os.Getenv("PATH"))),
 		fmt.Sprintf("HOME=%s", getHomeDir()),
+	}
+	if goarm != "" {
+		overrides = append(overrides, fmt.Sprintf("GOARM=%s", goarm))
 	}
 	for name, value := range extra {
 		overrides = append(overrides, fmt.Sprintf("%s=%s", name, value))
