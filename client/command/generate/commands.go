@@ -17,10 +17,10 @@ import (
 const spoofMetadataLongHelp = `
 
 Spoof Metadata:
-  --spoof-metadata
-    Use metadata settings from <client app dir>/spoof-metadata.yaml.
-  --spoof-metadata /path/to/donor.exe
-    Use metadata from the specified donor file. The donor must match the target format/goos/goarch.
+--spoof-metadata
+Use metadata settings from <client app dir>/spoof-metadata.yaml.
+--spoof-metadata /path/to/donor.exe
+Use metadata from the specified donor file. The donor must match the target format/goos/goarch.
 `
 
 // Commands returns the “ command and its subcommands.
@@ -371,6 +371,10 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'archive' (for Go c-archives), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 		f.String("service-name", "", "service name to register the implant under (service format only)")
+
+		// UPX compression
+		f.Bool("upx", false, "Compress output binary with UPX (reduces size, may increase AV detection)")
+		f.Uint32("upx-level", UPXLevelBestLZMA, "UPX compression level: 1=normal, 2=best+LZMA (recommended), 3=ultra-brute")
 
 		// Shellcode generation options:
 		// - Windows: Donut

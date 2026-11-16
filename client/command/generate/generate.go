@@ -1,22 +1,22 @@
 package generate
 
 /*
-	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+ * Sliver Implant Framework
+ * Copyright (C) 2019  Bishop Fox
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import (
 	"bytes"
@@ -131,23 +131,32 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
+
+	var savedPath string
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, spoofMetadata, save, con)
+		_, savedPath, _ = compile(name, config, spoofMetadata, save, con)
 	} else {
-		_, err := externalBuild(name, config, spoofMetadata, save, con)
+		_, savedPath, err = externalBuild(name, config, spoofMetadata, save, con)
 		if err != nil {
 			switch err {
-			case ErrNoExternalBuilder:
-				con.PrintErrorf("There are no external builders currently connected to the server\n")
-				con.PrintErrorf("See 'builders' command for more information\n")
-			case ErrNoValidBuilders:
-				con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
-				con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
-				con.PrintErrorf("See 'builders' command for more information\n")
-			default:
-				con.PrintErrorf("%s\n", err)
+				case ErrNoExternalBuilder:
+					con.PrintErrorf("There are no external builders currently connected to the server\n")
+					con.PrintErrorf("See 'builders' command for more information\n")
+				case ErrNoValidBuilders:
+					con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
+					con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
+					con.PrintErrorf("See 'builders' command for more information\n")
+				default:
+					con.PrintErrorf("%s\n", err)
 			}
 			return
+		}
+	}
+
+	if useUPX, _ := cmd.Flags().GetBool("upx"); useUPX && savedPath != "" {
+		upxLevel, _ := cmd.Flags().GetUint32("upx-level")
+		if err := compressWithUPX(savedPath, upxLevel, config, con); err != nil {
+			con.PrintErrorf("UPX compression failed: %s\n", err)
 		}
 	}
 }
@@ -187,20 +196,20 @@ func applyGenerateForm(cmd *cobra.Command, result *forms.GenerateFormResult) err
 
 	c2Value := strings.TrimSpace(result.C2Value)
 	switch result.C2Type {
-	case "mtls":
-		return cmd.Flags().Set("mtls", c2Value)
-	case "wg":
-		return cmd.Flags().Set("wg", c2Value)
-	case "http":
-		return cmd.Flags().Set("http", c2Value)
-	case "dns":
-		return cmd.Flags().Set("dns", c2Value)
-	case "named-pipe":
-		return cmd.Flags().Set("named-pipe", c2Value)
-	case "tcp-pivot":
-		return cmd.Flags().Set("tcp-pivot", c2Value)
-	default:
-		return errors.New("unsupported C2 transport selection")
+		case "mtls":
+			return cmd.Flags().Set("mtls", c2Value)
+		case "wg":
+			return cmd.Flags().Set("wg", c2Value)
+		case "http":
+			return cmd.Flags().Set("http", c2Value)
+		case "dns":
+			return cmd.Flags().Set("dns", c2Value)
+		case "named-pipe":
+			return cmd.Flags().Set("named-pipe", c2Value)
+		case "tcp-pivot":
+			return cmd.Flags().Set("tcp-pivot", c2Value)
+		default:
+			return errors.New("unsupported C2 transport selection")
 	}
 }
 
@@ -249,18 +258,18 @@ func saveLocation(save, DefaultName string, con *console.SliverClient) (string, 
 
 func nameOfOutputFormat(value clientpb.OutputFormat) string {
 	switch value {
-	case clientpb.OutputFormat_EXECUTABLE:
-		return "Executable"
-	case clientpb.OutputFormat_SERVICE:
-		return "Service"
-	case clientpb.OutputFormat_SHARED_LIB:
-		return "Shared Library"
-	case clientpb.OutputFormat_GO_ARCHIVE:
-		return "Go Archive"
-	case clientpb.OutputFormat_SHELLCODE:
-		return "Shellcode"
-	default:
-		return "Unknown"
+		case clientpb.OutputFormat_EXECUTABLE:
+			return "Executable"
+		case clientpb.OutputFormat_SERVICE:
+			return "Service"
+		case clientpb.OutputFormat_SHARED_LIB:
+			return "Shared Library"
+		case clientpb.OutputFormat_GO_ARCHIVE:
+			return "Go Archive"
+		case clientpb.OutputFormat_SHELLCODE:
+			return "Shellcode"
+		default:
+			return "Unknown"
 	}
 }
 
@@ -383,188 +392,188 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	}
 
 	format, _ := cmd.Flags().GetString("format")
-	runAtLoad := false
-	var configFormat clientpb.OutputFormat
-	switch format {
-	case "exe":
-		configFormat = clientpb.OutputFormat_EXECUTABLE
-	case "shared":
-		configFormat = clientpb.OutputFormat_SHARED_LIB
-		isSharedLib = true
-		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
-	case "archive":
-		configFormat = clientpb.OutputFormat_GO_ARCHIVE
-		isSharedLib = true
-	case "shellcode":
-		configFormat = clientpb.OutputFormat_SHELLCODE
-		isShellcode = true
-	case "service":
-		configFormat = clientpb.OutputFormat_SERVICE
-		isService = true
-	default:
-		// Default to exe
-		configFormat = clientpb.OutputFormat_EXECUTABLE
-	}
-	serviceName, _ := cmd.Flags().GetString("service-name")
-	if !isService {
-		serviceName = ""
-	}
+		runAtLoad := false
+		var configFormat clientpb.OutputFormat
+		switch format {
+			case "exe":
+				configFormat = clientpb.OutputFormat_EXECUTABLE
+			case "shared":
+				configFormat = clientpb.OutputFormat_SHARED_LIB
+				isSharedLib = true
+				runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
+			case "archive":
+				configFormat = clientpb.OutputFormat_GO_ARCHIVE
+				isSharedLib = true
+			case "shellcode":
+				configFormat = clientpb.OutputFormat_SHELLCODE
+				isShellcode = true
+			case "service":
+				configFormat = clientpb.OutputFormat_SERVICE
+				isService = true
+			default:
+				// Default to exe
+				configFormat = clientpb.OutputFormat_EXECUTABLE
+		}
+		serviceName, _ := cmd.Flags().GetString("service-name")
+		if !isService {
+			serviceName = ""
+		}
 
-	targetOSF, _ := cmd.Flags().GetString("os")
-	targetOS := strings.ToLower(targetOSF)
-	targetArchF, _ := cmd.Flags().GetString("arch")
-	targetArch := strings.ToLower(targetArchF)
-	targetOS, targetArch = getTargets(targetOS, targetArch, con)
-	if targetOS == "" || targetArch == "" {
-		return "", nil
-	}
-	if configFormat == clientpb.OutputFormat_SHELLCODE {
-		switch targetOS {
-		case "windows":
-			// Server-side implementation supports amd64 and 386 only.
-			if targetArch != "amd64" && targetArch != "386" {
-				con.PrintErrorf("Windows shellcode format is only supported on windows/amd64 and windows/386\n")
-				return "", nil
-			}
-		case "darwin":
-			if targetArch != "arm64" {
-				con.PrintErrorf("macOS shellcode format is only supported on darwin/arm64\n")
-				return "", nil
-			}
-		case "linux":
-			if targetArch != "amd64" && targetArch != "arm64" {
-				con.PrintErrorf("Linux shellcode format is only supported on linux/amd64 and linux/arm64\n")
-				return "", nil
-			}
-		default:
-			con.PrintErrorf("Shellcode format is currently only supported on Windows, macOS, and Linux\n")
+		targetOSF, _ := cmd.Flags().GetString("os")
+		targetOS := strings.ToLower(targetOSF)
+		targetArchF, _ := cmd.Flags().GetString("arch")
+		targetArch := strings.ToLower(targetArchF)
+		targetOS, targetArch = getTargets(targetOS, targetArch, con)
+		if targetOS == "" || targetArch == "" {
 			return "", nil
 		}
-	}
-	if len(namedPipeC2) > 0 && targetOS != "windows" {
-		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
-		return "", nil
-	}
+		if configFormat == clientpb.OutputFormat_SHELLCODE {
+			switch targetOS {
+				case "windows":
+					// Server-side implementation supports amd64 and 386 only.
+					if targetArch != "amd64" && targetArch != "386" {
+						con.PrintErrorf("Windows shellcode format is only supported on windows/amd64 and windows/386\n")
+						return "", nil
+					}
+				case "darwin":
+					if targetArch != "arm64" {
+						con.PrintErrorf("macOS shellcode format is only supported on darwin/arm64\n")
+						return "", nil
+					}
+				case "linux":
+					if targetArch != "amd64" && targetArch != "arm64" {
+						con.PrintErrorf("Linux shellcode format is only supported on linux/amd64 and linux/arm64\n")
+						return "", nil
+					}
+				default:
+					con.PrintErrorf("Shellcode format is currently only supported on Windows, macOS, and Linux\n")
+					return "", nil
+			}
+		}
+		if len(namedPipeC2) > 0 && targetOS != "windows" {
+			con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
+			return "", nil
+		}
 
-	// Check to see if we can *probably* build the target binary
-	if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
-		return "", nil
-	}
+		// Check to see if we can *probably* build the target binary
+		if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
+			return "", nil
+		}
 
-	shellcodeConfig, err := parseShellcodeFlags(cmd, targetOS, configFormat, con)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return "", nil
-	}
-
-	shellcodeEncoder, err := parseShellcodeEncoderFlag(cmd, targetArch, configFormat, con)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return "", nil
-	}
-	sgnEnabled := shellcodeEncoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI // legacy field
-
-	var tunIP net.IP
-	if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
-		uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
-		tunIP = net.ParseIP(uniqueWGIP.IP)
+		shellcodeConfig, err := parseShellcodeFlags(cmd, targetOS, configFormat, con)
 		if err != nil {
-			con.PrintErrorf("Failed to generate unique ip for wg peer tun interface")
+			con.PrintErrorf("%s\n", err)
 			return "", nil
 		}
-		con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
-	}
 
-	netGo, _ := cmd.Flags().GetBool("netgo")
+		shellcodeEncoder, err := parseShellcodeEncoderFlag(cmd, targetArch, configFormat, con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return "", nil
+		}
+		sgnEnabled := shellcodeEncoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI // legacy field
 
-	// TODO: Use generics or something to check in a slice
-	connectionStrategy, _ := cmd.Flags().GetString("strategy")
-	if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
-		con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
-		return "", nil
-	}
+		var tunIP net.IP
+		if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
+			uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
+			tunIP = net.ParseIP(uniqueWGIP.IP)
+			if err != nil {
+				con.PrintErrorf("Failed to generate unique ip for wg peer tun interface")
+				return "", nil
+			}
+			con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
+		}
 
-	// Parse Traffic Encoder Args
-	httpC2Enabled := 0 < len(httpC2)
-	trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(cmd, httpC2Enabled, con)
+		netGo, _ := cmd.Flags().GetBool("netgo")
 
-	c2Profile, _ := cmd.Flags().GetString("c2profile")
-	if c2Profile == "" {
-		c2Profile = consts.DefaultC2Profile
-	}
+		// TODO: Use generics or something to check in a slice
+		connectionStrategy, _ := cmd.Flags().GetString("strategy")
+		if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
+			con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
+			return "", nil
+		}
 
-	allProtocols, _ := cmd.Flags().GetBool("all-protocols")
-	includeMTLS, _ := cmd.Flags().GetBool("include-mtls")
-	includeHTTP, _ := cmd.Flags().GetBool("include-http")
-	includeWG, _ := cmd.Flags().GetBool("include-wg")
-	includeDNS, _ := cmd.Flags().GetBool("include-dns")
-	includeNamedPipe, _ := cmd.Flags().GetBool("include-named-pipe")
-	includeTCP, _ := cmd.Flags().GetBool("include-tcp-pivot")
+		// Parse Traffic Encoder Args
+		httpC2Enabled := 0 < len(httpC2)
+		trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(cmd, httpC2Enabled, con)
 
-	if allProtocols {
-		includeMTLS = true
-		includeHTTP = true
-		includeWG = true
-		includeDNS = true
-		includeNamedPipe = true
-		includeTCP = true
-	}
+		c2Profile, _ := cmd.Flags().GetString("c2profile")
+		if c2Profile == "" {
+			c2Profile = consts.DefaultC2Profile
+		}
 
-	// exports if its a shared library
+		allProtocols, _ := cmd.Flags().GetBool("all-protocols")
+		includeMTLS, _ := cmd.Flags().GetBool("include-mtls")
+		includeHTTP, _ := cmd.Flags().GetBool("include-http")
+		includeWG, _ := cmd.Flags().GetBool("include-wg")
+		includeDNS, _ := cmd.Flags().GetBool("include-dns")
+		includeNamedPipe, _ := cmd.Flags().GetBool("include-named-pipe")
+		includeTCP, _ := cmd.Flags().GetBool("include-tcp-pivot")
 
-	config := &clientpb.ImplantConfig{
-		GOOS:             targetOS,
-		GOARCH:           targetArch,
-		Debug:            debug,
-		Evasion:          evasion,
-		SGNEnabled:       sgnEnabled,
-		ShellcodeEncoder: shellcodeEncoder,
-		ObfuscateSymbols: symbolObfuscation,
-		C2:               c2s,
-		CanaryDomains:    canaryDomains,
-		TemplateName:     templateName,
+		if allProtocols {
+			includeMTLS = true
+			includeHTTP = true
+			includeWG = true
+			includeDNS = true
+			includeNamedPipe = true
+			includeTCP = true
+		}
 
-		WGPeerTunIP:       tunIP.String(),
-		WGKeyExchangePort: wgKeyExchangePort,
-		WGTcpCommsPort:    wgTcpCommsPort,
+		// exports if its a shared library
 
-		ConnectionStrategy:  connectionStrategy,
-		ReconnectInterval:   reconnectInterval * int64(time.Second),
-		PollTimeout:         pollTimeout * int64(time.Second),
-		MaxConnectionErrors: maxConnectionErrors,
+		config := &clientpb.ImplantConfig{
+			GOOS:             targetOS,
+			GOARCH:           targetArch,
+			Debug:            debug,
+			Evasion:          evasion,
+			SGNEnabled:       sgnEnabled,
+			ShellcodeEncoder: shellcodeEncoder,
+			ObfuscateSymbols: symbolObfuscation,
+			C2:               c2s,
+			CanaryDomains:    canaryDomains,
+			TemplateName:     templateName,
 
-		LimitDomainJoined: limitDomainJoined,
-		LimitHostname:     limitHostname,
-		LimitUsername:     limitUsername,
-		LimitDatetime:     limitDatetime,
-		LimitFileExists:   limitFileExists,
-		LimitLocale:       limitLocale,
+			WGPeerTunIP:       tunIP.String(),
+			WGKeyExchangePort: wgKeyExchangePort,
+			WGTcpCommsPort:    wgTcpCommsPort,
 
-		Format:      configFormat,
-		IsSharedLib: isSharedLib,
-		IsService:   isService,
-		IsShellcode: isShellcode,
-		Exports:     exports,
-		ServiceName: serviceName,
+			ConnectionStrategy:  connectionStrategy,
+			ReconnectInterval:   reconnectInterval * int64(time.Second),
+			PollTimeout:         pollTimeout * int64(time.Second),
+			MaxConnectionErrors: maxConnectionErrors,
 
-		RunAtLoad:              runAtLoad,
-		NetGoEnabled:           netGo,
-		TrafficEncodersEnabled: trafficEncodersEnabled,
-		Assets:                 trafficEncoderAssets,
+			LimitDomainJoined: limitDomainJoined,
+			LimitHostname:     limitHostname,
+			LimitUsername:     limitUsername,
+			LimitDatetime:     limitDatetime,
+			LimitFileExists:   limitFileExists,
+			LimitLocale:       limitLocale,
 
-		DebugFile:        debugFile,
-		HTTPC2ConfigName: c2Profile,
-		ShellcodeConfig:  shellcodeConfig,
+			Format:      configFormat,
+			IsSharedLib: isSharedLib,
+			IsService:   isService,
+			IsShellcode: isShellcode,
+			Exports:     exports,
+			ServiceName: serviceName,
 
-		IncludeMTLS:     includeMTLS,
-		IncludeHTTP:     includeHTTP,
-		IncludeWG:       includeWG,
-		IncludeDNS:      includeDNS,
-		IncludeNamePipe: includeNamedPipe,
-		IncludeTCP:      includeTCP,
-	}
+			RunAtLoad:              runAtLoad,
+			NetGoEnabled:           netGo,
+			TrafficEncodersEnabled: trafficEncodersEnabled,
+			Assets:                 trafficEncoderAssets,
 
-	return name, config
+			DebugFile:        debugFile,
+			HTTPC2ConfigName: c2Profile,
+			ShellcodeConfig:  shellcodeConfig,
+
+			IncludeMTLS:     includeMTLS,
+			IncludeHTTP:     includeHTTP,
+			IncludeWG:       includeWG,
+			IncludeDNS:      includeDNS,
+			IncludeNamePipe: includeNamedPipe,
+			IncludeTCP:      includeTCP,
+		}
+
+		return name, config
 }
 
 func parseSpoofMetadataFlag(cmd *cobra.Command, config *clientpb.ImplantConfig) (*clientpb.SpoofMetadataConfig, error) {
@@ -582,25 +591,25 @@ func parseSpoofMetadataFlag(cmd *cobra.Command, config *clientpb.ImplantConfig) 
 	}
 
 	switch strings.ToLower(spoofMetadataValue) {
-	case "false":
-		if len(cmd.Flags().Args()) > 0 {
-			return nil, fmt.Errorf("--%s=false does not accept a donor path argument", spoofMetadataFlagName)
-		}
-		return nil, nil
-	case "", "true":
-		pathArg, err := spoofMetadataPathArg(cmd)
-		if err != nil {
-			return nil, err
-		}
-		if pathArg == "" {
-			return parseSpoofMetadataFromConfigFile()
-		}
-		return parseSpoofMetadataFromPath(pathArg, config)
-	default:
-		if len(cmd.Flags().Args()) > 0 {
-			return nil, fmt.Errorf("--%s accepts a donor path from either the flag value or positional argument, not both", spoofMetadataFlagName)
-		}
-		return parseSpoofMetadataFromPath(spoofMetadataValue, config)
+		case "false":
+			if len(cmd.Flags().Args()) > 0 {
+				return nil, fmt.Errorf("--%s=false does not accept a donor path argument", spoofMetadataFlagName)
+			}
+			return nil, nil
+		case "", "true":
+			pathArg, err := spoofMetadataPathArg(cmd)
+			if err != nil {
+				return nil, err
+			}
+			if pathArg == "" {
+				return parseSpoofMetadataFromConfigFile()
+			}
+			return parseSpoofMetadataFromPath(pathArg, config)
+		default:
+			if len(cmd.Flags().Args()) > 0 {
+				return nil, fmt.Errorf("--%s accepts a donor path from either the flag value or positional argument, not both", spoofMetadataFlagName)
+			}
+			return parseSpoofMetadataFromPath(spoofMetadataValue, config)
 	}
 }
 
@@ -609,12 +618,12 @@ func spoofMetadataPathArg(cmd *cobra.Command) (string, error) {
 		return "", nil
 	}
 	switch args := cmd.Flags().Args(); len(args) {
-	case 0:
-		return "", nil
-	case 1:
-		return strings.TrimSpace(args[0]), nil
-	default:
-		return "", fmt.Errorf("--%s accepts at most one donor path argument", spoofMetadataFlagName)
+		case 0:
+			return "", nil
+		case 1:
+			return strings.TrimSpace(args[0]), nil
+		default:
+			return "", fmt.Errorf("--%s accepts at most one donor path argument", spoofMetadataFlagName)
 	}
 }
 
@@ -662,9 +671,9 @@ func validateSpoofMetadataSourceForTarget(config *clientpb.ImplantConfig, source
 		return fmt.Errorf("--%s path source currently supports only windows PE targets (got %s/%s)", spoofMetadataFlagName, config.GetGOOS(), config.GetGOARCH())
 	}
 	switch config.GetFormat() {
-	case clientpb.OutputFormat_EXECUTABLE, clientpb.OutputFormat_SERVICE, clientpb.OutputFormat_SHARED_LIB:
-	default:
-		return fmt.Errorf("--%s path source requires an executable/service/shared target format (got %s)", spoofMetadataFlagName, nameOfOutputFormat(config.GetFormat()))
+		case clientpb.OutputFormat_EXECUTABLE, clientpb.OutputFormat_SERVICE, clientpb.OutputFormat_SHARED_LIB:
+		default:
+			return fmt.Errorf("--%s path source requires an executable/service/shared target format (got %s)", spoofMetadataFlagName, nameOfOutputFormat(config.GetFormat()))
 	}
 
 	peFile, err := pe.NewFile(bytes.NewReader(sourceData))
@@ -680,10 +689,10 @@ func validateSpoofMetadataSourceForTarget(config *clientpb.ImplantConfig, source
 	if peFile.FileHeader.Machine != expectedMachine {
 		return fmt.Errorf(
 			"spoof metadata source %s has machine %s, expected %s for target arch %s",
-			sourcePath,
-			peMachineName(peFile.FileHeader.Machine),
-			peMachineName(expectedMachine),
-			config.GetGOARCH(),
+		    sourcePath,
+		    peMachineName(peFile.FileHeader.Machine),
+				  peMachineName(expectedMachine),
+				  config.GetGOARCH(),
 		)
 	}
 
@@ -700,27 +709,27 @@ func validateSpoofMetadataSourceForTarget(config *clientpb.ImplantConfig, source
 
 func expectedPEMachineForGoArch(goarch string) (uint16, error) {
 	switch strings.ToLower(strings.TrimSpace(goarch)) {
-	case "amd64", "x64":
-		return pe.IMAGE_FILE_MACHINE_AMD64, nil
-	case "386", "x86", "i386":
-		return pe.IMAGE_FILE_MACHINE_I386, nil
-	case "arm64", "aarch64":
-		return pe.IMAGE_FILE_MACHINE_ARM64, nil
-	default:
-		return 0, fmt.Errorf("unsupported windows architecture for spoof metadata source validation: %s", goarch)
+		case "amd64", "x64":
+			return pe.IMAGE_FILE_MACHINE_AMD64, nil
+		case "386", "x86", "i386":
+			return pe.IMAGE_FILE_MACHINE_I386, nil
+		case "arm64", "aarch64":
+			return pe.IMAGE_FILE_MACHINE_ARM64, nil
+		default:
+			return 0, fmt.Errorf("unsupported windows architecture for spoof metadata source validation: %s", goarch)
 	}
 }
 
 func peMachineName(machine uint16) string {
 	switch machine {
-	case pe.IMAGE_FILE_MACHINE_AMD64:
-		return "amd64"
-	case pe.IMAGE_FILE_MACHINE_I386:
-		return "386"
-	case pe.IMAGE_FILE_MACHINE_ARM64:
-		return "arm64"
-	default:
-		return fmt.Sprintf("0x%x", machine)
+		case pe.IMAGE_FILE_MACHINE_AMD64:
+			return "amd64"
+		case pe.IMAGE_FILE_MACHINE_I386:
+			return "386"
+		case pe.IMAGE_FILE_MACHINE_ARM64:
+			return "arm64"
+		default:
+			return fmt.Sprintf("0x%x", machine)
 	}
 }
 
@@ -919,21 +928,21 @@ func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clien
 	}
 
 	anyChanged := cmd.Flags().Changed("shellcode-entropy") ||
-		cmd.Flags().Changed("shellcode-compress") ||
-		cmd.Flags().Changed("shellcode-exitopt") ||
-		cmd.Flags().Changed("shellcode-bypass") ||
-		cmd.Flags().Changed("shellcode-headers") ||
-		cmd.Flags().Changed("shellcode-thread") ||
-		cmd.Flags().Changed("shellcode-unicode") ||
-		cmd.Flags().Changed("shellcode-oep") ||
-		cmd.Flags().Changed("donut-entropy") ||
-		cmd.Flags().Changed("donut-compress") ||
-		cmd.Flags().Changed("donut-exitopt") ||
-		cmd.Flags().Changed("donut-bypass") ||
-		cmd.Flags().Changed("donut-headers") ||
-		cmd.Flags().Changed("donut-thread") ||
-		cmd.Flags().Changed("donut-unicode") ||
-		cmd.Flags().Changed("donut-oep")
+	cmd.Flags().Changed("shellcode-compress") ||
+	cmd.Flags().Changed("shellcode-exitopt") ||
+	cmd.Flags().Changed("shellcode-bypass") ||
+	cmd.Flags().Changed("shellcode-headers") ||
+	cmd.Flags().Changed("shellcode-thread") ||
+	cmd.Flags().Changed("shellcode-unicode") ||
+	cmd.Flags().Changed("shellcode-oep") ||
+	cmd.Flags().Changed("donut-entropy") ||
+	cmd.Flags().Changed("donut-compress") ||
+	cmd.Flags().Changed("donut-exitopt") ||
+	cmd.Flags().Changed("donut-bypass") ||
+	cmd.Flags().Changed("donut-headers") ||
+	cmd.Flags().Changed("donut-thread") ||
+	cmd.Flags().Changed("donut-unicode") ||
+	cmd.Flags().Changed("donut-oep")
 
 	if configFormat != clientpb.OutputFormat_SHELLCODE {
 		if anyChanged {
@@ -943,19 +952,19 @@ func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clien
 	}
 
 	windowsOnlyChanged := cmd.Flags().Changed("shellcode-entropy") ||
-		cmd.Flags().Changed("shellcode-exitopt") ||
-		cmd.Flags().Changed("shellcode-bypass") ||
-		cmd.Flags().Changed("shellcode-headers") ||
-		cmd.Flags().Changed("shellcode-thread") ||
-		cmd.Flags().Changed("shellcode-unicode") ||
-		cmd.Flags().Changed("shellcode-oep") ||
-		cmd.Flags().Changed("donut-entropy") ||
-		cmd.Flags().Changed("donut-exitopt") ||
-		cmd.Flags().Changed("donut-bypass") ||
-		cmd.Flags().Changed("donut-headers") ||
-		cmd.Flags().Changed("donut-thread") ||
-		cmd.Flags().Changed("donut-unicode") ||
-		cmd.Flags().Changed("donut-oep")
+	cmd.Flags().Changed("shellcode-exitopt") ||
+	cmd.Flags().Changed("shellcode-bypass") ||
+	cmd.Flags().Changed("shellcode-headers") ||
+	cmd.Flags().Changed("shellcode-thread") ||
+	cmd.Flags().Changed("shellcode-unicode") ||
+	cmd.Flags().Changed("shellcode-oep") ||
+	cmd.Flags().Changed("donut-entropy") ||
+	cmd.Flags().Changed("donut-exitopt") ||
+	cmd.Flags().Changed("donut-bypass") ||
+	cmd.Flags().Changed("donut-headers") ||
+	cmd.Flags().Changed("donut-thread") ||
+	cmd.Flags().Changed("donut-unicode") ||
+	cmd.Flags().Changed("donut-oep")
 
 	// macOS and Linux shellcode currently only support compression.
 	if targetOS != "windows" {
@@ -1023,14 +1032,14 @@ func normalizeShellcodeEncoderName(name string) string {
 func normalizeShellcodeArch(arch string) string {
 	normalized := strings.ToLower(strings.TrimSpace(arch))
 	switch normalized {
-	case "amd64", "x64", "x86_64":
-		return "amd64"
-	case "386", "x86", "i386":
-		return "386"
-	case "arm64", "aarch64":
-		return "arm64"
-	default:
-		return normalized
+		case "amd64", "x64", "x86_64":
+			return "amd64"
+		case "386", "x86", "i386":
+			return "386"
+		case "arm64", "aarch64":
+			return "arm64"
+		default:
+			return normalized
 	}
 }
 
@@ -1219,7 +1228,7 @@ func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
-			URL:      uri.String(),
+			     URL:      uri.String(),
 		})
 	}
 	return c2s, nil
@@ -1254,7 +1263,7 @@ func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
-			URL:      uri.String(),
+			     URL:      uri.String(),
 		})
 	}
 	return c2s, nil
@@ -1268,52 +1277,52 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 		testValue := value[0]
 
 		switch key {
-		/*
-			The following options are passed through as-is:
-			proxy-username
-			proxy-password
-			host-header
-			force-resolv-conf (validation is handled server side)
-			resolvers
-		*/
-		case "net-timeout", "tls-timeout", "poll-timeout", "timeout", "retry-wait":
-			if _, err := time.ParseDuration(testValue); err != nil {
-				return false, fmt.Errorf("error parsing C2 option \"%s\": %s", key, err.Error())
-			}
-		case "max-errors", "retry-count", "workers-per-resolver":
-			if _, err := strconv.Atoi(testValue); err != nil {
-				return false, fmt.Errorf("error parsing C2 option \"%s\": %s", key, err.Error())
-			}
-		case "driver":
-			// If this is specified, then it should be wininet (the only alternative driver currently supported)
-			if testValue != "wininet" {
-				return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
-			}
-		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds":
-			if testValue != "true" && testValue != "false" {
-				return false, fmt.Errorf("C2 option \"%s\" must be a boolean value: true or false", key)
-			}
-		case "proxy":
-			proxyUri, err := url.Parse(testValue)
-			if err != nil {
-				return false, fmt.Errorf("invalid C2 option \"proxy\" specified: %s", err.Error())
-			}
-			if proxyUri.Scheme != "http" && proxyUri.Scheme != "https" && proxyUri.Scheme != "socks5" {
-				if proxyUri.Scheme == "" {
-					return false, fmt.Errorf("a proxy scheme must be specified: http, https, or socks5")
-				} else {
-					return false, fmt.Errorf("%s is not a valid proxy scheme. Accepted values are http, https, and socks5", proxyUri.Scheme)
+			/*
+			 *		The following options are passed through as-is:
+			 *		proxy-username
+			 *		proxy-password
+			 *		host-header
+			 *		force-resolv-conf (validation is handled server side)
+			 *		resolvers
+			 */
+			case "net-timeout", "tls-timeout", "poll-timeout", "timeout", "retry-wait":
+				if _, err := time.ParseDuration(testValue); err != nil {
+					return false, fmt.Errorf("error parsing C2 option \"%s\": %s", key, err.Error())
 				}
-			}
-			if proxyUri.Port() != "" {
-				port, err := strconv.Atoi(proxyUri.Port())
+			case "max-errors", "retry-count", "workers-per-resolver":
+				if _, err := strconv.Atoi(testValue); err != nil {
+					return false, fmt.Errorf("error parsing C2 option \"%s\": %s", key, err.Error())
+				}
+			case "driver":
+				// If this is specified, then it should be wininet (the only alternative driver currently supported)
+				if testValue != "wininet" {
+					return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
+				}
+			case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds":
+				if testValue != "true" && testValue != "false" {
+					return false, fmt.Errorf("C2 option \"%s\" must be a boolean value: true or false", key)
+				}
+			case "proxy":
+				proxyUri, err := url.Parse(testValue)
 				if err != nil {
-					return false, fmt.Errorf("invalid proxy port \"%s\" specified: proxy port must be a number between 1 and 65535", proxyUri.Port())
+					return false, fmt.Errorf("invalid C2 option \"proxy\" specified: %s", err.Error())
 				}
-				if port <= 0 || port > 65535 {
-					return false, fmt.Errorf("invalid proxy port \"%s\" specified: proxy port must be a number between 1 and 65535", proxyUri.Port())
+				if proxyUri.Scheme != "http" && proxyUri.Scheme != "https" && proxyUri.Scheme != "socks5" {
+					if proxyUri.Scheme == "" {
+						return false, fmt.Errorf("a proxy scheme must be specified: http, https, or socks5")
+					} else {
+						return false, fmt.Errorf("%s is not a valid proxy scheme. Accepted values are http, https, and socks5", proxyUri.Scheme)
+					}
 				}
-			}
+				if proxyUri.Port() != "" {
+					port, err := strconv.Atoi(proxyUri.Port())
+					if err != nil {
+						return false, fmt.Errorf("invalid proxy port \"%s\" specified: proxy port must be a number between 1 and 65535", proxyUri.Port())
+					}
+					if port <= 0 || port > 65535 {
+						return false, fmt.Errorf("invalid proxy port \"%s\" specified: proxy port must be a number between 1 and 65535", proxyUri.Port())
+					}
+				}
 		}
 	}
 
@@ -1371,16 +1380,16 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
-			URL:      uri.String(),
+			     URL:      uri.String(),
 		})
 		/* If a proxy is defined and the operator wants to fallback to connecting directly, add
-		   a C2 that connects directly without the proxy settings.
-		*/
+		 *	   a C2 that connects directly without the proxy settings.
+		 */
 		if checkOptionValue(uri.Query(), "fallback", "true") && uri.Query().Has("proxy") && !checkOptionValue(uri.Query(), "driver", "wininet") {
 			uriWithoutProxyOptions(uri)
 			c2s = append(c2s, &clientpb.ImplantC2{
 				Priority: uint32(index + len(allArguments)),
-				URL:      uri.String(),
+				     URL:      uri.String(),
 			})
 		}
 	}
@@ -1416,7 +1425,7 @@ func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
-			URL:      uri.String(),
+			     URL:      uri.String(),
 		})
 	}
 	return c2s, nil
@@ -1460,7 +1469,7 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
-			URL:      uri.String(),
+			     URL:      uri.String(),
 		})
 	}
 	return c2s, nil
@@ -1498,7 +1507,7 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
-			URL:      uri.String(),
+			     URL:      uri.String(),
 		})
 	}
 	return c2s, nil
@@ -1603,10 +1612,10 @@ func requiresWindowsExecutableSuffix(config *clientpb.ImplantConfig) bool {
 		return false
 	}
 	switch config.GetFormat() {
-	case clientpb.OutputFormat_EXECUTABLE, clientpb.OutputFormat_SERVICE:
-		return true
-	default:
-		return false
+		case clientpb.OutputFormat_EXECUTABLE, clientpb.OutputFormat_SERVICE:
+			return true
+		default:
+			return false
 	}
 }
 
@@ -1647,10 +1656,10 @@ func outputSavePath(save string, defaultName string, config *clientpb.ImplantCon
 	return adjustedPath, nil
 }
 
-func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, string, error) {
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	var externalBuilder *clientpb.Builder
 	if len(potentialBuilders) == 1 {
@@ -1659,7 +1668,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 		con.PrintInfof("Found %d external builders that can compile this configuration", len(potentialBuilders))
 		externalBuilder, err = selectExternalBuilder(potentialBuilders, con)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 	con.PrintInfof("Using external builder: %s\n", externalBuilder.Name)
@@ -1693,7 +1702,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-		return nil, err
+		return nil, "", err
 	}
 	con.Printf("done\n")
 
@@ -1701,46 +1710,46 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 	for waiting {
 		select {
 
-		case <-time.After(100 * time.Millisecond):
-			elapsed := time.Since(start)
-			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
-			fmt.Fprintf(con.App.ActiveMenu().OutOrStdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
+			case <-time.After(100 * time.Millisecond):
+				elapsed := time.Since(start)
+				msg := fmt.Sprintf(msgF, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
+				fmt.Fprintf(con.App.ActiveMenu().OutOrStdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
 
-		case event := <-listener:
-			switch event.EventType {
+			case event := <-listener:
+				switch event.EventType {
 
-			case consts.ExternalBuildFailedEvent:
-				parts := strings.SplitN(string(event.Data), ":", 2)
-				if len(parts) != 2 {
-					continue
+					case consts.ExternalBuildFailedEvent:
+						parts := strings.SplitN(string(event.Data), ":", 2)
+						if len(parts) != 2 {
+							continue
+						}
+						if parts[0] == externalImplantConfig.Build.ID {
+							con.RemoveEventListener(listenerID)
+							return nil, "", fmt.Errorf("external build failed: %s", parts[1])
+						}
+
+					case consts.AcknowledgeBuildEvent:
+						if string(event.Data) == externalImplantConfig.Build.ID {
+							msgF = "External build acknowledged by builder (template: %s) ... %s"
+						}
+
+					case consts.ExternalBuildCompletedEvent:
+						parts := strings.SplitN(string(event.Data), ":", 2)
+						if len(parts) != 2 {
+							continue
+						}
+						if parts[0] == externalImplantConfig.Build.ID {
+							con.RemoveEventListener(listenerID)
+							name = parts[1]
+							waiting = false
+						}
+
 				}
-				if parts[0] == externalImplantConfig.Build.ID {
-					con.RemoveEventListener(listenerID)
-					return nil, fmt.Errorf("external build failed: %s", parts[1])
-				}
 
-			case consts.AcknowledgeBuildEvent:
-				if string(event.Data) == externalImplantConfig.Build.ID {
-					msgF = "External build acknowledged by builder (template: %s) ... %s"
-				}
-
-			case consts.ExternalBuildCompletedEvent:
-				parts := strings.SplitN(string(event.Data), ":", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				if parts[0] == externalImplantConfig.Build.ID {
-					con.RemoveEventListener(listenerID)
-					name = parts[1]
-					waiting = false
-				}
-
-			}
-
-		case <-sigint:
-			waiting = false
-			con.Printf("\n")
-			return nil, fmt.Errorf("user interrupt")
+					case <-sigint:
+						waiting = false
+						con.Printf("\n")
+						return nil, "", fmt.Errorf("user interrupt")
 		}
 	}
 
@@ -1749,7 +1758,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 
 	if spoofMetadata != nil {
 		if err := applySpoofMetadataToBuild("", name, spoofMetadata, con); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 
@@ -1757,7 +1766,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 		ImplantName: name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
 
@@ -1776,18 +1785,18 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
 			}[encoder]
 			if encoderName == "" {
-				return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
+				return nil, "", fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
 			}
 			encoderMap, err := fetchShellcodeEncoderMap(con)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
 				msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
 				if legacySGN {
 					con.PrintWarnf("%s, skipping.\n", msg)
 				} else {
-					return nil, errors.New(msg)
+					return nil, "", errors.New(msg)
 				}
 			} else {
 				con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
@@ -1799,7 +1808,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 					Data:         fileData,
 				})
 				if err != nil {
-					return nil, err
+					return nil, "", err
 				}
 				con.Printf("success!\n")
 				fileData = resp.GetData()
@@ -1809,20 +1818,20 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 
 	saveTo, err := outputSavePath(save, filepath.Base(generated.File.Name), config, con)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	err = os.WriteFile(saveTo, fileData, 0o700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
-		return nil, err
+		return nil, "", err
 	}
 	con.PrintInfof("Implant saved to %s\n", saveTo)
 
-	return nil, nil
+	return generated.File, saveTo, nil
 }
 
-func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, string, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -1847,13 +1856,13 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 	<-ctrl
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
-		return nil, err
+		return nil, "", err
 	}
 
 	if spoofMetadata != nil {
 		if err := applySpoofMetadataToBuild(generated.GetImplantBuildID(), generated.GetImplantName(), spoofMetadata, con); err != nil {
 			con.PrintErrorf("%s\n", err)
-			return nil, err
+			return nil, "", err
 		}
 
 		implantName := generated.GetImplantName()
@@ -1865,7 +1874,7 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 		})
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
-			return nil, err
+			return nil, "", err
 		}
 	}
 
@@ -1873,7 +1882,7 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
 	if len(generated.File.Data) == 0 {
 		con.PrintErrorf("Build failed, no file data\n")
-		return nil, errors.New("no file data")
+		return nil, "", errors.New("no file data")
 	}
 
 	fileData := generated.File.Data
@@ -1895,7 +1904,7 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 			} else {
 				encoderMap, err := fetchShellcodeEncoderMap(con)
 				if err != nil {
-					return nil, err
+					return nil, "", err
 				}
 				if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
 					msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
@@ -1903,7 +1912,7 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 						con.PrintWarnf("%s, skipping.\n", msg)
 					} else {
 						con.PrintErrorf("%s\n", msg)
-						return nil, errors.New(msg)
+						return nil, "", errors.New(msg)
 					}
 				} else {
 					con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
@@ -1927,16 +1936,16 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 
 	saveTo, err := outputSavePath(save, generated.File.Name, config, con)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	err = os.WriteFile(saveTo, fileData, 0o700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
-		return nil, err
+		return nil, "", err
 	}
 	con.PrintInfof("Implant saved to %s\n", saveTo)
-	return generated.File, err
+	return generated.File, saveTo, err
 }
 
 func getLimitsString(config *clientpb.ImplantConfig) string {
@@ -1994,8 +2003,8 @@ func hasCC(targetOS string, targetArch string, crossCompilers []*clientpb.CrossC
 func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverClient) bool {
 	con.PrintWarnf("Missing cross-compiler for %s on %s/%s\n", nameOfOutputFormat(format), targetOS, targetArch)
 	switch targetOS {
-	case "darwin":
-		con.PrintWarnf("The server cannot find an installation of osxcross")
+		case "darwin":
+			con.PrintWarnf("The server cannot find an installation of osxcross")
 	}
 	con.PrintWarnf("For more information please read %s\n", crossCompilerInfoURL)
 
