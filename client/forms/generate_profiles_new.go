@@ -62,6 +62,7 @@ func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 						return []huh.Option[string]{
 							huh.NewOption("amd64", "amd64"),
 							huh.NewOption("arm64", "arm64"),
+							huh.NewOption("arm", "arm"),
 							huh.NewOption("386", "386"),
 						}
 					default:

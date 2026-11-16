@@ -381,6 +381,7 @@ const (
 	NativeExtensionDarwinARM64Filter       = "native-extension:darwin/arm64"
 	NativeExtensionLinux386Filter          = "native-extension:linux/386"
 	NativeExtensionLinuxAMD64Filter        = "native-extension:linux/amd64"
+	NativeExtensionLinuxARMFilter          = "native-extension:linux/arm"
 	NativeExtensionLinuxARM64Filter        = "native-extension:linux/arm64"
 	NativeExtensionWindows386Filter        = "native-extension:windows/386"
 	NativeExtensionWindowsAMD64Filter      = "native-extension:windows/amd64"
@@ -395,11 +396,12 @@ type NativeExtensionTarget struct {
 	Filter string
 }
 
-var nativeExtensionTargets = [8]NativeExtensionTarget{
+var nativeExtensionTargets = [9]NativeExtensionTarget{
 	{GOOS: "darwin", GOARCH: "amd64", Filter: NativeExtensionDarwinAMD64Filter},
 	{GOOS: "darwin", GOARCH: "arm64", Filter: NativeExtensionDarwinARM64Filter},
 	{GOOS: "linux", GOARCH: "386", Filter: NativeExtensionLinux386Filter},
 	{GOOS: "linux", GOARCH: "amd64", Filter: NativeExtensionLinuxAMD64Filter},
+	{GOOS: "linux", GOARCH: "arm", Filter: NativeExtensionLinuxARMFilter},
 	{GOOS: "linux", GOARCH: "arm64", Filter: NativeExtensionLinuxARM64Filter},
 	{GOOS: "windows", GOARCH: "386", Filter: NativeExtensionWindows386Filter},
 	{GOOS: "windows", GOARCH: "amd64", Filter: NativeExtensionWindowsAMD64Filter},
@@ -407,7 +409,7 @@ var nativeExtensionTargets = [8]NativeExtensionTarget{
 }
 
 // NativeExtensionTargets returns the supported native extension target matrix.
-func NativeExtensionTargets() [8]NativeExtensionTarget {
+func NativeExtensionTargets() [9]NativeExtensionTarget {
 	return nativeExtensionTargets
 }
 
