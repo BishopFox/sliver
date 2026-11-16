@@ -12,6 +12,15 @@
 - https://youtu.be/watch?v=izMMmOaLn9g
 - https://youtu.be/watch?v=qIbrozlf2wM
 - https://youtu.be/watch?v=CKfjLnEMfvI
+- https://youtu.be/watch?v=JiqvDOvzGrQ
+- https://youtu.be/watch?v=IQsMjF7lxKQ
+- https://youtu.be/watch?v=BYnk0jB671k
+- https://youtu.be/watch?v=clRJo6Io78A
+- https://youtu.be/watch?v=4Deu8JwgGpk
+- https://youtu.be/watch?v=R2rwAq0MK2g
+- https://youtu.be/watch?v=Yj3_S4UCuMw
+- https://youtu.be/watch?v=tORD_0JcFH4
+- https://youtu.be/watch?v=cUiXNgkkU6k
 
 ### Blogs
 
@@ -23,6 +32,7 @@
 - https://blog.ecapuano.com/p/so-you-want-to-be-a-soc-analyst-20
 - https://wsummerhill.github.io/redteam/2023/07/25/Sliver-C2-Usage-for-Red-Teams.html
 - https://rootsecdev.medium.com/hacking-active-directory-with-sliver-c2-19d7ceabbf13
+- [HackITA — Sliver C2: Guide to Listeners, Beacons, Implants and Armory](https://en.hackita.it/articoli/silver/)
 - https://dev.to/living_syn/sliver-and-cursed-chrome-for-post-exploitation-4gnk
 
 ### Opsec Blogs
@@ -36,6 +46,8 @@
 - https://security.humanativaspa.it/customizing-sliver-part-1/
 - https://security.humanativaspa.it/customizing-sliver-part-2/
 - https://security.humanativaspa.it/customizing-sliver-part-3/
+- https://hackerforce.io/blog/writing-extensions-in-sliver-c2/
+- https://hackerforce.io/blog/contributing-custom-armory-tools-in-sliver-c2/
 
 ### Detection & Analysis
 
