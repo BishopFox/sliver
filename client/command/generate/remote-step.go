@@ -20,22 +20,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// remoteStepFlags keeps the existing -E choice and treats a builder pin as a
-// remote request. --remote-step requires the neutral pipeline even when a
-// legacy config cannot be represented yet.
-func remoteStepFlags(cmd *cobra.Command) (requested, explicit bool, pin string) {
+// remoteStepRequested treats -E, --remote-step, and a builder pin as requests
+// for the assigned-step remote pipeline.
+func remoteStepRequested(cmd *cobra.Command) bool {
 	if cmd == nil {
-		return false, false, ""
+		return false
 	}
 	external, _ := cmd.Flags().GetBool("external-builder")
-	explicit, _ = cmd.Flags().GetBool("remote-step")
-	pin, _ = cmd.Flags().GetString("builder")
-	return external || explicit || pin != "", explicit, pin
+	remote, _ := cmd.Flags().GetBool("remote-step")
+	pin, _ := cmd.Flags().GetString("builder")
+	return external || remote || pin != ""
 }
 
-// The neutral core spec does not yet model every compatibility flag. Only
-// configurations with equivalent defaults run through assigned steps; all
-// other -E requests retain their existing external build behavior.
+// The neutral core spec does not yet model every compatibility flag. Reject
+// remote requests that would change their meaning instead of silently
+// dropping settings.
 func remoteStepCompatibility(cmd *cobra.Command, config *clientpb.ImplantConfig) error {
 	if cmd == nil || config == nil {
 		return errors.New("missing generate command or config")
@@ -48,17 +47,12 @@ func remoteStepCompatibility(cmd *cobra.Command, config *clientpb.ImplantConfig)
 	if config.IncludeWG || hasWGEndpoint(config) {
 		return errors.New("WireGuard peer settings are not represented in the neutral core spec")
 	}
-	if config.IsBeacon && (config.BeaconInterval != int64(60*time.Second) || config.BeaconJitter != 0) {
-		return errors.New("custom beacon timing is not represented in the neutral core spec")
-	}
 	if config.HTTPC2ConfigName != "" && config.HTTPC2ConfigName != consts.DefaultC2Profile {
 		return errors.New("custom HTTP C2 profiles are not represented in the neutral core spec")
 	}
-	if config.TrafficEncodersEnabled {
-		return errors.New("traffic encoder assets require the legacy build material path")
-	}
-	if config.Format == clientpb.OutputFormat_SHELLCODE && !explicitRemoteStep(cmd) {
-		return errors.New("shellcode compatibility options use the legacy external build path")
+	trafficEncoders, _ := cmd.Flags().GetString("traffic-encoders")
+	if config.TrafficEncodersEnabled || cmd.Flags().Changed("traffic-encoders") && trafficEncoders != "" {
+		return errors.New("traffic encoder assets are not represented in the neutral core spec")
 	}
 	return nil
 }
@@ -72,11 +66,6 @@ func hasWGEndpoint(config *clientpb.ImplantConfig) bool {
 	return false
 }
 
-func explicitRemoteStep(cmd *cobra.Command) bool {
-	value, _ := cmd.Flags().GetBool("remote-step")
-	return value
-}
-
 // remoteStepBuild uses the server's assigned-step executor and retrieves the
 // exact final artifact recorded by the server. Metadata donor bytes are
 // carried as bounded per-build inputs, never as plan options.
@@ -85,6 +74,27 @@ func remoteStepBuild(cmd *cobra.Command, name string, config *clientpb.ImplantCo
 	request, err := planRequestFromFlags(cmd, config.GetIsBeacon())
 	if err != nil {
 		return nil, err
+	}
+	// An interactive encoder choice lives in config, while plan previews read
+	// flags only. Carry the selected transform into this actual build request.
+	if config.GetFormat() == clientpb.OutputFormat_SHELLCODE && !cmd.Flags().Changed("shellcode-encoder") {
+		encoder := ""
+		switch config.GetShellcodeEncoder() {
+		case clientpb.ShellcodeEncoder_NONE:
+		case clientpb.ShellcodeEncoder_SHIKATA_GA_NAI:
+			encoder = "builtin/shikata-ga-nai"
+		case clientpb.ShellcodeEncoder_XOR:
+			encoder = "builtin/xor"
+		case clientpb.ShellcodeEncoder_XOR_DYNAMIC:
+			encoder = "builtin/xor-dynamic"
+		default:
+			return nil, fmt.Errorf("unsupported selected shellcode encoder %d", config.GetShellcodeEncoder())
+		}
+		if encoder != "" {
+			request.Transforms = append(request.Transforms, &clientpb.BuildTransformRequest{
+				Spec: &clientpb.BuildSpecRef{Name: encoder},
+			})
+		}
 	}
 	if name != "" {
 		request.Name = name

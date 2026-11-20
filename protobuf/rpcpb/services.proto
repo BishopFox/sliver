@@ -98,12 +98,6 @@ service SliverRPC {
   rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
   rpc GenerateSpoofMetadata(clientpb.GenerateSpoofMetadataReq)
       returns (commonpb.Empty);
-  rpc GenerateExternal(clientpb.ExternalGenerateReq)
-      returns (clientpb.ExternalImplantConfig);
-  rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary)
-      returns (commonpb.Empty);
-  rpc GenerateExternalGetBuildConfig(clientpb.ImplantBuild)
-      returns (clientpb.ExternalImplantConfig);
   rpc GenerateStage(clientpb.GenerateStageReq)
       returns (clientpb.Generate);
   rpc StageImplantBuild(clientpb.ImplantStageReq)
@@ -133,7 +127,6 @@ service SliverRPC {
 
   // *** Builders ***
   rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
-  rpc BuilderTrigger(clientpb.Event) returns (commonpb.Empty);
   rpc Builders(commonpb.Empty) returns (clientpb.Builders);
   rpc BuilderUpdateStatus(clientpb.BuilderStatusReport) returns (commonpb.Empty);
   rpc BuilderGetStep(clientpb.BuilderStepRef) returns (clientpb.BuilderStepRequest);

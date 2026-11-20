@@ -68,7 +68,7 @@ func (rpc *Server) registerStepBuilderBeforeCatalog(req *clientpb.Builder, catal
 		return err
 	}
 	if !required {
-		return catalog.AdvertiseRemoteBatch(req.Name, raws, time.Now().UTC())
+		return status.Error(codes.InvalidArgument, "assigned-step builder capabilities are required")
 	}
 	scheduler, err := rpc.stepScheduler()
 	if err != nil {

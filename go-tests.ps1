@@ -433,6 +433,7 @@ try {
         $rpcGenerateTests = @(
             "TestExecuteBuildSliverNativeExecutable",
             "TestGenerateRetainedWorkspace",
+            "TestOnDemandShellcodeBuildRecord",
             "TestM4GenerateShellcodeFinalParity",
             "TestM4GenerateStageFinalParity",
             "TestGenerateSpoofMetadataAppliesPETimestampOverBufnet",

@@ -73,14 +73,8 @@ func TestBuildAuditRequestRedactsPrivateMaterial(t *testing.T) {
 		{rpcpb.SliverRPC_Generate_FullMethodName, &clientpb.GenerateReq{
 			Name: "audit-legacy", Config: &clientpb.ImplantConfig{Assets: []*commonpb.File{{Data: []byte(secret)}}},
 		}},
-		{rpcpb.SliverRPC_GenerateExternal_FullMethodName, &clientpb.ExternalGenerateReq{
-			Name: "audit-external", Config: &clientpb.ImplantConfig{Assets: []*commonpb.File{{Data: []byte(secret)}}},
-		}},
 		{rpcpb.SliverRPC_GenerateStage_FullMethodName, &clientpb.GenerateStageReq{
 			Name: "audit-stage", AESEncryptKey: secret, RC4EncryptKey: secret,
-		}},
-		{rpcpb.SliverRPC_GenerateExternalSaveBuild_FullMethodName, &clientpb.ExternalImplantBinary{
-			Name: "audit-external", File: &commonpb.File{Data: []byte(secret)},
 		}},
 		{rpcpb.SliverRPC_ValidateBuildProfile_FullMethodName, &clientpb.BuildProfileImportRequest{YAML: secret}},
 		{rpcpb.SliverRPC_ImportBuildProfile_FullMethodName, &clientpb.BuildProfileImportRequest{YAML: secret}},
@@ -125,10 +119,7 @@ func TestBuildPayloadLoggingSuppressesPrivateMaterial(t *testing.T) {
 		rpcpb.SliverRPC_ExecuteProfileBuild_FullMethodName,
 		rpcpb.SliverRPC_GetBuildArtifact_FullMethodName,
 		rpcpb.SliverRPC_Generate_FullMethodName,
-		rpcpb.SliverRPC_GenerateExternal_FullMethodName,
 		rpcpb.SliverRPC_GenerateStage_FullMethodName,
-		rpcpb.SliverRPC_GenerateExternalGetBuildConfig_FullMethodName,
-		rpcpb.SliverRPC_GenerateExternalSaveBuild_FullMethodName,
 		rpcpb.SliverRPC_GenerateWGClientConfig_FullMethodName,
 		rpcpb.SliverRPC_BuilderUpdateStatus_FullMethodName,
 		rpcpb.SliverRPC_BuilderGetStep_FullMethodName,

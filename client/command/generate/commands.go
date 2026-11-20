@@ -163,8 +163,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("name", "n", "", "Implant name")
-		f.BoolP("external-builder", "E", false, "use an external builder")
-		f.String("builder", "", "pin generation to a connected external builder")
+		f.BoolP("external-builder", "E", false, "use a remote assigned-step builder")
+		f.String("builder", "", "pin generation to a connected assigned-step builder")
 		f.StringArray("input-artifact", nil, "per-build artifact input as name=path (repeatable)")
 		f.StringArray("secret-file", nil, "per-build secret input as name=path (repeatable)")
 	})
@@ -516,10 +516,9 @@ func coreBeaconFlags(name string, cmd *cobra.Command) {
 func compileImplantFlags(name string, cmd *cobra.Command) {
 	flags.Bind(name, false, cmd, func(f *pflag.FlagSet) {
 		f.StringP("name", "N", "", "agent name")
-		f.StringP("template", "I", "sliver", "implant code template")
-		f.BoolP("external-builder", "E", false, "use an external builder (assigned steps where compatible)")
+		f.BoolP("external-builder", "E", false, "use a remote assigned-step builder")
 		f.Bool("remote-step", false, "run the neutral assigned-step pipeline on a remote builder")
-		f.String("builder", "", "pin generation to a connected external builder")
+		f.String("builder", "", "pin generation to a connected assigned-step builder")
 		f.StringP("save", "s", "", "directory/file to the binary to")
 	})
 }

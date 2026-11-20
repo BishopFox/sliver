@@ -157,3 +157,7 @@ output in the server's private workspace. The command prints the workspace
 path. The retained input and source files contain cryptographic material;
 see [source and Mage handoff](mage-core-builds.md) for the layout. The default
 `--cleanup true` removes the workspace after saving the final artifact.
+
+`implants` shows the core name and version from each build's frozen record.
+Builds created before records were introduced show `Unknown (legacy)`.
+Core identity no longer comes from the former template configuration field.

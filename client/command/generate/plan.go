@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -62,15 +63,17 @@ func planRequestFromFlags(cmd *cobra.Command, beacon bool) (*clientpb.BuildReque
 	if err != nil {
 		return nil, err
 	}
-	template, _ := cmd.Flags().GetString("template")
-	if template != "" && template != "sliver" {
-		return nil, fmt.Errorf("no installed core maps legacy template %q", template)
-	}
 	mode := "session"
+	var beaconSettings *clientpb.BuildBeaconSettings
 	if beacon {
 		mode = "beacon"
-		if err := parseBeaconFlags(cmd, &clientpb.ImplantConfig{}); err != nil {
+		config := &clientpb.ImplantConfig{}
+		if err := parseBeaconFlags(cmd, config); err != nil {
 			return nil, err
+		}
+		beaconSettings = &clientpb.BuildBeaconSettings{
+			IntervalSeconds: uint64(config.BeaconInterval / int64(time.Second)),
+			JitterSeconds:   uint64(config.BeaconJitter / int64(time.Second)),
 		}
 	}
 	c2, err := previewEndpoints(cmd)
@@ -136,6 +139,7 @@ func planRequestFromFlags(cmd *cobra.Command, beacon bool) (*clientpb.BuildReque
 		CoreOptions:      coreOptions,
 		Transforms:       transforms,
 		Provider:         &clientpb.BuildProviderPolicy{Mode: providerMode, Builder: builderName},
+		BeaconSettings:   beaconSettings,
 	}, nil
 }
 

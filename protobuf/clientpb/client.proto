@@ -172,7 +172,8 @@ message ImplantConfig {
   bool Debug = 10;
   bool Evasion = 11;
   bool ObfuscateSymbols = 12;
-  string TemplateName = 13;
+  reserved 13;
+  reserved "TemplateName";
   bool SGNEnabled = 14;
   string GoPackage = 15;
 
@@ -325,17 +326,14 @@ message ExternalImplantConfig {
   map<string, uint64> encoders = 4;
 }
 
-message ExternalImplantBinary {
-  string Name = 1;
-  string ImplantBuildID = 2;
-  commonpb.File File = 3;
-}
-
 // Configs of previously built implants
 message ImplantBuilds { 
   map<string, ImplantConfig> Configs = 1; 
   map<string, ResourceID> ResourceIDs = 2; 
   map<string, bool> staged = 3;
+  // Exact core spec from each build's immutable record, keyed by build name.
+  // Historical builds without a record have no entry.
+  map<string, BuildSpecRef> CoreSpecs = 4;
 }
 
 message ImplantStageReq {
@@ -838,12 +836,6 @@ message ShellcodeEncoderMap {
 
 // [ Builder ] ----------------------------------------
 
-message ExternalGenerateReq {
-  ImplantConfig Config = 1;
-  string BuilderName = 2;
-  string Name = 3;
-}
-
 message Builders { repeated Builder Builders = 1; }
 
 message Builder {
@@ -851,7 +843,8 @@ message Builder {
   string OperatorName = 2;
   string GOOS = 3;   // The builder's OS
   string GOARCH = 4; // The builder's Arch
-  repeated string Templates = 5;
+  reserved 5;
+  reserved "Templates";
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
   // Immutable CoreSpec and TransformSpec YAML advertised by this connection.

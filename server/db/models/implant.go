@@ -149,8 +149,6 @@ type ImplantConfig struct {
 	GOOS   string
 	GOARCH string
 
-	TemplateName string
-
 	IsBeacon       bool
 	BeaconInterval int64
 	BeaconJitter   int64
@@ -258,7 +256,6 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		DebugFile:        ic.DebugFile,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
-		TemplateName:     ic.TemplateName,
 		SGNEnabled:       ic.SGNEnabled,
 		ShellcodeEncoder: clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
 
@@ -423,8 +420,6 @@ func (t *EncoderAsset) ToProtobuf() *commonpb.File {
 	return &commonpb.File{Name: t.Name}
 }
 
-const defaultTemplateName = "sliver"
-
 // ImplantProfileFromProtobuf - Create a native profile struct from Protobuf
 func ImplantProfileFromProtobuf(pbProfile *clientpb.ImplantProfile) *ImplantProfile {
 	cfg := ImplantProfile{}
@@ -463,10 +458,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
-	cfg.TemplateName = pbConfig.TemplateName
-	if cfg.TemplateName == "" {
-		cfg.TemplateName = defaultTemplateName
-	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
 	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
 

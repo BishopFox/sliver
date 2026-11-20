@@ -350,7 +350,7 @@ func (SliverCoreAdapter) ConfigFromPlan(plan buildplan.Plan) (*clientpb.ImplantC
 	config := &clientpb.ImplantConfig{
 		GOOS: plan.Request.Target.OS, GOARCH: plan.Request.Target.Arch,
 		IsBeacon: plan.Request.Mode == "beacon", BeaconInterval: int64(60 * time.Second),
-		TemplateName: SliverTemplateName, HTTPC2ConfigName: "default",
+		HTTPC2ConfigName:  "default",
 		ReconnectInterval: int64(60 * time.Second), PollTimeout: int64(360 * time.Second), MaxConnectionErrors: 1000,
 		Format: format, IsService: format == clientpb.OutputFormat_SERVICE,
 		IsSharedLib: format == clientpb.OutputFormat_SHARED_LIB || format == clientpb.OutputFormat_GO_ARCHIVE,

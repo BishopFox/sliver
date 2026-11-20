@@ -22,10 +22,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/Binject/debug/pe"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -42,6 +41,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -87,63 +87,24 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 	}
 
-	name := filepath.Base(req.Name)
+	name := req.Name
+	if name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, rpcError(err)
+		}
+	} else if err := util.AllowedName(name); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	sc, arch, err := getSliverShellcode(name)
 	if err != nil {
-		config := req.Config
-		if req.Name == "" {
-			name, err = codenames.GetCodename()
-			if err != nil {
-				return nil, rpcError(err)
-			}
-		} else if err := util.AllowedName(name); err != nil {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		} else {
-			name = req.Name
-		}
-		config.Format = clientpb.OutputFormat_SHELLCODE
-		// Tweak some of the config parameters
-		config.IsShellcode = true
-		config.IsSharedLib = false
-		config.TemplateName = "sliver"
-		config.ObfuscateSymbols = true
-		build, err := generate.GenerateConfig(name, config)
+		generated, generateErr := rpc.generateOnDemandShellcode(ctx, name, req.Config, true)
+		err = generateErr
 		if err != nil {
-			return nil, rpcError(err)
+			return nil, err
 		}
-
-		// retrieve http c2 implant config
-		httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
-		if err != nil {
-			return nil, rpcError(err)
-		}
-
-		shellcodePath, err := generate.SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
-		if err != nil {
-			return nil, rpcError(err)
-		}
-		sc, err = generate.ReadAndRemoveSliverBuildOutput(name, config, shellcodePath)
-		if err != nil {
-			return nil, rpcError(err)
-		}
-		// Save the implant config in the database so that the server recognizes it when it tries to connect
-		config.ID = ""
-		savedConfig, err := db.SaveImplantConfig(config)
-		if err != nil {
-			return nil, rpcError(err)
-		}
-		build.ImplantConfigID = savedConfig.ID
-
-		/* Save the build in the database so that the server recognizes it when it tries to connect
-		   This build will have the same name as the implant it is being spawned from, so
-		   we need to create a unique name for the database
-		*/
-		build.Name = fmt.Sprintf("%s_%d", build.Name, time.Now().Unix())
-		_, err = db.SaveImplantBuild(build)
-		if err != nil {
-			return nil, rpcError(err)
-		}
-
+		sc = generated.GetFile().GetData()
+		arch = req.Config.GOARCH
 	}
 
 	if len(sc) < 1 {
@@ -383,6 +344,89 @@ func getOS(session *core.Session, beacon *clientpb.Beacon) string {
 		return beacon.OS
 	}
 	return ""
+}
+
+// generateOnDemandShellcode uses the same frozen local core and transform
+// pipeline as operator generation. The resulting build is saved for implant
+// authentication and its final bytes are retained in a build record.
+func (rpc *Server) generateOnDemandShellcode(ctx context.Context, preferredName string,
+	source *clientpb.ImplantConfig, obfuscate bool) (*clientpb.Generate, error) {
+	if err := util.AllowedName(preferredName); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	config, err := onDemandShellcodeConfig(source, obfuscate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	name, err := uniqueTaskBuildName(preferredName, taskBuildNameExists)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	generated, err := rpc.Generate(ctx, &clientpb.GenerateReq{Name: name, Config: config})
+	if err != nil {
+		return nil, err
+	}
+	if generated.GetImplantBuildID() == "" || len(generated.GetFile().GetData()) == 0 {
+		return nil, status.Error(codes.Internal, "on-demand shellcode build returned no saved artifact")
+	}
+	return generated, nil
+}
+
+func onDemandShellcodeConfig(source *clientpb.ImplantConfig, obfuscate bool) (*clientpb.ImplantConfig, error) {
+	if source == nil {
+		return nil, fmt.Errorf("missing implant config")
+	}
+	config := proto.Clone(source).(*clientpb.ImplantConfig)
+	config.ID = "" // Compile the requested shellcode instead of reloading the old saved format.
+	config.ImplantBuilds = nil
+	config.Format = clientpb.OutputFormat_SHELLCODE
+	config.IsShellcode = true
+	config.IsSharedLib = false
+	config.IsService = false
+	config.ObfuscateSymbols = obfuscate
+	config.ShellcodeEncoder = clientpb.ShellcodeEncoder_NONE // Task consumers require raw shellcode.
+	config.SGNEnabled = false
+	if len(config.Exports) == 0 {
+		config.Exports = []string{"StartW"}
+	}
+	return config, nil
+}
+
+func taskBuildNameExists(name string) (bool, error) {
+	if _, err := db.ImplantBuildByName(name); err == nil {
+		return true, nil
+	} else if !errors.Is(err, db.ErrRecordNotFound) {
+		return false, err
+	}
+	if _, err := db.ResourceIDByName(name); err == nil {
+		return true, nil
+	} else if !errors.Is(err, db.ErrRecordNotFound) {
+		return false, err
+	}
+	return false, nil
+}
+
+// Always suffix the source session name so concurrent tasks do not compete
+// for the same unsuffixed build name, even when it is currently unused.
+func uniqueTaskBuildName(preferred string, exists func(string) (bool, error)) (string, error) {
+	if err := util.AllowedName(preferred); err != nil {
+		return "", err
+	}
+	if exists == nil {
+		return "", fmt.Errorf("missing build name lookup")
+	}
+	for attempt := 0; attempt < 8; attempt++ {
+		id := strings.ReplaceAll(models.NewUUID().String(), "-", "")
+		candidate := preferred + "_" + id
+		used, err := exists(candidate)
+		if err != nil {
+			return "", err
+		}
+		if !used {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("could not allocate a unique on-demand build name")
 }
 
 // Utility functions

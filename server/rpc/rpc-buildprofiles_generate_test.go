@@ -106,7 +106,7 @@ func TestM6MigratedProfileBuildPreservesLegacyConfig(t *testing.T) {
 	buildName := "m6-legacy-build-" + models.NewUUID().String()
 	saved, err := generate.SaveImplantProfile(&clientpb.ImplantProfile{Name: profileName, Config: &clientpb.ImplantConfig{
 		GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Format: clientpb.OutputFormat_EXECUTABLE,
-		IsBeacon: true, TemplateName: "sliver", C2: []*clientpb.ImplantC2{{URL: "mtls://127.0.0.1:8888"}},
+		IsBeacon: true, C2: []*clientpb.ImplantC2{{URL: "mtls://127.0.0.1:8888"}},
 		ConnectionStrategy: "rd", ReconnectInterval: int64(17 * time.Second), PollTimeout: int64(91 * time.Second),
 		MaxConnectionErrors: 23, BeaconInterval: int64(19 * time.Second), BeaconJitter: int64(3 * time.Second),
 		HTTPC2ConfigName: "default", WGKeyExchangePort: 1337, WGTcpCommsPort: 1338, Debug: true,

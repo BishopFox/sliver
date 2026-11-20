@@ -78,7 +78,6 @@ def check_source():
         'f.StringP("os", "o", "windows"',
         'f.StringP("arch", "a", "amd64"',
         'f.StringP("format", "f", "exe"',
-        'f.StringP("template", "I", "sliver"',
         'f.StringP("canary", "c", ""',
         'f.Uint32P("key-exchange", "X", DefaultWGKeyExPort',
         'f.Uint32P("tcp-comms", "T", DefaultWGNPort',
@@ -150,7 +149,7 @@ def check_source():
     if 'case "namedpipe":' in transport or 'case "tcppivot":' in transport:
         fail("beacon pivot transport support changed; update M0 baseline")
 
-    compile_body = function_body(client, "compile")
+    compile_body = function_body(client, "compileWithWorkspaceRetention")
     ordered = ('con.Rpc.Generate(', 'verifiedGenerateOutput(', 'os.WriteFile(saveTo, file.Data')
     positions = [compile_body.find(item) for item in ordered]
     if any(position < 0 for position in positions) or positions != sorted(positions):

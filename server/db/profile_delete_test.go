@@ -12,7 +12,7 @@ func TestDeleteProfilePreservesCompletedBuildReferences(t *testing.T) {
 	profile := &models.ImplantProfile{
 		Name: name,
 		ImplantConfig: &models.ImplantConfig{
-			GOOS: "windows", GOARCH: "amd64", TemplateName: "sliver",
+			GOOS: "windows", GOARCH: "amd64",
 		},
 	}
 	if err := Session().Create(profile).Error; err != nil {

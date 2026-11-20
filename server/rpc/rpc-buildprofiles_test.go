@@ -129,7 +129,7 @@ func TestBuildProfileLegacyBackfillAndMigrationFailureIsolation(t *testing.T) {
 	makeLegacy := func(name string, reconnect int64) *clientpb.ImplantProfile {
 		return &clientpb.ImplantProfile{Name: name, Config: &clientpb.ImplantConfig{
 			GOOS: "windows", GOARCH: "amd64", Format: clientpb.OutputFormat_EXECUTABLE,
-			TemplateName: "sliver", C2: []*clientpb.ImplantC2{{URL: "mtls://127.0.0.1:8888"}},
+			C2:                []*clientpb.ImplantC2{{URL: "mtls://127.0.0.1:8888"}},
 			ReconnectInterval: reconnect, PollTimeout: int64(360 * time.Second), MaxConnectionErrors: 1000,
 			HTTPC2ConfigName: "default", Debug: true,
 		}}

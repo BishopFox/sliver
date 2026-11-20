@@ -27,7 +27,7 @@ func TestImplantBuildSavePublicationFailureRevokesBuild(t *testing.T) {
 			}
 			identity := "save-failure-" + models.NewUUID().String()
 			endpoint := "mtls://" + identity + ".invalid:8888"
-			config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity,
+			config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity,
 				C2: []*clientpb.ImplantC2{{URL: endpoint, Priority: 1}}}
 			build := &clientpb.ImplantBuild{Name: identity, PeerPublicKeyDigest: identity}
 			if preSaved {
@@ -67,7 +67,7 @@ func TestImplantBuildSavePublicationFailureRevokesBuild(t *testing.T) {
 			if err := db.Session().Model(&models.ResourceID{}).Where("name = ?", identity).Count(&resources).Error; err != nil {
 				t.Fatal(err)
 			}
-			if err := db.Session().Model(&models.ImplantConfig{}).Where("template_name = ?", identity).Count(&configs).Error; err != nil {
+			if err := db.Session().Model(&models.ImplantConfig{}).Where("limit_hostname = ?", identity).Count(&configs).Error; err != nil {
 				t.Fatal(err)
 			}
 			if err := db.Session().Model(&models.ImplantC2{}).Where("url = ?", endpoint).Count(&c2s).Error; err != nil {
@@ -101,7 +101,7 @@ func TestImplantBuildSavePreSavedBuildPublishesFile(t *testing.T) {
 	}
 	identity := "save-success-" + models.NewUUID().String()
 	endpoint := "mtls://" + identity + ".invalid:8888"
-	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity,
+	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity,
 		C2: []*clientpb.ImplantC2{{URL: endpoint, Priority: 1}}})
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestImplantBuildSaveDoesNotReplaceConcurrentFinalFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	identity := "save-race-" + models.NewUUID().String()
-	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity})
+	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestImplantBuildSaveRejectsCompletedBuildWithoutFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	identity := "save-completed-" + models.NewUUID().String()
-	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity})
+	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestImplantBuildSaveStagePublicationFailure(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", root)
 	identity := "stage-failure-" + models.NewUUID().String()
 	build := &clientpb.ImplantBuild{Name: identity, Stage: true}
-	config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity}
+	config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity}
 	failure := errors.New("stage publication failed")
 	called := false
 	err := saveStage(build, config, []byte("stage bytes"), "stage-type", func(staged, final string) error {
@@ -232,7 +232,7 @@ func TestImplantBuildSaveStagePublicationFailure(t *testing.T) {
 	if err := db.Session().Model(&models.ResourceID{}).Where("name = ?", identity).Count(&resources).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Session().Model(&models.ImplantConfig{}).Where("template_name = ?", identity).Count(&configs).Error; err != nil {
+	if err := db.Session().Model(&models.ImplantConfig{}).Where("limit_hostname = ?", identity).Count(&configs).Error; err != nil {
 		t.Fatal(err)
 	}
 	if builds != 0 || resources != 0 || configs != 0 {
@@ -249,7 +249,7 @@ func TestImplantBuildSaveStageTypeAndFile(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", root)
 	identity := "stage-success-" + models.NewUUID().String()
 	build := &clientpb.ImplantBuild{Name: identity, Stage: true}
-	config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity}
+	config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity}
 	data := []byte("stage bytes")
 	if err := SaveStage(build, config, data, "stage-type"); err != nil {
 		t.Fatal(err)
@@ -279,7 +279,7 @@ func TestImplantBuildSaveUpdateFileRollbackAndPublish(t *testing.T) {
 		t.Fatal(err)
 	}
 	build := &clientpb.ImplantBuild{Name: identity}
-	if err := ImplantBuildSave(build, &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", TemplateName: identity}, artifact); err != nil {
+	if err := ImplantBuildSave(build, &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity}, artifact); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

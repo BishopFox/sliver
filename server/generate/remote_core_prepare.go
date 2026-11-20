@@ -24,8 +24,9 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 )
 
-// SliverExternal - Generates the cryptographic keys for the implant but compiles no code
-func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
+// PrepareRemoteSliverCore generates the runtime identity for an assigned-step
+// Sliver core build without compiling source code on the server.
+func PrepareRemoteSliverCore(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
 	config.IncludeMTLS = config.IncludeMTLS || models.IsC2Enabled([]string{"mtls"}, config.C2)
 	config.IncludeWG = config.IncludeWG || models.IsC2Enabled([]string{"wg"}, config.C2)
 	config.IncludeHTTP = config.IncludeHTTP || models.IsC2Enabled([]string{"http", "https"}, config.C2)
@@ -33,7 +34,7 @@ func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.Exte
 	config.IncludeNamePipe = config.IncludeNamePipe || models.IsC2Enabled([]string{"namedpipe"}, config.C2)
 	config.IncludeTCP = config.IncludeTCP || models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 
-	// set file extension for external builds
+	// Set the output extension for the worker's artifact.
 	if config.Format == clientpb.OutputFormat_GO_ARCHIVE {
 		config.Extension = ".zip"
 	} else if config.IsSharedLib {

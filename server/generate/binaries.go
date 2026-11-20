@@ -78,8 +78,6 @@ var (
 )
 
 const (
-	SliverTemplateName = "sliver"
-
 	// WINDOWS OS
 	WINDOWS = "windows"
 

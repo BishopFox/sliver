@@ -37,7 +37,7 @@ invoked through `./go-tests.sh`.
 | --- | --- | --- | --- |
 | Legacy route inventory | `python3 tools/check-build-pipeline-baseline.py` | macOS/arm64 | Passed 32 routes (64 session/beacon cases), 10 edge cases, and 7 protocol cases. Static compatibility check. |
 | Spec and profile examples | `PYTHONPATH=/tmp/sliver-schema-validate PYTHONDONTWRITEBYTECODE=1 python3 docs/build-pipeline/validate_examples.py` | macOS/arm64 | Passed 15 immutable specs and 9 profiles, including the M7 minimal core and authored profile. |
-| Focused build-system suite | `./go-tests.sh --offline-build-pipeline` | macOS/arm64 and Linux/arm64 Docker | Passed 27 package groups on each platform after review, including disconnect cleanup for pending legacy external builds. Covers catalog, planning, source copy, archive safety, remote assignment, saves, profile and client compatibility, and the minimal core fixture. |
+| Focused build-system suite | `./go-tests.sh --offline-build-pipeline` | macOS/arm64 and Linux/arm64 Docker | Passed 27 package groups on each platform after review, including disconnect cleanup for the legacy external builder that was removed in the later build unification. Covers catalog, planning, source copy, archive safety, remote assignment, saves, profile and client compatibility, and the minimal core fixture. |
 | Preferred full test target | `DOCKER_CONFIG=/tmp/sliver-m6-docker-config docker buildx build --target test --build-arg GO_TESTS_FLAGS=--skip-generate -t sliver-m7-clean-test:local --load --progress=plain .` | Linux/arm64 Docker | Passed server/client builds and 106 test groups, including C2 transport tests. Generation is deliberately skipped in this target. |
 | Full generation path | `docker run --rm -e GOPROXY=off sliver-m7-clean-test:local ./go-tests.sh --generate-only` | Linux/arm64 Docker | Passed the complete `server/generate` package (428.413s) and 10 tagged RPC artifact tests. Those include native Sliver, shellcode/stage parity, M6 profiles, and all four M7 cases. |
 | M7 target matrix | `TestM7MinimalCoreAdvertisedTargets` within full generation | Linux/arm64 Docker; Linux/amd64, Linux/arm64, Darwin/arm64 targets | Passed ELF/Mach-O target checks and equality of returned, stored, retrieved bytes and SHA-256 for each advertised target. These matrix checks are build-only. |
@@ -67,11 +67,11 @@ docker run --rm -e GOPROXY=off sliver-m7-clean-test:local \
 - Linux Docker did not provide osxcross for Darwin CGo outputs. Native macOS
   shared-library/archive and macOS arm64 Beignet generation remain separate
   gates.
-- Legacy external-builder disconnect now revokes pending assignments and
+- Assigned-step remote Sliver builds pre-save runtime authentication before
+  worker compilation. Disconnect cleanup revokes pending assignments and
   authentication rows. A server crash before stream teardown can still leave
-  a pre-saved legacy build row: assignments are memory-only, and other paths
-  also create checksum-empty temporary rows. Safe crash recovery needs a
-  persisted pending-assignment lease or a change to pre-save semantics.
+  a pre-saved build row because assignments are memory-only. Safe crash recovery
+  needs a persisted pending-assignment lease or a change to pre-save semantics.
 - No implementing PR, GitHub Actions run on the final M7 commit, or terminal
   cross-platform CI result exists. Under the roadmap's publication rule M7
   remains In progress until those links and remaining matrix decisions are
@@ -91,3 +91,20 @@ contains rendered source and per-build keys; see [the Mage handoff](mage-core-bu
 | Native retained and default builds | Same focused generation command | macOS/arm64 | Passed both subtests against the native compiler. |
 | Full unit suite after retention change | `DOCKER_CONFIG=/tmp/sliver-m6-docker-config docker buildx build --target test --build-arg GO_TESTS_FLAGS=--skip-generate -t sliver-retain-full-test:local --load --progress=plain .` | Linux/arm64 Docker | Passed all 106 test groups. |
 | Full generation suite after retention change | `docker run --rm -e GOPROXY=off sliver-retain-full-test:local ./go-tests.sh --generate-only` | Linux/arm64 Docker | Passed `server/generate` and all 11 real RPC generation cases, including retained source, default cleanup, local transforms, profiles, and remote workers. |
+
+## Recorded core identity and builder retirement follow-up
+
+The `implants` table now reads the exact core name and version from each
+completed build record. Earlier builds without a record show an unknown core.
+The unused template field, legacy external-builder RPC/event handoff, and
+legacy-only worker registration are removed. `generate -E`, pinned builders,
+and remote profile builds use assigned steps. On-demand `migrate` and
+`getsystem` shellcode builds use the same resolved core and transform pipeline.
+
+| Gate | Exact command | Platform | Result |
+| --- | --- | --- | --- |
+| Route and example validation | `python3 tools/check-build-pipeline-baseline.py`; `PYTHONPATH=/tmp/sliver-schema-validate PYTHONDONTWRITEBYTECODE=1 python3 docs/build-pipeline/validate_examples.py` | macOS/arm64 | Passed 32 routes, 10 edge cases, 7 protocols, 15 immutable specs, and 9 profiles. |
+| Focused build-system suite | `./go-tests.sh --offline-build-pipeline` | macOS/arm64 | Passed 27 groups on the final source, including recorded-core listing, unavailable-record-store fallback, old-worker rejection, on-demand build naming, and remote shellcode encoder handoff. |
+| Full non-generation suite | `docker buildx build -f /tmp/sliver-core-implants-final2.Dockerfile -t sliver-core-implants-final2:local --load --progress=plain .` | Linux/arm64 Docker | Passed 106 test groups on the final Go source. The temporary Dockerfile layered `COPY . .` and `RUN ./go-tests.sh --skip-generate` over the earlier successful `test` target image, preserving its compiler assets. |
+| Full generation suite | `docker run --rm -e GOPROXY=off sliver-core-implants-final:local ./go-tests.sh --generate-only` | Linux/arm64 Docker | Passed all `server/generate` tests and 12 real RPC artifact cases, including on-demand Windows shellcode, retained workspaces, native Sliver formats, transforms, profiles, and local and remote M7 live sessions. The image predates only the subsequent client-side interactive encoder fix, which passed the final focused and full non-generation suites. |
+| Operator documentation | `npm run lint`; `npm run build` in `docs/sliver-docs` | macOS/arm64 | Passed ESLint, TypeScript, and production static build. |

@@ -64,20 +64,14 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	useRemote, explicit, pin := remoteStepFlags(cmd)
-	if !useRemote {
+	if !remoteStepRequested(cmd) {
 		compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
-	} else if compatibilityErr := remoteStepCompatibility(cmd, config); compatibilityErr == nil || explicit {
-		if compatibilityErr != nil {
-			con.PrintErrorf("Assigned-step build cannot preserve this configuration: %s\n", compatibilityErr)
+	} else {
+		if err := remoteStepCompatibility(cmd, config); err != nil {
+			con.PrintErrorf("Remote assigned-step build cannot preserve this configuration: %s\n", err)
 			return
 		}
 		if _, err := remoteStepBuild(cmd, name, config, spoofMetadata, save, con); err != nil {
-			con.PrintErrorf("%s\n", err)
-		}
-	} else {
-		con.PrintInfof("Using legacy external build compatibility for %s\n", compatibilityErr)
-		if _, err := externalBuild(name, config, spoofMetadata, save, pin, con); err != nil {
 			con.PrintErrorf("%s\n", err)
 		}
 	}
@@ -108,6 +102,9 @@ func parseBeaconFlags(cmd *cobra.Command, config *clientpb.ImplantConfig) error 
 	}
 
 	beaconJitter, _ := cmd.Flags().GetInt64("jitter")
+	if beaconJitter < 0 {
+		return errors.New("beacon jitter cannot be negative")
+	}
 	config.BeaconInterval = int64(interval)
 	config.BeaconJitter = int64(time.Duration(beaconJitter) * time.Second)
 	return nil

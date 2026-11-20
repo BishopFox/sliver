@@ -1,90 +1,40 @@
-Sliver supports "external builders," which allow a Sliver server to offload implant builds onto other systems. This can be used to increase platform support (e.g., connecting a MacBook to a Linux server to enable additional MacOS compiler targets) or increase performance (e.g., having a low-powered cloud host offload a local PC).
-
-External builders can also be used to create custom modifications to the implant source code, or potentially replace the default Sliver implant entirely.
+Sliver can assign individual core and transform build steps to a connected builder. This lets a server use toolchains on another machine, such as a macOS builder connected to a Linux server. The server resolves the build plan, prepares Sliver's build material, validates each returned artifact, runs following steps, and stores the final bytes.
 
 ```mermaid:minh=340
 flowchart LR
-    subgraph "External MacOS Builder"
-        builder["MacOS Builder"] -- "Multiplayer" --> server["Linux Server"]
-        operator["Windows Operator"] -- "Multiplayer" --> server
-        server -- ".dylib build task" --> builder
-    end
+    operator["Operator"] --> server["Sliver server"]
+    server -- "Assigned core or transform step" --> builder["Connected builder"]
+    builder -- "Typed artifact" --> server
+    server -- "Final artifact" --> operator
 ```
 
-## Builders
+## Start a builder
 
-#### Setup
+Start a `sliver-server` builder with an [operator configuration file](/docs?name=Multi-player+Mode) from the server:
 
-Any `sliver-server` binary can be started as a builder process using [operator configuration files from multiplayer-mode](/docs?name=Multi-player+Mode) from the server you want to connect the builder to, for example:
-
-```
+```shell
 ./sliver-server builder -c operator-multiplayer.cfg
 ```
 
-Builders follow the operator profile automatically: direct profiles use gRPC/mTLS, while profiles generated with `new-operator --enable-wg` (or `sliver-server operator --enable-wg`) contain `wg.enabled: true` and use WireGuard. No builder flag is required for a correctly generated profile.
+Builders follow the operator profile automatically: direct profiles use gRPC/mTLS, while profiles generated with `new-operator --enable-wg` (or `sliver-server operator --enable-wg`) contain `wg.enabled: true` and use WireGuard. Use `--enable-wg` or `--disable-wg` to override that selection; the flags cannot be combined. Profiles from the withdrawn WireGuard-by-default release may have a `wg` block without `enabled`; builders treat those profiles as direct unless WireGuard is forced explicitly.
 
-Use `--enable-wg` to force WireGuard for a profile with tunnel settings, or `--disable-wg` to force a direct connection; the flags cannot be combined. Profiles from the withdrawn WireGuard-by-default release may have a `wg` block without `enabled`; builders treat those profiles as direct unless WireGuard is forced explicitly.
+The builder mirrors log output to stdout by default. Give each builder a unique name with `--name` if its hostname is not unique. The builder must advertise an immutable core or transform spec accepted by the server catalog, including its exact digest and compatible target, mode, protocol, artifact type, and toolchain capabilities.
 
-When started as a builder, the Sliver process will mirror log output to stdout by default, however this can be disabled (see `sliver-server builder --help`).
+Update older builders and clients with the server before using remote builds. Workers that advertise only the former format and OS/architecture targets are rejected, and the old external build RPCs are no longer available.
 
-**⚠️ IMPORTANT:** Builders must have unique names, by default the builder's hostname will be used, but this can be changed using the `--name` cli flag.
+## Inspect builders and build
 
-#### External Builds
+Run `builders` to see each builder's availability, status age, capacity, installed spec references, and compiler targets. Offline or stale builders remain visible for diagnosis but cannot receive new steps. Run `cores` and `transforms` to inspect the server's installed build specs; `cores info <name> --yaml` shows an exact core definition.
 
-Any operator can see which builders are connected to the server using the `builders` command. This command will also show what templates, formats, and compiler targets each builder supports:
+Use `-E` (or `--external-builder`) to request an assigned-step build. `--builder <name>` pins the request to a particular connected builder. The server checks compatibility and capacity before assigning work, and the client verifies the downloaded final artifact against the build record.
 
-```
-sliver > builders
-
- Name                            Operator   Templates   Platform       Compiler Targets
-=============================== ========== =========== ============== ==========================
- molochs-MacBook-Pro-111.local   moloch     sliver      darwin/arm64   EXECUTABLE:linux/386
-                                                                       EXECUTABLE:linux/amd64
-                                                                       EXECUTABLE:linux/arm64
-                                                                       EXECUTABLE:windows/386
-                                                                       EXECUTABLE:windows/amd64
-                                                                       EXECUTABLE:darwin/amd64
-                                                                       EXECUTABLE:darwin/arm64
-                                                                       SHARED_LIB:windows/386
-                                                                       SHARED_LIB:windows/amd64
-                                                                       SHARED_LIB:darwin/amd64
-                                                                       SHARED_LIB:darwin/arm64
-                                                                       SHARED_LIB:linux/amd64
-                                                                       SHARED_LIB:linux/arm64
-                                                                       SERVICE:windows/386
-                                                                       SERVICE:windows/amd64
-                                                                       SHELLCODE:windows/386
-                                                                       SHELLCODE:windows/amd64
-                                                                       SHELLCODE:darwin/arm64
-                                                                       SHELLCODE:linux/amd64
-                                                                       SHELLCODE:linux/arm64
+```text
+sliver > generate --mtls localhost --os mac --arch arm64 -E
+sliver > generate beacon --mtls localhost --os linux --arch amd64 --builder build-host
 ```
 
-Use the `--external-builder` flag to offload a `generate` or `generate beacon` command onto an external builder:
+Use `--plan` with either `generate` command to preview the resolved steps and providers before building. Remote builds reject settings that the assigned-step request cannot represent. `--cleanup false` is available for local generation only because a remote builder's workspace is not returned to the operator.
 
-```
-sliver > generate --mtls localhost --os mac --arch arm64 --external-builder
+## Custom cores
 
-[*] Using external builder: molochs-MacBook-Pro-111.local
-[*] Externally generating new darwin/arm64 implant binary
-[*] Symbol obfuscation is enabled
-[*] Creating external build ... done
-[*] Build completed in 1m19s
-```
-
-If a given format/target combination is supported by multiple external builders you will be prompted to select one for the build.
-
-#### Limitations
-
-Currently external builds do not support DNS canaries.
-
-## Implant Customization
-
-You are welcome to customize the implant source code under the terms of Sliver's [GPLv3 license](https://github.com/BishopFox/sliver/blob/master/LICENSE). While we plan to improve the workflow over time, currently the easiest way to operationalize changes to the implant source code is:
-
-1. Fork the main Sliver GitHub repository
-1. Make modifications to the source code
-1. [Compile a Sliver server binary](/docs?name=Compile+from+Source)
-1. Connect the customized Sliver server binary to any other C2 server (including mainline servers) as an external builder
-1. Operators can generate the customized implant builds via the `generate --external-builder` flag
-1. Avoid making any changes to `/server` to make merging upstream easier if changes are introduced to the builder APIs
+Custom implant source is installed as a core with its own source, Magefile, and immutable spec. A builder advertises the installed spec and its capabilities at registration. Operators can select an authored YAML profile that names the core and its transforms, then run `profiles generate <name> -E` to request remote execution.

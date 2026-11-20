@@ -47,9 +47,10 @@ The client bounds input-file reads; the server checks the declaration again.
 Input bytes are used during the build and are excluded from the stored plan
 and profile. For authored YAML, the server revalidates `--name`, `--builder`,
 `--external-builder`, and `--shellcode-encoder` generation overrides against
-the resolved pipeline. A migrated profile with `--builder` or
-`--external-builder` uses the existing external builder command path to keep
-legacy behavior.
+the resolved pipeline. A migrated profile that cannot be represented as YAML
+builds locally through the resolved `Generate` pipeline; requesting a remote
+builder for that profile returns a compatibility error. Remote profile builds
+require an authored YAML profile.
 The completed build's file, type, size, and SHA-256 must agree with its frozen
 record before the client saves it.
 
@@ -58,10 +59,10 @@ record before the client saves it.
 Listing or accessing profiles backfills existing `ImplantConfig` profiles
 without deleting their database rows. Backfill is idempotent and does not
 replace an authored YAML document. Migrated profiles retain a link to their
-original complete configuration and execute through the legacy compatibility
-path, so settings that the neutral request cannot yet express keep their
-previous meaning. New authored YAML profiles execute the ordered neutral
-pipeline.
+original complete configuration and execute locally through the resolved
+`Generate` pipeline, so settings that the neutral profile request cannot yet
+express keep their previous meaning. New authored YAML profiles execute the
+ordered neutral pipeline.
 
 Importing a higher revision of authored YAML under a migrated profile name
 changes what the new profile API builds. Older clients still see the retained

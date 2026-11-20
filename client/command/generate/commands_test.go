@@ -24,7 +24,7 @@ func TestGenerateSaveFlagCompletionRegistered(t *testing.T) {
 	assertFlagHasDefaultFileCompletion(t, beaconCmd, "save")
 }
 
-func TestProfilesGenerateExternalBuilderFlagRegistered(t *testing.T) {
+func TestProfilesGenerateRemoteBuilderFlagRegistered(t *testing.T) {
 	cmds := Commands(&console.SliverClient{})
 
 	profilesCmd := commandByUse(cmds, consts.ProfilesStr)
@@ -58,6 +58,9 @@ func TestGenerateRemoteStepAndBuilderFlagsRegistered(t *testing.T) {
 	for _, cmd := range []*cobra.Command{generateCmd, beaconCmd} {
 		if cmd.Flags().Lookup("remote-step") == nil || cmd.Flags().Lookup("builder") == nil {
 			t.Fatalf("%q is missing remote step or builder pin flag", cmd.Use)
+		}
+		if cmd.Flags().Lookup("template") != nil {
+			t.Fatalf("%q still exposes legacy template selection", cmd.Use)
 		}
 	}
 }

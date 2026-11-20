@@ -75,12 +75,19 @@ func TestPlanRequestFromFlagsBeacon(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if request.Mode != "beacon" || request.Format != "exe" {
+	if request.Mode != "beacon" || request.Format != "exe" || request.GetBeaconSettings().GetIntervalSeconds() != 30 ||
+		request.GetBeaconSettings().GetJitterSeconds() != 30 {
 		t.Fatalf("wrong beacon request: %+v", request)
 	}
 	_ = cmd.Flags().Set("seconds", "1")
 	if _, err := planRequestFromFlags(cmd, true); err == nil || !strings.Contains(err.Error(), "beacon interval") {
 		t.Fatalf("short beacon interval should be rejected: %v", err)
+	}
+	_ = cmd.Flags().Set("seconds", "90")
+	_ = cmd.Flags().Set("jitter", "15")
+	request, err = planRequestFromFlags(cmd, true)
+	if err != nil || request.GetBeaconSettings().GetIntervalSeconds() != 90 || request.GetBeaconSettings().GetJitterSeconds() != 15 {
+		t.Fatalf("custom beacon settings were not preserved: request=%+v err=%v", request, err)
 	}
 }
 
@@ -101,7 +108,7 @@ func TestPlanRequestFromFlagsPinsRemoteBuilder(t *testing.T) {
 	}
 }
 
-func TestAssignedStepCompatibilityKeepsLegacySettings(t *testing.T) {
+func TestAssignedStepCompatibilityRejectsUnrepresentedSettings(t *testing.T) {
 	cmd := previewTestCommand(t, false)
 	config := &clientpb.ImplantConfig{HTTPC2ConfigName: "default"}
 	if err := remoteStepCompatibility(cmd, config); err != nil {
@@ -114,17 +121,22 @@ func TestAssignedStepCompatibilityKeepsLegacySettings(t *testing.T) {
 	cmd = previewTestCommand(t, false)
 	config.IsBeacon = true
 	config.BeaconInterval = int64(30 * time.Second)
-	if err := remoteStepCompatibility(cmd, config); err == nil {
-		t.Fatal("custom beacon timing would be lost in assigned-step conversion")
+	config.BeaconJitter = int64(15 * time.Second)
+	if err := remoteStepCompatibility(cmd, config); err != nil {
+		t.Fatalf("custom beacon timing is represented in assigned steps: %v", err)
 	}
 	config.IsBeacon = false
 	config.Format = clientpb.OutputFormat_SHELLCODE
-	if err := remoteStepCompatibility(cmd, config); err == nil {
-		t.Fatal("legacy shellcode defaults should retain compatibility route")
-	}
-	_ = cmd.Flags().Set("remote-step", "true")
 	if err := remoteStepCompatibility(cmd, config); err != nil {
-		t.Fatalf("explicit neutral shellcode route should be available: %v", err)
+		t.Fatalf("shellcode should use assigned steps: %v", err)
+	}
+	cmd = previewTestCommand(t, false)
+	if err := cmd.Flags().Set("traffic-encoders", "custom"); err != nil {
+		t.Fatal(err)
+	}
+	config.TrafficEncodersEnabled = false // The legacy parser ignores this without HTTP C2.
+	if err := remoteStepCompatibility(cmd, config); err == nil || !strings.Contains(err.Error(), "traffic encoder") {
+		t.Fatalf("explicit traffic encoder flag would be sent to the remote plan: %v", err)
 	}
 }
 

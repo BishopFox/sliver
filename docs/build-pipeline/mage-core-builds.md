@@ -87,8 +87,8 @@ contains compiler output. This directory contains private implant keys and
 must be handled like the server's other secret-bearing files. Its directories
 are owner-only; the default `--cleanup true` avoids retaining this material.
 `--save` still controls only the client-side binary destination. The opt-out
-applies to local builds; remote and legacy external builders keep their own
-private workspaces and do not support this flag. The client requires an updated
+applies to local builds; assigned-step remote builders keep their own private
+workspaces and do not support this flag. The client requires an updated
 server to return the retained path; an older server still saves the binary but
 reports that it did not confirm workspace retention.
 

@@ -26,8 +26,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util"
 
 	"google.golang.org/grpc/codes"
@@ -80,6 +78,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	var (
 		shellcode []byte
 		name      string
+		err       error
 	)
 
 	if req == nil || req.Request == nil {
@@ -91,18 +90,12 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, ErrInvalidSessionID
 	}
 
-	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
 	if req.Name == "" {
 		name, err = codenames.GetCodename()
 		if err != nil {
 			return nil, rpcError(err)
 		}
-	} else if err := util.AllowedName(name); err != nil {
+	} else if err := util.AllowedName(req.Name); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	} else {
 		name = req.Name
@@ -110,26 +103,12 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 
 	shellcode, _, err = getSliverShellcode(name)
 	if err != nil {
-		req.Config.Format = clientpb.OutputFormat_SHELLCODE
-		req.Config.ObfuscateSymbols = false
-		req.Config.IsShellcode = true
-		req.Config.IsSharedLib = false
-		req.Config.TemplateName = "sliver"
-		if len(req.Config.Exports) == 0 {
-			req.Config.Exports = []string{"StartW"}
-		}
-		build, err := generate.GenerateConfig(name, req.Config)
+		generated, generateErr := rpc.generateOnDemandShellcode(ctx, name, req.Config, false)
+		err = generateErr
 		if err != nil {
-			return nil, rpcError(err)
+			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(name, build, req.Config, httpC2Config.ImplantConfig)
-		if err != nil {
-			return nil, rpcError(err)
-		}
-		shellcode, err = generate.ReadAndRemoveSliverBuildOutput(name, req.Config, shellcodePath)
-		if err != nil {
-			return nil, rpcError(err)
-		}
+		shellcode = generated.GetFile().GetData()
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,

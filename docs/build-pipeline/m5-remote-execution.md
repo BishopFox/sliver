@@ -92,22 +92,17 @@ step cannot start until the uploaded bytes pass that validation.
 
 ## Commands and compatibility
 
-For configurations represented by the neutral build request,
 `generate -E` and `generate beacon -E` use assigned steps and download the
-server's recorded final artifact. `--builder NAME` pins the builder; the
-`--plan` preview shows the selected provider. `--remote-step` explicitly
-requires this path and reports an unsupported legacy setting instead of
-changing its meaning. The client checks the final artifact's size and
+server's recorded final artifact. `--builder NAME` pins the builder;
+`--plan` previews the resolved provider. `--remote-step` is an equivalent
+explicit remote request. The client checks the final artifact's size and
 SHA-256 against the build record before saving it.
 
-Some existing settings are not yet neutral core options, including custom
-beacon timing, WireGuard peer settings, a custom HTTP C2 profile, selected
-connection/retry settings, traffic encoder assets, and legacy shellcode
-configuration. `-E` keeps the existing external build compatibility path for
-those requests and prints that choice. `profiles generate --builder NAME`
-pins a migrated legacy profile build. M6 added authored server-side YAML
-profiles with ordered pipelines; see the [profile guide](m6-yaml-profiles.md).
-The compatibility `GenerateExternal` RPCs remain during migration.
+Settings that the neutral request cannot represent are rejected with a clear
+error before dispatch. The former external build event/RPC path has been
+removed. Migrated profiles can still build locally through the resolved
+pipeline; remote profile builds require an authored YAML profile. See the
+[profile guide](m6-yaml-profiles.md).
 
 ## Verification scope
 

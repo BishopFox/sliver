@@ -375,6 +375,9 @@ func canonicalProfileGenerate(cmd *cobra.Command, con *console.SliverClient, pro
 		if len(request.Inputs) != 0 {
 			return true, errors.New("the server does not support YAML per-build inputs")
 		}
+		if request.Provider != nil {
+			return true, errors.New("the server does not support assigned-step remote profile builds")
+		}
 		return false, nil // Older servers retain the legacy profile RPCs.
 	}
 	if err != nil {
@@ -384,12 +387,12 @@ func canonicalProfileGenerate(cmd *cobra.Command, con *console.SliverClient, pro
 		if len(request.Inputs) != 0 {
 			return true, errors.New("migrated legacy profiles do not declare YAML per-build inputs")
 		}
+		if request.Provider != nil {
+			return true, errors.New("migrated legacy profiles require local server generation; import an authored YAML profile for remote builds")
+		}
 		if doc.MigrationError != "" {
 			con.PrintWarnf("Profile %s requires legacy generation: %s\n", profileName, doc.MigrationError)
 			return false, nil
-		}
-		if request.Provider != nil {
-			return false, nil // Legacy external builder selection remains available.
 		}
 	}
 	if err := validateDeclaredProfileInputs(doc.YAML, request.Inputs); err != nil {

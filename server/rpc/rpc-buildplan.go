@@ -42,7 +42,7 @@ func (rpc *Server) buildRecordStore() (*buildplan.Store, error) {
 }
 
 // resolveBuildPlan uses the same catalog and installed compiler checks for
-// preview, neutral execution, and the legacy Generate compatibility path.
+// preview, neutral execution, and the Generate RPC compatibility path.
 func (rpc *Server) resolveBuildPlan(ctx context.Context, req buildplan.Request) (buildplan.Plan, error) {
 	catalog, err := rpc.buildCatalog()
 	if err != nil {

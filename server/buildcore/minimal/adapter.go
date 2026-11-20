@@ -311,7 +311,7 @@ func (Adapter) CompleteRemote(ctx context.Context, plan buildplan.Plan, raw []by
 	}
 	config := &clientpb.ImplantConfig{
 		GOOS: m.TargetOS, GOARCH: m.TargetArch, Format: clientpb.OutputFormat_EXECUTABLE,
-		TemplateName: SpecName, IncludeMTLS: true, HTTPC2ConfigName: "default",
+		IncludeMTLS: true, HTTPC2ConfigName: "default",
 		ReconnectInterval: int64(time.Duration(m.ReconnectSeconds) * time.Second),
 		C2:                []*clientpb.ImplantC2{{URL: m.Endpoint, Priority: 1}},
 	}

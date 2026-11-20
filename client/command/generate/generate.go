@@ -29,7 +29,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -42,7 +41,6 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/forms"
-	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
@@ -93,10 +91,6 @@ var (
 		"windows/amd64": true,
 		"windows/arm64": true,
 	}
-
-	ErrNoExternalBuilder = errors.New("no external builders are available")
-	ErrNoValidBuilders   = errors.New("no valid external builders for target")
-	ErrNoSelection       = errors.New("no selection")
 )
 
 const (
@@ -143,33 +137,15 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	useRemote, explicit, pin := remoteStepFlags(cmd)
-	if !useRemote {
+	if !remoteStepRequested(cmd) {
 		compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
-	} else if compatibilityErr := remoteStepCompatibility(cmd, config); compatibilityErr == nil || explicit {
-		if compatibilityErr != nil {
-			con.PrintErrorf("Assigned-step build cannot preserve this configuration: %s\n", compatibilityErr)
+	} else {
+		if err := remoteStepCompatibility(cmd, config); err != nil {
+			con.PrintErrorf("Remote assigned-step build cannot preserve this configuration: %s\n", err)
 			return
 		}
 		if _, err := remoteStepBuild(cmd, name, config, spoofMetadata, save, con); err != nil {
 			con.PrintErrorf("%s\n", err)
-		}
-	} else {
-		con.PrintInfof("Using legacy external build compatibility for %s\n", compatibilityErr)
-		_, err := externalBuild(name, config, spoofMetadata, save, pin, con)
-		if err != nil {
-			switch err {
-			case ErrNoExternalBuilder:
-				con.PrintErrorf("There are no external builders currently connected to the server\n")
-				con.PrintErrorf("See 'builders' command for more information\n")
-			case ErrNoValidBuilders:
-				con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
-				con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
-				con.PrintErrorf("See 'builders' command for more information\n")
-			default:
-				con.PrintErrorf("%s\n", err)
-			}
-			return
 		}
 	}
 }
@@ -187,8 +163,8 @@ func retainWorkspaceFromFlags(cmd *cobra.Command) (bool, error) {
 		return false, fmt.Errorf("invalid --cleanup value %q: expected a boolean", raw)
 	}
 	if !cleanup {
-		if remote, _, _ := remoteStepFlags(cmd); remote {
-			return false, errors.New("--cleanup false is supported only for local generation; remote and legacy external builders do not return a local server workspace")
+		if remoteStepRequested(cmd) {
+			return false, errors.New("--cleanup false is supported only for local generation; remote builders do not return a local server workspace")
 		}
 	}
 	return !cleanup, nil
@@ -430,7 +406,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 	debug, _ := cmd.Flags().GetBool("debug")
 	evasion, _ := cmd.Flags().GetBool("evasion")
-	templateName, _ := cmd.Flags().GetString("template")
 
 	reconnectInterval, _ := cmd.Flags().GetInt64("reconnect")
 	pollTimeout, _ := cmd.Flags().GetInt64("poll-timeout")
@@ -508,8 +483,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 
-	// Check to see if we can *probably* build the target binary
-	if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
+	// Only the local server needs its own cross-compiler for this request.
+	if !remoteStepRequested(cmd) && !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
 		return "", nil
 	}
 
@@ -584,7 +559,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
-		TemplateName:     templateName,
 
 		WGPeerTunIP:       tunIP.String(),
 		WGKeyExchangePort: wgKeyExchangePort,
@@ -1709,186 +1683,6 @@ func outputSavePath(save string, defaultName string, config *clientpb.ImplantCon
 	return adjustedPath, nil
 }
 
-func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save, builderPin string, con *console.SliverClient) (*commonpb.File, error) {
-	potentialBuilders, err := findExternalBuilders(config, con)
-	if err != nil {
-		return nil, err
-	}
-	var externalBuilder *clientpb.Builder
-	if builderPin != "" {
-		externalBuilder, err = selectPinnedExternalBuilder(potentialBuilders, builderPin)
-		if err != nil {
-			return nil, err
-		}
-	} else if len(potentialBuilders) == 1 {
-		externalBuilder = potentialBuilders[0]
-	} else {
-		con.PrintInfof("Found %d external builders that can compile this configuration", len(potentialBuilders))
-		externalBuilder, err = selectExternalBuilder(potentialBuilders, con)
-		if err != nil {
-			return nil, err
-		}
-	}
-	con.PrintInfof("Using external builder: %s\n", externalBuilder.Name)
-
-	if config.IsBeacon {
-		interval := time.Duration(config.BeaconInterval)
-		con.PrintInfof("Externally generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
-	} else {
-		con.PrintInfof("Externally generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
-	}
-	if config.ObfuscateSymbols {
-		con.PrintInfof("%s\n", console.StyleBold.Render("Symbol obfuscation is enabled"))
-	} else if !config.Debug {
-		con.PrintErrorf("Symbol obfuscation is %s\n", console.StyleBold.Render("disabled"))
-	}
-	start := time.Now()
-
-	listenerID, listener := con.CreateEventListener()
-
-	waiting := true
-	spinner := spin.New()
-
-	sigint := make(chan os.Signal, 1) // Catch keyboard interrupts
-	signal.Notify(sigint, os.Interrupt)
-
-	con.PrintInfof("Creating external build ... ")
-	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.ExternalGenerateReq{
-		Name:        name,
-		Config:      config,
-		BuilderName: externalBuilder.Name,
-	})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return nil, err
-	}
-	con.Printf("done\n")
-
-	msgF := "Waiting for external builder to acknowledge build (template: %s) ... %s"
-	for waiting {
-		select {
-
-		case <-time.After(100 * time.Millisecond):
-			elapsed := time.Since(start)
-			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
-			fmt.Fprintf(con.App.ActiveMenu().OutOrStdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
-
-		case event := <-listener:
-			switch event.EventType {
-
-			case consts.ExternalBuildFailedEvent:
-				parts := strings.SplitN(string(event.Data), ":", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				if parts[0] == externalImplantConfig.Build.ID {
-					con.RemoveEventListener(listenerID)
-					return nil, fmt.Errorf("external build failed: %s", parts[1])
-				}
-
-			case consts.AcknowledgeBuildEvent:
-				if string(event.Data) == externalImplantConfig.Build.ID {
-					msgF = "External build acknowledged by builder (template: %s) ... %s"
-				}
-
-			case consts.ExternalBuildCompletedEvent:
-				parts := strings.SplitN(string(event.Data), ":", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				if parts[0] == externalImplantConfig.Build.ID {
-					con.RemoveEventListener(listenerID)
-					name = parts[1]
-					waiting = false
-				}
-
-			}
-
-		case <-sigint:
-			waiting = false
-			con.Printf("\n")
-			return nil, fmt.Errorf("user interrupt")
-		}
-	}
-
-	elapsed := time.Since(start)
-	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
-
-	if spoofMetadata != nil {
-		if err := applySpoofMetadataToBuild("", name, spoofMetadata, con); err != nil {
-			return nil, err
-		}
-	}
-
-	generated, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-		ImplantName: name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
-
-	fileData := generated.File.Data
-	if config.IsShellcode {
-		encoder := config.ShellcodeEncoder
-		legacySGN := false
-		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
-			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-			legacySGN = true
-		}
-		if encoder != clientpb.ShellcodeEncoder_NONE {
-			encoderName := map[clientpb.ShellcodeEncoder]string{
-				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
-				clientpb.ShellcodeEncoder_XOR:            "xor",
-				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
-			}[encoder]
-			if encoderName == "" {
-				return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
-			}
-			encoderMap, err := fetchShellcodeEncoderMap(con)
-			if err != nil {
-				return nil, err
-			}
-			if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
-				msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
-				if legacySGN {
-					con.PrintWarnf("%s, skipping.\n", msg)
-				} else {
-					return nil, errors.New(msg)
-				}
-			} else {
-				con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
-				resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-					Encoder:      encoder,
-					Architecture: config.GOARCH,
-					Iterations:   1,
-					BadChars:     []byte{},
-					Data:         fileData,
-				})
-				if err != nil {
-					return nil, err
-				}
-				con.Printf("success!\n")
-				fileData = resp.GetData()
-			}
-		}
-	}
-
-	saveTo, err := outputSavePath(save, filepath.Base(generated.File.Name), config, con)
-	if err != nil {
-		return nil, err
-	}
-
-	err = os.WriteFile(saveTo, fileData, 0o700)
-	if err != nil {
-		con.PrintErrorf("Failed to write to: %s\n", saveTo)
-		return nil, err
-	}
-	con.PrintInfof("Implant saved to %s\n", saveTo)
-
-	return nil, nil
-}
-
 func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	return compileWithWorkspaceRetention(name, config, spoofMetadata, save, false, con)
 }
@@ -2149,59 +1943,4 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	confirm := false
 	_ = forms.Confirm("Try to compile anyways (will likely fail)?", &confirm)
 	return confirm
-}
-
-func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverClient) ([]*clientpb.Builder, error) {
-	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if len(builders.Builders) < 1 {
-		return []*clientpb.Builder{}, ErrNoExternalBuilder
-	}
-
-	validBuilders := []*clientpb.Builder{}
-	for _, builder := range builders.Builders {
-		for _, target := range builder.Targets {
-			if target.GOOS == config.GOOS && target.GOARCH == config.GOARCH && config.Format == target.Format {
-				validBuilders = append(validBuilders, builder)
-				break
-			}
-		}
-	}
-
-	if len(validBuilders) < 1 {
-		return []*clientpb.Builder{}, ErrNoValidBuilders
-	}
-
-	return validBuilders, nil
-}
-
-func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient) (*clientpb.Builder, error) {
-	choices := []string{}
-	for _, builder := range builders {
-		choices = append(choices, builder.Name)
-	}
-	choice := ""
-	_ = forms.Select("Select an external builder:", choices, &choice)
-
-	if choice == "" {
-		return nil, ErrNoSelection
-	}
-
-	for _, builder := range builders {
-		if builder.Name == choice {
-			return builder, nil
-		}
-	}
-	return nil, ErrNoValidBuilders
-}
-
-func selectPinnedExternalBuilder(builders []*clientpb.Builder, name string) (*clientpb.Builder, error) {
-	for _, builder := range builders {
-		if builder != nil && builder.Name == name {
-			return builder, nil
-		}
-	}
-	return nil, fmt.Errorf("pinned builder %q is unavailable for this target", name)
 }

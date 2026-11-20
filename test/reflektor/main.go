@@ -238,7 +238,6 @@ func run(opts options) error {
 		Config: &clientpb.ImplantConfig{
 			GOOS:                opts.targetOS,
 			GOARCH:              opts.targetArch,
-			TemplateName:        "sliver",
 			Debug:               false,
 			ObfuscateSymbols:    false,
 			IsBeacon:            false,

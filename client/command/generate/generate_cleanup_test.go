@@ -59,7 +59,7 @@ func TestGenerateCleanupFlagSpaceFormAndRouting(t *testing.T) {
 			}{
 				{"invalid value", "invalid --cleanup value", []string{"--cleanup", "sometimes"}},
 				{"assigned remote", "only for local generation", []string{"--cleanup", "false", "--remote-step"}},
-				{"legacy external", "only for local generation", []string{"--cleanup", "false", "-E"}},
+				{"assigned remote shorthand", "only for local generation", []string{"--cleanup", "false", "-E"}},
 				{"pinned builder", "only for local generation", []string{"--cleanup", "false", "--builder", "worker-a"}},
 			} {
 				t.Run(tc.name, func(t *testing.T) {

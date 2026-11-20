@@ -160,14 +160,11 @@ var (
 	builderMethods = map[string]bool{
 		"/rpcpb.SliverRPC/GetVersion": true,
 
-		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig": true,
-		"/rpcpb.SliverRPC/GenerateExternalSaveBuild":      true,
-		"/rpcpb.SliverRPC/BuilderRegister":                true,
-		"/rpcpb.SliverRPC/BuilderTrigger":                 true,
-		"/rpcpb.SliverRPC/BuilderUpdateStatus":            true,
-		"/rpcpb.SliverRPC/BuilderGetStep":                 true,
-		"/rpcpb.SliverRPC/BuilderSubmitStep":              true,
-		"/rpcpb.SliverRPC/Builders":                       true,
+		"/rpcpb.SliverRPC/BuilderRegister":     true,
+		"/rpcpb.SliverRPC/BuilderUpdateStatus": true,
+		"/rpcpb.SliverRPC/BuilderGetStep":      true,
+		"/rpcpb.SliverRPC/BuilderSubmitStep":   true,
+		"/rpcpb.SliverRPC/Builders":            true,
 	}
 	// Crackstation - Allowed methods
 	crackstationMethods = map[string]bool{
@@ -236,11 +233,8 @@ func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
 	switch fullMethod {
 	case "/rpcpb.SliverRPC/Crack",
 		"/rpcpb.SliverRPC/Generate",
-		"/rpcpb.SliverRPC/GenerateExternal",
 		"/rpcpb.SliverRPC/GenerateStage",
 		"/rpcpb.SliverRPC/Regenerate",
-		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig",
-		"/rpcpb.SliverRPC/GenerateExternalSaveBuild",
 		"/rpcpb.SliverRPC/GenerateWGClientConfig",
 		"/rpcpb.SliverRPC/PlanBuild",
 		"/rpcpb.SliverRPC/ExecuteBuild",
@@ -377,12 +371,6 @@ func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
 			return req
 		}
 		return &clientpb.GenerateReq{Name: build.Name}
-	case "/rpcpb.SliverRPC/GenerateExternal":
-		build, ok := req.(*clientpb.ExternalGenerateReq)
-		if !ok || build == nil {
-			return req
-		}
-		return &clientpb.ExternalGenerateReq{Name: build.Name, BuilderName: build.BuilderName}
 	case "/rpcpb.SliverRPC/GenerateStage":
 		stage, ok := req.(*clientpb.GenerateStageReq)
 		if !ok || stage == nil {
@@ -392,12 +380,6 @@ func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
 			Profile: stage.Profile, Name: stage.Name, PrependSize: stage.PrependSize,
 			CompressF: stage.CompressF, Compress: stage.Compress,
 		}
-	case "/rpcpb.SliverRPC/GenerateExternalSaveBuild":
-		build, ok := req.(*clientpb.ExternalImplantBinary)
-		if !ok || build == nil {
-			return req
-		}
-		return &clientpb.ExternalImplantBinary{Name: build.Name, ImplantBuildID: build.ImplantBuildID}
 	case "/rpcpb.SliverRPC/ValidateBuildProfile", "/rpcpb.SliverRPC/ImportBuildProfile":
 		profile, ok := req.(*clientpb.BuildProfileImportRequest)
 		if !ok || profile == nil {

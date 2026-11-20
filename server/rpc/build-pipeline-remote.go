@@ -115,7 +115,7 @@ func (rpc *Server) runMixedPlan(ctx context.Context, plan *buildplan.Plan, adapt
 		material := result.coreMaterial
 		defer clear(material)
 		if prepared != nil && prepared.Build != nil {
-			// SliverExternal persists runtime authentication before the worker
+			// Remote preparation persists runtime authentication before the worker
 			// compiles. A failed assignment, transform, or final save must not
 			// leave that prepared identity connectable.
 			defer discardFailedPreparedRemoteSliver(&run, prepared.Build)
@@ -348,7 +348,7 @@ func (rpc *Server) prepareRemoteCore(plan buildplan.Plan) (*clientpb.ExternalImp
 	if err != nil || httpC2 == nil || httpC2.ImplantConfig == nil {
 		return nil, errors.New("Sliver HTTP C2 configuration is unavailable")
 	}
-	prepared, err := generate.SliverExternal(name, config)
+	prepared, err := generate.PrepareRemoteSliverCore(name, config)
 	if err != nil {
 		return nil, err
 	}

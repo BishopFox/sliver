@@ -1,8 +1,9 @@
 # Legacy implant build baseline (M0)
 
-This is the compatibility baseline for the build-pipeline roadmap, read from
-commit `17724ef9b8de89ed53e64bdccb9852592a651599`. It describes current
-behavior, including behavior that later milestones must change. The companion
+This is the historical compatibility baseline for the build-pipeline roadmap,
+read from commit `17724ef9b8de89ed53e64bdccb9852592a651599`. It describes
+the M0 behavior, including the template selector and external builder path
+that have since been removed. The companion
 [`legacy-acceptance.json`](legacy-acceptance.json) enumerates target/output
 routes and negative cases. Run `python3 tools/check-build-pipeline-baseline.py`
 from the repository root to check the list and source-backed invariants. That
@@ -95,12 +96,11 @@ See [Generate RPC](../../server/rpc/rpc-generate.go),
 [client compile](../../client/command/generate/generate.go), and
 [build storage](../../server/generate/implants.go).
 
-`GenerateExternal` currently requires a named, connected builder and sends a
-whole Sliver config via an event. The client filters builders by target and
-output format, then prompts when more than one matches; the server receives
-one final file. This is the M5 migration baseline, not the new resource-aware
-selection rule. [External RPC](../../server/rpc/rpc-generate.go) and
-[client selection](../../client/command/generate/generate.go) are the source.
+At M0, `GenerateExternal` required a named, connected builder and sent a whole
+Sliver config via an event. The client filtered builders by target and output
+format, then prompted when more than one matched; the server received one
+final file. This was the M5 migration baseline. The event and RPC route have
+since been removed in favor of assigned build steps.
 
 `SaveImplantProfile` stores one `ImplantConfig`; saving the same name updates
 it. `ImplantProfiles` returns the current list. `profiles generate` uses that

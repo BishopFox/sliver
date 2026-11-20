@@ -24,6 +24,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestBuilderRegisterRejectsLegacyOnlyRegistration(t *testing.T) {
+	worker := &clientpb.Builder{Name: "legacy-only-worker", OperatorName: "worker-operator"}
+	stream := &stepRegisterStream{ctx: contextWithCommonName("worker-operator"), events: make(chan *clientpb.Event, 1)}
+	err := (&Server{}).BuilderRegister(worker, stream)
+	if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "assigned-step capabilities") {
+		t.Fatalf("legacy-only registration returned %v, want assigned-step rejection", err)
+	}
+	if core.GetBuilder(worker.Name) != nil {
+		t.Fatal("legacy-only worker remained registered")
+	}
+}
+
 func TestBuilderRegisterRejectsStepClaimsBeforeCatalogPublish(t *testing.T) {
 	for _, invalid := range []string{"short token", "wrong capability"} {
 		t.Run(invalid, func(t *testing.T) {

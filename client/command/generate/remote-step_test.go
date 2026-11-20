@@ -1,23 +1,108 @@
 package generate
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"testing"
 
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
-func TestSelectPinnedExternalBuilder(t *testing.T) {
-	builders := []*clientpb.Builder{{Name: "alpha"}, {Name: "bravo"}}
-	selected, err := selectPinnedExternalBuilder(builders, "bravo")
-	if err != nil || selected.Name != "bravo" {
-		t.Fatalf("pinned builder selection: %+v, %v", selected, err)
+type remoteWithoutLocalCompilerRPC struct {
+	rpcpb.SliverRPCClient
+	compilerCalls int
+	request       *clientpb.BuildRequest
+}
+
+func (rpc *remoteWithoutLocalCompilerRPC) GetCompiler(context.Context, *commonpb.Empty, ...grpc.CallOption) (*clientpb.Compiler, error) {
+	rpc.compilerCalls++
+	return &clientpb.Compiler{}, nil
+}
+
+func (rpc *remoteWithoutLocalCompilerRPC) ExecuteBuild(_ context.Context, request *clientpb.BuildRequest, _ ...grpc.CallOption) (*clientpb.BuildRecord, error) {
+	rpc.request = request
+	return nil, errors.New("stopped after recording remote build request")
+}
+
+func TestRemoteBuildSkipsLocalCompilerCheck(t *testing.T) {
+	rpc := &remoteWithoutLocalCompilerRPC{}
+	con := console.NewConsole(false)
+	if err := console.StartClient(con, rpc, nil, nil, nil, nil, false, ""); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := selectPinnedExternalBuilder(builders, "offline"); err == nil {
-		t.Fatal("unknown pinned builder was accepted")
+	rpc.compilerCalls = 0
+	cmd := cleanupCommand(t, false)
+	if err := cmd.Flags().Parse([]string{"--mtls", "example.test", "--os", "darwin", "--arch", "arm64",
+		"--format", "shared", "--exports", "Run", "-E"}); err != nil {
+		t.Fatal(err)
+	}
+	GenerateCmd(cmd, con, nil)
+	if rpc.compilerCalls != 0 {
+		t.Fatalf("remote build queried the local compiler %d times", rpc.compilerCalls)
+	}
+	if rpc.request == nil || rpc.request.GetProvider().GetMode() != "remote" ||
+		rpc.request.GetTarget().GetGOOS() != "darwin" || rpc.request.GetTarget().GetGOARCH() != "arm64" {
+		t.Fatalf("remote build did not reach assigned-step planning: %+v", rpc.request)
+	}
+}
+
+func TestExternalBuilderFlagUsesAssignedStepPlan(t *testing.T) {
+	cmd := previewTestCommand(t, false)
+	if err := cmd.Flags().Parse([]string{"--mtls", "example.test", "-E"}); err != nil {
+		t.Fatal(err)
+	}
+	if !remoteStepRequested(cmd) {
+		t.Fatal("-E did not select the assigned-step remote route")
+	}
+	request, err := planRequestFromFlags(cmd, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.GetProvider().GetMode() != "remote" || request.GetCore().GetName() != "builtin/sliver" {
+		t.Fatalf("-E did not produce a remote core build request: %+v", request)
+	}
+}
+
+func TestRemoteBuildCarriesSelectedShellcodeEncoder(t *testing.T) {
+	rpc := &remoteWithoutLocalCompilerRPC{}
+	con := console.NewConsole(false)
+	if err := console.StartClient(con, rpc, nil, nil, nil, nil, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	cmd := previewTestCommand(t, false)
+	if err := cmd.Flags().Parse([]string{"--mtls", "example.test", "--os", "linux", "--arch", "amd64",
+		"--format", "shellcode", "-E"}); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := planRequestFromFlags(cmd, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range preview.GetTransforms() {
+		if step.GetSpec().GetName() == "builtin/xor-dynamic" {
+			t.Fatal("flag-only preview included an interactive encoder choice")
+		}
+	}
+	_, err = remoteStepBuild(cmd, "payload", &clientpb.ImplantConfig{
+		GOOS: "linux", GOARCH: "amd64", Format: clientpb.OutputFormat_SHELLCODE,
+		ShellcodeEncoder: clientpb.ShellcodeEncoder_XOR_DYNAMIC,
+	}, nil, t.TempDir(), con)
+	if err == nil || rpc.request == nil {
+		t.Fatalf("remote request was not captured: request=%+v err=%v", rpc.request, err)
+	}
+	if cmd.Flags().Changed("shellcode-encoder") {
+		t.Fatal("actual build mutated the preview flags")
+	}
+	transforms := rpc.request.GetTransforms()
+	if len(transforms) < 2 || transforms[len(transforms)-1].GetSpec().GetName() != "builtin/xor-dynamic" {
+		t.Fatalf("interactive encoder choice missing from remote build: %+v", transforms)
 	}
 }
 
