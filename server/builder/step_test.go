@@ -99,11 +99,16 @@ func TestM7AssignedAlternateCoreRejectsForeignMaterialAndBinding(t *testing.T) {
 			}
 		})
 	}
-	adapter, installed := buildcore.DefaultAdapter(snapshot.Core.Executor.ID)
-	if !installed || !matchesBinding(snapshot.Core, adapter) {
+	assertAlternateCoreBinding(t, snapshot.Core)
+}
+
+func assertAlternateCoreBinding(t *testing.T, core *buildcatalog.CoreSpec) {
+	t.Helper()
+	adapter, installed := buildcore.DefaultAdapter(core.Executor.ID)
+	if !installed || !matchesBinding(core, adapter) {
 		t.Fatal("declared alternate core binding is unavailable")
 	}
-	altered := *snapshot.Core
+	altered := *core
 	binding := *altered.Builder
 	binding.Magefile = "magefiles/other"
 	altered.Builder = &binding
@@ -144,23 +149,13 @@ func TestAssignedTransformValidatesBuilderSpecTargetAndTypedInput(t *testing.T) 
 	if output.Type.Kind != "shellcode" || output.Type.GOOS != "windows" || output.SHA256 != payloadSHA256(output.Data) {
 		t.Fatalf("wrong typed transform output: %+v", output)
 	}
-	mutate := func(change func(*clientpb.BuilderStepRequest)) *clientpb.BuilderStepRequest {
-		copy := *request
-		step := *request.Step
-		inputPayload := *request.Input
-		copy.Step, copy.Input = &step, &inputPayload
-		change(&copy)
-		return &copy
-	}
 	for _, test := range []struct {
 		name   string
 		change func(*clientpb.BuilderStepRequest)
 	}{
 		{"wrong builder", func(r *clientpb.BuilderStepRequest) { r.Step.Provider = "worker-b" }},
 		{"wrong spec", func(r *clientpb.BuilderStepRequest) {
-			refCopy := *r.Step.Spec
-			refCopy.Digest = "sha256:" + strings.Repeat("0", 64)
-			r.Step.Spec = &refCopy
+			r.Step.Spec.Digest = "sha256:" + strings.Repeat("0", 64)
 		}},
 		{"wrong target", func(r *clientpb.BuilderStepRequest) {
 			r.Request = &clientpb.BuildRequest{Target: &clientpb.BuildTarget{GOOS: "linux", GOARCH: "amd64"}}
@@ -171,7 +166,8 @@ func TestAssignedTransformValidatesBuilderSpecTargetAndTypedInput(t *testing.T) 
 		{"wrong checksum", func(r *clientpb.BuilderStepRequest) { r.Input.SHA256 = strings.Repeat("0", 64) }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			bad := mutate(test.change)
+			bad := proto.CloneOf(request)
+			test.change(bad)
 			if _, _, err := b.executeAssignedStep(context.Background(), bad.AssignmentID, bad); err == nil {
 				t.Fatal("accepted invalid assigned step")
 			}

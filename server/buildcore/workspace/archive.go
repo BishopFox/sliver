@@ -70,7 +70,7 @@ func extractArchive(archivePath, dest string, limits ArchiveLimits) error {
 	if err != nil {
 		return fmt.Errorf("open archive destination: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	name := strings.ToLower(archivePath)
 	switch {
@@ -142,6 +142,13 @@ func (budget *extractionBudget) addPath(name string, directory bool) (string, er
 	if budget.entries > budget.limits.MaxEntries {
 		return "", errors.New("core archive has too many entries")
 	}
+	if err := budget.recordPath(name, directory); err != nil {
+		return "", err
+	}
+	return local, nil
+}
+
+func (budget *extractionBudget) recordPath(name string, directory bool) error {
 	parts := strings.Split(name, "/")
 	for index := range parts {
 		current := strings.Join(parts[:index+1], "/")
@@ -151,7 +158,7 @@ func (budget *extractionBudget) addPath(name string, directory bool) (string, er
 		if exists {
 			if entry.name != current || !entry.directory && (!isLeaf || directory) ||
 				isLeaf && (entry.explicit || !directory) {
-				return "", fmt.Errorf("duplicate or conflicting core archive path %q", name)
+				return fmt.Errorf("duplicate or conflicting core archive path %q", name)
 			}
 			if isLeaf {
 				entry.explicit = true
@@ -163,7 +170,7 @@ func (budget *extractionBudget) addPath(name string, directory bool) (string, er
 			name: current, directory: !isLeaf || directory, explicit: isLeaf,
 		}
 	}
-	return local, nil
+	return nil
 }
 
 func (budget *extractionBudget) allowFile(size int64) error {
@@ -186,7 +193,7 @@ func extractZIP(archivePath string, root *os.Root, limits ArchiveLimits) error {
 	if err != nil {
 		return fmt.Errorf("open core ZIP: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Size() > limits.MaxArchiveBytes {
 		return errors.New("core ZIP is not a regular file within the size limit")
@@ -203,60 +210,69 @@ func extractZIP(archivePath string, root *os.Root, limits ArchiveLimits) error {
 	}
 	budget := extractionBudget{limits: limits, seen: make(map[string]archivePathEntry, len(reader.File))}
 	for _, entry := range reader.File {
-		mode := entry.Mode()
-		isDir := mode.IsDir()
-		if isDir != strings.HasSuffix(entry.Name, "/") || entry.Flags&1 != 0 ||
-			entry.Method != zip.Store && entry.Method != zip.Deflate {
-			return fmt.Errorf("unsupported ZIP entry %q", entry.Name)
-		}
-		local, err := budget.addPath(entry.Name, isDir)
-		if err != nil {
-			return err
-		}
-		if isDir {
-			if mode&fs.ModeType != fs.ModeDir {
-				return fmt.Errorf("unsupported ZIP directory type %q", entry.Name)
-			}
-			if entry.UncompressedSize64 != 0 || entry.CompressedSize64 != 0 {
-				return fmt.Errorf("core ZIP directory %q has content", entry.Name)
-			}
-			if err := root.MkdirAll(local, 0o700); err != nil {
-				return fmt.Errorf("create core ZIP directory: %w", err)
-			}
-			continue
-		}
-		if !mode.IsRegular() {
-			return fmt.Errorf("unsupported ZIP entry type %q", entry.Name)
-		}
-		if entry.UncompressedSize64 > uint64(limits.MaxFileBytes) ||
-			entry.UncompressedSize64 > uint64(limits.MaxTotalBytes-budget.bytes) {
-			return errors.New("core ZIP exceeds uncompressed size limit")
-		}
-		in, err := entry.Open()
-		if err != nil {
-			return fmt.Errorf("open core ZIP entry: %w", err)
-		}
-		maxFile := limits.MaxFileBytes
-		if remaining := limits.MaxTotalBytes - budget.bytes; remaining < maxFile {
-			maxFile = remaining
-		}
-		size, writeErr := writeBounded(root, local, mode, in, maxFile)
-		closeErr := in.Close()
-		if writeErr != nil {
-			return writeErr
-		}
-		if closeErr != nil {
-			return fmt.Errorf("close core ZIP entry: %w", closeErr)
-		}
-		if uint64(size) != entry.UncompressedSize64 {
-			_ = root.Remove(local)
-			return fmt.Errorf("core ZIP entry %q size does not match its header", entry.Name)
-		}
-		if err := budget.addBytes(size); err != nil {
+		if err := extractZIPEntry(root, &budget, entry); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func extractZIPEntry(root *os.Root, budget *extractionBudget, entry *zip.File) error {
+	mode := entry.Mode()
+	isDir := mode.IsDir()
+	if isDir != strings.HasSuffix(entry.Name, "/") || entry.Flags&1 != 0 ||
+		entry.Method != zip.Store && entry.Method != zip.Deflate {
+		return fmt.Errorf("unsupported ZIP entry %q", entry.Name)
+	}
+	local, err := budget.addPath(entry.Name, isDir)
+	if err != nil {
+		return err
+	}
+	if isDir {
+		if mode&fs.ModeType != fs.ModeDir {
+			return fmt.Errorf("unsupported ZIP directory type %q", entry.Name)
+		}
+		if entry.UncompressedSize64 != 0 || entry.CompressedSize64 != 0 {
+			return fmt.Errorf("core ZIP directory %q has content", entry.Name)
+		}
+		if err := root.MkdirAll(local, 0o700); err != nil {
+			return fmt.Errorf("create core ZIP directory: %w", err)
+		}
+		return nil
+	}
+	return extractZIPFile(root, budget, entry, mode, local)
+}
+
+func extractZIPFile(root *os.Root, budget *extractionBudget, entry *zip.File, mode fs.FileMode, local string) error {
+	limits := budget.limits
+	if !mode.IsRegular() {
+		return fmt.Errorf("unsupported ZIP entry type %q", entry.Name)
+	}
+	if entry.UncompressedSize64 > uint64(limits.MaxFileBytes) ||
+		entry.UncompressedSize64 > uint64(limits.MaxTotalBytes-budget.bytes) {
+		return errors.New("core ZIP exceeds uncompressed size limit")
+	}
+	in, err := entry.Open()
+	if err != nil {
+		return fmt.Errorf("open core ZIP entry: %w", err)
+	}
+	maxFile := limits.MaxFileBytes
+	if remaining := limits.MaxTotalBytes - budget.bytes; remaining < maxFile {
+		maxFile = remaining
+	}
+	size, writeErr := writeBounded(root, local, mode, in, maxFile)
+	closeErr := in.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close core ZIP entry: %w", closeErr)
+	}
+	if uint64(size) != entry.UncompressedSize64 {
+		_ = root.Remove(local)
+		return fmt.Errorf("core ZIP entry %q size does not match its header", entry.Name)
+	}
+	return budget.addBytes(size)
 }
 
 // precheckZIPDirectory bounds the number of central directory records before
@@ -294,31 +310,34 @@ func precheckZIPDirectory(file *os.File, size int64, maxEntries int) error {
 			int64(centralOffset)+int64(centralSize) != endOffset {
 			return errors.New("core ZIP central directory is invalid or ZIP64")
 		}
-		position := int64(centralOffset)
-		for range count {
-			if endOffset-position < 46 {
-				return errors.New("core ZIP central directory is truncated")
-			}
-			var header [46]byte
-			if _, err := file.ReadAt(header[:], position); err != nil {
-				return fmt.Errorf("read core ZIP central directory: %w", err)
-			}
-			if string(header[:4]) != "PK\x01\x02" {
-				return errors.New("core ZIP has an invalid central directory entry")
-			}
-			entrySize := int64(46) + int64(binary.LittleEndian.Uint16(header[28:30])) +
-				int64(binary.LittleEndian.Uint16(header[30:32])) + int64(binary.LittleEndian.Uint16(header[32:34]))
-			position += entrySize
-			if position > endOffset {
-				return errors.New("core ZIP central directory entry exceeds its boundary")
-			}
-		}
-		if position != endOffset {
-			return errors.New("core ZIP central directory count does not match its contents")
-		}
-		return nil
+		return validateZIPCentralDirectory(file, int64(centralOffset), endOffset, count)
 	}
 	return errors.New("core ZIP has no valid end record")
+}
+
+func validateZIPCentralDirectory(file *os.File, position, endOffset int64, count uint16) error {
+	for range count {
+		if endOffset-position < 46 {
+			return errors.New("core ZIP central directory is truncated")
+		}
+		var header [46]byte
+		if _, err := file.ReadAt(header[:], position); err != nil {
+			return fmt.Errorf("read core ZIP central directory: %w", err)
+		}
+		if string(header[:4]) != "PK\x01\x02" {
+			return errors.New("core ZIP has an invalid central directory entry")
+		}
+		entrySize := int64(46) + int64(binary.LittleEndian.Uint16(header[28:30])) +
+			int64(binary.LittleEndian.Uint16(header[30:32])) + int64(binary.LittleEndian.Uint16(header[32:34]))
+		position += entrySize
+		if position > endOffset {
+			return errors.New("core ZIP central directory entry exceeds its boundary")
+		}
+	}
+	if position != endOffset {
+		return errors.New("core ZIP central directory count does not match its contents")
+	}
+	return nil
 }
 
 func extractTAR(archivePath string, root *os.Root, limits ArchiveLimits, compressed bool) error {
@@ -326,14 +345,14 @@ func extractTAR(archivePath string, root *os.Root, limits ArchiveLimits, compres
 	if err != nil {
 		return fmt.Errorf("open core TAR: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	var stream io.Reader = file
 	if compressed {
 		gz, err := gzip.NewReader(file)
 		if err != nil {
 			return fmt.Errorf("open core gzip stream: %w", err)
 		}
-		defer gz.Close()
+		defer func() { _ = gz.Close() }()
 		stream = gz
 	}
 	// Count TAR headers and padding as well as file bytes. A bounded reader also
@@ -343,21 +362,16 @@ func extractTAR(archivePath string, root *os.Root, limits ArchiveLimits, compres
 		return errors.New("core TAR decompression limit overflows")
 	}
 	bounded := &io.LimitedReader{R: stream, N: streamLimit}
+	return extractTAREntries(root, limits, bounded)
+}
+
+func extractTAREntries(root *os.Root, limits ArchiveLimits, bounded *io.LimitedReader) error {
 	reader := tar.NewReader(bounded)
 	budget := extractionBudget{limits: limits, seen: map[string]archivePathEntry{}}
 	for {
 		header, err := reader.Next()
 		if err == io.EOF {
-			if bounded.N == 0 {
-				return errors.New("core TAR exceeds decompression limit")
-			}
-			if _, err := io.Copy(io.Discard, bounded); err != nil {
-				return fmt.Errorf("finish core TAR stream: %w", err)
-			}
-			if bounded.N == 0 {
-				return errors.New("core TAR exceeds decompression limit")
-			}
-			return nil
+			return finishTARStream(bounded)
 		}
 		if err != nil {
 			return fmt.Errorf("read core TAR entry: %w", err)
@@ -365,37 +379,55 @@ func extractTAR(archivePath string, root *os.Root, limits ArchiveLimits, compres
 		if header.Typeflag == tar.TypeDir && (header.Name == "." || header.Name == "./") {
 			continue
 		}
-		local, err := budget.addPath(header.Name, header.Typeflag == tar.TypeDir)
+		if err := extractTAREntry(root, &budget, header, reader); err != nil {
+			return err
+		}
+	}
+}
+
+func finishTARStream(bounded *io.LimitedReader) error {
+	if bounded.N == 0 {
+		return errors.New("core TAR exceeds decompression limit")
+	}
+	if _, err := io.Copy(io.Discard, bounded); err != nil {
+		return fmt.Errorf("finish core TAR stream: %w", err)
+	}
+	if bounded.N == 0 {
+		return errors.New("core TAR exceeds decompression limit")
+	}
+	return nil
+}
+
+func extractTAREntry(root *os.Root, budget *extractionBudget, header *tar.Header, reader io.Reader) error {
+	local, err := budget.addPath(header.Name, header.Typeflag == tar.TypeDir)
+	if err != nil {
+		return err
+	}
+	switch header.Typeflag {
+	case tar.TypeDir:
+		if header.Size != 0 {
+			return fmt.Errorf("core TAR directory %q has content", header.Name)
+		}
+		if err := root.MkdirAll(local, 0o700); err != nil {
+			return fmt.Errorf("create core TAR directory: %w", err)
+		}
+	case tar.TypeReg:
+		if err := budget.allowFile(header.Size); err != nil {
+			return err
+		}
+		size, err := writeBounded(root, local, fs.FileMode(header.Mode), reader, budget.limits.MaxFileBytes)
 		if err != nil {
 			return err
 		}
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if header.Size != 0 {
-				return fmt.Errorf("core TAR directory %q has content", header.Name)
-			}
-			if err := root.MkdirAll(local, 0o700); err != nil {
-				return fmt.Errorf("create core TAR directory: %w", err)
-			}
-		case tar.TypeReg, tar.TypeRegA:
-			if err := budget.allowFile(header.Size); err != nil {
-				return err
-			}
-			size, err := writeBounded(root, local, fs.FileMode(header.Mode), reader, limits.MaxFileBytes)
-			if err != nil {
-				return err
-			}
-			if size != header.Size {
-				_ = root.Remove(local)
-				return fmt.Errorf("core TAR entry %q size does not match its header", header.Name)
-			}
-			if err := budget.addBytes(size); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("unsupported TAR entry type %q", header.Name)
+		if size != header.Size {
+			_ = root.Remove(local)
+			return fmt.Errorf("core TAR entry %q size does not match its header", header.Name)
 		}
+		return budget.addBytes(size)
+	default:
+		return fmt.Errorf("unsupported TAR entry type %q", header.Name)
 	}
+	return nil
 }
 
 func writeBounded(root *os.Root, name string, originalMode fs.FileMode, source io.Reader, maxBytes int64) (int64, error) {

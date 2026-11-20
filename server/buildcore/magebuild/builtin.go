@@ -49,6 +49,8 @@ func BuiltinSliverDigest() (string, error) {
 
 // StageBuiltinSliverBundle writes the embedded Magefile to a fresh or empty
 // private directory under one build workspace. It refuses symlinks and files.
+//
+//nolint:gocyclo // The checks cover the sequence from destination validation through digest verification.
 func StageBuiltinSliverBundle(dir string) (string, error) {
 	data, err := builtinSliverFiles.ReadFile("builtin/sliver/magefile.go")
 	if err != nil {
@@ -62,14 +64,14 @@ func StageBuiltinSliverBundle(dir string) (string, error) {
 	} else if err != nil {
 		return "", err
 	} else if !info.IsDir() || runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0 {
-		return "", errors.New("Magefile destination must be a private directory")
+		return "", errors.New("the Magefile destination must be a private directory")
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", err
 	}
 	if len(entries) != 0 {
-		return "", errors.New("Magefile destination is not empty")
+		return "", errors.New("the Magefile destination is not empty")
 	}
 	path := filepath.Join(dir, "magefile.go")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

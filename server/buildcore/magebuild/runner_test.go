@@ -15,6 +15,7 @@ import (
 	"github.com/magefile/mage/mage"
 )
 
+//nolint:gocyclo // Both the compiled runner and CLI must consume the same fixture and manifest.
 func TestBuiltinSliverMageBuild(t *testing.T) {
 	goCmd, err := exec.LookPath("go")
 	if err != nil {
@@ -25,16 +26,10 @@ func TestBuiltinSliverMageBuild(t *testing.T) {
 	source := filepath.Join(work, "src")
 	bin := filepath.Join(work, "bin")
 	input := filepath.Join(work, "inputs")
-	for _, dir := range []string{source, bin, input} {
-		if err := os.MkdirAll(dir, 0700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(source, "go.mod"), []byte("module example.com/magefixture\n\ngo 1.22\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(source, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"mage-build-ok\") }\n"), 0600); err != nil {
-		t.Fatal(err)
+	writeMageFixture(t, source, bin, input)
+	goRoot, err := exec.CommandContext(t.Context(), goCmd, "env", "GOROOT").Output()
+	if err != nil {
+		t.Fatalf("resolve fixture GOROOT: %v", err)
 	}
 	bundle := filepath.Join(work, "magefiles")
 	if err := os.Mkdir(bundle, 0700); err != nil {
@@ -53,7 +48,7 @@ func TestBuiltinSliverMageBuild(t *testing.T) {
 		Version: 1,
 		GoConfig: GoConfig{
 			ProjectDir: work, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH,
-			GOROOT: runtime.GOROOT(), GOCACHE: filepath.Join(root, "go-cache"),
+			GOROOT: strings.TrimSpace(string(goRoot)), GOCACHE: filepath.Join(root, "go-cache"),
 			GOMODCACHE: filepath.Join(root, "mod-cache"), GOPROXY: "off", CGO: "0",
 		},
 		SourceDir: source, Destination: destination, ResultPath: resultPath,
@@ -93,6 +88,26 @@ func TestBuiltinSliverMageBuild(t *testing.T) {
 	if err != nil || strings.TrimSpace(string(output)) != "mage-build-ok" {
 		t.Fatalf("compiled artifact: %q, %v", output, err)
 	}
+	checkMageCLI(t, bundle, work, manifestPath, resultPath, destination)
+}
+
+func writeMageFixture(t *testing.T, source, bin, input string) {
+	t.Helper()
+	for _, dir := range []string{source, bin, input} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(source, "go.mod"), []byte("module example.com/magefixture\n\ngo 1.22\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"mage-build-ok\") }\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func checkMageCLI(t *testing.T, bundle, work, manifestPath, resultPath, destination string) {
+	t.Helper()
 	// The same installed Magefile must remain usable through the Mage CLI
 	// argument path, independent of the server's cached compiled runner.
 	if err := os.Remove(destination); err != nil {
@@ -101,7 +116,7 @@ func TestBuiltinSliverMageBuild(t *testing.T) {
 	if err := os.Remove(resultPath); err != nil {
 		t.Fatal(err)
 	}
-	stderr.Reset()
+	var stderr bytes.Buffer
 	if code := mage.ParseAndRun(&bytes.Buffer{}, &stderr, nil,
 		[]string{"-d", bundle, "-w", work, "build", manifestPath}); code != 0 {
 		t.Fatalf("Mage CLI path exited %d: %s", code, stderr.String())
@@ -109,7 +124,7 @@ func TestBuiltinSliverMageBuild(t *testing.T) {
 	if _, err := os.Stat(resultPath); err != nil {
 		t.Fatalf("Mage CLI path did not publish result: %v", err)
 	}
-	output, err = exec.Command(destination).CombinedOutput()
+	output, err := exec.Command(destination).CombinedOutput()
 	if err != nil || strings.TrimSpace(string(output)) != "mage-build-ok" {
 		t.Fatalf("Mage CLI artifact: %q, %v", output, err)
 	}

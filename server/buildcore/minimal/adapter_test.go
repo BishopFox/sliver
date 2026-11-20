@@ -46,7 +46,11 @@ func TestInstalledMageDigestAndLiteralSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer work.Remove()
+	t.Cleanup(func() {
+		if err := work.Remove(); err != nil {
+			t.Errorf("remove workspace: %v", err)
+		}
+	})
 	adapter := mageAdapter(nil)
 	if err := work.CopySource(adapter.Source); err != nil {
 		t.Fatal(err)

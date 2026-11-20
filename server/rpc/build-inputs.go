@@ -22,6 +22,8 @@ type buildInputKey struct {
 // buildInputResolver copies ephemeral request material into a per-build map.
 // The neutral plan and record contain only typed references, never these
 // bytes. The returned cleanup overwrites the private copies after execution.
+
+//nolint:gocyclo // Input admission, ownership, and cleanup must agree on the same request values.
 func buildInputResolver(inputs []*clientpb.BuildInput) (buildtransform.ResolveInput, func(), error) {
 	if len(inputs) == 0 {
 		return nil, func() {}, nil

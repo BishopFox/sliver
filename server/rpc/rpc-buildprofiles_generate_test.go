@@ -23,6 +23,8 @@ import (
 // TestM6AuthoredProfileBuildFreezesSnapshot proves that imported YAML runs the
 // installed Sliver compiler and keeps its resolved plan and bytes after a
 // profile edit and definition deletion.
+
+//nolint:gocyclo // The test asserts the snapshot throughout import, execution, and record retrieval.
 func TestM6AuthoredProfileBuildFreezesSnapshot(t *testing.T) {
 	if !generate.SupportedCompilerTargets[runtime.GOOS+"/"+runtime.GOARCH] {
 		t.Skip("native host is not a supported Sliver target")
@@ -96,6 +98,8 @@ func TestM6AuthoredProfileBuildFreezesSnapshot(t *testing.T) {
 
 // TestM6MigratedProfileBuildPreservesLegacyConfig uses the compatibility path
 // and checks settings not previously carried by the neutral request.
+
+//nolint:gocyclo // Migration and execution are checked against the same original configuration.
 func TestM6MigratedProfileBuildPreservesLegacyConfig(t *testing.T) {
 	if !generate.SupportedCompilerTargets[runtime.GOOS+"/"+runtime.GOARCH] {
 		t.Skip("native host is not a supported Sliver target")

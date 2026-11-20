@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	// MaxSpecYAMLBytes limits the size of a catalog spec document.
 	MaxSpecYAMLBytes = 1 << 20
 	maxSafeInteger   = int64(9007199254740991)
 )
@@ -64,7 +65,26 @@ func parseSpec(raw []byte) (parsedSpec, error) {
 	if err := validateYAMLNode(document.Content[0]); err != nil {
 		return parsedSpec{}, err
 	}
-	fullJSON, err := canonicalJSON(document.Content[0], false)
+	root := document.Content[0]
+	parsed, err := decodeSpecFields(root)
+	if err != nil {
+		return parsedSpec{}, err
+	}
+	unsignedJSON, err := canonicalJSON(root, true)
+	if err != nil {
+		return parsedSpec{}, err
+	}
+	digest := sha256.Sum256(unsignedJSON)
+	actual := "sha256:" + hex.EncodeToString(digest[:])
+	if parsed.reference.Digest != actual {
+		return parsedSpec{}, fmt.Errorf("spec digest mismatch: got %s, calculated %s", parsed.reference.Digest, actual)
+	}
+	parsed.raw = append([]byte(nil), raw...)
+	return parsed, nil
+}
+
+func decodeSpecFields(root *yaml.Node) (parsedSpec, error) {
+	fullJSON, err := canonicalJSON(root, false)
 	if err != nil {
 		return parsedSpec{}, err
 	}
@@ -74,10 +94,10 @@ func parseSpec(raw []byte) (parsedSpec, error) {
 	if err := json.Unmarshal(fullJSON, &header); err != nil {
 		return parsedSpec{}, fmt.Errorf("decode spec kind: %w", err)
 	}
-	if err := validateRequiredFields(document.Content[0], header.Kind); err != nil {
+	if err := validateRequiredFields(root, header.Kind); err != nil {
 		return parsedSpec{}, err
 	}
-	parsed := parsedSpec{kind: header.Kind, raw: append([]byte(nil), raw...)}
+	parsed := parsedSpec{kind: header.Kind}
 	switch header.Kind {
 	case "CoreSpec":
 		var spec CoreSpec
@@ -99,15 +119,6 @@ func parseSpec(raw []byte) (parsedSpec, error) {
 		parsed.reference, parsed.transform = spec.Metadata, &spec
 	default:
 		return parsedSpec{}, fmt.Errorf("unsupported spec kind %q", header.Kind)
-	}
-	unsignedJSON, err := canonicalJSON(document.Content[0], true)
-	if err != nil {
-		return parsedSpec{}, err
-	}
-	digest := sha256.Sum256(unsignedJSON)
-	actual := "sha256:" + hex.EncodeToString(digest[:])
-	if parsed.reference.Digest != actual {
-		return parsedSpec{}, fmt.Errorf("spec digest mismatch: got %s, calculated %s", parsed.reference.Digest, actual)
 	}
 	return parsed, nil
 }
@@ -184,24 +195,46 @@ func validateRequiredFields(root *yaml.Node, kind string) error {
 		return err
 	}
 	if kind == "CoreSpec" {
-		if err := requireYAMLFields(root, "spec", "runtime"); err != nil {
+		if err := validateCoreFields(root); err != nil {
 			return err
-		}
-		if err := requireYAMLFields(yamlField(root, "runtime"), "runtime", "protocol", "commandSource"); err != nil {
-			return err
-		}
-		if source := yamlField(root, "source"); source != nil {
-			if err := requireYAMLFields(source, "source", "mode"); err != nil {
-				return err
-			}
-		}
-		if builder := yamlField(root, "builder"); builder != nil {
-			if err := requireYAMLFields(builder, "builder", "engine", "magefile", "target"); err != nil {
-				return err
-			}
 		}
 	}
-	options := yamlField(root, "options")
+	if err := validateOptionFields(yamlField(root, "options")); err != nil {
+		return err
+	}
+	capabilities := yamlField(root, "capabilities")
+	if capabilities.Kind != yaml.SequenceNode {
+		return errors.New("capabilities must be a sequence")
+	}
+	for index, capability := range capabilities.Content {
+		if err := validateCapabilityFields(capability, kind, fmt.Sprintf("capabilities[%d]", index)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCoreFields(root *yaml.Node) error {
+	if err := requireYAMLFields(root, "spec", "runtime"); err != nil {
+		return err
+	}
+	if err := requireYAMLFields(yamlField(root, "runtime"), "runtime", "protocol", "commandSource"); err != nil {
+		return err
+	}
+	if source := yamlField(root, "source"); source != nil {
+		if err := requireYAMLFields(source, "source", "mode"); err != nil {
+			return err
+		}
+	}
+	if builder := yamlField(root, "builder"); builder != nil {
+		if err := requireYAMLFields(builder, "builder", "engine", "magefile", "target"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateOptionFields(options *yaml.Node) error {
 	if options.Kind != yaml.SequenceNode {
 		return errors.New("options must be a sequence")
 	}
@@ -213,64 +246,69 @@ func validateRequiredFields(root *yaml.Node, kind string) error {
 			return fmt.Errorf("options[%d].description cannot be empty", index)
 		}
 	}
-	capabilities := yamlField(root, "capabilities")
-	if capabilities.Kind != yaml.SequenceNode {
-		return errors.New("capabilities must be a sequence")
+	return nil
+}
+
+func validateCapabilityFields(capability *yaml.Node, kind, path string) error {
+	required := []string{"targets", "toolchain"}
+	switch kind {
+	case "CoreSpec":
+		required = append(required, "mode", "protocols", "output")
+	case "TransformSpec":
+		required = append(required, "input", "output")
 	}
-	for index, capability := range capabilities.Content {
-		path := fmt.Sprintf("capabilities[%d]", index)
-		required := []string{"targets", "toolchain"}
-		if kind == "CoreSpec" {
-			required = append(required, "mode", "protocols", "output")
-		} else if kind == "TransformSpec" {
-			required = append(required, "input", "output")
-		}
-		if err := requireYAMLFields(capability, path, required...); err != nil {
+	if err := requireYAMLFields(capability, path, required...); err != nil {
+		return err
+	}
+	targets := yamlField(capability, "targets")
+	if targets.Kind != yaml.SequenceNode {
+		return fmt.Errorf("%s.targets must be a sequence", path)
+	}
+	for targetIndex, target := range targets.Content {
+		if err := requireYAMLFields(target, fmt.Sprintf("%s.targets[%d]", path, targetIndex), "os", "arch"); err != nil {
 			return err
 		}
-		targets := yamlField(capability, "targets")
-		if targets.Kind != yaml.SequenceNode {
-			return fmt.Errorf("%s.targets must be a sequence", path)
-		}
-		for targetIndex, target := range targets.Content {
-			if err := requireYAMLFields(target, fmt.Sprintf("%s.targets[%d]", path, targetIndex), "os", "arch"); err != nil {
-				return err
-			}
-		}
-		toolchain := yamlField(capability, "toolchain")
-		if err := requireYAMLFields(toolchain, path+".toolchain", "driver", "requirements"); err != nil {
+	}
+	toolchain := yamlField(capability, "toolchain")
+	if err := requireYAMLFields(toolchain, path+".toolchain", "driver", "requirements"); err != nil {
+		return err
+	}
+	if resources := yamlField(capability, "resources"); resources != nil {
+		if err := requireYAMLFields(resources, path+".resources", "estimatedPeakMemoryBytes"); err != nil {
 			return err
 		}
-		if resources := yamlField(capability, "resources"); resources != nil {
-			if err := requireYAMLFields(resources, path+".resources", "estimatedPeakMemoryBytes"); err != nil {
-				return err
-			}
+	}
+	switch kind {
+	case "CoreSpec":
+		return validateCoreOutputFields(yamlField(capability, "output"), path+".output", yamlField(toolchain, "driver").Value)
+	case "TransformSpec":
+		return validateTransformArtifactFields(capability, path)
+	}
+	return nil
+}
+
+func validateCoreOutputFields(output *yaml.Node, path, driver string) error {
+	if err := requireYAMLFields(output, path, "artifact", "operatorFormats"); err != nil {
+		return err
+	}
+	artifact := yamlField(output, "artifact")
+	if err := requireYAMLFields(artifact, path+".artifact", "kind", "container"); err != nil {
+		return err
+	}
+	if driver == "go" && yamlField(artifact, "goBuildMode") == nil {
+		return fmt.Errorf("%s.artifact.goBuildMode is required for Go", path)
+	}
+	return rejectRawGoMode(artifact, path+".artifact")
+}
+
+func validateTransformArtifactFields(capability *yaml.Node, path string) error {
+	for _, name := range []string{"input", "output"} {
+		artifact := yamlField(capability, name)
+		if err := requireYAMLFields(artifact, path+"."+name, "kind", "container"); err != nil {
+			return err
 		}
-		if kind == "CoreSpec" {
-			output := yamlField(capability, "output")
-			if err := requireYAMLFields(output, path+".output", "artifact", "operatorFormats"); err != nil {
-				return err
-			}
-			artifact := yamlField(output, "artifact")
-			if err := requireYAMLFields(artifact, path+".output.artifact", "kind", "container"); err != nil {
-				return err
-			}
-			if yamlField(toolchain, "driver").Value == "go" && yamlField(artifact, "goBuildMode") == nil {
-				return fmt.Errorf("%s.output.artifact.goBuildMode is required for Go", path)
-			}
-			if err := rejectRawGoMode(artifact, path+".output.artifact"); err != nil {
-				return err
-			}
-		} else if kind == "TransformSpec" {
-			for _, name := range []string{"input", "output"} {
-				artifact := yamlField(capability, name)
-				if err := requireYAMLFields(artifact, path+"."+name, "kind", "container"); err != nil {
-					return err
-				}
-				if err := rejectRawGoMode(artifact, path+"."+name); err != nil {
-					return err
-				}
-			}
+		if err := rejectRawGoMode(artifact, path+"."+name); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -289,29 +327,7 @@ func validateYAMLNode(node *yaml.Node) error {
 	case yaml.AliasNode:
 		return errors.New("YAML aliases are not permitted")
 	case yaml.MappingNode:
-		if node.Tag != "!!map" {
-			return fmt.Errorf("unsupported YAML mapping tag %q", node.Tag)
-		}
-		keys := make(map[string]struct{}, len(node.Content)/2)
-		foldedKeys := make(map[string]string, len(node.Content)/2)
-		for index := 0; index < len(node.Content); index += 2 {
-			key, value := node.Content[index], node.Content[index+1]
-			if key.Kind != yaml.ScalarNode || key.Tag != "!!str" || key.Value == "<<" {
-				return errors.New("YAML mapping keys must be plain strings without merges")
-			}
-			if _, exists := keys[key.Value]; exists {
-				return fmt.Errorf("duplicate YAML key %q", key.Value)
-			}
-			folded := cases.Fold().String(key.Value)
-			if prior, exists := foldedKeys[folded]; exists {
-				return fmt.Errorf("case-equivalent YAML keys %q and %q", prior, key.Value)
-			}
-			foldedKeys[folded] = key.Value
-			keys[key.Value] = struct{}{}
-			if err := validateYAMLNode(value); err != nil {
-				return fmt.Errorf("%s: %w", key.Value, err)
-			}
-		}
+		return validateYAMLMapping(node)
 	case yaml.SequenceNode:
 		if node.Tag != "!!seq" {
 			return fmt.Errorf("unsupported YAML sequence tag %q", node.Tag)
@@ -322,38 +338,70 @@ func validateYAMLNode(node *yaml.Node) error {
 			}
 		}
 	case yaml.ScalarNode:
-		if !utf8.ValidString(node.Value) {
-			return errors.New("invalid Unicode scalar")
-		}
-		switch node.Tag {
-		case "!!str":
-			if node.Style == 0 {
-				switch strings.ToLower(node.Value) {
-				case "yes", "no", "on", "off", "~":
-					return fmt.Errorf("ambiguous YAML scalar %q must be quoted", node.Value)
-				}
-			}
-		case "!!bool":
-			if node.Value != "true" && node.Value != "false" {
-				return fmt.Errorf("ambiguous YAML boolean %q", node.Value)
-			}
-		case "!!int":
-			if !decimalIntRE.MatchString(node.Value) {
-				return fmt.Errorf("ambiguous YAML integer %q", node.Value)
-			}
-			number, err := strconv.ParseInt(node.Value, 10, 64)
-			if err != nil || number < -maxSafeInteger || number > maxSafeInteger {
-				return fmt.Errorf("YAML integer %q exceeds I-JSON safe range", node.Value)
-			}
-		case "!!float":
-			return errors.New("floating-point spec values require an RFC 8785 serializer and are not yet supported")
-		case "!!null":
-			return errors.New("null values are not permitted in build specs")
-		default:
-			return fmt.Errorf("unsupported YAML scalar tag %q", node.Tag)
-		}
+		return validateYAMLScalar(node)
 	default:
 		return fmt.Errorf("unsupported YAML node kind %d", node.Kind)
+	}
+	return nil
+}
+
+func validateYAMLMapping(node *yaml.Node) error {
+	if node.Tag != "!!map" {
+		return fmt.Errorf("unsupported YAML mapping tag %q", node.Tag)
+	}
+	keys := make(map[string]struct{}, len(node.Content)/2)
+	foldedKeys := make(map[string]string, len(node.Content)/2)
+	for index := 0; index < len(node.Content); index += 2 {
+		key, value := node.Content[index], node.Content[index+1]
+		if key.Kind != yaml.ScalarNode || key.Tag != "!!str" || key.Value == "<<" {
+			return errors.New("YAML mapping keys must be plain strings without merges")
+		}
+		if _, exists := keys[key.Value]; exists {
+			return fmt.Errorf("duplicate YAML key %q", key.Value)
+		}
+		folded := cases.Fold().String(key.Value)
+		if prior, exists := foldedKeys[folded]; exists {
+			return fmt.Errorf("case-equivalent YAML keys %q and %q", prior, key.Value)
+		}
+		foldedKeys[folded] = key.Value
+		keys[key.Value] = struct{}{}
+		if err := validateYAMLNode(value); err != nil {
+			return fmt.Errorf("%s: %w", key.Value, err)
+		}
+	}
+	return nil
+}
+
+func validateYAMLScalar(node *yaml.Node) error {
+	if !utf8.ValidString(node.Value) {
+		return errors.New("invalid Unicode scalar")
+	}
+	switch node.Tag {
+	case "!!str":
+		if node.Style == 0 {
+			switch strings.ToLower(node.Value) {
+			case "yes", "no", "on", "off", "~":
+				return fmt.Errorf("ambiguous YAML scalar %q must be quoted", node.Value)
+			}
+		}
+	case "!!bool":
+		if node.Value != "true" && node.Value != "false" {
+			return fmt.Errorf("ambiguous YAML boolean %q", node.Value)
+		}
+	case "!!int":
+		if !decimalIntRE.MatchString(node.Value) {
+			return fmt.Errorf("ambiguous YAML integer %q", node.Value)
+		}
+		number, err := strconv.ParseInt(node.Value, 10, 64)
+		if err != nil || number < -maxSafeInteger || number > maxSafeInteger {
+			return fmt.Errorf("YAML integer %q exceeds I-JSON safe range", node.Value)
+		}
+	case "!!float":
+		return errors.New("floating-point spec values require an RFC 8785 serializer and are not yet supported")
+	case "!!null":
+		return errors.New("null values are not permitted in build specs")
+	default:
+		return fmt.Errorf("unsupported YAML scalar tag %q", node.Tag)
 	}
 	return nil
 }
@@ -369,33 +417,7 @@ func canonicalJSON(root *yaml.Node, omitDigest bool) ([]byte, error) {
 func writeCanonical(output *bytes.Buffer, node *yaml.Node, path string, omitDigest bool) error {
 	switch node.Kind {
 	case yaml.MappingNode:
-		values := make(map[string]*yaml.Node, len(node.Content)/2)
-		keys := make([]string, 0, len(node.Content)/2)
-		for index := 0; index < len(node.Content); index += 2 {
-			key := node.Content[index].Value
-			if omitDigest && path == "metadata" && key == "digest" {
-				continue
-			}
-			keys = append(keys, key)
-			values[key] = node.Content[index+1]
-		}
-		sort.Strings(keys)
-		output.WriteByte('{')
-		for index, key := range keys {
-			if index != 0 {
-				output.WriteByte(',')
-			}
-			writeJSONString(output, key)
-			output.WriteByte(':')
-			childPath := key
-			if path != "" {
-				childPath = path + "." + key
-			}
-			if err := writeCanonical(output, values[key], childPath, omitDigest); err != nil {
-				return err
-			}
-		}
-		output.WriteByte('}')
+		return writeCanonicalMapping(output, node, path, omitDigest)
 	case yaml.SequenceNode:
 		output.WriteByte('[')
 		for index, child := range node.Content {
@@ -422,6 +444,37 @@ func writeCanonical(output *bytes.Buffer, node *yaml.Node, path string, omitDige
 	default:
 		return fmt.Errorf("unsupported YAML node kind %d", node.Kind)
 	}
+	return nil
+}
+
+func writeCanonicalMapping(output *bytes.Buffer, node *yaml.Node, path string, omitDigest bool) error {
+	values := make(map[string]*yaml.Node, len(node.Content)/2)
+	keys := make([]string, 0, len(node.Content)/2)
+	for index := 0; index < len(node.Content); index += 2 {
+		key := node.Content[index].Value
+		if omitDigest && path == "metadata" && key == "digest" {
+			continue
+		}
+		keys = append(keys, key)
+		values[key] = node.Content[index+1]
+	}
+	sort.Strings(keys)
+	output.WriteByte('{')
+	for index, key := range keys {
+		if index != 0 {
+			output.WriteByte(',')
+		}
+		writeJSONString(output, key)
+		output.WriteByte(':')
+		childPath := key
+		if path != "" {
+			childPath = path + "." + key
+		}
+		if err := writeCanonical(output, values[key], childPath, omitDigest); err != nil {
+			return err
+		}
+	}
+	output.WriteByte('}')
 	return nil
 }
 

@@ -77,15 +77,18 @@ type PeakMemoryEstimator interface {
 	EstimatedPeakMemoryBytes(buildplan.Target, buildplan.Toolchain) uint64
 }
 
+// Registry holds adapters available to the build server.
 type Registry struct {
 	mu       sync.RWMutex
 	adapters map[string]Adapter
 }
 
+// NewRegistry creates an empty adapter registry.
 func NewRegistry() *Registry {
 	return &Registry{adapters: make(map[string]Adapter)}
 }
 
+// Register adds an adapter under its executor ID.
 func (registry *Registry) Register(adapter Adapter) error {
 	if registry == nil || adapter == nil {
 		return errors.New("missing build core registry or adapter")
@@ -103,6 +106,7 @@ func (registry *Registry) Register(adapter Adapter) error {
 	return nil
 }
 
+// Get looks up an adapter by its executor ID.
 func (registry *Registry) Get(executorID string) (Adapter, bool) {
 	if registry == nil {
 		return nil, false
@@ -113,6 +117,7 @@ func (registry *Registry) Get(executorID string) (Adapter, bool) {
 	return adapter, ok
 }
 
+// InstalledExecutorIDs lists the IDs available in the registry.
 func (registry *Registry) InstalledExecutorIDs() []string {
 	if registry == nil {
 		return nil
@@ -129,8 +134,11 @@ func (registry *Registry) InstalledExecutorIDs() []string {
 
 var defaultRegistry = NewRegistry()
 
+// RegisterDefault registers an adapter in the default registry.
 func RegisterDefault(adapter Adapter) error { return defaultRegistry.Register(adapter) }
 
+// DefaultAdapter looks up an adapter in the default registry.
 func DefaultAdapter(executorID string) (Adapter, bool) { return defaultRegistry.Get(executorID) }
 
+// InstalledExecutorIDs lists the executor IDs in the default registry.
 func InstalledExecutorIDs() []string { return defaultRegistry.InstalledExecutorIDs() }

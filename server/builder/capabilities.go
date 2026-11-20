@@ -85,6 +85,7 @@ func locallyInstalledSpec(snapshot buildcatalog.Snapshot) bool {
 	return false
 }
 
+//nolint:gocyclo // Keep each executor's eligibility checks beside the tuples it advertises.
 func installedCapabilities(config *clientpb.Builder, snapshot buildcatalog.Snapshot,
 	ref *clientpb.BuildSpecRef) []*clientpb.BuilderCapability {
 	var result []*clientpb.BuilderCapability

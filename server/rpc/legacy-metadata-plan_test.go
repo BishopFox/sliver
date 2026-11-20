@@ -13,6 +13,7 @@ import (
 	"github.com/bishopfox/sliver/server/buildtransform"
 )
 
+//nolint:gocyclo // The digest and absence of donor bytes are asserted against the same request.
 func TestLegacyMetadataBuildRequestFreezesDigestWithoutDonorBytes(t *testing.T) {
 	donor := testCorePE()
 	base := buildplan.Request{Target: buildplan.Target{OS: "windows", Arch: "amd64"}, FinalFormat: "exe"}

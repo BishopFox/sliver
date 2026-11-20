@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/proto"
 )
@@ -56,6 +57,8 @@ func (output *m7ProcessOutput) String() string {
 
 // TestM7RemoteMinimalCoreSeparateProcessWorker verifies the assigned core over
 // an actual mTLS gRPC connection to a worker running in a different process.
+
+//nolint:gocyclo // The test owns a separate process and checks its full registration and execution lifecycle.
 func TestM7RemoteMinimalCoreSeparateProcessWorker(t *testing.T) {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" ||
 		runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" ||
@@ -161,9 +164,7 @@ func TestM7RemoteMinimalCoreSeparateProcessWorker(t *testing.T) {
 		ServerName: "127.0.0.1", MinVersion: tls.VersionTLS13}
 	dialCtx, cancelDial := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancelDial()
-	conn, err := grpc.DialContext(dialCtx, address,
-		grpc.WithTransportCredentials(credentials.NewTLS(clientTLS)), grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20), grpc.MaxCallSendMsgSize(64<<20)))
+	conn, err := connectWorkerTestClient(dialCtx, address, clientTLS)
 	if err != nil {
 		t.Fatalf("dial authenticated worker RPC transport: %v", err)
 	}
@@ -302,13 +303,11 @@ func TestM7RemoteMinimalCoreSeparateProcessChild(t *testing.T) {
 		ServerName: "127.0.0.1", MinVersion: tls.VersionTLS13}
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, os.Getenv("SLIVER_M7_WORKER_ADDR"),
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20), grpc.MaxCallSendMsgSize(64<<20)))
+	conn, err := connectWorkerTestClient(ctx, os.Getenv("SLIVER_M7_WORKER_ADDR"), tlsConfig)
 	if err != nil {
 		t.Fatalf("dial worker RPC: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	config := &clientpb.Builder{Name: os.Getenv("SLIVER_M7_WORKER_NAME")}
 	if err := builder.ConfigureInstalledCapabilities(config); err != nil {
 		t.Fatalf("configure installed worker capabilities: %v", err)
@@ -316,4 +315,27 @@ func TestM7RemoteMinimalCoreSeparateProcessChild(t *testing.T) {
 	config.Status.AvailableMemoryBytes = 4_000_000_000
 	worker := builder.NewBuilder(config, &sync.Mutex{}, rpcpb.NewSliverRPCClient(conn), conn)
 	worker.Start()
+}
+
+func connectWorkerTestClient(ctx context.Context, address string, config *tls.Config) (*grpc.ClientConn, error) {
+	conn, err := grpc.NewClient("passthrough:///"+address,
+		grpc.WithTransportCredentials(credentials.NewTLS(config)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20), grpc.MaxCallSendMsgSize(64<<20)))
+	if err != nil {
+		return nil, err
+	}
+	conn.Connect()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			return conn, nil
+		}
+		if state == connectivity.Idle {
+			conn.Connect()
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			_ = conn.Close()
+			return nil, ctx.Err()
+		}
+	}
 }

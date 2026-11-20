@@ -37,6 +37,8 @@ type pipelineRun struct {
 // executeResolvedPlan is shared by neutral and legacy generation. It records
 // the observed bytes at every completed step and freezes final bytes before a
 // successful caller can return. A failed run still returns its failed record.
+
+//nolint:gocyclo // The build record and artifact share one execution and persistence lifecycle.
 func (rpc *Server) executeResolvedPlan(ctx context.Context, plan buildplan.Plan, adapter buildcore.Adapter,
 	config *clientpb.ImplantConfig, resolve buildtransform.ResolveInput) (output buildcore.Result, record buildplan.Record, finalErr error) {
 	var run pipelineRun
@@ -152,6 +154,7 @@ func rollbackSavedRuntimeBuild(id, name string) error {
 	return discardRuntimeBuildExact(build)
 }
 
+//nolint:gocyclo // The ordered core and transform steps share artifact and cleanup state.
 func runResolvedPlan(ctx context.Context, plan buildplan.Plan, adapter buildcore.Adapter,
 	config *clientpb.ImplantConfig, resolve buildtransform.ResolveInput) (run pipelineRun) {
 	run.failed = 0
@@ -306,6 +309,7 @@ func directFormatForCore(artifact buildplan.Artifact) string {
 	}
 }
 
+//nolint:gocyclo // All installed-step and input checks complete before work starts.
 func preflightLocalSteps(plan buildplan.Plan, resolve buildtransform.ResolveInput) error {
 	unsupported := func(step, detail string) error {
 		return &buildplan.PlanError{Code: buildplan.CodeUnsupportedExecution, Step: step, Detail: detail}

@@ -14,10 +14,7 @@ var getProcessAffinityMask = windows.NewLazySystemDLL("kernel32.dll").NewProc("G
 // A process affinity mask narrows the CPUs available to a Windows builder.
 // If the OS does not return one, runtime.NumCPU remains the safe fallback.
 func osCPULimits() (affinity, quota int, quotaKnown bool) {
-	handle, err := windows.GetCurrentProcess()
-	if err != nil {
-		return 0, 0, false
-	}
+	handle := windows.CurrentProcess()
 	var processMask, systemMask uintptr
 	ok, _, _ := getProcessAffinityMask.Call(uintptr(handle), uintptr(unsafe.Pointer(&processMask)), uintptr(unsafe.Pointer(&systemMask)))
 	if ok == 0 || processMask == 0 {

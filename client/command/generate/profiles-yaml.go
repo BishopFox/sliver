@@ -38,6 +38,8 @@ func GetProfileDefinition(ctx context.Context, name string, con *console.SliverC
 
 // ExecuteProfile returns only bytes that match the completed build record.
 // This is shared by the profile command and profile-consuming commands.
+//
+//nolint:gocyclo // The build record and retrieved file must satisfy the same artifact contract.
 func ExecuteProfile(ctx context.Context, request *clientpb.BuildProfileExecuteRequest,
 	con *console.SliverClient) (*clientpb.BuildRecord, *commonpb.File, error) {
 	if ctx == nil || con == nil || con.Rpc == nil || request == nil || strings.TrimSpace(request.Name) == "" {
@@ -83,7 +85,7 @@ func readProfileYAML(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	data, err := io.ReadAll(io.LimitReader(file, maxProfileYAMLBytes+1))
 	if err != nil {
 		return "", err
@@ -94,6 +96,7 @@ func readProfileYAML(path string) (string, error) {
 	return string(data), nil
 }
 
+// ProfilesImportCmd imports and saves a build profile from a local YAML file.
 func ProfilesImportCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	raw, err := readProfileYAML(args[0])
 	if err != nil {
@@ -111,6 +114,7 @@ func ProfilesImportCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		doc.GetFinalArtifact().GetKind(), doc.GetFinalArtifact().GetContainer())
 }
 
+// ProfilesValidateCmd checks a local YAML profile against the server's catalog.
 func ProfilesValidateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	raw, err := readProfileYAML(args[0])
 	if err != nil {
@@ -128,6 +132,7 @@ func ProfilesValidateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		doc.GetFinalArtifact().GetKind(), doc.GetFinalArtifact().GetContainer())
 }
 
+// ProfilesExportCmd writes the server's canonical build profile to a local file.
 func ProfilesExportCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	ctx, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -194,16 +199,23 @@ func profileExportPath(save, fileName string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return "", err
 	}
+	if err := confirmProfileExport(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func confirmProfileExport(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		var confirm bool
 		_ = forms.Confirm("Overwrite existing profile YAML file?", &confirm)
 		if !confirm {
-			return "", errors.New("file already exists")
+			return errors.New("file already exists")
 		}
 	} else if !os.IsNotExist(err) {
-		return "", err
+		return err
 	}
-	return path, nil
+	return nil
 }
 
 func writeProfileYAML(path string, data []byte) error {
@@ -211,17 +223,17 @@ func writeProfileYAML(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if err := file.Chmod(0o600); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if _, err := file.Write(data); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Close(); err != nil {
@@ -363,6 +375,7 @@ func profileMigrationInfo(doc *clientpb.BuildProfileDocument) (string, bool) {
 		doc.Name, doc.Revision, doc.MigrationError), true
 }
 
+//nolint:gocyclo // Fallback depends on the server capability and the profile's migration status.
 func canonicalProfileGenerate(cmd *cobra.Command, con *console.SliverClient, profileName string) (bool, error) {
 	request, err := profileExecuteRequestFromFlags(cmd, profileName)
 	if err != nil {
@@ -495,7 +508,7 @@ func profileInputFromFlag(kind, assignment string) (*clientpb.BuildInput, error)
 	if err != nil {
 		return nil, fmt.Errorf("read %s input %q: %w", kind, name, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if info, err := file.Stat(); err != nil {
 		return nil, fmt.Errorf("stat %s input %q: %w", kind, name, err)
 	} else if info.Mode().IsRegular() && info.Size() > limit {
@@ -516,7 +529,7 @@ func validProfileInputName(name string) bool {
 		return false
 	}
 	for _, ch := range name[1:] {
-		if !((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-') {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '-' {
 			return false
 		}
 	}

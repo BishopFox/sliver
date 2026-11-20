@@ -65,7 +65,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		save, _ = os.Getwd()
 	}
 	if !remoteStepRequested(cmd) {
-		compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
+		_, _ = compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
 	} else {
 		if err := remoteStepCompatibility(cmd, config); err != nil {
 			con.PrintErrorf("Remote assigned-step build cannot preserve this configuration: %s\n", err)

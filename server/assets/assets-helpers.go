@@ -926,8 +926,9 @@ func checkZipDirectoryBounds(src io.ReaderAt, size int64) error {
 		return fmt.Errorf("zip archive size is outside allowed limits")
 	}
 	tailSize := min(size, endSize+65535)
+	tailOffset := size - tailSize
 	tail := make([]byte, tailSize)
-	if _, err := src.ReadAt(tail, size-tailSize); err != nil {
+	if _, err := src.ReadAt(tail, tailOffset); err != nil {
 		return fmt.Errorf("read zip directory end: %w", err)
 	}
 	for index := len(tail) - endSize; index >= 0; index-- {
@@ -938,32 +939,34 @@ func checkZipDirectoryBounds(src io.ReaderAt, size int64) error {
 		if index+endSize+commentSize > len(tail) {
 			continue
 		}
-		end := tail[index:]
-		if binary.LittleEndian.Uint16(end[4:]) != 0 || binary.LittleEndian.Uint16(end[6:]) != 0 ||
-			binary.LittleEndian.Uint16(end[8:]) != binary.LittleEndian.Uint16(end[10:]) {
-			return fmt.Errorf("multi-disk zip archives are unsupported")
-		}
-		count := binary.LittleEndian.Uint16(end[10:])
-		centralSize := binary.LittleEndian.Uint32(end[12:])
-		centralOffset := binary.LittleEndian.Uint32(end[16:])
-		if count == 0xffff || centralSize == 0xffffffff || centralOffset == 0xffffffff {
-			return fmt.Errorf("zip64 archives are unsupported")
-		}
-		if int(count) > maxAssetArchiveEntries || centralSize > maxAssetArchiveCentralBytes ||
-			int64(centralSize) > size-tailSize+int64(index) {
-			return fmt.Errorf("zip archive directory exceeds limit")
-		}
-		centralStart := size - tailSize + int64(index) - int64(centralSize)
-		actualCount, err := countZipCentralEntries(src, centralStart, centralSize)
-		if err != nil {
-			return err
-		}
-		if uint16(actualCount) != count {
-			return fmt.Errorf("zip archive directory entry count mismatch")
-		}
-		return nil
+		return validateZipDirectoryEnd(src, tail[index:], tailOffset+int64(index))
 	}
 	return fmt.Errorf("zip archive directory end not found")
+}
+
+func validateZipDirectoryEnd(src io.ReaderAt, end []byte, endOffset int64) error {
+	count := binary.LittleEndian.Uint16(end[10:])
+	if binary.LittleEndian.Uint16(end[4:]) != 0 || binary.LittleEndian.Uint16(end[6:]) != 0 ||
+		binary.LittleEndian.Uint16(end[8:]) != count {
+		return fmt.Errorf("multi-disk zip archives are unsupported")
+	}
+	centralSize := binary.LittleEndian.Uint32(end[12:])
+	centralOffset := binary.LittleEndian.Uint32(end[16:])
+	if count == 0xffff || centralSize == 0xffffffff || centralOffset == 0xffffffff {
+		return fmt.Errorf("zip64 archives are unsupported")
+	}
+	if int(count) > maxAssetArchiveEntries || centralSize > maxAssetArchiveCentralBytes ||
+		int64(centralSize) > endOffset {
+		return fmt.Errorf("zip archive directory exceeds limit")
+	}
+	actualCount, err := countZipCentralEntries(src, endOffset-int64(centralSize), centralSize)
+	if err != nil {
+		return err
+	}
+	if uint16(actualCount) != count {
+		return fmt.Errorf("zip archive directory entry count mismatch")
+	}
+	return nil
 }
 
 func countZipCentralEntries(src io.ReaderAt, start int64, size uint32) (int, error) {

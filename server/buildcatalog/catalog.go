@@ -1,3 +1,4 @@
+// Package buildcatalog loads immutable build specifications and tracks their providers.
 package buildcatalog
 
 import (
@@ -19,9 +20,12 @@ import (
 var builtinSpecs embed.FS
 
 var (
-	ErrNotFound  = errors.New("build spec not found")
+	// ErrNotFound indicates that no spec matches a reference.
+	ErrNotFound = errors.New("build spec not found")
+	// ErrAmbiguous indicates that a partial reference matches more than one spec.
 	ErrAmbiguous = errors.New("build spec reference is ambiguous")
-	ErrConflict  = errors.New("build spec name and version conflict")
+	// ErrConflict indicates that the name and version already have a different definition.
+	ErrConflict = errors.New("build spec name and version conflict")
 )
 
 var builtinExecutorIDs = []string{
@@ -95,9 +99,22 @@ func Open(rootDir string, installed []string) (*Catalog, error) {
 		}
 		catalog.installed[id] = struct{}{}
 	}
+	if err := catalog.loadBuiltins(); err != nil {
+		return nil, err
+	}
+	if err := catalog.load(); err != nil {
+		return nil, err
+	}
+	if err := catalog.loadAdministratorSpecs(filepath.Join(directory, "admin")); err != nil {
+		return nil, err
+	}
+	return catalog, nil
+}
+
+func (catalog *Catalog) loadBuiltins() error {
 	entries, err := fs.ReadDir(builtinSpecs, "builtin")
 	if err != nil {
-		return nil, fmt.Errorf("read built-in spec directory: %w", err)
+		return fmt.Errorf("read built-in spec directory: %w", err)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
@@ -105,32 +122,32 @@ func Open(rootDir string, installed []string) (*Catalog, error) {
 		}
 		raw, err := builtinSpecs.ReadFile("builtin/" + entry.Name())
 		if err != nil {
-			return nil, fmt.Errorf("read built-in %s: %w", entry.Name(), err)
+			return fmt.Errorf("read built-in %s: %w", entry.Name(), err)
 		}
 		spec, err := parseSpec(raw)
 		if err != nil {
-			return nil, fmt.Errorf("invalid built-in %s: %w", entry.Name(), err)
+			return fmt.Errorf("invalid built-in %s: %w", entry.Name(), err)
 		}
 		if err := catalog.checkInstalled(spec); err != nil {
-			return nil, fmt.Errorf("invalid built-in %s: %w", entry.Name(), err)
+			return fmt.Errorf("invalid built-in %s: %w", entry.Name(), err)
 		}
 		rec, err := catalog.upsert(spec)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		rec.sources["builtin"] = Origin{Source: "builtin", Provider: "server"}
 		rec.providers["server"] = ProviderStatus{Name: "server", Online: true}
 	}
-	if err := catalog.load(); err != nil {
-		return nil, err
-	}
-	adminDir := filepath.Join(directory, "admin")
+	return nil
+}
+
+func (catalog *Catalog) loadAdministratorSpecs(adminDir string) error {
 	if err := os.MkdirAll(adminDir, 0700); err != nil {
-		return nil, fmt.Errorf("create administrator spec directory: %w", err)
+		return fmt.Errorf("create administrator spec directory: %w", err)
 	}
 	adminEntries, err := os.ReadDir(adminDir)
 	if err != nil {
-		return nil, fmt.Errorf("read administrator spec directory: %w", err)
+		return fmt.Errorf("read administrator spec directory: %w", err)
 	}
 	for _, entry := range adminEntries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml") {
@@ -138,11 +155,11 @@ func Open(rootDir string, installed []string) (*Catalog, error) {
 		}
 		raw, err := os.ReadFile(filepath.Join(adminDir, entry.Name()))
 		if err != nil {
-			return nil, fmt.Errorf("read administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("read administrator spec %s: %w", entry.Name(), err)
 		}
 		spec, err := parseSpec(raw)
 		if err != nil {
-			return nil, fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
 		}
 		if err := catalog.checkInstalled(spec); err != nil {
 			stored := catalog.records[recordKey(spec.kind, spec.reference)]
@@ -153,13 +170,13 @@ func Open(rootDir string, installed []string) (*Catalog, error) {
 					continue
 				}
 			}
-			return nil, fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
 		}
 		if _, err := catalog.ImportAdministrator(raw); err != nil {
-			return nil, fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
 		}
 	}
-	return catalog, nil
+	return nil
 }
 
 func recordKey(_ string, ref Reference) string {
@@ -542,33 +559,40 @@ func (catalog *Catalog) load() error {
 		return fmt.Errorf("decode catalog snapshots: invalid or unsupported snapshot version: %v", err)
 	}
 	for _, item := range persisted.Records {
-		spec, err := parseSpec(item.RawYAML)
-		if err != nil {
-			return fmt.Errorf("invalid stored spec: %w", err)
-		}
-		if spec.kind != item.Kind || spec.reference != item.Reference {
-			return errors.New("stored spec index does not match its YAML content")
-		}
-		rec, err := catalog.upsert(spec)
-		if err != nil {
+		if err := catalog.loadRecord(item); err != nil {
 			return err
 		}
-		for _, source := range item.Sources {
-			if source.Source != "administrator" && source.Source != "remote" {
-				return fmt.Errorf("invalid persisted spec source %q", source.Source)
-			}
-			rec.sources[source.Source+"\x00"+source.Provider] = source
+	}
+	return nil
+}
+
+func (catalog *Catalog) loadRecord(item persistedRecord) error {
+	spec, err := parseSpec(item.RawYAML)
+	if err != nil {
+		return fmt.Errorf("invalid stored spec: %w", err)
+	}
+	if spec.kind != item.Kind || spec.reference != item.Reference {
+		return errors.New("stored spec index does not match its YAML content")
+	}
+	rec, err := catalog.upsert(spec)
+	if err != nil {
+		return err
+	}
+	for _, source := range item.Sources {
+		if source.Source != "administrator" && source.Source != "remote" {
+			return fmt.Errorf("invalid persisted spec source %q", source.Source)
 		}
-		for _, provider := range item.Providers {
-			if provider.Name == "server" {
-				if _, ok := catalog.installed[executorID(spec)]; ok {
-					rec.providers["server"] = ProviderStatus{Name: "server", Online: true, LastSeen: provider.LastSeen}
-				}
-				continue
+		rec.sources[source.Source+"\x00"+source.Provider] = source
+	}
+	for _, provider := range item.Providers {
+		if provider.Name == "server" {
+			if _, ok := catalog.installed[executorID(spec)]; ok {
+				rec.providers["server"] = ProviderStatus{Name: "server", Online: true, LastSeen: provider.LastSeen}
 			}
-			provider.Online = false
-			rec.providers[provider.Name] = provider
+			continue
 		}
+		provider.Online = false
+		rec.providers[provider.Name] = provider
 	}
 	return nil
 }
@@ -580,7 +604,7 @@ func executorID(spec parsedSpec) string {
 	return spec.transform.Executor.ID
 }
 
-func (catalog *Catalog) save() error {
+func (catalog *Catalog) persistedSnapshots() persistedCatalog {
 	stored := persistedCatalog{Version: 1}
 	for _, rec := range catalog.records {
 		item := persistedRecord{Kind: rec.spec.kind, Reference: rec.spec.reference, RawYAML: rec.spec.raw}
@@ -614,7 +638,11 @@ func (catalog *Catalog) save() error {
 		}
 		return a.Reference.Version < b.Reference.Version
 	})
-	data, err := json.MarshalIndent(stored, "", "  ")
+	return stored
+}
+
+func (catalog *Catalog) save() error {
+	data, err := json.MarshalIndent(catalog.persistedSnapshots(), "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode catalog snapshots: %w", err)
 	}
@@ -623,17 +651,17 @@ func (catalog *Catalog) save() error {
 	if err != nil {
 		return fmt.Errorf("create catalog snapshot: %w", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if err := file.Chmod(0600); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if _, err := file.Write(data); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Close(); err != nil {

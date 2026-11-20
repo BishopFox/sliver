@@ -39,6 +39,8 @@ func hasRemoteStep(plan buildplan.Plan) bool {
 
 // runMixedPlan executes the same frozen step sequence as the local pipeline.
 // Each remote result is accepted before the following step sees its bytes.
+
+//nolint:gocyclo // Local and remote actions share an ordered step lifecycle and failure cleanup.
 func (rpc *Server) runMixedPlan(ctx context.Context, plan *buildplan.Plan, adapter buildcore.Adapter,
 	config *clientpb.ImplantConfig, resolve buildtransform.ResolveInput) (run pipelineRun) {
 	run.failed = 0
@@ -271,6 +273,8 @@ func discardFailedPreparedRemoteSliver(run *pipelineRun, prepared *clientpb.Impl
 // discardRuntimeBuildExact removes one saved or prepared runtime build by its
 // database ID and matching identity. It also removes any owned ResourceID and
 // final file; callers use it only when the enclosing build has failed.
+
+//nolint:gocyclo // Each resource must be matched to the exact build before cleanup can remove it.
 func discardRuntimeBuildExact(prepared *clientpb.ImplantBuild) error {
 	if prepared == nil || prepared.ID == "" || prepared.Name == "" {
 		return errors.New("missing prepared remote Sliver identity")
@@ -346,7 +350,7 @@ func (rpc *Server) prepareRemoteCore(plan buildplan.Plan) (*clientpb.ExternalImp
 	}
 	httpC2, err := db.LoadHTTPC2ConfigByName(config.HTTPC2ConfigName)
 	if err != nil || httpC2 == nil || httpC2.ImplantConfig == nil {
-		return nil, errors.New("Sliver HTTP C2 configuration is unavailable")
+		return nil, errors.New("the Sliver HTTP C2 configuration is unavailable")
 	}
 	prepared, err := generate.PrepareRemoteSliverCore(name, config)
 	if err != nil {
@@ -431,13 +435,13 @@ func saveRemoteSliverFinal(ctx context.Context, plan buildplan.Plan, prepared *c
 		if err != nil {
 			return "", err
 		}
-		defer os.Remove(file.Name())
+		defer func() { _ = os.Remove(file.Name()) }()
 		if err := file.Chmod(0600); err != nil {
-			file.Close()
+			_ = file.Close()
 			return "", err
 		}
 		if _, err := file.Write(data); err != nil {
-			file.Close()
+			_ = file.Close()
 			return "", err
 		}
 		if err := file.Close(); err != nil {

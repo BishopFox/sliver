@@ -57,6 +57,8 @@ func SupportsEncoder(specName string, target buildplan.Target) bool {
 // planner resolves its immutable spec and artifact edge before this call; the
 // checks here prevent a direct caller from bypassing the installed matrix.
 // Built-in v1 encoders use the legacy one-pass behavior with no bad chars.
+//
+//nolint:gocyclo // Keep the local executor checks and their output limits at the call boundary.
 func EncodeShellcode(ctx context.Context, step buildplan.Step, input []byte) ([]byte, error) {
 	if ctx == nil {
 		return nil, errors.New("missing encoder context")

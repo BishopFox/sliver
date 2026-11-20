@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -21,12 +22,12 @@ func TestWorkspaceCopiesLiteralSourceAndPrivateInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer first.Remove()
+	cleanWorkspace(t, first)
 	second, err := New(appDir, "linux", "amd64", "example")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer second.Remove()
+	cleanWorkspace(t, second)
 	if first.Root == second.Root {
 		t.Fatal("concurrent builds received the same workspace")
 	}
@@ -51,20 +52,7 @@ func TestWorkspaceCopiesLiteralSourceAndPrivateInputs(t *testing.T) {
 	if err := first.CopyMagefiles(fstest.MapFS{"magefile.go": &fstest.MapFile{Data: []byte("package main")}}); err != nil {
 		t.Fatal(err)
 	}
-	materialPath, err := first.WriteInput("material.json", []byte(`{"secret":"test"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(materialPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("material mode = %o", info.Mode().Perm())
-	}
-	if _, err := first.WriteInput("material.json", []byte("replacement")); err == nil {
-		t.Fatal("duplicate input file overwrote secret material")
-	}
+	checkPrivateInput(t, first)
 	if err := first.Remove(); err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +62,34 @@ func TestWorkspaceCopiesLiteralSourceAndPrivateInputs(t *testing.T) {
 	if _, err := os.Stat(second.Root); err != nil {
 		t.Fatalf("cleanup removed another build: %v", err)
 	}
+}
+
+func checkPrivateInput(t *testing.T, work *Workspace) {
+	t.Helper()
+	materialPath, err := work.WriteInput("material.json", []byte(`{"secret":"test"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(materialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Windows maps file attributes to FileMode without POSIX permission bits.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Fatalf("material mode = %o", info.Mode().Perm())
+	}
+	if _, err := work.WriteInput("material.json", []byte("replacement")); err == nil {
+		t.Fatal("duplicate input file overwrote secret material")
+	}
+}
+
+func cleanWorkspace(t *testing.T, work *Workspace) {
+	t.Helper()
+	t.Cleanup(func() {
+		if err := work.Remove(); err != nil {
+			t.Errorf("remove workspace: %v", err)
+		}
+	})
 }
 
 func TestWorkspaceCopyRejectsPortablePathCollisions(t *testing.T) {
@@ -117,7 +133,7 @@ func TestWorkspaceRejectsUnsafeNamesAndSourceLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer workspace.Remove()
+	cleanWorkspace(t, workspace)
 	if err := workspace.CopySource(fstest.MapFS{"link": &fstest.MapFile{Mode: fs.ModeSymlink, Data: []byte("target")}}); err == nil {
 		t.Fatal("copied a source symlink")
 	}
@@ -131,7 +147,7 @@ func TestWorkspaceRejectsReplacedSourceDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer workspace.Remove()
+	cleanWorkspace(t, workspace)
 	outside := t.TempDir()
 	if err := os.Remove(workspace.SourceDir); err != nil {
 		t.Fatal(err)
@@ -153,12 +169,12 @@ func TestRemoveOutputWorkspaceOnlyRemovesMatchingBuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer first.Remove()
+	cleanWorkspace(t, first)
 	second, err := New(appDir, "linux", "amd64", "example")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer second.Remove()
+	cleanWorkspace(t, second)
 	output := filepath.Join(first.BinDir, "example.elf")
 	if err := os.WriteFile(output, []byte("artifact"), 0o600); err != nil {
 		t.Fatal(err)
@@ -229,7 +245,7 @@ func TestSourceZIPExtractionAcceptsFilesAndRejectsUnsafeEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer valid.Remove()
+	cleanWorkspace(t, valid)
 	archivePath := writeZIP(t, []zipEntry{{"main.go", 0o600, "package main // {{ .Value }}"}, {"nested/file", 0o600, "bytes"}})
 	if err := valid.ExtractSourceArchive(archivePath, ArchiveLimits{}); err != nil {
 		t.Fatal(err)
@@ -263,7 +279,7 @@ func TestSourceZIPExtractionAcceptsFilesAndRejectsUnsafeEntries(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer workspace.Remove()
+			cleanWorkspace(t, workspace)
 			archivePath := writeZIP(t, tc.entries)
 			if err := workspace.ExtractSourceArchive(archivePath, tc.limits); err == nil {
 				t.Fatal("unsafe ZIP was accepted")
@@ -303,7 +319,7 @@ func TestSourceZIPRejectsForgedCentralDirectoryCountsBeforeParsing(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer workspace.Remove()
+			cleanWorkspace(t, workspace)
 			if err := workspace.ExtractSourceArchive(archivePath, ArchiveLimits{}); err == nil {
 				t.Fatal("forged central directory count was extracted")
 			}
@@ -344,7 +360,7 @@ func TestSourceZIPRejectsEncryptedAndUnsupportedMethods(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer workspace.Remove()
+			cleanWorkspace(t, workspace)
 			if err := workspace.ExtractSourceArchive(archivePath, ArchiveLimits{}); err == nil ||
 				!strings.Contains(err.Error(), "unsupported ZIP entry") {
 				t.Fatalf("expected unsupported ZIP entry error, got %v", err)
@@ -415,7 +431,7 @@ func TestTARExtractionRejectsLinksTraversalAndOversize(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer workspace.Remove()
+			cleanWorkspace(t, workspace)
 			archivePath := writeTAR(t, tc.compressed, []tar.Header{tc.header})
 			if err := workspace.ExtractSourceArchive(archivePath, tc.limits); err == nil {
 				t.Fatal("unsafe TAR was accepted")
@@ -426,7 +442,7 @@ func TestTARExtractionRejectsLinksTraversalAndOversize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer valid.Remove()
+	cleanWorkspace(t, valid)
 	archivePath := writeTAR(t, true, []tar.Header{{Name: "file", Typeflag: tar.TypeReg, Size: 4, Mode: 0o600}})
 	if err := valid.ExtractSourceArchive(archivePath, ArchiveLimits{}); err != nil {
 		t.Fatal(err)
@@ -458,7 +474,7 @@ func TestTARExtractionRejectsConflictingPaths(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer workspace.Remove()
+			cleanWorkspace(t, workspace)
 			if err := workspace.ExtractSourceArchive(archivePath, ArchiveLimits{}); err == nil {
 				t.Fatal("conflicting TAR paths were extracted")
 			}

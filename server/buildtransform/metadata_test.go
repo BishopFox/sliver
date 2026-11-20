@@ -21,27 +21,8 @@ import (
 )
 
 func TestPEMetadataCopiesDonorTimestampAndCleansScratch(t *testing.T) {
-	goCmd, err := exec.LookPath("go")
-	if err != nil {
-		t.Skip("Go compiler unavailable")
-	}
 	root := t.TempDir()
-	source := filepath.Join(root, "main.go")
-	if err := os.WriteFile(source, []byte("package main\nfunc main() {}\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	outputPath := filepath.Join(root, "fixture.exe")
-	compileCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	command := exec.CommandContext(compileCtx, goCmd, "build", "-trimpath", "-o", outputPath, source)
-	command.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64", "CGO_ENABLED=0", "GOFLAGS=", "GO111MODULE=off", "GOTOOLCHAIN=local")
-	if result, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("compile PE fixture: %v\n%s", err, result)
-	}
-	input, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	outputPath, input := compilePEMetadataFixture(t, root)
 	donor := append([]byte(nil), input...)
 	peOffset := int(binary.LittleEndian.Uint32(donor[0x3c:0x40]))
 	if peOffset+12 > len(donor) {
@@ -81,6 +62,36 @@ func TestPEMetadataCopiesDonorTimestampAndCleansScratch(t *testing.T) {
 		t.Fatalf("metadata transform changed original input: %v", err)
 	}
 
+	assertConfiguredPEMetadata(t, step, input, donor, wantTimestamp)
+}
+
+func compilePEMetadataFixture(t *testing.T, root string) (string, []byte) {
+	t.Helper()
+	goCmd, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("Go compiler unavailable")
+	}
+	source := filepath.Join(root, "main.go")
+	if err := os.WriteFile(source, []byte("package main\nfunc main() {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	outputPath := filepath.Join(root, "fixture.exe")
+	compileCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	command := exec.CommandContext(compileCtx, goCmd, "build", "-trimpath", "-o", outputPath, source)
+	command.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64", "CGO_ENABLED=0", "GOFLAGS=", "GO111MODULE=off", "GOTOOLCHAIN=local")
+	if result, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("compile PE fixture: %v\n%s", err, result)
+	}
+	input, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return outputPath, input
+}
+
+func assertConfiguredPEMetadata(t *testing.T, step buildplan.Step, input, donor []byte, wantTimestamp uint32) {
+	t.Helper()
 	fullConfig := &clientpb.SpoofMetadataConfig{PE: &clientpb.PESpoofMetadataConfig{
 		Source: &clientpb.SpoofMetadataFile{Name: "donor.exe", Data: donor},
 	}}

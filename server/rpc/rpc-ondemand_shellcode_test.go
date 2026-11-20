@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+//nolint:gocyclo // Defaults and overrides are asserted together on each input configuration.
 func TestOnDemandShellcodeConfigAndName(t *testing.T) {
 	original := &clientpb.ImplantConfig{
 		ID: "saved-config", GOOS: "windows", GOARCH: "amd64",

@@ -55,6 +55,8 @@ type Invocation struct {
 // Run verifies the installed Magefile bundle, compiles it if needed, and runs
 // its target. The build material is read by the target from ManifestPath; no
 // material contents are passed through arguments, environment, or errors.
+//
+//nolint:gocyclo // Bundle validation, manifest confinement, and process execution are reviewed together.
 func (runner Runner) Run(ctx context.Context, inv Invocation) error {
 	if ctx == nil {
 		return errors.New("missing build context")
@@ -80,13 +82,13 @@ func (runner Runner) Run(ctx context.Context, inv Invocation) error {
 		return fmt.Errorf("resolve Mage manifest path: %w", err)
 	}
 	if !within(workDir, manifestPath) {
-		return errors.New("Mage manifest is outside build workspace")
+		return errors.New("the Mage manifest is outside build workspace")
 	}
 	if info, err := os.Lstat(manifestPath); err != nil || !info.Mode().IsRegular() {
-		return errors.New("Mage manifest must be a regular file")
+		return errors.New("the Mage manifest must be a regular file")
 	}
 	if info, err := os.Stat(workDir); err != nil || !info.IsDir() {
-		return errors.New("Mage workspace does not exist")
+		return errors.New("the Mage workspace does not exist")
 	}
 	resolvedWorkDir, err := filepath.EvalSymlinks(workDir)
 	if err != nil {
@@ -94,7 +96,7 @@ func (runner Runner) Run(ctx context.Context, inv Invocation) error {
 	}
 	resolvedManifest, err := filepath.EvalSymlinks(manifestPath)
 	if err != nil || !within(resolvedWorkDir, resolvedManifest) {
-		return errors.New("Mage manifest leaves build workspace")
+		return errors.New("the Mage manifest leaves build workspace")
 	}
 
 	actualDigest, err := DigestBundle(inv.BundleDir)
@@ -102,7 +104,7 @@ func (runner Runner) Run(ctx context.Context, inv Invocation) error {
 		return fmt.Errorf("inspect Magefile bundle: %w", err)
 	}
 	if actualDigest != inv.BundleDigest {
-		return errors.New("Magefile bundle digest does not match installed core")
+		return errors.New("the Magefile bundle digest does not match installed core")
 	}
 	compiled, err := runner.compiledTarget(ctx, inv.BundleDir, inv.BundleDigest, inv.Stdout, inv.Stderr)
 	if err != nil {
@@ -121,11 +123,12 @@ func (runner Runner) Run(ctx context.Context, inv Invocation) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("Mage target %q failed: %w", inv.Target, err)
+		return fmt.Errorf("run Mage target %q: %w", inv.Target, err)
 	}
 	return nil
 }
 
+//nolint:gocyclo // Lookup, staging, verification, and publication use a single cache lock.
 func (runner Runner) compiledTarget(ctx context.Context, bundleDir, digest string, stdout, stderr io.Writer) (string, error) {
 	compileMu.Lock()
 	defer compileMu.Unlock()
@@ -146,7 +149,7 @@ func (runner Runner) compiledTarget(ctx context.Context, bundleDir, digest strin
 		if info.Mode().IsRegular() && info.Size() > 0 {
 			return path, nil
 		}
-		return "", errors.New("Mage cache contains invalid compiled target")
+		return "", errors.New("the Mage cache contains invalid compiled target")
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("inspect Mage cache: %w", err)
 	}
@@ -157,14 +160,14 @@ func (runner Runner) compiledTarget(ctx context.Context, bundleDir, digest strin
 	if err != nil {
 		return "", fmt.Errorf("stage Magefile bundle: %w", err)
 	}
-	defer os.RemoveAll(stageDir)
+	defer func() { _ = os.RemoveAll(stageDir) }()
 	stageBundle := filepath.Join(stageDir, "magefiles")
 	if err := copyBundle(bundleDir, stageBundle); err != nil {
 		return "", fmt.Errorf("copy Magefile bundle: %w", err)
 	}
 	stageDigest, err := DigestBundle(stageBundle)
 	if err != nil || stageDigest != digest {
-		return "", errors.New("Magefile bundle changed during staging")
+		return "", errors.New("the Magefile bundle changed during staging")
 	}
 	stagedBinary := filepath.Join(stageDir, executableName("core-mage"))
 	goCmd := runner.GoCmd
@@ -182,7 +185,7 @@ func (runner Runner) compiledTarget(ctx context.Context, bundleDir, digest strin
 	}
 	info, err := os.Lstat(stagedBinary)
 	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
-		return "", errors.New("Mage did not produce a compiled target")
+		return "", errors.New("the Mage invocation did not produce a compiled target")
 	}
 	if err := os.Chmod(stagedBinary, 0700); err != nil {
 		return "", fmt.Errorf("set Mage target permissions: %w", err)
@@ -206,7 +209,7 @@ func DigestBundle(dir string) (string, error) {
 	}
 	info, err := os.Lstat(root)
 	if err != nil || !info.IsDir() {
-		return "", errors.New("Magefile bundle must be a directory")
+		return "", errors.New("the Magefile bundle must be a directory")
 	}
 	h := sha256.New()
 	files := 0
@@ -221,7 +224,7 @@ func DigestBundle(dir string) (string, error) {
 			return nil
 		}
 		if !entry.Type().IsRegular() {
-			return fmt.Errorf("Magefile bundle contains non-regular file %q", path)
+			return fmt.Errorf("the Magefile bundle contains non-regular file %q", path)
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
@@ -231,7 +234,7 @@ func DigestBundle(dir string) (string, error) {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		if err := hashFile(h, filepath.ToSlash(rel), file); err != nil {
 			return err
 		}
@@ -242,7 +245,7 @@ func DigestBundle(dir string) (string, error) {
 		return "", err
 	}
 	if files == 0 {
-		return "", errors.New("Magefile bundle is empty")
+		return "", errors.New("the Magefile bundle is empty")
 	}
 	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
 }
@@ -250,7 +253,7 @@ func DigestBundle(dir string) (string, error) {
 func hashFile(h hash.Hash, rel string, file *os.File) error {
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		return errors.New("Magefile bundle file is not regular")
+		return errors.New("the Magefile bundle file is not regular")
 	}
 	if _, err := io.WriteString(h, rel); err != nil {
 		return err
@@ -288,13 +291,13 @@ func copyBundle(source, dest string) error {
 			return os.Mkdir(target, 0700)
 		}
 		if !entry.Type().IsRegular() {
-			return fmt.Errorf("Magefile bundle contains non-regular file %q", rel)
+			return fmt.Errorf("the Magefile bundle contains non-regular file %q", rel)
 		}
 		in, err := os.Open(path)
 		if err != nil {
 			return err
 		}
-		defer in.Close()
+		defer func() { _ = in.Close() }()
 		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 		if err != nil {
 			return err

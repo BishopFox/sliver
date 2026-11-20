@@ -19,6 +19,8 @@ const (
 // legacyStageBuildRequest extends an already resolved legacy core route with
 // explicit, ordered stage transforms. Key material is represented only by
 // per-build references in the plan and is never copied into a build record.
+
+//nolint:gocyclo // Transform ordering and per-request input ownership are coupled.
 func legacyStageBuildRequest(base buildplan.Request, coreOutput buildplan.Artifact, req *clientpb.GenerateStageReq) (buildplan.Request, buildtransform.ResolveInput, error) {
 	if req == nil {
 		return buildplan.Request{}, nil, errors.New("missing stage request")

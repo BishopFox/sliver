@@ -24,6 +24,8 @@ import (
 // TestM7RemoteMinimalCoreLiveWorker runs the installed alternate core through
 // an authenticated assigned-step worker, then executes the returned binary
 // against the ordinary Sliver mTLS listener and Ping RPC.
+
+//nolint:gocyclo // Worker startup, assignment, and artifact checks are one integration scenario.
 func TestM7RemoteMinimalCoreLiveWorker(t *testing.T) {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" ||
 		runtime.GOOS == "darwin" && runtime.GOARCH != "arm64" ||

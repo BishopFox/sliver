@@ -34,6 +34,7 @@ func testStageOption(name string, value string) buildplan.Option {
 	return buildplan.Option{Name: name, ValueJSON: json.RawMessage(value)}
 }
 
+//nolint:gocyclo // The assertions cover each intermediate result in one transform sequence.
 func TestStageFrameCompressionAndEncryption(t *testing.T) {
 	target := buildplan.Target{OS: "windows", Arch: "amd64"}
 	pe := buildplan.Artifact{Kind: "executable", Container: "pe", Target: target, GoBuildMode: "default"}
@@ -103,17 +104,17 @@ func TestStageCompressionAlgorithmsAndRC4(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			return io.ReadAll(reader)
 		}},
 		{"deflate", func(data []byte) ([]byte, error) {
 			reader := flate.NewReader(bytes.NewReader(data))
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			return io.ReadAll(reader)
 		}},
 		{"deflate9", func(data []byte) ([]byte, error) {
 			reader := flate.NewReader(bytes.NewReader(data))
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			return io.ReadAll(reader)
 		}},
 	} {
@@ -134,7 +135,7 @@ func TestStageCompressionAlgorithmsAndRC4(t *testing.T) {
 	}
 	rc4Step := testStageStep(StageRC4Spec, artifact, artifact,
 		testStageOption("key", `{"kind":"secret","name":"rc4-key"}`))
-	resolve := func(kind, name string) ([]byte, error) { return []byte("stage-key"), nil }
+	resolve := func(_, _ string) ([]byte, error) { return []byte("stage-key"), nil }
 	ciphertext, err := ApplyStageStep(context.Background(), rc4Step, input, resolve)
 	if err != nil {
 		t.Fatal(err)

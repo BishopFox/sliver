@@ -265,25 +265,31 @@ func TestServerArchiveExtractorsRejectDuplicatesLinksAndOverwrite(t *testing.T) 
 				})
 			}
 			t.Run("existing-file", func(t *testing.T) {
-				base := t.TempDir()
-				dest := filepath.Join(base, "destination")
-				if err := os.Mkdir(dest, 0700); err != nil {
-					t.Fatal(err)
-				}
-				file := filepath.Join(dest, "file.txt")
-				if err := os.WriteFile(file, []byte("original"), 0600); err != nil {
-					t.Fatal(err)
-				}
-				err := extractor.extract(t, base, dest, withTop(serverArchiveTestEntry{name: entryName("file.txt"), body: "replacement"}))
-				if err == nil {
-					t.Fatal("archive overwrote an existing file")
-				}
-				contents, err := os.ReadFile(file)
-				if err != nil || string(contents) != "original" {
-					t.Fatalf("existing file changed: %q, %v", contents, err)
-				}
+				assertServerArchivePreservesFile(t, extractor, withTop(
+					serverArchiveTestEntry{name: entryName("file.txt"), body: "replacement"},
+				))
 			})
 		})
+	}
+}
+
+func assertServerArchivePreservesFile(t *testing.T, extractor serverArchiveExtractor, entries []serverArchiveTestEntry) {
+	t.Helper()
+	base := t.TempDir()
+	dest := filepath.Join(base, "destination")
+	if err := os.Mkdir(dest, 0700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dest, "file.txt")
+	if err := os.WriteFile(file, []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := extractor.extract(t, base, dest, entries); err == nil {
+		t.Fatal("archive overwrote an existing file")
+	}
+	contents, err := os.ReadFile(file)
+	if err != nil || string(contents) != "original" {
+		t.Fatalf("existing file changed: %q, %v", contents, err)
 	}
 }
 

@@ -23,7 +23,7 @@ func TestSliverCoreAdapterCoreStepRejectsBeforeCredentialGeneration(t *testing.T
 	if _, err := adapter.BuildCoreWithConfig(ctx, plan, config); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled build should stop before preparing credentials: %v", err)
 	}
-	if _, err := adapter.BuildCoreWithConfig(nil, plan, config); err == nil {
+	if _, err := adapter.BuildCoreWithConfig(nil, plan, config); err == nil { //nolint:staticcheck // Verify nil context rejection (SA1012).
 		t.Fatal("nil context should be rejected")
 	}
 	if _, err := adapter.BuildCoreWithConfig(context.Background(), plan, nil); err == nil {

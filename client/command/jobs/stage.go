@@ -138,8 +138,9 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 			// use zlib to compress the stage2
 			var compBuff bytes.Buffer
 			zlibWriter := zlib.NewWriter(&compBuff)
-			zlibWriter.Write(stage2)
-			zlibWriter.Close()
+			// The output is an in-memory buffer, whose writes do not return errors.
+			_, _ = zlibWriter.Write(stage2)
+			_ = zlibWriter.Close()
 			stage2 = compBuff.Bytes()
 		case "gzip":
 			stage2, _ = encoders.GzipBuf(stage2)

@@ -1,3 +1,4 @@
+// Package buildcore defines adapters and a registry for core builds.
 package buildcore
 
 import (
@@ -65,8 +66,10 @@ type MageCoreAdapter struct {
 	Stderr       io.Writer
 }
 
+// ExecutorID returns the adapter ID recorded in the installed catalog.
 func (adapter MageCoreAdapter) ExecutorID() string { return adapter.ID }
 
+// Binding returns the source and Mage target binding.
 func (adapter MageCoreAdapter) Binding() MageBinding { return adapter.BindingSpec }
 
 // Supports reports the installed toolchains and targets this Mage-backed core
@@ -77,6 +80,8 @@ func (adapter MageCoreAdapter) Supports(target buildplan.Target, toolchain build
 
 // Build runs one direct core step. M4's step executor will consume the same
 // accepted core bytes before applying any requested transforms.
+//
+//nolint:gocyclo // The workspace lifecycle spans preparation, acceptance, and cleanup with one owner.
 func (adapter MageCoreAdapter) Build(ctx context.Context, plan buildplan.Plan) (result Result, buildErr error) {
 	if ctx == nil {
 		return Result{}, errors.New("missing core build context")
@@ -89,7 +94,7 @@ func (adapter MageCoreAdapter) Build(ctx context.Context, plan buildplan.Plan) (
 	}
 	if len(plan.Steps) != 1 || plan.Steps[0].Kind != "core" || plan.Steps[0].Provider != "server" ||
 		!sameArtifact(plan.Steps[0].Output, plan.FinalArtifact) {
-		return Result{}, errors.New("Mage core adapter requires one direct local core step")
+		return Result{}, errors.New("the Mage core adapter requires one direct local core step")
 	}
 	if plan.Request.Target != plan.Steps[0].Output.Target {
 		return Result{}, errors.New("core target does not match frozen plan")
@@ -147,7 +152,7 @@ func (adapter MageCoreAdapter) Build(ctx context.Context, plan buildplan.Plan) (
 		return Result{}, fmt.Errorf("prepare Mage manifest: %w", err)
 	}
 	if len(manifest) == 0 || len(manifest) > maxCoreManifestBytes || !json.Valid(manifest) {
-		return Result{}, errors.New("Mage manifest must be bounded JSON")
+		return Result{}, errors.New("the Mage manifest must be bounded JSON")
 	}
 	manifestPath, err := work.WriteInput("build.json", manifest)
 	if err != nil {
@@ -176,6 +181,7 @@ func (adapter MageCoreAdapter) Build(ctx context.Context, plan buildplan.Plan) (
 	}, nil
 }
 
+//nolint:gocyclo // The installed adapter contract is checked at one boundary before any workspace is created.
 func (adapter MageCoreAdapter) validate() error {
 	binding := adapter.BindingSpec
 	if adapter.ID == "" || adapter.AppDir == "" || adapter.Magefiles == nil || adapter.BundleDigest == "" ||

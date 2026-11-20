@@ -21,6 +21,8 @@ const legacyMetadataRefPrefix = "metadata-sha256:"
 // legacyMetadataBuildRequest binds a generation-time PE transform to one
 // per-build metadata configuration. The plan stores only its content hash and
 // typed donor reference; no donor bytes or resource contents enter the record.
+
+//nolint:gocyclo // Donor validation and the digest-bound transform share one request boundary.
 func legacyMetadataBuildRequest(base buildplan.Request, config *clientpb.ImplantConfig,
 	metadata *clientpb.SpoofMetadataConfig) (buildplan.Request, buildtransform.ResolveInput, error) {
 	if metadata == nil {

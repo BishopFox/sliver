@@ -36,6 +36,8 @@ func signalTestTransform(worker *clientpb.Builder) (buildplan.Plan, *clientpb.Bu
 // A saturated subscriber of the shared, lossy event broker cannot consume or
 // discard an assigned-step notification from the builder's private queue.
 // Disconnecting that builder must then cancel its outstanding assignment.
+
+//nolint:gocyclo // The test checks signal delivery through broker pressure and disconnect in one run.
 func TestAssignedStepSignalSurvivesBrokerPressureAndDisconnect(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}

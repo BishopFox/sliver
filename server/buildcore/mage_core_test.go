@@ -99,11 +99,16 @@ func TestMageCoreAdapterPreservesLiteralSourceAndMaterial(t *testing.T) {
 	if err != nil || len(builds) != 0 {
 		t.Fatalf("private source/material workspace remained after acceptance: %v, %v", builds, err)
 	}
+	checkMageCoreBinding(t, adapter, artifact.Target)
+}
+
+func checkMageCoreBinding(t *testing.T, adapter MageCoreAdapter, target buildplan.Target) {
+	t.Helper()
 	if got := adapter.Binding(); got.Magefile != "magefiles" || got.SourceMode != "copy" {
 		t.Fatalf("wrong installed Mage binding: %+v", got)
 	}
-	if !adapter.Supports(artifact.Target, buildplan.Toolchain{Driver: "fixture"}) ||
-		adapter.Supports(artifact.Target, buildplan.Toolchain{Driver: "other"}) {
+	if !adapter.Supports(target, buildplan.Toolchain{Driver: "fixture"}) ||
+		adapter.Supports(target, buildplan.Toolchain{Driver: "other"}) {
 		t.Fatal("Mage core advertised an unavailable toolchain")
 	}
 }

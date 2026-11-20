@@ -36,6 +36,7 @@ func (rpc *Server) buildCatalog() (*buildcatalog.Catalog, error) {
 	return entry.catalog, entry.err
 }
 
+// ListBuildSpecs lists matching specs from the installed build catalog.
 func (rpc *Server) ListBuildSpecs(_ context.Context, req *clientpb.BuildSpecQuery) (*clientpb.BuildSpecList, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing build spec query")
@@ -68,6 +69,7 @@ func (rpc *Server) ListBuildSpecs(_ context.Context, req *clientpb.BuildSpecQuer
 	return response, nil
 }
 
+// GetBuildSpec resolves one spec reference from the build catalog.
 func (rpc *Server) GetBuildSpec(_ context.Context, req *clientpb.BuildSpecRequest) (*clientpb.BuildSpec, error) {
 	if req == nil || req.Ref == nil || req.Ref.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "build spec name is required")
@@ -94,8 +96,8 @@ func (rpc *Server) GetBuildSpec(_ context.Context, req *clientpb.BuildSpecReques
 		if match != nil {
 			return nil, status.Error(codes.FailedPrecondition, "build spec reference is ambiguous; specify version and digest")
 		}
-		copy := snapshot
-		match = &copy
+		candidate := snapshot
+		match = &candidate
 	}
 	if match == nil {
 		return nil, status.Error(codes.NotFound, "build spec not found")

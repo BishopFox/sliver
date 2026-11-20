@@ -47,6 +47,7 @@ func (rpc *Server) buildProfileStore() (*buildprofile.Store, error) {
 	return entry.store, entry.err
 }
 
+// ListBuildProfiles lists the profiles visible to the server.
 func (rpc *Server) ListBuildProfiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.BuildProfileList, error) {
 	store, failures, err := rpc.profileStoreWithBackfill(ctx)
 	if err != nil {
@@ -67,6 +68,7 @@ func (rpc *Server) ListBuildProfiles(ctx context.Context, _ *commonpb.Empty) (*c
 	return list, nil
 }
 
+// GetBuildProfile retrieves a profile by reference.
 func (rpc *Server) GetBuildProfile(ctx context.Context, ref *clientpb.BuildProfileRef) (*clientpb.BuildProfileDocument, error) {
 	if ref == nil || !validProfileLookupName(ref.Name) {
 		return nil, status.Error(codes.InvalidArgument, "profile name is required")
@@ -88,6 +90,7 @@ func (rpc *Server) GetBuildProfile(ctx context.Context, ref *clientpb.BuildProfi
 	return profileDocumentProto(document), nil
 }
 
+// ValidateBuildProfile validates a submitted profile without storing it.
 func (rpc *Server) ValidateBuildProfile(ctx context.Context, req *clientpb.BuildProfileImportRequest) (*clientpb.BuildProfileDocument, error) {
 	profile, err := rpc.validateProfileImport(ctx, req)
 	if err != nil {
@@ -100,6 +103,7 @@ func (rpc *Server) ValidateBuildProfile(ctx context.Context, req *clientpb.Build
 	return profileDocumentProto(buildprofile.Document{Profile: profile, YAML: yaml}), nil
 }
 
+// ImportBuildProfile validates and imports a submitted profile.
 func (rpc *Server) ImportBuildProfile(ctx context.Context, req *clientpb.BuildProfileImportRequest) (*clientpb.BuildProfileDocument, error) {
 	profile, err := rpc.validateProfileImport(ctx, req)
 	if err != nil {
@@ -122,6 +126,9 @@ func (rpc *Server) ImportBuildProfile(ctx context.Context, req *clientpb.BuildPr
 	return profileDocumentProto(document), nil
 }
 
+// DeleteBuildProfile removes the selected profile revision.
+//
+//nolint:gocyclo // Revision lookup, store deletion, and legacy cleanup form one operation.
 func (rpc *Server) DeleteBuildProfile(ctx context.Context, ref *clientpb.BuildProfileRef) (*commonpb.Empty, error) {
 	if ref == nil || !validProfileLookupName(ref.Name) {
 		return nil, status.Error(codes.InvalidArgument, "profile name is required")
@@ -164,6 +171,7 @@ func (rpc *Server) DeleteBuildProfile(ctx context.Context, ref *clientpb.BuildPr
 	return &commonpb.Empty{}, nil
 }
 
+// ExecuteProfileBuild executes a stored profile with the requested inputs.
 func (rpc *Server) ExecuteProfileBuild(ctx context.Context, req *clientpb.BuildProfileExecuteRequest) (*clientpb.BuildRecord, error) {
 	if req == nil || !validProfileLookupName(req.Name) {
 		return nil, status.Error(codes.InvalidArgument, "profile name is required")
@@ -250,7 +258,7 @@ func (rpc *Server) executeMigratedProfile(ctx context.Context, document buildpro
 	if len(req.Inputs) != 0 {
 		return nil, status.Error(codes.InvalidArgument, "migrated legacy profiles do not accept per-build inputs")
 	}
-	if req.Provider != nil && (req.Provider.Mode != "automatic" && !(req.Provider.Mode == "pinned" && req.Provider.Builder == "server")) {
+	if req.Provider != nil && req.Provider.Mode != "automatic" && (req.Provider.Mode != "pinned" || req.Provider.Builder != "server") {
 		return nil, status.Error(codes.FailedPrecondition, "migrated legacy profile requires the server builder; import authored YAML to change provider")
 	}
 	config := &clientpb.ImplantConfig{}
@@ -379,9 +387,9 @@ func legacyConfigSnapshot(config *clientpb.ImplantConfig) ([]byte, error) {
 	if config == nil {
 		return nil, errors.New("missing legacy implant config")
 	}
-	copy := proto.Clone(config).(*clientpb.ImplantConfig)
-	copy.ImplantBuilds = nil // These contain generated private keys and are never profile inputs.
-	encoded, err := proto.Marshal(copy)
+	snapshot := proto.Clone(config).(*clientpb.ImplantConfig)
+	snapshot.ImplantBuilds = nil // These contain generated private keys and are never profile inputs.
+	encoded, err := proto.Marshal(snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -391,6 +399,7 @@ func legacyConfigSnapshot(config *clientpb.ImplantConfig) ([]byte, error) {
 	return encoded, nil
 }
 
+//nolint:gocyclo // Legacy fields and their pinned references are migrated together.
 func (rpc *Server) legacyProfileDocument(ctx context.Context, legacy *clientpb.ImplantProfile) (buildprofile.Profile, error) {
 	if legacy == nil || legacy.Config == nil {
 		return buildprofile.Profile{}, errors.New("legacy profile has no implant config")
@@ -563,6 +572,8 @@ func sameArtifact(a, b buildplan.Artifact) bool {
 
 // The compatibility executor resolves current catalog names. Refuse a run if
 // the selected immutable definitions no longer match the migrated snapshot.
+
+//nolint:gocyclo // All compatibility checks compare one snapshot against the same frozen plan.
 func verifyMigratedProfileSnapshot(snapshot *buildplan.ProfileSnapshot, plan buildplan.Plan) error {
 	profile, err := buildprofile.Parse(snapshot.YAML)
 	if err != nil {

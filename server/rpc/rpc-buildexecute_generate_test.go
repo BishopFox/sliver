@@ -27,6 +27,8 @@ import (
 // TestExecuteBuildSliverNativeExecutable exercises the installed Sliver core
 // through the neutral RPC and checks the bytes frozen for both new and legacy
 // artifact retrieval.
+
+//nolint:gocyclo // The test checks the artifact and persisted metadata from one build.
 func TestExecuteBuildSliverNativeExecutable(t *testing.T) {
 	if !generate.SupportedCompilerTargets[runtime.GOOS+"/"+runtime.GOARCH] {
 		t.Skip("native host is not a supported Sliver target")
@@ -132,6 +134,8 @@ func TestExecuteBuildSliverNativeExecutable(t *testing.T) {
 
 // TestGenerateRetainedWorkspace verifies that retention is explicit and that
 // the response points at the exact private source and Mage build directory.
+
+//nolint:gocyclo // Workspace preservation and cleanup are asserted against the same build attempt.
 func TestGenerateRetainedWorkspace(t *testing.T) {
 	if !generate.SupportedCompilerTargets[runtime.GOOS+"/"+runtime.GOARCH] {
 		t.Skip("native host is not a supported Sliver target")
@@ -245,6 +249,7 @@ func TestGenerateRetainedWorkspace(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The legacy and planned outputs are compared using the same fixture and input.
 func TestM4GenerateShellcodeFinalParity(t *testing.T) {
 	setupGenerateSpoofTest(t)
 	targets := []struct{ os, arch string }{}
@@ -306,6 +311,7 @@ func TestM4GenerateShellcodeFinalParity(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The legacy and planned outputs are compared using the same staging settings.
 func TestM4GenerateStageFinalParity(t *testing.T) {
 	setupGenerateSpoofTest(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)

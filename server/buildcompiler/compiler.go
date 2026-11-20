@@ -22,6 +22,7 @@ import (
 	"github.com/bishopfox/sliver/server/gogo"
 )
 
+// GoDriverID identifies the installed Go compiler driver.
 const GoDriverID = "go"
 
 // Request describes a compiler invocation. GoConfig is the typed configuration
@@ -57,10 +58,12 @@ type Registry struct {
 	drivers map[string]Driver
 }
 
+// NewRegistry creates an empty compiler driver registry.
 func NewRegistry() *Registry {
 	return &Registry{drivers: make(map[string]Driver)}
 }
 
+// Register installs a compiler driver under its unique ID.
 func (registry *Registry) Register(driver Driver) error {
 	if registry == nil {
 		return errors.New("nil compiler registry")
@@ -77,6 +80,7 @@ func (registry *Registry) Register(driver Driver) error {
 	return nil
 }
 
+// Build delegates a request to the installed driver with the given ID.
 func (registry *Registry) Build(ctx context.Context, id string, request Request) ([]byte, error) {
 	if registry == nil {
 		return nil, errors.New("nil compiler registry")
@@ -114,19 +118,21 @@ func Default() *Registry { return defaultRegistry }
 // bundle when no override is selected.
 type GoDriver struct{}
 
+// ID returns the stable identifier for the Go driver.
 func (GoDriver) ID() string { return GoDriverID }
 
+// Build runs the installed Go compiler target and verifies its result manifest.
 func (GoDriver) Build(ctx context.Context, request Request) ([]byte, error) {
 	if request.SourceDir == "" || request.Destination == "" {
-		return nil, errors.New("Go build needs source and destination paths")
+		return nil, errors.New("Go build needs source and destination paths") //nolint:staticcheck // Go is the toolchain's proper name (ST1005).
 	}
 	project := request.GoConfig.ProjectDir
 	if project == "" || !filepath.IsAbs(project) || !filepath.IsAbs(request.SourceDir) || !filepath.IsAbs(request.Destination) {
-		return nil, errors.New("Mage Go build requires absolute workspace paths")
+		return nil, errors.New("Mage Go build requires absolute workspace paths") //nolint:staticcheck // Mage is the toolchain's proper name (ST1005).
 	}
 	binDir := filepath.Join(project, "bin")
 	if filepath.Dir(request.Destination) != binDir {
-		return nil, errors.New("Mage Go output must be in the workspace bin directory")
+		return nil, errors.New("Mage Go output must be in the workspace bin directory") //nolint:staticcheck // Mage is the toolchain's proper name (ST1005).
 	}
 	inputsDir := filepath.Join(project, "inputs")
 	if err := os.MkdirAll(inputsDir, 0700); err != nil {
@@ -155,19 +161,8 @@ func (GoDriver) Build(ctx context.Context, request Request) ([]byte, error) {
 		Tags: request.Tags, LDFlags: request.LDFlags, GCFlags: request.GCFlags,
 		ASMFlags: request.ASMFlags, ResultPath: resultPath,
 	}
-	inputFile, err := os.CreateTemp(inputsDir, "go-build-*.json")
+	manifestPath, err := writeGoManifest(inputsDir, manifest)
 	if err != nil {
-		return nil, fmt.Errorf("create Mage build manifest: %w", err)
-	}
-	if err := inputFile.Chmod(0600); err != nil {
-		inputFile.Close()
-		return nil, err
-	}
-	if err := json.NewEncoder(inputFile).Encode(manifest); err != nil {
-		inputFile.Close()
-		return nil, fmt.Errorf("write Mage build manifest: %w", err)
-	}
-	if err := inputFile.Close(); err != nil {
 		return nil, err
 	}
 	hostGo, err := exec.LookPath("go")
@@ -178,33 +173,59 @@ func (GoDriver) Build(ctx context.Context, request Request) ([]byte, error) {
 	runner := magebuild.Runner{RootDir: assets.GetRootAppDir(), GoCmd: hostGo}
 	err = runner.Run(ctx, magebuild.Invocation{
 		BundleDir: bundleDir, BundleDigest: digest, WorkDir: project,
-		ManifestPath: inputFile.Name(), Target: target, Env: mageRuntimeEnv(request.ExtraEnv),
+		ManifestPath: manifestPath, Target: target, Env: mageRuntimeEnv(request.ExtraEnv),
 		Stdout: &stdout, Stderr: &stderr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("run core Mage target: %w", err)
 	}
+	if err := validateGoBuildResult(resultPath, filepath.Base(request.Destination)); err != nil {
+		return nil, err
+	}
+	return stdout.Bytes(), nil
+}
+
+func writeGoManifest(dir string, manifest magebuild.GoManifest) (string, error) {
+	file, err := os.CreateTemp(dir, "go-build-*.json")
+	if err != nil {
+		return "", fmt.Errorf("create Mage build manifest: %w", err)
+	}
+	if err := file.Chmod(0600); err != nil {
+		_ = file.Close()
+		return "", err
+	}
+	if err := json.NewEncoder(file).Encode(manifest); err != nil {
+		_ = file.Close()
+		return "", fmt.Errorf("write Mage build manifest: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return "", err
+	}
+	return file.Name(), nil
+}
+
+func validateGoBuildResult(resultPath, expectedName string) error {
 	resultInfo, err := os.Lstat(resultPath)
 	if err != nil || !resultInfo.Mode().IsRegular() || resultInfo.Size() > 4096 {
-		return nil, errors.New("core Mage result is missing, nonregular, or too large")
+		return errors.New("core Mage result is missing, nonregular, or too large")
 	}
 	resultFile, err := os.Open(resultPath)
 	if err != nil {
-		return nil, fmt.Errorf("read core Mage result: %w", err)
+		return fmt.Errorf("read core Mage result: %w", err)
 	}
-	defer resultFile.Close()
+	defer func() { _ = resultFile.Close() }()
 	var result magebuild.Result
 	decoder := json.NewDecoder(io.LimitReader(resultFile, 4097))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&result); err != nil || result.Primary != filepath.Base(request.Destination) ||
+	if err := decoder.Decode(&result); err != nil || result.Primary != expectedName ||
 		result.DisplayName != result.Primary {
-		return nil, errors.New("core Mage result does not match planned output")
+		return errors.New("core Mage result does not match planned output")
 	}
 	var trailing json.RawMessage
 	if err := decoder.Decode(&trailing); err != io.EOF {
-		return nil, errors.New("core Mage result has trailing data or exceeds size limit")
+		return errors.New("core Mage result has trailing data or exceeds size limit")
 	}
-	return stdout.Bytes(), nil
+	return nil
 }
 
 func mageRuntimeEnv(extra []string) []string {
@@ -253,7 +274,7 @@ func selectMageBundle(request Request) (bundleDir, digest, target string, err er
 	}
 	actual, err := magebuild.DigestBundle(bundleDir)
 	if err != nil || actual != want {
-		return "", "", "", errors.New("Sliver Magefile bundle does not match installed version")
+		return "", "", "", errors.New("Sliver Magefile bundle does not match installed version") //nolint:staticcheck // Sliver is the bundle's proper name (ST1005).
 	}
 	return bundleDir, want, "Build", nil
 }

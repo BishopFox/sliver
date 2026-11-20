@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
-	"errors"
-	"fmt"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -102,6 +100,7 @@ func stepRegistrationRequested(req *clientpb.Builder) bool {
 	return len(req.GetSessionToken()) != 0 || len(req.GetSpecRefs()) != 0 || len(req.GetCapabilities()) != 0 || req.GetStatus() != nil
 }
 
+//nolint:gocyclo // Authentication, capability validation, and registration share one state transition.
 func prepareStepRegistration(req *clientpb.Builder, lookup func(buildcatalog.Reference) (buildcatalog.Snapshot, error)) (buildscheduler.Registration, buildscheduler.Status, bool, error) {
 	if !stepRegistrationRequested(req) {
 		return buildscheduler.Registration{}, buildscheduler.Status{}, false, nil
@@ -293,6 +292,7 @@ func (rpc *Server) authorizeStepBuilder(ctx context.Context, name string, token 
 	return nil
 }
 
+// BuilderUpdateStatus records a status update for an authenticated builder session.
 func (rpc *Server) BuilderUpdateStatus(ctx context.Context, req *clientpb.BuilderStatusReport) (*commonpb.Empty, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing builder status report")
@@ -314,11 +314,11 @@ func (rpc *Server) stepBuilderInventory() *clientpb.Builders {
 	response := &clientpb.Builders{}
 	byName := make(map[string]*clientpb.Builder)
 	for _, registered := range core.AllBuilders() {
-		copy := proto.Clone(registered).(*clientpb.Builder)
-		copy.SessionToken = nil
-		copy.Status = &clientpb.BuilderStatus{Online: true}
-		response.Builders = append(response.Builders, copy)
-		byName[copy.Name] = copy
+		builder := proto.Clone(registered).(*clientpb.Builder)
+		builder.SessionToken = nil
+		builder.Status = &clientpb.BuilderStatus{Online: true}
+		response.Builders = append(response.Builders, builder)
+		byName[builder.Name] = builder
 	}
 	if scheduler, err := rpc.stepScheduler(); err == nil {
 		for _, entry := range scheduler.Inventory(time.Now()) {
@@ -391,6 +391,7 @@ func buildSchedulerRequirement(snapshot buildcatalog.Snapshot, target buildplan.
 	}
 }
 
+//nolint:gocyclo // Core and transform estimates are compared with overrides in one calculation.
 func (rpc *Server) stepPeakBytes(plan buildplan.Plan, step buildplan.Step) uint64 {
 	var specEstimate, executorEstimate uint64
 	catalog, err := rpc.buildCatalog()
@@ -449,16 +450,16 @@ func catalogCapTarget(targets []buildcatalog.Target, target buildplan.Target) bo
 	return false
 }
 
-func catalogCapArtifact(cap buildcatalog.Artifact, artifact buildplan.Artifact) bool {
-	return cap.Kind == artifact.Kind && cap.Container == artifact.Container && cap.GoBuildMode == artifact.GoBuildMode &&
-		(len(cap.EntrySymbols) == 0 || slices.Equal(cap.EntrySymbols, artifact.EntrySymbols))
+func catalogCapArtifact(capability buildcatalog.Artifact, artifact buildplan.Artifact) bool {
+	return capability.Kind == artifact.Kind && capability.Container == artifact.Container && capability.GoBuildMode == artifact.GoBuildMode &&
+		(len(capability.EntrySymbols) == 0 || slices.Equal(capability.EntrySymbols, artifact.EntrySymbols))
 }
 
-func catalogCapToolchain(cap buildcatalog.Toolchain, toolchain buildplan.Toolchain) bool {
-	if cap.Driver != toolchain.Driver || len(cap.Requirements) != len(toolchain.Requirements) {
+func catalogCapToolchain(capability buildcatalog.Toolchain, toolchain buildplan.Toolchain) bool {
+	if capability.Driver != toolchain.Driver || len(capability.Requirements) != len(toolchain.Requirements) {
 		return false
 	}
-	for _, requirement := range cap.Requirements {
+	for _, requirement := range capability.Requirements {
 		if !slices.Contains(toolchain.Requirements, requirement) {
 			return false
 		}
@@ -477,8 +478,8 @@ func selectionFromReservation(reservation buildscheduler.Reservation) *buildplan
 			ToolchainIdentity: candidate.ToolchainIdentity,
 		})
 		if candidate.Name == reservation.Builder {
-			copy := candidate
-			selected = &copy
+			selectedCandidate := candidate
+			selected = &selectedCandidate
 		}
 	}
 	if selected == nil {
@@ -495,14 +496,4 @@ func selectionFromReservation(reservation buildscheduler.Reservation) *buildplan
 		RequiredPeakMemoryBytes: reservation.Decision.PeakMemoryBytes, Decision: decision,
 		Candidates: ordered,
 	}
-}
-
-func validateStepBuilderRegistration(reg *clientpb.Builder) error {
-	if reg == nil {
-		return errors.New("missing builder registration")
-	}
-	if len(reg.GetSessionToken()) != 32 {
-		return fmt.Errorf("builder %s has no authenticated step session", reg.GetName())
-	}
-	return nil
 }

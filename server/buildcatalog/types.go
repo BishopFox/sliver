@@ -13,6 +13,7 @@ type Reference struct {
 	Digest  string `json:"digest"`
 }
 
+// Target identifies an operating system and architecture.
 type Target struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
@@ -27,15 +28,18 @@ type Artifact struct {
 	EntrySymbols []string `json:"entrySymbols,omitempty"`
 }
 
+// Toolchain names the driver and requirements for a capability.
 type Toolchain struct {
 	Driver       string   `json:"driver"`
 	Requirements []string `json:"requirements"`
 }
 
+// Resources estimates the memory needed to execute a capability.
 type Resources struct {
 	EstimatedPeakMemoryBytes uint64 `json:"estimatedPeakMemoryBytes"`
 }
 
+// OptionDefinition describes one option and its allowed values.
 type OptionDefinition struct {
 	Name        string          `json:"name"`
 	Type        string          `json:"type"`
@@ -47,6 +51,7 @@ type OptionDefinition struct {
 	Maximum     *float64        `json:"maximum,omitempty"`
 }
 
+// Runtime identifies the protocol and commands supported by a core.
 type Runtime struct {
 	Protocol       string   `json:"protocol"`
 	CommandSource  string   `json:"commandSource"`
@@ -54,6 +59,7 @@ type Runtime struct {
 	Commands       []string `json:"commands,omitempty"`
 }
 
+// Executor identifies the installed integration that implements a spec.
 type Executor struct {
 	ID string `json:"id"`
 }
@@ -73,11 +79,13 @@ type CoreBuilder struct {
 	Target   string `json:"target"`
 }
 
+// CoreOutput describes the produced artifact and supported output formats.
 type CoreOutput struct {
 	Artifact        Artifact `json:"artifact"`
 	OperatorFormats []string `json:"operatorFormats"`
 }
 
+// CoreCapability describes a supported combination of target, runtime mode, and output.
 type CoreCapability struct {
 	Targets   []Target   `json:"targets"`
 	Mode      string     `json:"mode"`
@@ -87,6 +95,7 @@ type CoreCapability struct {
 	Resources *Resources `json:"resources,omitempty"`
 }
 
+// TransformCapability describes a supported input and output pairing for a target.
 type TransformCapability struct {
 	Targets             []Target   `json:"targets"`
 	Input               Artifact   `json:"input"`
@@ -96,6 +105,7 @@ type TransformCapability struct {
 	RequiresEntrySymbol bool       `json:"requiresEntrySymbol,omitempty"`
 }
 
+// CoreSpec declares an immutable core definition and its capabilities.
 type CoreSpec struct {
 	APIVersion   string             `json:"apiVersion"`
 	Kind         string             `json:"kind"`
@@ -108,6 +118,7 @@ type CoreSpec struct {
 	Capabilities []CoreCapability   `json:"capabilities"`
 }
 
+// TransformSpec declares an immutable transform definition and its capabilities.
 type TransformSpec struct {
 	APIVersion   string                `json:"apiVersion"`
 	Kind         string                `json:"kind"`
@@ -117,18 +128,21 @@ type TransformSpec struct {
 	Capabilities []TransformCapability `json:"capabilities"`
 }
 
+// Origin records where a catalog definition was obtained.
 type Origin struct {
 	Source   string    `json:"source"`
 	Provider string    `json:"provider,omitempty"`
 	LastSeen time.Time `json:"lastSeen"`
 }
 
+// ProviderStatus records the availability of a spec provider.
 type ProviderStatus struct {
 	Name     string    `json:"name"`
 	Online   bool      `json:"online"`
 	LastSeen time.Time `json:"lastSeen"`
 }
 
+// Snapshot is a copy of a catalog definition and its current provider state.
 type Snapshot struct {
 	Kind      string
 	Reference Reference
@@ -140,6 +154,7 @@ type Snapshot struct {
 	Available bool
 }
 
+// Query filters catalog snapshots by spec, target, and availability.
 type Query struct {
 	Kind          string
 	Name          string

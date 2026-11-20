@@ -169,6 +169,8 @@ func (stream *stepRegisterStream) RecvMsg(any) error {
 
 // Two live registration streams exercise authenticated assignment delivery,
 // capacity debit between concurrent steps, typed fetch/upload, and teardown.
+
+//nolint:gocyclo // Assigning and clearing work on both streams must preserve session isolation.
 func TestTwoBuilderAssignedStepStreams(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}
@@ -181,14 +183,14 @@ func TestTwoBuilderAssignedStepStreams(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := &clientpb.BuildSpecRef{Name: snapshot.Reference.Name, Version: snapshot.Reference.Version, Digest: snapshot.Reference.Digest}
-	cap := proto.Clone(buildSpecProto(snapshot).Capabilities[0]).(*clientpb.BuildSpecCapability)
-	cap.Targets = []*clientpb.BuildTarget{{GOOS: "windows", GOARCH: "amd64"}}
+	capability := proto.Clone(buildSpecProto(snapshot).Capabilities[0]).(*clientpb.BuildSpecCapability)
+	capability.Targets = []*clientpb.BuildTarget{{GOOS: "windows", GOARCH: "amd64"}}
 	makeWorker := func(name string, memory uint64) *clientpb.Builder {
 		token := sha256.Sum256([]byte(name))
 		return &clientpb.Builder{
 			Name: name, SessionToken: token[:],
 			SpecYAML: []string{string(snapshot.RawYAML)}, SpecRefs: []*clientpb.BuildSpecRef{ref},
-			Capabilities: []*clientpb.BuilderCapability{{Spec: ref, Capability: cap}},
+			Capabilities: []*clientpb.BuilderCapability{{Spec: ref, Capability: capability}},
 			Status: &clientpb.BuilderStatus{EffectiveCPUCores: 4, AvailableMemoryBytes: memory,
 				Toolchains: []*clientpb.BuilderToolchainStatus{{Driver: "builtin", Target: &clientpb.BuildTarget{GOOS: "windows", GOARCH: "amd64"}, Identity: "builtin", Available: true}}},
 		}
@@ -348,6 +350,7 @@ func waitStepEvent(t *testing.T, stream *stepRegisterStream) string {
 	}
 }
 
+//nolint:gocyclo // The same token is checked through registration, inventory, and disconnect.
 func TestStepBuilderRegistrationAndInventoryKeepTokenPrivate(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}

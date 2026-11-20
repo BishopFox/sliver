@@ -84,23 +84,7 @@ func renderImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFil
 	})
 
 	for sliverName, config := range builds.Configs {
-		if filters.GOOS != "" && config.GOOS != filters.GOOS {
-			continue
-		}
-		if filters.GOARCH != "" && config.GOARCH != filters.GOARCH {
-			continue
-		}
-		if filters.Beacon && !config.IsBeacon {
-			continue
-		}
-		if filters.Session && config.IsBeacon {
-			continue
-		}
-		if filters.Debug && config.Debug {
-			continue
-		}
-		if filters.Format != "" && (!strings.EqualFold(config.Format.String(), filters.Format) ||
-			!strings.HasPrefix(strings.ToLower(config.Format.String()), strings.ToLower(filters.Format))) {
+		if !matchesBuildFilters(config, filters) {
 			continue
 		}
 
@@ -140,6 +124,18 @@ func renderImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFil
 	}
 
 	return tw.Render()
+}
+
+func matchesBuildFilters(config *clientpb.ImplantConfig, filters ImplantBuildFilter) bool {
+	if (filters.GOOS != "" && config.GOOS != filters.GOOS) ||
+		(filters.GOARCH != "" && config.GOARCH != filters.GOARCH) ||
+		(filters.Beacon && !config.IsBeacon) || (filters.Session && config.IsBeacon) ||
+		(filters.Debug && config.Debug) {
+		return false
+	}
+	format := config.Format.String()
+	return filters.Format == "" || (strings.EqualFold(format, filters.Format) &&
+		strings.HasPrefix(strings.ToLower(format), strings.ToLower(filters.Format)))
 }
 
 // ImplantBuildNameCompleter - Completer for implant build names.

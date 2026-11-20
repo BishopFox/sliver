@@ -125,6 +125,7 @@ func implantBuildSave(build *clientpb.ImplantBuild, config *clientpb.ImplantConf
 	return saveImplantBuildData(build, config, data, "", publish)
 }
 
+//nolint:gocyclo // Row updates, publication, and rollback share one save transaction.
 func saveImplantBuildData(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, data []byte, resourceType string, publish func(string, string) error) (returnErr error) {
 	if build == nil || config == nil {
 		return errors.New("missing implant build or config")
@@ -175,7 +176,7 @@ func saveImplantBuildData(build *clientpb.ImplantBuild, config *clientpb.Implant
 	if err != nil {
 		return err
 	}
-	defer os.Remove(stagedPath)
+	defer func() { _ = os.Remove(stagedPath) }()
 
 	workingBuild := proto.Clone(build).(*clientpb.ImplantBuild)
 	workingBuild.ImplantID = encoders.GetRandomID()
@@ -241,6 +242,7 @@ func ImplantBuildUpdateFile(build *clientpb.ImplantBuild, data []byte) error {
 	return implantBuildUpdateFile(build, data, os.Rename)
 }
 
+//nolint:gocyclo // Publication, backup restoration, and metadata updates share a rollback boundary.
 func implantBuildUpdateFile(build *clientpb.ImplantBuild, data []byte, publish func(string, string) error) error {
 	if build == nil {
 		return errors.New("nil implant build")
@@ -268,12 +270,12 @@ func implantBuildUpdateFile(build *clientpb.ImplantBuild, data []byte, publish f
 	if err != nil {
 		return err
 	}
-	defer os.Remove(stagedPath)
+	defer func() { _ = os.Remove(stagedPath) }()
 	backupDir, err := os.MkdirTemp(buildsDir, ".implant-backup-*")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(backupDir)
+	defer func() { _ = os.RemoveAll(backupDir) }()
 	backupPath := filepath.Join(backupDir, "previous")
 	md5Hash, sha1Hash, sha256Hash := computeHashes(data)
 	var updatedBuild *clientpb.ImplantBuild
@@ -358,16 +360,16 @@ func stageImplantFile(buildsDir string, data []byte) (string, error) {
 	}
 	path := staged.Name()
 	if written, err := staged.Write(data); err != nil {
-		staged.Close()
-		os.Remove(path)
+		_ = staged.Close()
+		_ = os.Remove(path)
 		return "", err
 	} else if written != len(data) {
-		staged.Close()
-		os.Remove(path)
+		_ = staged.Close()
+		_ = os.Remove(path)
 		return "", io.ErrShortWrite
 	}
 	if err := staged.Close(); err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return "", err
 	}
 	return path, nil

@@ -1,3 +1,4 @@
+// Package buildplan resolves build requests and stores their plans and results.
 package buildplan
 
 import (
@@ -31,6 +32,7 @@ type Catalog interface {
 // depends on the server host.
 type ToolchainCheck func(provider string, spec buildcatalog.Snapshot, target Target, toolchain Toolchain) bool
 
+// Planner resolves requests against immutable catalog definitions.
 type Planner struct {
 	catalog            Catalog
 	toolchain          ToolchainCheck
@@ -39,6 +41,7 @@ type Planner struct {
 	ignoreAvailability bool // Diagnostic topology search after an unavailable route.
 }
 
+// NewPlanner constructs a planner with the given catalog and toolchain check.
 func NewPlanner(catalog Catalog, toolchain ToolchainCheck) *Planner {
 	return &Planner{catalog: catalog, toolchain: toolchain}
 }
@@ -144,6 +147,7 @@ func (p *Planner) plan(ctx context.Context, request Request) (Plan, error) {
 	return plan, nil
 }
 
+//nolint:gocyclo // Preserve validation order while normalizing the request and its derived protocol set.
 func normalizeRequest(request Request) (Request, []string, error) {
 	// Planning must not reorder or retain mutable slices owned by its caller.
 	request.C2 = slices.Clone(request.C2)
@@ -348,6 +352,7 @@ func resolvedEntrySymbols(artifact Artifact, options []Option) []string {
 	return artifact.EntrySymbols
 }
 
+//nolint:gocyclo // Shortest-path selection, deduplication, and unavailable-provider errors share the same search state.
 func (p *Planner) explicitRoute(ctx context.Context, request Request, starts []route) (route, error) {
 	resolved := make([]buildcatalog.Snapshot, len(request.Transforms))
 	resolvedOptions := make([][]Option, len(request.Transforms))
@@ -556,6 +561,7 @@ func (p *Planner) applyTransform(snapshot buildcatalog.Snapshot, policy Provider
 	return dedupeRoutes(results), unavailable
 }
 
+//nolint:gocyclo // Keep diagnostic and live provider choices tied to the same provider policy.
 func (p *Planner) chooseProvider(snapshot buildcatalog.Snapshot, policy ProviderPolicy, target Target,
 	toolchain Toolchain, input *Artifact, output Artifact, mode string, protocols []string) (string, bool) {
 	if p.ignoreAvailability {
@@ -802,53 +808,63 @@ func validateOptionValue(raw json.RawMessage, definition buildcatalog.OptionDefi
 			return errors.New("value is outside enum")
 		}
 	case "integer", "number":
-		var value json.Number
-		decoder := json.NewDecoder(bytes.NewReader(raw))
-		decoder.UseNumber()
-		if err := decoder.Decode(&value); err != nil {
-			return err
-		}
-		if definition.Type == "integer" {
-			integer, err := strconv.ParseInt(value.String(), 10, 64)
-			if err != nil {
-				return errors.New("expected integer")
-			}
-			if integer < -9007199254740991 || integer > 9007199254740991 {
-				return errors.New("integer exceeds the safe JSON range")
-			}
-		}
-		floatValue, err := value.Float64()
-		if err != nil {
-			return err
-		}
-		if definition.Minimum != nil && floatValue < *definition.Minimum ||
-			definition.Maximum != nil && floatValue > *definition.Maximum {
-			return errors.New("value is outside allowed range")
-		}
+		return validateNumericOption(raw, definition)
 	case "string-list":
 		var value []string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return err
 		}
 	case "secret-ref", "input-artifact-ref":
-		var value struct {
-			Kind string `json:"kind"`
-			Name string `json:"name"`
-		}
-		decoder := json.NewDecoder(bytes.NewReader(raw))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&value); err != nil {
-			return err
-		}
-		want := "secret"
-		if definition.Type == "input-artifact-ref" {
-			want = "input-artifact"
-		}
-		if value.Kind != want || value.Name == "" {
-			return errors.New("invalid per-build input reference")
-		}
+		return validateInputReference(raw, definition.Type)
 	default:
 		return fmt.Errorf("unsupported option type %s", definition.Type)
+	}
+	return nil
+}
+
+func validateNumericOption(raw json.RawMessage, definition buildcatalog.OptionDefinition) error {
+	var value json.Number
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	if definition.Type == "integer" {
+		integer, err := strconv.ParseInt(value.String(), 10, 64)
+		if err != nil {
+			return errors.New("expected integer")
+		}
+		if integer < -9007199254740991 || integer > 9007199254740991 {
+			return errors.New("integer exceeds the safe JSON range")
+		}
+	}
+	floatValue, err := value.Float64()
+	if err != nil {
+		return err
+	}
+	if definition.Minimum != nil && floatValue < *definition.Minimum ||
+		definition.Maximum != nil && floatValue > *definition.Maximum {
+		return errors.New("value is outside allowed range")
+	}
+	return nil
+}
+
+func validateInputReference(raw json.RawMessage, optionType string) error {
+	var value struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	want := "secret"
+	if optionType == "input-artifact-ref" {
+		want = "input-artifact"
+	}
+	if value.Kind != want || value.Name == "" {
+		return errors.New("invalid per-build input reference")
 	}
 	return nil
 }

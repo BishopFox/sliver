@@ -27,6 +27,7 @@ func cleanupCommand(t *testing.T, beacon bool) *cobra.Command {
 	return cmd
 }
 
+//nolint:gocyclo // The test verifies that both command forms select the same cleanup policy.
 func TestGenerateCleanupFlagSpaceFormAndRouting(t *testing.T) {
 	for _, beacon := range []bool{false, true} {
 		name := "session"

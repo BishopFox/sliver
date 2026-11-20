@@ -195,19 +195,25 @@ func assertDirectFormatBinary(t *testing.T, path, goos string) {
 		if err != nil {
 			t.Fatalf("output is not PE: %v", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			t.Errorf("close PE output: %v", err)
+		}
 	case DARWIN:
 		file, err := macho.Open(path)
 		if err != nil {
 			t.Fatalf("output is not Mach-O: %v", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			t.Errorf("close Mach-O output: %v", err)
+		}
 	case LINUX:
 		file, err := elf.Open(path)
 		if err != nil {
 			t.Fatalf("output is not ELF: %v", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			t.Errorf("close ELF output: %v", err)
+		}
 	default:
 		t.Fatalf("unexpected target OS %q", goos)
 	}

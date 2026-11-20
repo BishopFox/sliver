@@ -31,6 +31,8 @@ var converterDigests = map[string]string{
 // Convert applies one frozen shellcode converter step to accepted core bytes.
 // workDir is the private build directory used for Malasada's file-based input;
 // the temporary shared object is removed before this function returns.
+//
+//nolint:gocyclo // Keep each converter dispatch together with its input and output checks.
 func Convert(ctx context.Context, step buildplan.Step, input []byte, workDir string) ([]byte, error) {
 	if ctx == nil {
 		return nil, errors.New("missing converter context")
@@ -70,7 +72,7 @@ func Convert(ctx context.Context, step buildplan.Step, input []byte, workDir str
 			OEP: options.originalEntryPoint,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("Donut conversion: %w", err)
+			return nil, fmt.Errorf("convert with Donut: %w", err)
 		}
 		// Preserve the legacy Sliver loader's stack alignment prelude exactly.
 		output = append([]byte{0x48, 0x83, 0xe4, 0xf0, 0x48, 0x83, 0xc4, 0x08}, result.Loader...)
@@ -82,7 +84,7 @@ func Convert(ctx context.Context, step buildplan.Step, input []byte, workDir str
 			EntrySymbol: step.Input.EntrySymbols[0], Compress: options.compress,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("Beignet conversion: %w", err)
+			return nil, fmt.Errorf("convert with Beignet: %w", err)
 		}
 	case "builtin/malasada":
 		if err := validateConverterELF(input, step.Input.Target.Arch); err != nil {
@@ -104,6 +106,7 @@ func Convert(ctx context.Context, step buildplan.Step, input []byte, workDir str
 	return output, nil
 }
 
+//nolint:gocyclo // The installed spec and artifact constraints are checked as one predicate for each converter.
 func validateConverterStep(step buildplan.Step) error {
 	if step.Spec.Version != "1.0.0" || step.Spec.Digest != converterDigests[step.Spec.Name] {
 		return errors.New("converter step does not match an installed immutable spec")
@@ -119,19 +122,19 @@ func validateConverterStep(step buildplan.Step) error {
 	case "builtin/donut":
 		if input.Target.OS != "windows" || input.Target.Arch != "386" && input.Target.Arch != "amd64" ||
 			input.Kind != "executable" || input.Container != "pe" || input.GoBuildMode != "pie" {
-			return errors.New("Donut requires a Windows PIE executable for 386 or amd64")
+			return errors.New("converter Donut requires a Windows PIE executable for 386 or amd64")
 		}
 	case "builtin/beignet":
 		if input.Target.OS != "darwin" || input.Target.Arch != "arm64" ||
 			input.Kind != "shared-library" || input.Container != "macho" || input.GoBuildMode != "c-shared" ||
 			!validConverterEntry(input.EntrySymbols) {
-			return errors.New("Beignet requires a Darwin arm64 shared library and entry symbol")
+			return errors.New("converter Beignet requires a Darwin arm64 shared library and entry symbol")
 		}
 	case "builtin/malasada":
 		if input.Target.OS != "linux" || input.Target.Arch != "amd64" && input.Target.Arch != "arm64" ||
 			input.Kind != "shared-library" || input.Container != "elf" || input.GoBuildMode != "c-shared" ||
 			!validConverterEntry(input.EntrySymbols) {
-			return errors.New("Malasada requires a Linux amd64 or arm64 shared library and entry symbol")
+			return errors.New("converter Malasada requires a Linux amd64 or arm64 shared library and entry symbol")
 		}
 	default:
 		return fmt.Errorf("no installed converter for %q", step.Spec.Name)
@@ -155,6 +158,7 @@ type parsedConverterOptions struct {
 	originalEntryPoint uint32
 }
 
+//nolint:gocyclo // Keep the installed option types and bounds together with their defaults.
 func converterOptions(step buildplan.Step) (parsedConverterOptions, error) {
 	options := parsedConverterOptions{entropy: 1, exitOption: 1, bypass: 3, headers: 1}
 	seen := make(map[string]bool, len(step.Options))
@@ -191,22 +195,22 @@ func converterOptions(step buildplan.Step) (parsedConverterOptions, error) {
 			switch option.Name {
 			case "entropy":
 				if value < 1 || value > 3 {
-					return options, errors.New("Donut entropy is outside 1..3")
+					return options, errors.New("entropy for Donut is outside 1..3")
 				}
 				options.entropy = value
 			case "exitOption":
 				if value < 1 || value > 3 {
-					return options, errors.New("Donut exit option is outside 1..3")
+					return options, errors.New("exit option for Donut is outside 1..3")
 				}
 				options.exitOption = value
 			case "bypass":
 				if value < 1 || value > 3 {
-					return options, errors.New("Donut bypass is outside 1..3")
+					return options, errors.New("bypass for Donut is outside 1..3")
 				}
 				options.bypass = value
 			case "headers":
 				if value < 1 || value > 2 {
-					return options, errors.New("Donut headers is outside 1..2")
+					return options, errors.New("headers for Donut is outside 1..2")
 				}
 				options.headers = value
 			case "originalEntryPoint":
@@ -224,7 +228,7 @@ func validateConverterPE(input []byte, arch string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	want := map[string]uint16{"386": 0x014c, "amd64": 0x8664}[arch]
 	if want == 0 || file.Machine != want || file.Characteristics&0x2000 != 0 {
 		return errors.New("PE machine or executable type does not match the frozen target")
@@ -244,7 +248,7 @@ func validateConverterMachO(input []byte) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if file.Cpu != macho.CpuArm64 || file.Type != macho.TypeDylib {
 		return errors.New("Mach-O target or shared-library type does not match the frozen step")
 	}
@@ -256,7 +260,7 @@ func validateConverterELF(input []byte, arch string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	want := map[string]elf.Machine{"amd64": elf.EM_X86_64, "arm64": elf.EM_AARCH64}[arch]
 	if want == 0 || file.Machine != want || file.Type != elf.ET_DYN {
 		return errors.New("ELF target or shared-library type does not match the frozen step")
@@ -266,23 +270,23 @@ func validateConverterELF(input []byte, arch string) error {
 
 func convertMalasada(ctx context.Context, input []byte, entry string, compress bool, workDir string) ([]byte, error) {
 	if !filepath.IsAbs(workDir) {
-		return nil, errors.New("Malasada needs an absolute private work directory")
+		return nil, errors.New("absolute private work directory required for Malasada")
 	}
 	info, err := os.Lstat(workDir)
 	if err != nil || !info.IsDir() {
-		return nil, errors.New("Malasada work directory is unavailable")
+		return nil, errors.New("work directory for Malasada is unavailable")
 	}
 	file, err := os.CreateTemp(workDir, "malasada-*.so")
 	if err != nil {
 		return nil, fmt.Errorf("stage Malasada shared object: %w", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if err := file.Chmod(0600); err != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, err
 	}
 	if _, err := file.Write(input); err != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, fmt.Errorf("write Malasada shared object: %w", err)
 	}
 	if err := file.Close(); err != nil {
@@ -293,7 +297,7 @@ func convertMalasada(ctx context.Context, input []byte, entry string, compress b
 	}
 	output, err := malasada.ConvertSharedObject(file.Name(), entry, compress)
 	if err != nil {
-		return nil, fmt.Errorf("Malasada conversion: %w", err)
+		return nil, fmt.Errorf("convert with Malasada: %w", err)
 	}
 	return output, nil
 }

@@ -1,3 +1,4 @@
+// Package generate prepares build configurations and produces build artifacts.
 package generate
 
 import (
@@ -10,12 +11,14 @@ import (
 
 // writeRetainedBuildScript adds a human-run Mage command to a retained Sliver
 // workspace. It never invokes the script; normal builds use the Mage runner.
+//
+//nolint:gocyclo // Manifest discovery and exclusive script publication share the same rooted workspace.
 func writeRetainedBuildScript(workspacePath, hostOS string) error {
 	root, err := os.OpenRoot(workspacePath)
 	if err != nil {
 		return fmt.Errorf("open retained workspace: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	inputsInfo, err := root.Lstat("inputs")
 	if err != nil {
@@ -65,22 +68,22 @@ func writeRetainedBuildScript(workspacePath, hostOS string) error {
 		return fmt.Errorf("create retained build script: %w", err)
 	}
 	if _, err := io.WriteString(file, contents); err != nil {
-		file.Close()
-		root.Remove(name)
+		_ = file.Close()
+		_ = root.Remove(name)
 		return fmt.Errorf("write retained build script: %w", err)
 	}
 	if err := file.Chmod(mode); err != nil {
-		file.Close()
-		root.Remove(name)
+		_ = file.Close()
+		_ = root.Remove(name)
 		return fmt.Errorf("protect retained build script: %w", err)
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
-		root.Remove(name)
+		_ = file.Close()
+		_ = root.Remove(name)
 		return fmt.Errorf("sync retained build script: %w", err)
 	}
 	if err := file.Close(); err != nil {
-		root.Remove(name)
+		_ = root.Remove(name)
 		return fmt.Errorf("close retained build script: %w", err)
 	}
 	return nil

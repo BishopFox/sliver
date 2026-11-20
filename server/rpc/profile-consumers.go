@@ -21,6 +21,7 @@ func sameConsumerArtifact(a, b *clientpb.BuildArtifactType) bool {
 	return a != nil && b != nil && proto.Equal(a, b)
 }
 
+//nolint:gocyclo // Profile resolution, execution, and artifact ownership share one outcome.
 func (rpc *Server) buildProfileBytesForConsumer(ctx context.Context, profileName, buildName,
 	kind, container, goos string) ([]byte, error) {
 	if profileName == "" {

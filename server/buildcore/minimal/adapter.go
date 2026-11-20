@@ -33,7 +33,9 @@ import (
 )
 
 const (
-	SpecName                = "fixture/minimal-sliver-v1"
+	// SpecName names the installed minimal core specification.
+	SpecName = "fixture/minimal-sliver-v1"
+	// ExecutorID identifies the installed minimal core executor.
 	ExecutorID              = "minimal-sliver-v1-go"
 	maxMaterialBytes        = 16 << 20
 	defaultReconnectSeconds = uint64(2)
@@ -43,6 +45,7 @@ const (
 //go:embed source/main.go magefiles/minimal/magefile.go
 var files embed.FS
 
+// Adapter implements the installed minimal core specification.
 type Adapter struct{}
 
 type material struct {
@@ -82,12 +85,15 @@ func init() {
 	}
 }
 
+// ExecutorID returns the ID of the minimal core executor.
 func (Adapter) ExecutorID() string { return ExecutorID }
 
+// Binding returns the build source and target binding.
 func (Adapter) Binding() buildcore.MageBinding {
 	return buildcore.MageBinding{SourceMode: "copy", Magefile: "magefiles/minimal", Target: "Build"}
 }
 
+// Supports reports whether the adapter accepts the target and toolchain.
 func (Adapter) Supports(target buildplan.Target, toolchain buildplan.Toolchain) bool {
 	if toolchain.Driver != "go" || len(toolchain.Requirements) != 1 || toolchain.Requirements[0] != "go" {
 		return false
@@ -110,6 +116,7 @@ func goExecutable() string {
 	return "go"
 }
 
+// PrepareRemote prepares the material needed for an assigned remote build.
 func (Adapter) PrepareRemote(ctx context.Context, plan buildplan.Plan) ([]byte, error) {
 	if ctx == nil {
 		return nil, errors.New("missing context")
@@ -154,6 +161,7 @@ func (Adapter) PrepareRemote(ctx context.Context, plan buildplan.Plan) ([]byte, 
 	return encoded, nil
 }
 
+//nolint:gocyclo // All target, artifact, and material requirements are checked at the same validation boundary.
 func validatePlan(plan buildplan.Plan) error {
 	if len(plan.Steps) == 0 || plan.Steps[0].Kind != "core" || plan.Steps[0].Spec.Name != SpecName ||
 		plan.Request.Core.Name != SpecName || plan.Request.Mode != "session" || plan.Request.Name == "" {
@@ -197,6 +205,7 @@ func reconnectSeconds(plan buildplan.Plan) uint64 {
 	return plan.Request.C2Settings.ReconnectSeconds
 }
 
+//nolint:gocyclo // Frozen-plan matching and cryptographic material validation use the same decoded record.
 func parseMaterial(plan buildplan.Plan, raw []byte) (material, error) {
 	if err := validatePlan(plan); err != nil {
 		return material{}, err
@@ -223,6 +232,7 @@ func parseMaterial(plan buildplan.Plan, raw []byte) (material, error) {
 	return m, nil
 }
 
+// BuildRemote builds a core with the material supplied for a remote assignment.
 func (Adapter) BuildRemote(ctx context.Context, plan buildplan.Plan, raw []byte) (buildcore.Result, error) {
 	if _, err := parseMaterial(plan, raw); err != nil {
 		return buildcore.Result{}, err
@@ -234,6 +244,7 @@ func (Adapter) BuildRemote(ctx context.Context, plan buildplan.Plan, raw []byte)
 	}).Build(ctx, coreOnlyPlan(plan))
 }
 
+// BuildCore builds and validates the core artifact.
 func (adapter Adapter) BuildCore(ctx context.Context, plan buildplan.Plan) (buildcore.CoreProduct, error) {
 	raw, err := adapter.PrepareRemote(ctx, plan)
 	if err != nil {
@@ -253,6 +264,7 @@ func (adapter Adapter) BuildCore(ctx context.Context, plan buildplan.Plan) (buil
 	}, nil
 }
 
+// Build runs a direct local build and persists the artifact.
 func (adapter Adapter) Build(ctx context.Context, plan buildplan.Plan) (buildcore.Result, error) {
 	if len(plan.Steps) != 1 || plan.Steps[0].Provider != "server" {
 		return buildcore.Result{}, errors.New("direct minimal core build requires one step")
@@ -261,7 +273,7 @@ func (adapter Adapter) Build(ctx context.Context, plan buildplan.Plan) (buildcor
 	if err != nil {
 		return buildcore.Result{}, err
 	}
-	defer product.Close()
+	defer func() { _ = product.Close() }()
 	id, err := product.SaveFinal(ctx, plan.FinalArtifact, product.Result.FileName, product.Result.Data)
 	if err != nil {
 		return buildcore.Result{}, err
@@ -278,6 +290,7 @@ func coreOnlyPlan(plan buildplan.Plan) buildplan.Plan {
 	return only
 }
 
+// CompleteRemote accepts the result of an assigned remote build.
 func (Adapter) CompleteRemote(ctx context.Context, plan buildplan.Plan, raw []byte, final buildplan.Artifact, name string, data []byte) (string, error) {
 	if ctx == nil {
 		return "", errors.New("missing context")
@@ -297,7 +310,7 @@ func (Adapter) CompleteRemote(ctx context.Context, plan buildplan.Plan, raw []by
 	if err != nil {
 		return "", err
 	}
-	defer os.RemoveAll(staging)
+	defer func() { _ = os.RemoveAll(staging) }()
 	path := filepath.Join(staging, "artifact")
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return "", err

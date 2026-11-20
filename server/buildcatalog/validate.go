@@ -70,46 +70,14 @@ func validateCoreSpec(spec *CoreSpec) error {
 	if err := validateExecutor(spec.Executor); err != nil {
 		return err
 	}
-	if spec.Source != nil || spec.Builder != nil {
-		if spec.Source == nil || spec.Builder == nil {
-			return errors.New("Mage core requires both source and builder declarations")
-		}
-		if spec.Source.Mode != "copy" && spec.Source.Mode != "none" {
-			return fmt.Errorf("invalid core source mode %q", spec.Source.Mode)
-		}
-		if spec.Source.Mode == "none" && spec.Source.Renderer != "" {
-			return errors.New("source renderer requires copy mode")
-		}
-		if spec.Source.Renderer != "" && !identifierRE.MatchString(spec.Source.Renderer) {
-			return fmt.Errorf("invalid source renderer %q", spec.Source.Renderer)
-		}
-		if spec.Builder.Engine != "mage" || !safeBundlePath(spec.Builder.Magefile) ||
-			!mageTargetRE.MatchString(spec.Builder.Target) {
-			return errors.New("invalid installed Mage builder declaration")
-		}
+	if err := validateCoreBuild(spec.Source, spec.Builder); err != nil {
+		return err
 	}
 	if err := validateOptions(spec.Options); err != nil {
 		return err
 	}
-	if spec.Runtime.Protocol != "sliver-v1" {
-		return fmt.Errorf("unsupported runtime protocol %q", spec.Runtime.Protocol)
-	}
-	switch spec.Runtime.CommandSource {
-	case "installed-catalog":
-		if spec.Runtime.CommandCatalog != "builtin-sliver-v1" || len(spec.Runtime.Commands) != 0 || spec.Executor.ID != "builtin-sliver-go-v1" {
-			return errors.New("unrecognized installed command catalog or executor pairing")
-		}
-	case "declared-subset":
-		if spec.Runtime.CommandCatalog != "" || len(spec.Runtime.Commands) == 0 || !distinctStrings(spec.Runtime.Commands) {
-			return errors.New("declared command subset must be nonempty, unique, and have no installed catalog")
-		}
-		for _, command := range spec.Runtime.Commands {
-			if _, valid := allowedRequestNames[command]; !valid {
-				return fmt.Errorf("unknown or response-only sliver-v1 command %q", command)
-			}
-		}
-	default:
-		return fmt.Errorf("invalid command source %q", spec.Runtime.CommandSource)
+	if err := validateCoreRuntime(spec.Runtime, spec.Executor); err != nil {
+		return err
 	}
 	if len(spec.Capabilities) == 0 {
 		return errors.New("CoreSpec must declare at least one capability")
@@ -124,6 +92,52 @@ func validateCoreSpec(spec *CoreSpec) error {
 			return fmt.Errorf("duplicate core capability %d", index)
 		}
 		seenCapabilities[string(encoded)] = struct{}{}
+	}
+	return nil
+}
+
+func validateCoreBuild(source *CoreSource, builder *CoreBuilder) error {
+	if source != nil || builder != nil {
+		if source == nil || builder == nil {
+			return errors.New("core requires both source and builder declarations for Mage")
+		}
+		if source.Mode != "copy" && source.Mode != "none" {
+			return fmt.Errorf("invalid core source mode %q", source.Mode)
+		}
+		if source.Mode == "none" && source.Renderer != "" {
+			return errors.New("source renderer requires copy mode")
+		}
+		if source.Renderer != "" && !identifierRE.MatchString(source.Renderer) {
+			return fmt.Errorf("invalid source renderer %q", source.Renderer)
+		}
+		if builder.Engine != "mage" || !safeBundlePath(builder.Magefile) ||
+			!mageTargetRE.MatchString(builder.Target) {
+			return errors.New("invalid installed Mage builder declaration")
+		}
+	}
+	return nil
+}
+
+func validateCoreRuntime(runtime Runtime, executor Executor) error {
+	if runtime.Protocol != "sliver-v1" {
+		return fmt.Errorf("unsupported runtime protocol %q", runtime.Protocol)
+	}
+	switch runtime.CommandSource {
+	case "installed-catalog":
+		if runtime.CommandCatalog != "builtin-sliver-v1" || len(runtime.Commands) != 0 || executor.ID != "builtin-sliver-go-v1" {
+			return errors.New("unrecognized installed command catalog or executor pairing")
+		}
+	case "declared-subset":
+		if runtime.CommandCatalog != "" || len(runtime.Commands) == 0 || !distinctStrings(runtime.Commands) {
+			return errors.New("declared command subset must be nonempty, unique, and have no installed catalog")
+		}
+		for _, command := range runtime.Commands {
+			if _, valid := allowedRequestNames[command]; !valid {
+				return fmt.Errorf("unknown or response-only sliver-v1 command %q", command)
+			}
+		}
+	default:
+		return fmt.Errorf("invalid command source %q", runtime.CommandSource)
 	}
 	return nil
 }
@@ -188,39 +202,51 @@ func validateOptions(options []OptionDefinition) error {
 			return fmt.Errorf("duplicate option name %q", option.Name)
 		}
 		seen[option.Name] = struct{}{}
-		if option.Minimum != nil && option.Maximum != nil && *option.Minimum > *option.Maximum {
-			return fmt.Errorf("option %q minimum exceeds maximum", option.Name)
+		if err := validateOptionBounds(option); err != nil {
+			return err
 		}
-		for _, bound := range []*float64{option.Minimum, option.Maximum} {
-			if bound != nil && (!safeFloat(*bound) || option.Type == "integer" && float64(int64(*bound)) != *bound) {
-				return fmt.Errorf("option %q has invalid numeric bound", option.Name)
-			}
+		if err := validateOptionDefinition(option); err != nil {
+			return err
 		}
-		switch option.Type {
-		case "boolean", "string", "integer", "number", "enum", "string-list", "secret-ref", "input-artifact-ref":
-		default:
-			return fmt.Errorf("option %q has invalid type %q", option.Name, option.Type)
+	}
+	return nil
+}
+
+func validateOptionBounds(option OptionDefinition) error {
+	if option.Minimum != nil && option.Maximum != nil && *option.Minimum > *option.Maximum {
+		return fmt.Errorf("option %q minimum exceeds maximum", option.Name)
+	}
+	for _, bound := range []*float64{option.Minimum, option.Maximum} {
+		if bound != nil && (!safeFloat(*bound) || option.Type == "integer" && float64(int64(*bound)) != *bound) {
+			return fmt.Errorf("option %q has invalid numeric bound", option.Name)
 		}
-		if option.Type == "enum" {
-			if len(option.Values) == 0 || !distinctStrings(option.Values) {
-				return fmt.Errorf("enum option %q needs distinct values", option.Name)
-			}
-		} else if len(option.Values) != 0 {
-			return fmt.Errorf("option %q cannot declare enum values", option.Name)
+	}
+	return nil
+}
+
+func validateOptionDefinition(option OptionDefinition) error {
+	switch option.Type {
+	case "boolean", "string", "integer", "number", "enum", "string-list", "secret-ref", "input-artifact-ref":
+	default:
+		return fmt.Errorf("option %q has invalid type %q", option.Name, option.Type)
+	}
+	if option.Type == "enum" {
+		if len(option.Values) == 0 || !distinctStrings(option.Values) {
+			return fmt.Errorf("enum option %q needs distinct values", option.Name)
 		}
-		if option.Type != "integer" && option.Type != "number" && (option.Minimum != nil || option.Maximum != nil) {
-			return fmt.Errorf("option %q cannot declare numeric bounds", option.Name)
-		}
-		if option.Type == "secret-ref" || option.Type == "input-artifact-ref" {
-			if len(option.Default) != 0 {
-				return fmt.Errorf("reference option %q cannot have a default", option.Name)
-			}
-		}
+	} else if len(option.Values) != 0 {
+		return fmt.Errorf("option %q cannot declare enum values", option.Name)
+	}
+	if option.Type != "integer" && option.Type != "number" && (option.Minimum != nil || option.Maximum != nil) {
+		return fmt.Errorf("option %q cannot declare numeric bounds", option.Name)
+	}
+	if option.Type == "secret-ref" || option.Type == "input-artifact-ref" {
 		if len(option.Default) != 0 {
-			if err := validateOptionDefault(option); err != nil {
-				return err
-			}
+			return fmt.Errorf("reference option %q cannot have a default", option.Name)
 		}
+	}
+	if len(option.Default) != 0 {
+		return validateOptionDefault(option)
 	}
 	return nil
 }
@@ -246,30 +272,35 @@ func validateOptionDefault(option OptionDefinition) error {
 			return fmt.Errorf("option %q default must be boolean", option.Name)
 		}
 	case "integer", "number":
-		if len(option.Default) == 0 || option.Default[0] == '"' {
-			return fmt.Errorf("option %q default must be numeric", option.Name)
-		}
-		var number json.Number
-		decoder := json.NewDecoder(bytes.NewReader(option.Default))
-		decoder.UseNumber()
-		if err := decoder.Decode(&number); err != nil {
-			return fmt.Errorf("option %q default must be numeric", option.Name)
-		}
-		value, err := number.Float64()
-		if err != nil || !safeFloat(value) {
-			return fmt.Errorf("option %q default exceeds safe number range", option.Name)
-		}
-		if option.Type == "integer" && !decimalIntRE.MatchString(number.String()) {
-			return fmt.Errorf("option %q default must be an integer", option.Name)
-		}
-		if option.Minimum != nil && value < *option.Minimum || option.Maximum != nil && value > *option.Maximum {
-			return fmt.Errorf("option %q default is outside numeric bounds", option.Name)
-		}
+		return validateNumericDefault(option)
 	case "string-list":
 		var values []string
 		if err := json.Unmarshal(option.Default, &values); err != nil || values == nil {
 			return fmt.Errorf("option %q default must be a string list", option.Name)
 		}
+	}
+	return nil
+}
+
+func validateNumericDefault(option OptionDefinition) error {
+	if len(option.Default) == 0 || option.Default[0] == '"' {
+		return fmt.Errorf("option %q default must be numeric", option.Name)
+	}
+	var number json.Number
+	decoder := json.NewDecoder(bytes.NewReader(option.Default))
+	decoder.UseNumber()
+	if err := decoder.Decode(&number); err != nil {
+		return fmt.Errorf("option %q default must be numeric", option.Name)
+	}
+	value, err := number.Float64()
+	if err != nil || !safeFloat(value) {
+		return fmt.Errorf("option %q default exceeds safe number range", option.Name)
+	}
+	if option.Type == "integer" && !decimalIntRE.MatchString(number.String()) {
+		return fmt.Errorf("option %q default must be an integer", option.Name)
+	}
+	if option.Minimum != nil && value < *option.Minimum || option.Maximum != nil && value > *option.Maximum {
+		return fmt.Errorf("option %q default is outside numeric bounds", option.Name)
 	}
 	return nil
 }
@@ -294,7 +325,7 @@ func validateCoreCapability(capability CoreCapability) error {
 		return err
 	}
 	if capability.Toolchain.Driver == "go" && capability.Output.Artifact.GoBuildMode == "" {
-		return errors.New("Go core output requires goBuildMode")
+		return errors.New("core output requires goBuildMode when using the Go toolchain")
 	}
 	if !distinctStrings(capability.Output.OperatorFormats) {
 		return errors.New("duplicate operator output format")
@@ -382,47 +413,31 @@ func validateArtifact(artifact Artifact) error {
 			return errors.New("artifact has empty entry symbol")
 		}
 	}
-	switch artifact.Kind {
-	case "executable":
-		if !oneOf(artifact.Container, "pe", "elf", "macho") || artifact.GoBuildMode != "" && !oneOf(artifact.GoBuildMode, "default", "exe", "pie") {
-			return errors.New("invalid executable artifact")
-		}
-	case "service-executable":
-		if artifact.Container != "pe" || artifact.GoBuildMode != "" && artifact.GoBuildMode != "default" {
-			return errors.New("invalid service executable artifact")
-		}
-	case "shared-library":
-		if !oneOf(artifact.Container, "pe", "elf", "macho") || artifact.GoBuildMode != "" && artifact.GoBuildMode != "c-shared" {
-			return errors.New("invalid shared library artifact")
-		}
-	case "go-archive":
-		if artifact.Container != "ar" || artifact.GoBuildMode != "archive" {
-			return errors.New("invalid Go archive artifact")
-		}
-	case "c-archive":
-		if artifact.Container != "ar" || artifact.GoBuildMode != "c-archive" {
-			return errors.New("invalid C archive artifact")
-		}
-	case "c-archive-bundle":
-		if artifact.Container != "zip" || artifact.GoBuildMode != "c-archive" {
-			return errors.New("invalid C archive bundle")
-		}
-	case "go-plugin":
-		if !oneOf(artifact.Container, "elf", "macho") || artifact.GoBuildMode != "plugin" {
-			return errors.New("invalid Go plugin artifact")
-		}
-	case "go-shared-library":
-		if !oneOf(artifact.Container, "elf", "macho") || artifact.GoBuildMode != "shared" {
-			return errors.New("invalid Go shared library artifact")
-		}
-	case "shellcode", "stage":
-		if artifact.Container != "raw" || artifact.GoBuildMode != "" {
-			return errors.New("invalid raw artifact")
-		}
-	default:
+	shape, known := artifactShapes[artifact.Kind]
+	if !known {
 		return fmt.Errorf("unknown artifact kind %q", artifact.Kind)
 	}
+	if !oneOf(artifact.Container, shape.containers...) || !oneOf(artifact.GoBuildMode, shape.modes...) {
+		return errors.New(shape.invalid)
+	}
 	return nil
+}
+
+var artifactShapes = map[string]struct {
+	containers []string
+	modes      []string
+	invalid    string
+}{
+	"executable":         {[]string{"pe", "elf", "macho"}, []string{"", "default", "exe", "pie"}, "invalid executable artifact"},
+	"service-executable": {[]string{"pe"}, []string{"", "default"}, "invalid service executable artifact"},
+	"shared-library":     {[]string{"pe", "elf", "macho"}, []string{"", "c-shared"}, "invalid shared library artifact"},
+	"go-archive":         {[]string{"ar"}, []string{"archive"}, "invalid Go archive artifact"},
+	"c-archive":          {[]string{"ar"}, []string{"c-archive"}, "invalid C archive artifact"},
+	"c-archive-bundle":   {[]string{"zip"}, []string{"c-archive"}, "invalid C archive bundle"},
+	"go-plugin":          {[]string{"elf", "macho"}, []string{"plugin"}, "invalid Go plugin artifact"},
+	"go-shared-library":  {[]string{"elf", "macho"}, []string{"shared"}, "invalid Go shared library artifact"},
+	"shellcode":          {[]string{"raw"}, []string{""}, "invalid raw artifact"},
+	"stage":              {[]string{"raw"}, []string{""}, "invalid raw artifact"},
 }
 
 func validateArtifactTargets(artifact Artifact, targets []Target) error {

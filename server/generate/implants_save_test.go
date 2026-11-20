@@ -12,6 +12,7 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 )
 
+//nolint:gocyclo // The test verifies rollback of the database rows and staged file in one save attempt.
 func TestImplantBuildSavePublicationFailureRevokesBuild(t *testing.T) {
 	for _, preSaved := range []bool{false, true} {
 		name := "new build"
@@ -215,7 +216,7 @@ func TestImplantBuildSaveStagePublicationFailure(t *testing.T) {
 	config := &clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", LimitHostname: identity}
 	failure := errors.New("stage publication failed")
 	called := false
-	err := saveStage(build, config, []byte("stage bytes"), "stage-type", func(staged, final string) error {
+	err := saveStage(build, config, []byte("stage bytes"), "stage-type", func(staged, _ string) error {
 		called = true
 		if _, statErr := os.Stat(staged); statErr != nil {
 			return statErr
@@ -300,14 +301,8 @@ func TestImplantBuildSaveUpdateFileRollbackAndPublish(t *testing.T) {
 	}); !errors.Is(err, failure) {
 		t.Fatalf("update failure = %v", err)
 	}
-	stored, err := os.ReadFile(filepath.Join(root, "builds", build.ID))
-	if err != nil || !bytes.Equal(stored, oldData) || build.SHA256 != oldHash {
-		t.Fatalf("failed update changed caller or file: %v", err)
-	}
-	var persisted models.ImplantBuild
-	if err := db.Session().Where("id = ?", build.ID).First(&persisted).Error; err != nil || persisted.SHA256 != oldHash {
-		t.Fatalf("failed update changed database SHA256=%q, err=%v", persisted.SHA256, err)
-	}
+	buildPath := filepath.Join(root, "builds", build.ID)
+	assertImplantBuildUpdateRolledBack(t, buildPath, build, oldData, oldHash)
 	build.SHA256 = "stale-hash"
 	if err := ImplantBuildUpdateFile(build, newData); err == nil {
 		t.Fatal("stale build metadata overwrote a newer build")
@@ -316,9 +311,21 @@ func TestImplantBuildSaveUpdateFileRollbackAndPublish(t *testing.T) {
 	if err := ImplantBuildUpdateFile(build, newData); err != nil {
 		t.Fatalf("publish update: %v", err)
 	}
-	stored, err = os.ReadFile(filepath.Join(root, "builds", build.ID))
+	stored, err := os.ReadFile(buildPath)
 	if err != nil || !bytes.Equal(stored, newData) || build.SHA256 == oldHash {
 		t.Fatalf("successful update did not publish: %v", err)
+	}
+}
+
+func assertImplantBuildUpdateRolledBack(t *testing.T, path string, build *clientpb.ImplantBuild, data []byte, hash string) {
+	t.Helper()
+	stored, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(stored, data) || build.SHA256 != hash {
+		t.Fatalf("failed update changed caller or file: %v", err)
+	}
+	var persisted models.ImplantBuild
+	if err := db.Session().Where("id = ?", build.ID).First(&persisted).Error; err != nil || persisted.SHA256 != hash {
+		t.Fatalf("failed update changed database SHA256=%q, err=%v", persisted.SHA256, err)
 	}
 }
 
@@ -329,7 +336,11 @@ func TestImplantBuildSaveRejectsSiblingPrefixPath(t *testing.T) {
 	if err := os.Mkdir(sibling, 0700); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(sibling)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(sibling); err != nil {
+			t.Errorf("remove sibling directory: %v", err)
+		}
+	})
 	artifact := filepath.Join(sibling, "artifact")
 	if err := os.WriteFile(artifact, []byte("test binary"), 0600); err != nil {
 		t.Fatal(err)

@@ -89,6 +89,7 @@ func splitAssignedEvent(data []byte) (name, assignmentID string, err error) {
 	return name, assignmentID, nil
 }
 
+//nolint:gocyclo // Keep assignment verification, dispatch, output validation, and material cleanup in one lifecycle.
 func (b *Builder) executeAssignedStep(ctx context.Context, assignmentID string,
 	request *clientpb.BuilderStepRequest) (*clientpb.BuildArtifactPayload, string, error) {
 	if request != nil {
@@ -143,6 +144,7 @@ func (b *Builder) executeAssignedStep(ctx context.Context, assignmentID string,
 	}, identity, nil
 }
 
+//nolint:gocyclo // Match the spec, artifacts, target, and runtime settings against a single capability claim.
 func (b *Builder) claimsStep(step buildplan.Step, request *clientpb.BuildRequest) bool {
 	for _, claim := range b.externalBuilder.Capabilities {
 		if claim == nil || claim.Spec == nil || claim.Capability == nil ||
@@ -195,6 +197,7 @@ func claimProtocols(allowed []string, request *clientpb.BuildRequest) bool {
 	return true
 }
 
+//nolint:gocyclo // Keep each prepared input check beside the adapter binding and toolchain checks it depends on.
 func (b *Builder) executeCore(ctx context.Context, request *clientpb.BuilderStepRequest,
 	step buildplan.Step, snapshot buildcatalog.Snapshot) ([]byte, string, string, error) {
 	adapter, exists := buildcore.DefaultAdapter(snapshot.Core.Executor.ID)
@@ -205,7 +208,7 @@ func (b *Builder) executeCore(ctx context.Context, request *clientpb.BuilderStep
 	if step.Spec.Name == "builtin/sliver" {
 		if len(request.CoreMaterial) != 0 || request.SliverConfig == nil || request.SliverConfig.Build == nil ||
 			request.SliverConfig.Build.ID != request.BuildID {
-			return nil, "", "", errors.New("Sliver assignment has no valid prepared cryptographic material")
+			return nil, "", "", errors.New("Sliver assignment has no valid prepared cryptographic material") //nolint:staticcheck // Preserve the existing error text and proper noun.
 		}
 	} else {
 		remote, exists = adapter.(buildcore.RemoteCoreAdapter)
@@ -422,6 +425,7 @@ func targetFromWire(wire *clientpb.BuildTarget) buildplan.Target {
 
 type stepMaterialKey struct{ kind, name string }
 
+//nolint:gocyclo // Each rejection must clear the material collected in the same validation pass.
 func stepInputResolver(inputs []*clientpb.BuildInput) (buildtransform.ResolveInput, func(), error) {
 	material := make(map[stepMaterialKey][]byte, len(inputs))
 	cleanup := func() {

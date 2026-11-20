@@ -1,3 +1,4 @@
+// Package buildscheduler tracks builder capacity and reservations.
 package buildscheduler
 
 import (
@@ -18,14 +19,16 @@ import (
 // used for a new assignment. Reports are timestamped by the server.
 const DefaultStatusTTL = 30 * time.Second
 
-// A single builder process cannot have more effective logical cores than this.
-// It also bounds bogus status reports before they affect scheduler ordering.
+// MaxEffectiveCPUCores bounds the effective logical cores in a capacity report.
 const MaxEffectiveCPUCores = 65_536
 
 var (
+	// ErrDuplicateBuilder indicates that the requested name is already connected.
 	ErrDuplicateBuilder = errors.New("builder is already connected")
-	ErrUnknownBuilder   = errors.New("builder is not registered")
-	ErrNoBuilder        = errors.New("no fresh compatible builder has available capacity")
+	// ErrUnknownBuilder indicates that the requested name is unregistered.
+	ErrUnknownBuilder = errors.New("builder is not registered")
+	// ErrNoBuilder indicates that no fresh, compatible builder has capacity.
+	ErrNoBuilder = errors.New("no fresh compatible builder has available capacity")
 )
 
 // Registration contains only immutable support facts for one connection.
@@ -35,6 +38,7 @@ type Registration struct {
 	Specs []SpecSupport
 }
 
+// SpecSupport records the capabilities registered for one catalog reference.
 type SpecSupport struct {
 	Reference    buildplan.Reference
 	Capabilities []Capability
@@ -50,6 +54,7 @@ type Capability struct {
 	Toolchain Toolchain
 }
 
+// Toolchain describes the driver and requirements of a capability.
 type Toolchain struct {
 	Driver       string
 	Requirements []string
@@ -65,6 +70,7 @@ type ToolchainStatus struct {
 	Available    bool
 }
 
+// Status reports current builder capacity and available toolchains.
 type Status struct {
 	EffectiveCPUCores    int
 	AvailableMemoryBytes uint64
@@ -83,6 +89,7 @@ type Requirement struct {
 	Toolchain Toolchain
 }
 
+// Candidate records a compatible builder's reported and unreserved capacity.
 type Candidate struct {
 	Name                 string
 	ReportedAt           time.Time
@@ -104,6 +111,7 @@ type Decision struct {
 	Candidates      []Candidate
 }
 
+// Reservation identifies capacity reserved for a single build step.
 type Reservation struct {
 	ID       string
 	Builder  string
@@ -151,6 +159,7 @@ type Scheduler struct {
 	reservations map[string]reservationState
 }
 
+// New creates a scheduler with the given capacity report lifetime.
 func New(ttl time.Duration) *Scheduler {
 	if ttl <= 0 {
 		ttl = DefaultStatusTTL
@@ -307,6 +316,7 @@ func (s *Scheduler) Release(id string) bool {
 	return true
 }
 
+// Inventory returns builder status and capacity ordered by builder name.
 func (s *Scheduler) Inventory(now time.Time) []InventoryEntry {
 	if s == nil {
 		return nil
@@ -484,13 +494,21 @@ func validateRegistration(reg Registration) error {
 			return fmt.Errorf("duplicate spec %s@%s", ref.Name, ref.Version)
 		}
 		seen[ref] = true
-		if len(spec.Capabilities) == 0 {
-			return fmt.Errorf("spec %s has no capability tuples", ref.Name)
+		if err := validateSpecCapabilities(spec); err != nil {
+			return err
 		}
-		for _, cap := range spec.Capabilities {
-			if cap.Target.OS == "" || cap.Target.Arch == "" || cap.Output.Kind == "" || cap.Output.Container == "" || cap.Toolchain.Driver == "" || cap.Input == nil && cap.Mode == "" {
-				return fmt.Errorf("spec %s has an incomplete capability tuple", ref.Name)
-			}
+	}
+	return nil
+}
+
+func validateSpecCapabilities(spec SpecSupport) error {
+	if len(spec.Capabilities) == 0 {
+		return fmt.Errorf("spec %s has no capability tuples", spec.Reference.Name)
+	}
+	for _, cap := range spec.Capabilities {
+		if cap.Target.OS == "" || cap.Target.Arch == "" || cap.Output.Kind == "" || cap.Output.Container == "" ||
+			cap.Toolchain.Driver == "" || cap.Input == nil && cap.Mode == "" {
+			return fmt.Errorf("spec %s has an incomplete capability tuple", spec.Reference.Name)
 		}
 	}
 	return nil

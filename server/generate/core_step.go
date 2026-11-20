@@ -42,6 +42,8 @@ func (adapter SliverCoreAdapter) BuildCore(ctx context.Context, plan buildplan.P
 // config retains its legacy fields while the plan freezes the compiler output
 // type and the later transforms. Neither intermediate bytes nor build material
 // are saved to the legacy build database.
+//
+//nolint:gocyclo // Output acceptance and the save and close callbacks share one workspace lifecycle.
 func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan buildplan.Plan, config *clientpb.ImplantConfig) (product buildcore.CoreProduct, buildErr error) {
 	if ctx == nil || config == nil {
 		return buildcore.CoreProduct{}, errors.New("missing Sliver core context or config")
@@ -55,7 +57,7 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 	}
 	coreArtifact := plan.Steps[0].Output
 	if coreArtifact.Target != plan.Request.Target || config.GOOS != coreArtifact.Target.OS || config.GOARCH != coreArtifact.Target.Arch {
-		return buildcore.CoreProduct{}, errors.New("Sliver config does not match frozen core target")
+		return buildcore.CoreProduct{}, errors.New("Sliver config does not match frozen core target") //nolint:staticcheck // Preserve the existing error text and proper noun.
 	}
 	name := plan.Request.Name
 	if name == "" {
@@ -82,7 +84,7 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 		return buildcore.CoreProduct{}, err
 	}
 	if httpConfig == nil || httpConfig.ImplantConfig == nil {
-		return buildcore.CoreProduct{}, errors.New("Sliver HTTP C2 configuration is unavailable")
+		return buildcore.CoreProduct{}, errors.New("Sliver HTTP C2 configuration is unavailable") //nolint:staticcheck // Preserve the existing error text and proper noun.
 	}
 
 	var output string
@@ -91,7 +93,7 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 			return buildcore.CoreProduct{}, err
 		}
 		if len(coreArtifact.EntrySymbols) != 0 && !slices.Equal(coreArtifact.EntrySymbols, config.Exports) {
-			return buildcore.CoreProduct{}, errors.New("Sliver shellcode exports differ from frozen core artifact")
+			return buildcore.CoreProduct{}, errors.New("Sliver shellcode exports differ from frozen core artifact") //nolint:staticcheck // Preserve the existing error text and proper noun.
 		}
 		output, err = compileShellcodeCore(ctx, name, build, config, httpConfig.ImplantConfig)
 	} else {
@@ -100,7 +102,7 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 			return buildcore.CoreProduct{}, artifactErr
 		}
 		if !compatibleDirectSliverArtifact(coreArtifact, expected) {
-			return buildcore.CoreProduct{}, errors.New("Sliver direct compiler output differs from frozen core artifact")
+			return buildcore.CoreProduct{}, errors.New("Sliver direct compiler output differs from frozen core artifact") //nolint:staticcheck // Preserve the existing error text and proper noun.
 		}
 		output, err = adapter.Compile(ctx, name, build, config, httpConfig.ImplantConfig)
 	}
@@ -149,7 +151,7 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 		stateMu.Lock()
 		defer stateMu.Unlock()
 		if closed || saveAttempted {
-			return "", errors.New("Sliver core product is closed or already saved")
+			return "", errors.New("Sliver core product is closed or already saved") //nolint:staticcheck // Preserve the existing error text and proper noun.
 		}
 		saveAttempted = true // A partially committed legacy save must not be retried.
 		if saveCtx == nil {
@@ -240,6 +242,7 @@ func sliverStageType(plan buildplan.Plan) (string, error) {
 	return label.String(), nil
 }
 
+//nolint:gocyclo // Keep each platform's exact artifact requirements together.
 func validateShellcodeCoreArtifact(artifact buildplan.Artifact) error {
 	target := artifact.Target
 	switch target.OS {
@@ -287,17 +290,17 @@ func writeSliverFinalFile(path string, contents []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if err := file.Chmod(0600); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if _, err := file.Write(contents); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Close(); err != nil {
@@ -308,6 +311,8 @@ func writeSliverFinalFile(path string, contents []byte) error {
 
 // compileShellcodeCore retains the original Sliver Go/Mage build flags while
 // stopping before Donut, Beignet, or Malasada consumes the compiler output.
+//
+//nolint:gocyclo // Platform validation and compiler settings share the same output contract.
 func compileShellcodeCore(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig,
 	httpConfig *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	appDir := assets.GetRootAppDir()
@@ -323,7 +328,7 @@ func compileShellcodeCore(ctx context.Context, name string, build *clientpb.Impl
 	switch config.GOOS {
 	case WINDOWS:
 		if config.GOARCH != "386" && config.GOARCH != "amd64" {
-			return "", errors.New("Windows shellcode core requires 386 or amd64")
+			return "", errors.New("Windows shellcode core requires 386 or amd64") //nolint:staticcheck // Preserve the existing error text and platform name.
 		}
 		goConfig.CGO = "0"
 	case LINUX, DARWIN:
@@ -347,7 +352,7 @@ func compileShellcodeCore(ctx context.Context, name string, build *clientpb.Impl
 			ext = ".intermediate.dylib"
 		}
 	default:
-		return "", errors.New("Sliver shellcode core target OS is unsupported")
+		return "", errors.New("Sliver shellcode core target OS is unsupported") //nolint:staticcheck // Preserve the existing error text and proper noun.
 	}
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, httpConfig)
 	if err != nil {

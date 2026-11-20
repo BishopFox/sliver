@@ -1,3 +1,4 @@
+// Package buildcatalog provides commands to inspect and manage build specifications.
 package buildcatalog
 
 import (
@@ -209,51 +210,55 @@ func infoSpec(cmd *cobra.Command, kind clientpb.BuildSpecKind, name string, con 
 			con.PrintErrorf("Failed to load exact build spec: %s\n", err)
 			return
 		}
-		con.Printf("%s@%s\nDigest: %s\nExecutor: %s\nAvailable: %t\n", spec.Ref.Name, spec.Ref.Version, spec.Ref.Digest, spec.ExecutorID, spec.Available)
-		if spec.RuntimeProtocol != "" {
-			con.Printf("Runtime: %s (%s)\n", spec.RuntimeProtocol, spec.CommandSource)
+		printSpecDetails(spec, query, showYAML, con)
+	}
+}
+
+func printSpecDetails(spec *clientpb.BuildSpec, query *clientpb.BuildSpecQuery, showYAML bool, con *console.SliverClient) {
+	con.Printf("%s@%s\nDigest: %s\nExecutor: %s\nAvailable: %t\n", spec.Ref.Name, spec.Ref.Version, spec.Ref.Digest, spec.ExecutorID, spec.Available)
+	if spec.RuntimeProtocol != "" {
+		con.Printf("Runtime: %s (%s)\n", spec.RuntimeProtocol, spec.CommandSource)
+	}
+	for _, origin := range spec.Origins {
+		con.Printf("Source: %s", origin.Source)
+		if origin.Provider != "" {
+			con.Printf(" (%s)", origin.Provider)
 		}
-		for _, origin := range spec.Origins {
-			con.Printf("Source: %s", origin.Source)
-			if origin.Provider != "" {
-				con.Printf(" (%s)", origin.Provider)
-			}
-			con.Printf("\n")
+		con.Printf("\n")
+	}
+	for _, provider := range spec.Providers {
+		state := "offline"
+		if provider.Online {
+			state = "online"
 		}
-		for _, provider := range spec.Providers {
-			state := "offline"
-			if provider.Online {
-				state = "online"
-			}
-			con.Printf("Provider: %s (%s, last seen %s)\n", provider.Name, state, formatUnix(provider.LastSeenUnix))
+		con.Printf("Provider: %s (%s, last seen %s)\n", provider.Name, state, formatUnix(provider.LastSeenUnix))
+	}
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{"Targets", "Mode", "Protocols", "Input", "Output", "Formats", "Toolchain"})
+	for _, capability := range spec.Capabilities {
+		if query.TargetGOOS != "" && !capabilitySupportsTarget(capability, query.TargetGOOS, query.TargetGOARCH) {
+			continue
 		}
-		tw := table.NewWriter()
-		tw.SetStyle(settings.GetTableStyle(con))
-		tw.AppendHeader(table.Row{"Targets", "Mode", "Protocols", "Input", "Output", "Formats", "Toolchain"})
-		for _, capability := range spec.Capabilities {
-			if query.TargetGOOS != "" && !capabilitySupportsTarget(capability, query.TargetGOOS, query.TargetGOARCH) {
+		targets := make([]string, 0, len(capability.Targets))
+		for _, target := range capability.Targets {
+			if query.TargetGOOS != "" && (target.GOOS != query.TargetGOOS || target.GOARCH != query.TargetGOARCH) {
 				continue
 			}
-			targets := make([]string, 0, len(capability.Targets))
-			for _, target := range capability.Targets {
-				if query.TargetGOOS != "" && (target.GOOS != query.TargetGOOS || target.GOARCH != query.TargetGOARCH) {
-					continue
-				}
-				targets = append(targets, target.GOOS+"/"+target.GOARCH)
-			}
-			toolchain := capability.ToolchainDriver
-			if len(capability.ToolchainRequirements) > 0 {
-				toolchain += " (" + strings.Join(capability.ToolchainRequirements, ", ") + ")"
-			}
-			tw.AppendRow(table.Row{
-				strings.Join(targets, ", "), capability.Mode, strings.Join(capability.Protocols, ", "),
-				artifactString(capability.Input), artifactString(capability.Output), strings.Join(capability.OperatorFormats, ", "), toolchain,
-			})
+			targets = append(targets, target.GOOS+"/"+target.GOARCH)
 		}
-		con.Printf("%s\n", tw.Render())
-		if showYAML {
-			con.Printf("%s\n", string(spec.YAML))
+		toolchain := capability.ToolchainDriver
+		if len(capability.ToolchainRequirements) > 0 {
+			toolchain += " (" + strings.Join(capability.ToolchainRequirements, ", ") + ")"
 		}
+		tw.AppendRow(table.Row{
+			strings.Join(targets, ", "), capability.Mode, strings.Join(capability.Protocols, ", "),
+			artifactString(capability.Input), artifactString(capability.Output), strings.Join(capability.OperatorFormats, ", "), toolchain,
+		})
+	}
+	con.Printf("%s\n", tw.Render())
+	if showYAML {
+		con.Printf("%s\n", string(spec.YAML))
 	}
 }
 

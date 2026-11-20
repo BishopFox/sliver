@@ -20,15 +20,23 @@ import (
 )
 
 const (
-	StageFrameSpec      = "builtin/stage-frame"
-	StageCompressSpec   = "builtin/stage-compress"
-	StageAESSpec        = "builtin/stage-aes"
-	StageRC4Spec        = "builtin/stage-rc4"
-	StageFrameDigest    = "sha256:a947be3966ef01bc1f287894efdf0a1ca2e08a7f8329eeae83c88a9b5bc5b8d3"
+	// StageFrameSpec identifies the installed framing transform.
+	StageFrameSpec = "builtin/stage-frame"
+	// StageCompressSpec identifies the installed compression transform.
+	StageCompressSpec = "builtin/stage-compress"
+	// StageAESSpec identifies the installed AES transform.
+	StageAESSpec = "builtin/stage-aes"
+	// StageRC4Spec identifies the installed legacy RC4 transform.
+	StageRC4Spec = "builtin/stage-rc4"
+	// StageFrameDigest is the digest of the installed framing spec.
+	StageFrameDigest = "sha256:a947be3966ef01bc1f287894efdf0a1ca2e08a7f8329eeae83c88a9b5bc5b8d3"
+	// StageCompressDigest is the digest of the installed compression spec.
 	StageCompressDigest = "sha256:d62eb2ca0688fa18696b9efcd02d5235bf5f482881ce858eb5a78dc6552210df"
-	StageAESDigest      = "sha256:816231a80611e04ad7e6cad1553a703c35a7fb04fc0a82ca3a9709c7bf21bfec"
-	StageRC4Digest      = "sha256:c573ed5628a478b3de79ef66f142d599c7ce3fa3fb4e2e7a2e6d02b095e40a39"
-	maxStageBytes       = 512 << 20
+	// StageAESDigest is the digest of the installed AES spec.
+	StageAESDigest = "sha256:816231a80611e04ad7e6cad1553a703c35a7fb04fc0a82ca3a9709c7bf21bfec"
+	// StageRC4Digest is the digest of the installed legacy RC4 spec.
+	StageRC4Digest = "sha256:c573ed5628a478b3de79ef66f142d599c7ce3fa3fb4e2e7a2e6d02b095e40a39"
+	maxStageBytes  = 512 << 20
 )
 
 // ResolveInput retrieves a secret or input artifact by its typed, per-build
@@ -39,6 +47,8 @@ type ResolveInput func(kind, name string) ([]byte, error)
 // ApplyStageStep executes one frozen stage transform. The supported order is
 // frame, compression, then one encryption step; the planner freezes that order
 // and this function validates the type of each individual edge.
+//
+//nolint:gocyclo // Keep transform dispatch and its validation together at the execution boundary.
 func ApplyStageStep(ctx context.Context, step buildplan.Step, input []byte, resolve ResolveInput) ([]byte, error) {
 	if ctx == nil {
 		return nil, errors.New("missing stage transform context")
@@ -103,6 +113,7 @@ func ApplyStageStep(ctx context.Context, step buildplan.Step, input []byte, reso
 	return output, nil
 }
 
+//nolint:gocyclo // Each frozen edge is checked alongside its option schema.
 func validateStageStep(step buildplan.Step) error {
 	if step.Kind != "transform" || step.Provider != "server" || step.Input == nil ||
 		step.Toolchain.Driver != "builtin" || len(step.Toolchain.Requirements) != 0 ||
@@ -148,6 +159,7 @@ func validateStageStep(step buildplan.Step) error {
 	return nil
 }
 
+//nolint:gocyclo // Target and artifact constraints form one compatibility matrix.
 func stageFrameInputAllowed(input buildplan.Artifact) bool {
 	switch input.Target.OS {
 	case "windows":

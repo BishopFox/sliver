@@ -47,6 +47,7 @@ func init() {
 	}
 }
 
+// ExecutorID returns the catalog identifier for the installed Sliver executor.
 func (SliverCoreAdapter) ExecutorID() string { return sliverExecutorID }
 
 // Supports reports the same compiler targets advertised by the legacy Sliver
@@ -82,6 +83,8 @@ func (adapter SliverCoreAdapter) Build(ctx context.Context, plan buildplan.Plan)
 // BuildLegacy is the compatibility entry point for the existing Generate RPC.
 // It keeps credential generation and compilation in the Sliver adapter while
 // returning only a typed result to the caller.
+//
+//nolint:gocyclo // Legacy validation, output acceptance, and persistence share one workspace lifecycle.
 func (adapter SliverCoreAdapter) BuildLegacy(ctx context.Context, name string, config *clientpb.ImplantConfig) (result buildcore.Result, buildErr error) {
 	if config == nil {
 		return buildcore.Result{}, fmt.Errorf("missing implant config")
@@ -162,18 +165,18 @@ func writeSliverResult(output string) error {
 	if err != nil {
 		return fmt.Errorf("create Sliver output descriptor: %w", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if err := file.Chmod(0600); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	name := filepath.Base(output)
 	if err := json.NewEncoder(file).Encode(artifactaccept.Result{Primary: name, DisplayName: name}); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Close(); err != nil {
@@ -285,6 +288,8 @@ func includeSliverC2(config *clientpb.ImplantConfig) {
 // ConfigFromPlan translates the typed core request at the adapter boundary.
 // This is intentionally Sliver-specific: adding another core never changes
 // buildplan or the generic executor.
+//
+//nolint:gocyclo // Keep compatibility checks adjacent to the fields they translate.
 func (SliverCoreAdapter) ConfigFromPlan(plan buildplan.Plan) (*clientpb.ImplantConfig, error) {
 	unsupported := func(step, detail string) error {
 		return &buildplan.PlanError{Code: buildplan.CodeUnsupportedExecution, Step: step, Detail: detail}
@@ -451,6 +456,7 @@ func includeSliverProtocol(config *clientpb.ImplantConfig, protocol string) {
 	}
 }
 
+//nolint:gocyclo // A single switch records the complete option-to-field mapping and its decode errors.
 func setSliverCoreOption(config *clientpb.ImplantConfig, option buildplan.Option) error {
 	var err error
 	switch option.Name {
@@ -501,6 +507,7 @@ func setSliverCoreOption(config *clientpb.ImplantConfig, option buildplan.Option
 	return nil
 }
 
+//nolint:gocyclo // Keep option decoding and platform validation with the compatibility field mapping.
 func setSliverConverterOptions(config *clientpb.ImplantConfig, step buildplan.Step) error {
 	config.ShellcodeConfig = &clientpb.ShellcodeConfig{}
 	for _, option := range step.Options {

@@ -59,7 +59,7 @@ func TestInspectBytesMatchesFileAcceptanceAndRejectsUnsafeOutput(t *testing.T) {
 }
 
 func TestAcceptRejectsUnsafePrimary(t *testing.T) {
-	for _, primary := range []string{"../other", "/tmp/other", "C:\\other", "sub/file", "result.json"} {
+	for _, primary := range []string{"../other", "/tmp/other", `C:\outside`, "sub/file", "result.json"} {
 		t.Run(primary, func(t *testing.T) {
 			bin := t.TempDir()
 			writeResult(t, bin, primary, "safe.zip", nil)

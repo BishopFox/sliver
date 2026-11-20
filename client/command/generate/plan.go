@@ -41,6 +41,7 @@ func previewGeneratePlan(cmd *cobra.Command, con *console.SliverClient, beacon b
 	}
 }
 
+//nolint:gocyclo // Flag validation and translation share the same request defaults.
 func planRequestFromFlags(cmd *cobra.Command, beacon bool) (*clientpb.BuildRequest, error) {
 	if cmd == nil {
 		return nil, errors.New("missing generate command")
@@ -263,6 +264,7 @@ func previewOption(name string, value any) (*clientpb.BuildOption, error) {
 	return &clientpb.BuildOption{Name: name, ValueJSON: encoded}, nil
 }
 
+//nolint:gocyclo // Keep each option's flag validation adjacent to its conversion.
 func previewCoreOptions(cmd *cobra.Command, format string) ([]*clientpb.BuildOption, error) {
 	options := []*clientpb.BuildOption{}
 	add := func(flag, name string, value any) error {
@@ -338,6 +340,7 @@ func previewCoreOptions(cmd *cobra.Command, format string) ([]*clientpb.BuildOpt
 	return options, nil
 }
 
+//nolint:gocyclo // Format and flag checks determine the transform order together.
 func previewTransforms(cmd *cobra.Command, goos, format string) ([]*clientpb.BuildTransformRequest, error) {
 	if format != "shellcode" {
 		if encoder, _ := cmd.Flags().GetString("shellcode-encoder"); encoder != "" {

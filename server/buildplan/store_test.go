@@ -55,8 +55,13 @@ func TestStoreFinalBytesAndRevision(t *testing.T) {
 	if err != nil || !bytes.Equal(got, first) || info.Name != "sliver.exe" {
 		t.Fatalf("reopened final artifact: %q %+v %v", got, info, err)
 	}
+	checkFinalRevisionReplacement(t, store, record.ID, plan, first)
+}
+
+func checkFinalRevisionReplacement(t *testing.T, store *Store, id string, plan Plan, first []byte) {
+	t.Helper()
 	second := []byte("spoofed-final")
-	updated, err := store.ReplaceFinal(record.ID, artifactInfo(plan.FinalArtifact, "renamed.exe", second), second)
+	updated, err := store.ReplaceFinal(id, artifactInfo(plan.FinalArtifact, "renamed.exe", second), second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,21 +69,21 @@ func TestStoreFinalBytesAndRevision(t *testing.T) {
 		updated.Steps[0].ToolchainIdentity != "go-test" {
 		t.Fatalf("revision damaged immutable record data: %+v", updated)
 	}
-	got, info, err = store.FinalBytes(record.ID)
+	got, info, err := store.FinalBytes(id)
 	if err != nil || !bytes.Equal(got, second) || info.Name != "renamed.exe" {
 		t.Fatalf("replaced final artifact: %q %+v %v", got, info, err)
 	}
-	prior, err := os.ReadFile(store.finalPath(record.ID, 1))
+	prior, err := os.ReadFile(store.finalPath(id, 1))
 	if err != nil || !bytes.Equal(prior, first) {
 		t.Fatalf("prior final revision was lost: %q %v", prior, err)
 	}
-	if _, err := store.ReplaceFinal(record.ID, artifactInfo(plan.FinalArtifact, "bad.exe", []byte("different")), second); err == nil {
+	if _, err := store.ReplaceFinal(id, artifactInfo(plan.FinalArtifact, "bad.exe", []byte("different")), second); err == nil {
 		t.Fatal("accepted incorrect replacement checksum")
 	}
-	if err := os.WriteFile(store.finalPath(record.ID, 2), []byte("tampered"), 0o600); err != nil {
+	if err := os.WriteFile(store.finalPath(id, 2), []byte("tampered"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.FinalBytes(record.ID); err == nil {
+	if _, _, err := store.FinalBytes(id); err == nil {
 		t.Fatal("returned tampered final artifact")
 	}
 }

@@ -69,6 +69,7 @@ var (
 	wgSessPrivKey string
 	wgSessPubKey  string
 
+	// PingInterval is the default interval between WireGuard pings.
 	PingInterval = pb.WireGuardPingInterval
 	failedConn   = 0
 )

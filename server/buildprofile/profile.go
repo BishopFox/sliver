@@ -1,3 +1,4 @@
+// Package buildprofile parses, validates, and stores reusable build profiles.
 package buildprofile
 
 import (
@@ -6,25 +7,30 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/bishopfox/sliver/server/buildcatalog"
 	"github.com/bishopfox/sliver/server/buildplan"
 	"gopkg.in/yaml.v3"
 )
 
+// MaxYAMLBytes limits the size of a profile document.
 const MaxYAMLBytes = 1 << 20
 
 var namePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 var inputPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 var builderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
+// ValidName reports whether name is an admissible profile name.
 func ValidName(name string) bool { return len(name) <= 255 && namePattern.MatchString(name) }
 
+// Metadata identifies a profile and its revision.
 type Metadata struct {
 	Name     string `json:"name"`
 	Revision uint64 `json:"revision"`
 }
 
+// Artifact specifies the format of a build output.
 type Artifact struct {
 	Kind         string   `json:"kind"`
 	Container    string   `json:"container"`
@@ -32,6 +38,7 @@ type Artifact struct {
 	EntrySymbols []string `json:"entrySymbols,omitempty"`
 }
 
+// C2 contains connection and transport settings for the profile.
 type C2 struct {
 	Endpoints                []buildplan.Endpoint `json:"endpoints"`
 	IncludeProtocols         []string             `json:"includeProtocols,omitempty"`
@@ -44,22 +51,26 @@ type C2 struct {
 	WireguardTCPCommsPort    uint32               `json:"wireguardTCPCommsPort,omitempty"`
 }
 
+// Input declares a value that must be supplied for each build.
 type Input struct {
 	Name     string    `json:"name"`
 	Kind     string    `json:"kind"`
 	Artifact *Artifact `json:"artifact,omitempty"`
 }
 
+// FinalOutput describes the artifact and requested output format.
 type FinalOutput struct {
 	Format   string   `json:"format"`
 	Artifact Artifact `json:"artifact"`
 }
 
+// Provider specifies how the builder for a profile is selected.
 type Provider struct {
 	Policy  string `json:"policy"`
 	Builder string `json:"builder,omitempty"`
 }
 
+// Profile contains a versioned build configuration.
 type Profile struct {
 	APIVersion     string                       `json:"apiVersion"`
 	Kind           string                       `json:"kind"`
@@ -123,12 +134,10 @@ func CanonicalYAML(profile Profile) ([]byte, error) {
 	return yaml.Marshal(&node)
 }
 
+// Validate checks the profile fields and their cross-references.
 func (profile Profile) Validate() error {
-	if profile.APIVersion != "sliver.bishopfox.com/v1alpha1" || profile.Kind != "BuildProfile" {
-		return errors.New("unsupported BuildProfile version or kind")
-	}
-	if !ValidName(profile.Metadata.Name) || profile.Metadata.Revision == 0 || profile.Metadata.Revision > 9007199254740991 {
-		return errors.New("invalid profile name or revision")
+	if err := profile.validateMetadata(); err != nil {
+		return err
 	}
 	if !validTarget(profile.Target) || profile.Mode != "session" && profile.Mode != "beacon" {
 		return errors.New("invalid target or mode")
@@ -136,28 +145,8 @@ func (profile Profile) Validate() error {
 	if (profile.Mode == "beacon") != (profile.Beacon != nil) {
 		return errors.New("beacon settings are required only for beacon mode")
 	}
-	if len(profile.C2.Endpoints) == 0 ||
-		profile.C2.ConnectionStrategy != "sequential" && profile.C2.ConnectionStrategy != "random" && profile.C2.ConnectionStrategy != "random-domain" {
-		return errors.New("invalid C2 settings")
-	}
-	protocols := map[string]bool{}
-	for _, endpoint := range profile.C2.Endpoints {
-		if !validProtocol(endpoint.Protocol) || endpoint.Address == "" ||
-			profile.Mode == "beacon" && (endpoint.Protocol == "named-pipe" || endpoint.Protocol == "tcp-pivot") ||
-			endpoint.Protocol == "named-pipe" && profile.Target.OS != "windows" {
-			return errors.New("invalid C2 endpoint")
-		}
-	}
-	for _, protocol := range profile.C2.IncludeProtocols {
-		if !validProtocol(protocol) || protocols[protocol] ||
-			profile.Mode == "beacon" && (protocol == "named-pipe" || protocol == "tcp-pivot") ||
-			protocol == "named-pipe" && profile.Target.OS != "windows" {
-			return errors.New("invalid or duplicate included C2 protocol")
-		}
-		protocols[protocol] = true
-	}
-	if profile.C2.WireguardKeyExchangePort > 65535 || profile.C2.WireguardTCPCommsPort > 65535 {
-		return errors.New("invalid WireGuard port")
+	if err := profile.validateConnections(); err != nil {
+		return err
 	}
 	if profile.Provider.Policy != "automatic" && profile.Provider.Policy != "pinned" ||
 		(profile.Provider.Policy == "pinned") != (profile.Provider.Builder != "") ||
@@ -167,6 +156,52 @@ func (profile Profile) Validate() error {
 	if profile.Beacon != nil && profile.Beacon.IntervalSeconds == 0 {
 		return errors.New("beacon interval must be positive")
 	}
+	if err := profile.validateOutputs(); err != nil {
+		return err
+	}
+	return profile.validateInputs()
+}
+
+func (profile Profile) validateMetadata() error {
+	if profile.APIVersion != "sliver.bishopfox.com/v1alpha1" || profile.Kind != "BuildProfile" {
+		return errors.New("unsupported BuildProfile version or kind")
+	}
+	if !ValidName(profile.Metadata.Name) || profile.Metadata.Revision == 0 || profile.Metadata.Revision > 9007199254740991 {
+		return errors.New("invalid profile name or revision")
+	}
+	return nil
+}
+
+func (profile Profile) validateConnections() error {
+	if len(profile.C2.Endpoints) == 0 ||
+		profile.C2.ConnectionStrategy != "sequential" && profile.C2.ConnectionStrategy != "random" && profile.C2.ConnectionStrategy != "random-domain" {
+		return errors.New("invalid C2 settings")
+	}
+	protocols := map[string]bool{}
+	for _, endpoint := range profile.C2.Endpoints {
+		if !profile.supportsProtocol(endpoint.Protocol) || endpoint.Address == "" {
+			return errors.New("invalid C2 endpoint")
+		}
+	}
+	for _, protocol := range profile.C2.IncludeProtocols {
+		if !profile.supportsProtocol(protocol) || protocols[protocol] {
+			return errors.New("invalid or duplicate included C2 protocol")
+		}
+		protocols[protocol] = true
+	}
+	if profile.C2.WireguardKeyExchangePort > 65535 || profile.C2.WireguardTCPCommsPort > 65535 {
+		return errors.New("invalid WireGuard port")
+	}
+	return nil
+}
+
+func (profile Profile) supportsProtocol(protocol string) bool {
+	return validProtocol(protocol) &&
+		(profile.Mode != "beacon" || (protocol != "named-pipe" && protocol != "tcp-pivot")) &&
+		(protocol != "named-pipe" || profile.Target.OS == "windows")
+}
+
+func (profile Profile) validateOutputs() error {
 	if profile.Core.Name == "" || profile.Core.Version == "" || profile.Core.Digest == "" {
 		return errors.New("core requires immutable name, version, and digest")
 	}
@@ -190,6 +225,10 @@ func (profile Profile) Validate() error {
 			return fmt.Errorf("transform %s options: %w", transform.Spec.Name, err)
 		}
 	}
+	return nil
+}
+
+func (profile Profile) validateInputs() error {
 	seen := map[string]bool{}
 	slotKinds := map[string]string{}
 	for _, input := range profile.PerBuildInputs {
@@ -226,19 +265,23 @@ func validateOptionBindings(options []buildplan.Option, slots map[string]string)
 		if err := json.Unmarshal(value, &reference); err != nil {
 			return fmt.Errorf("invalid input reference for %s: %w", option.Name, err)
 		}
-		kindJSON, hasKind := reference["kind"]
-		nameJSON, hasName := reference["name"]
-		if !hasKind && !hasName {
-			continue // A catalog option may legitimately hold another object type.
-		}
-		var kind, name string
-		if len(reference) != 2 || !hasKind || !hasName ||
-			json.Unmarshal(kindJSON, &kind) != nil || json.Unmarshal(nameJSON, &name) != nil ||
-			name == "" || (kind != "secret" && kind != "input-artifact") || slots[name] != kind {
+		if !validInputReference(reference, slots) {
 			return fmt.Errorf("unbound per-build input reference in option %s", option.Name)
 		}
 	}
 	return nil
+}
+
+func validInputReference(reference map[string]json.RawMessage, slots map[string]string) bool {
+	kindJSON, hasKind := reference["kind"]
+	nameJSON, hasName := reference["name"]
+	if !hasKind && !hasName {
+		return true // A catalog option may legitimately hold another object type.
+	}
+	var kind, name string
+	return len(reference) == 2 && hasKind && hasName &&
+		json.Unmarshal(kindJSON, &kind) == nil && json.Unmarshal(nameJSON, &name) == nil &&
+		name != "" && (kind == "secret" || kind == "input-artifact") && slots[name] == kind
 }
 
 func validTarget(target buildplan.Target) bool {
@@ -252,29 +295,8 @@ func validTarget(target buildplan.Target) bool {
 }
 
 func validateArtifact(artifact Artifact) error {
-	allowed := false
-	switch artifact.Kind {
-	case "executable":
-		allowed = isNativeContainer(artifact.Container) &&
-			(artifact.GoBuildMode == "" || artifact.GoBuildMode == "default" || artifact.GoBuildMode == "exe" || artifact.GoBuildMode == "pie")
-	case "service-executable":
-		allowed = artifact.Container == "pe" && (artifact.GoBuildMode == "" || artifact.GoBuildMode == "default")
-	case "shared-library":
-		allowed = isNativeContainer(artifact.Container) && (artifact.GoBuildMode == "" || artifact.GoBuildMode == "c-shared")
-	case "go-archive":
-		allowed = artifact.Container == "ar" && artifact.GoBuildMode == "archive"
-	case "c-archive":
-		allowed = artifact.Container == "ar" && artifact.GoBuildMode == "c-archive"
-	case "c-archive-bundle":
-		allowed = artifact.Container == "zip" && artifact.GoBuildMode == "c-archive"
-	case "go-plugin":
-		allowed = (artifact.Container == "elf" || artifact.Container == "macho") && artifact.GoBuildMode == "plugin"
-	case "go-shared-library":
-		allowed = (artifact.Container == "elf" || artifact.Container == "macho") && artifact.GoBuildMode == "shared"
-	case "shellcode", "stage":
-		allowed = artifact.Container == "raw" && artifact.GoBuildMode == ""
-	}
-	if !allowed {
+	shape := artifactShapes[artifact.Kind]
+	if !slices.Contains(shape.containers, artifact.Container) || !slices.Contains(shape.modes, artifact.GoBuildMode) {
 		return errors.New("incompatible artifact kind, container, or Go build mode")
 	}
 	seen := map[string]bool{}
@@ -287,8 +309,20 @@ func validateArtifact(artifact Artifact) error {
 	return nil
 }
 
-func isNativeContainer(container string) bool {
-	return container == "pe" || container == "elf" || container == "macho"
+var artifactShapes = map[string]struct {
+	containers []string
+	modes      []string
+}{
+	"executable":         {[]string{"pe", "elf", "macho"}, []string{"", "default", "exe", "pie"}},
+	"service-executable": {[]string{"pe"}, []string{"", "default"}},
+	"shared-library":     {[]string{"pe", "elf", "macho"}, []string{"", "c-shared"}},
+	"go-archive":         {[]string{"ar"}, []string{"archive"}},
+	"c-archive":          {[]string{"ar"}, []string{"c-archive"}},
+	"c-archive-bundle":   {[]string{"zip"}, []string{"c-archive"}},
+	"go-plugin":          {[]string{"elf", "macho"}, []string{"plugin"}},
+	"go-shared-library":  {[]string{"elf", "macho"}, []string{"shared"}},
+	"shellcode":          {[]string{"raw"}, []string{""}},
+	"stage":              {[]string{"raw"}, []string{""}},
 }
 
 func validProtocol(protocol string) bool {
@@ -314,6 +348,7 @@ func validateOptions(options []buildplan.Option) error {
 	return nil
 }
 
+// Request creates a build plan request for the given build name.
 func (profile Profile) Request(name string) buildplan.Request {
 	request := buildplan.Request{
 		Name: name, Target: profile.Target, Mode: profile.Mode,
@@ -335,11 +370,13 @@ func (profile Profile) Request(name string) buildplan.Request {
 	return request
 }
 
+// PlanArtifact converts a profile artifact to a plan artifact for target.
 func (artifact Artifact) PlanArtifact(target buildplan.Target) buildplan.Artifact {
 	return buildplan.Artifact{Kind: artifact.Kind, Container: artifact.Container, Target: target,
 		GoBuildMode: artifact.GoBuildMode, EntrySymbols: append([]string(nil), artifact.EntrySymbols...)}
 }
 
+// ArtifactFromPlan copies the profile fields from a plan artifact.
 func ArtifactFromPlan(artifact buildplan.Artifact) Artifact {
 	return Artifact{Kind: artifact.Kind, Container: artifact.Container, GoBuildMode: artifact.GoBuildMode,
 		EntrySymbols: append([]string(nil), artifact.EntrySymbols...)}

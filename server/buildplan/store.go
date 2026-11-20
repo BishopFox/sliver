@@ -18,6 +18,7 @@ import (
 const recordFile = "record.json"
 const finalFile = "final.bin" // Legacy records created before numbered revisions.
 
+// ErrArtifactNotReady indicates that a build has no final artifact yet.
 var ErrArtifactNotReady = errors.New("build final artifact is not ready")
 
 var recordIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,127}$`)
@@ -49,6 +50,7 @@ func OpenStore(root string) (*Store, error) {
 	return &Store{root: root}, nil
 }
 
+// Create stores a new build record with a randomly generated ID.
 func (s *Store) Create(plan Plan) (Record, error) {
 	var randomID [16]byte
 	if _, err := rand.Read(randomID[:]); err != nil {
@@ -95,6 +97,7 @@ func (s *Store) CreateWithID(id string, plan Plan) (Record, error) {
 	return cloneRecord(record)
 }
 
+// StepUpdate contains the progress and results to persist for one step.
 type StepUpdate struct {
 	State             StepState
 	Progress          int
@@ -124,22 +127,34 @@ func (s *Store) UpdateStep(id string, index int, update StepUpdate) (Record, err
 	if index < 0 || index >= len(record.Steps) {
 		return Record{}, fmt.Errorf("step index %d out of range", index)
 	}
-	step := &record.Steps[index]
-	if err := checkTransition(step.State, update.State); err != nil {
+	if err := validateStepUpdate(&record, index, update); err != nil {
 		return Record{}, err
 	}
+	applyStepUpdate(&record, index, update, time.Now().UTC())
+	if err := s.writeRecord(record); err != nil {
+		return Record{}, err
+	}
+	return cloneRecord(record)
+}
+
+func validateStepUpdate(record *Record, index int, update StepUpdate) error {
+	if err := checkTransition(record.Steps[index].State, update.State); err != nil {
+		return err
+	}
 	if update.State == StepComplete && update.Progress != 100 {
-		return Record{}, errors.New("completed step must have 100 percent progress")
+		return errors.New("completed step must have 100 percent progress")
 	}
 	if update.State == StepFailed && update.Failure == "" {
-		return Record{}, errors.New("failed step requires failure detail")
+		return errors.New("failed step requires failure detail")
 	}
 	if update.Artifact != nil {
-		if err := validateArtifactInfo(*update.Artifact, record.Plan.Steps[index].Output); err != nil {
-			return Record{}, err
-		}
+		return validateArtifactInfo(*update.Artifact, record.Plan.Steps[index].Output)
 	}
-	now := time.Now().UTC()
+	return nil
+}
+
+func applyStepUpdate(record *Record, index int, update StepUpdate, now time.Time) {
+	step := &record.Steps[index]
 	if update.State == StepRunning && step.StartedAt == nil {
 		step.StartedAt = &now
 	}
@@ -160,19 +175,16 @@ func (s *Store) UpdateStep(id string, index int, update StepUpdate) (Record, err
 		selection := *update.Selection
 		step.Selection = &selection
 	}
-	if update.State == StepFailed {
+	switch update.State {
+	case StepFailed:
 		record.State = BuildFailed
 		record.Failure = update.Failure
-	} else if update.State == StepCancelled {
+	case StepCancelled:
 		record.State = BuildCancelled
-	} else {
+	default:
 		record.State = BuildRunning
 	}
 	record.UpdatedAt = now
-	if err := s.writeRecord(record); err != nil {
-		return Record{}, err
-	}
-	return cloneRecord(record)
 }
 
 // Complete writes final bytes first, then atomically publishes the completed
@@ -259,6 +271,7 @@ func (s *Store) ReplaceFinal(id string, artifact ArtifactInfo, finalBytes []byte
 	return cloneRecord(record)
 }
 
+// Get returns the build record with the given ID.
 func (s *Store) Get(id string) (Record, error) {
 	if err := validateRecordID(id); err != nil {
 		return Record{}, err
@@ -334,7 +347,7 @@ func writeAtomic(path string, data []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	if _, err = tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		return err

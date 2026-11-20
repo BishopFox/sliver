@@ -287,7 +287,7 @@ func spoofMetadataConfigFromProto(req *clientpb.SpoofMetadataConfig) (*generate.
 }
 
 // ImplantBuilds - List existing implant builds
-func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
+func (rpc *Server) ImplantBuilds(_ context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
 	builds, ids, err := db.ImplantBuildsWithIDs()
 	if err != nil {
 		return nil, rpcError(err)

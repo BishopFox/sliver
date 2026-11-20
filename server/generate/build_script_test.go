@@ -53,20 +53,7 @@ func TestWriteRetainedBuildScript(t *testing.T) {
 			if strings.Contains(string(content), "private material sentinel") {
 				t.Fatal("human build script contains private material")
 			}
-			info, err := os.Lstat(scriptPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !info.Mode().IsRegular() {
-				t.Fatalf("script is not a regular file: %v", info.Mode())
-			}
-			if runtime.GOOS != "windows" {
-				if got := info.Mode().Perm(); got&0o077 != 0 || got&0o400 == 0 {
-					t.Fatalf("script permissions %o expose or hide it", got)
-				} else if tc.script == "build.sh" && got&0o100 == 0 {
-					t.Fatalf("Unix build script is not executable: %o", got)
-				}
-			}
+			assertRetainedBuildScriptMode(t, scriptPath, tc.script)
 			other := "build.sh"
 			if tc.script == other {
 				other = "build.ps1"
@@ -75,6 +62,27 @@ func TestWriteRetainedBuildScript(t *testing.T) {
 				t.Fatalf("unexpected second build script: %v", err)
 			}
 		})
+	}
+}
+
+func assertRetainedBuildScriptMode(t *testing.T, path, script string) {
+	t.Helper()
+	info, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.Mode().IsRegular() {
+		t.Fatalf("script is not a regular file: %v", info.Mode())
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	mode := info.Mode().Perm()
+	if mode&0o077 != 0 || mode&0o400 == 0 {
+		t.Fatalf("script permissions %o expose or hide it", mode)
+	}
+	if script == "build.sh" && mode&0o100 == 0 {
+		t.Fatalf("Unix build script is not executable: %o", mode)
 	}
 }
 

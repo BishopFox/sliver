@@ -69,8 +69,8 @@ func TestConverterRejectsWrongFrozenArtifactOrTarget(t *testing.T) {
 func TestConverterOptionsPreserveLegacyDonutDefaultsAndRejectInvalidValues(t *testing.T) {
 	step := converterTestStep("builtin/donut", "windows", "386", "executable", "pe", "pie")
 	options, err := converterOptions(step)
-	if err != nil || options.entropy != 1 || options.exitOption != 1 || options.bypass != 3 ||
-		options.headers != 1 || options.compress || options.thread || options.unicode || options.originalEntryPoint != 0 {
+	defaults := parsedConverterOptions{entropy: 1, exitOption: 1, bypass: 3, headers: 1}
+	if err != nil || options != defaults {
 		t.Fatalf("legacy Donut defaults changed: %+v, %v", options, err)
 	}
 	step.Options = []buildplan.Option{
@@ -84,9 +84,11 @@ func TestConverterOptionsPreserveLegacyDonutDefaultsAndRejectInvalidValues(t *te
 		{Name: "originalEntryPoint", ValueJSON: json.RawMessage(`4294967295`)},
 	}
 	options, err = converterOptions(step)
-	if err != nil || !options.compress || options.entropy != 2 || options.exitOption != 3 ||
-		options.bypass != 1 || options.headers != 2 || !options.thread || !options.unicode ||
-		options.originalEntryPoint != ^uint32(0) {
+	explicit := parsedConverterOptions{
+		compress: true, entropy: 2, exitOption: 3, bypass: 1, headers: 2,
+		thread: true, unicode: true, originalEntryPoint: ^uint32(0),
+	}
+	if err != nil || options != explicit {
 		t.Fatalf("Donut options changed: %+v, %v", options, err)
 	}
 	for _, tc := range []buildplan.Option{

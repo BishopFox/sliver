@@ -30,6 +30,7 @@ var (
 	builders   = &sync.Map{}
 	buildersMu sync.Mutex
 
+	// ErrDuplicateBuilderName indicates that a builder name is already registered.
 	ErrDuplicateBuilderName = errors.New("builder name must be unique, this name is already in use")
 )
 

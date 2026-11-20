@@ -413,7 +413,7 @@ func linuxShellcode(ctx context.Context, name string, build *clientpb.ImplantBui
 	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
 	soDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name)+".intermediate.so")
-	defer os.Remove(soDest)
+	defer func() { _ = os.Remove(soDest) }()
 
 	tags := []string{}
 	if config.NetGoEnabled {
@@ -500,7 +500,7 @@ func darwinShellcode(ctx context.Context, name string, build *clientpb.ImplantBu
 	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
 	dylibDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name)+".intermediate.dylib")
-	defer os.Remove(dylibDest)
+	defer func() { _ = os.Remove(dylibDest) }()
 
 	tags := []string{}
 	if config.NetGoEnabled {
@@ -710,13 +710,33 @@ func zipFiles(dest string, files ...string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(outFile.Name())
+	defer func() { _ = os.Remove(outFile.Name()) }()
 	if err := outFile.Chmod(0600); err != nil {
-		outFile.Close()
+		_ = outFile.Close()
 		return err
 	}
 
 	zipWriter := zip.NewWriter(outFile)
+	if err := writeZipMembers(zipWriter, files); err != nil {
+		_ = zipWriter.Close()
+		_ = outFile.Close()
+		return err
+	}
+	if err := zipWriter.Close(); err != nil {
+		_ = outFile.Close()
+		return fmt.Errorf("finish archive: %w", err)
+	}
+	if err := outFile.Sync(); err != nil {
+		_ = outFile.Close()
+		return err
+	}
+	if err := outFile.Close(); err != nil {
+		return err
+	}
+	return os.Rename(outFile.Name(), dest)
+}
+
+func writeZipMembers(zipWriter *zip.Writer, files []string) error {
 	seen := make(map[string]bool, len(files))
 	var total int64
 
@@ -724,56 +744,39 @@ func zipFiles(dest string, files ...string) error {
 		name := filepath.Base(filePath)
 		key := strings.ToLower(name)
 		if name == "." || name == ".." || seen[key] {
-			zipWriter.Close()
-			outFile.Close()
 			return fmt.Errorf("duplicate or invalid archive member %q", name)
 		}
 		seen[key] = true
 		info, err := os.Lstat(filePath)
 		if err != nil || !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > 512<<20-total {
-			zipWriter.Close()
-			outFile.Close()
 			return fmt.Errorf("archive input %q is missing, nonregular, or too large", name)
 		}
 		total += info.Size()
-		inFile, err := os.Open(filePath)
-		if err != nil {
-			zipWriter.Close()
-			outFile.Close()
+		if err := writeZipMember(zipWriter, filePath, name, info.Size()); err != nil {
 			return err
 		}
-
-		fileWriter, err := zipWriter.Create(name)
-		if err != nil {
-			inFile.Close()
-			zipWriter.Close()
-			outFile.Close()
-			return err
-		}
-		copied, err := io.CopyN(fileWriter, inFile, info.Size())
-		inFile.Close()
-		if err != nil || copied != info.Size() {
-			zipWriter.Close()
-			outFile.Close()
-			if err != nil {
-				return fmt.Errorf("copy archive input %q: %w", name, err)
-			}
-			return fmt.Errorf("copy archive input %q: %w", name, io.ErrUnexpectedEOF)
-		}
 	}
+	return nil
+}
 
-	if err := zipWriter.Close(); err != nil {
-		outFile.Close()
-		return fmt.Errorf("finish archive: %w", err)
-	}
-	if err := outFile.Sync(); err != nil {
-		outFile.Close()
+func writeZipMember(zipWriter *zip.Writer, path, name string, size int64) error {
+	inFile, err := os.Open(path)
+	if err != nil {
 		return err
 	}
-	if err := outFile.Close(); err != nil {
+	defer func() { _ = inFile.Close() }()
+	fileWriter, err := zipWriter.Create(name)
+	if err != nil {
 		return err
 	}
-	return os.Rename(outFile.Name(), dest)
+	copied, err := io.CopyN(fileWriter, inFile, size)
+	if err != nil {
+		return fmt.Errorf("copy archive input %q: %w", name, err)
+	}
+	if copied != size {
+		return fmt.Errorf("copy archive input %q: %w", name, io.ErrUnexpectedEOF)
+	}
+	return nil
 }
 
 // SliverArchive - Generates a sliver c-archive bundle (.a and .h)

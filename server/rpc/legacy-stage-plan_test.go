@@ -55,6 +55,7 @@ func TestLegacyStageRequestResolvesPinnedShellcodeCore(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The same prepared plan must preserve stage order and exclude secret bytes.
 func TestLegacyStageBuildRequestOrdersStepsAndKeepsSecretsOutOfPlan(t *testing.T) {
 	t.Parallel()
 	base := buildplan.Request{

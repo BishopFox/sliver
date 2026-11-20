@@ -61,29 +61,14 @@ func New(appDir, targetOS, targetArch, name string) (*Workspace, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open app directory: %w", err)
 	}
-	defer appRoot.Close()
+	defer func() { _ = appRoot.Close() }()
 	parent := filepath.Join("slivers", targetOS, targetArch, nameDir)
 	if err := appRoot.MkdirAll(parent, 0o700); err != nil {
 		return nil, fmt.Errorf("create build parent: %w", err)
 	}
-	var id, rel string
-	for attempt := 0; attempt < 8; attempt++ {
-		nonce := make([]byte, 16)
-		if _, err := rand.Read(nonce); err != nil {
-			return nil, fmt.Errorf("allocate build ID: %w", err)
-		}
-		id = hex.EncodeToString(nonce)
-		rel = filepath.Join(parent, id)
-		err = appRoot.Mkdir(rel, 0o700)
-		if err == nil {
-			break
-		}
-		if !errors.Is(err, fs.ErrExist) {
-			return nil, fmt.Errorf("create build workspace: %w", err)
-		}
-	}
+	id, rel, err := allocateWorkspaceID(appRoot, parent)
 	if err != nil {
-		return nil, errors.New("could not allocate a unique build workspace")
+		return nil, err
 	}
 	for _, directory := range []string{"src", "magefiles", "inputs", "bin"} {
 		if err := appRoot.Mkdir(filepath.Join(rel, directory), 0o700); err != nil {
@@ -97,6 +82,30 @@ func New(appDir, targetOS, targetArch, name string) (*Workspace, error) {
 		MagefilesDir: filepath.Join(root, "magefiles"), InputsDir: filepath.Join(root, "inputs"),
 		BinDir: filepath.Join(root, "bin"), appDir: appDir, rootRel: rel,
 	}, nil
+}
+
+func allocateWorkspaceID(root *os.Root, parent string) (string, string, error) {
+	var err error
+	var id, rel string
+	for attempt := 0; attempt < 8; attempt++ {
+		nonce := make([]byte, 16)
+		if _, err := rand.Read(nonce); err != nil {
+			return "", "", fmt.Errorf("allocate build ID: %w", err)
+		}
+		id = hex.EncodeToString(nonce)
+		rel = filepath.Join(parent, id)
+		err = root.Mkdir(rel, 0o700)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return "", "", fmt.Errorf("create build workspace: %w", err)
+		}
+	}
+	if err != nil {
+		return "", "", errors.New("could not allocate a unique build workspace")
+	}
+	return id, rel, nil
 }
 
 // CopySource copies installed source bytes without interpreting templates.
@@ -119,7 +128,7 @@ func (w *Workspace) WriteInput(name string, contents []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open input directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return "", fmt.Errorf("create input file: %w", err)
@@ -143,7 +152,7 @@ func (w *Workspace) Remove() error {
 	if err != nil {
 		return fmt.Errorf("open app directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	return root.RemoveAll(w.rootRel)
 }
 
@@ -178,12 +187,16 @@ func RemoveOutputWorkspace(appDir, targetOS, targetArch, name, outputPath string
 		!safeComponent(parts[2]) {
 		return errors.New("output path is outside a unique build workspace bin directory")
 	}
+	workspaceRel := filepath.Join(parentRel, parts[0])
+	return removeOutputWorkspace(appDir, targetOS, targetArch, parentRel, workspaceRel)
+}
+
+func removeOutputWorkspace(appDir, targetOS, targetArch, parentRel, workspaceRel string) error {
 	root, err := os.OpenRoot(appDir)
 	if err != nil {
 		return fmt.Errorf("open app directory: %w", err)
 	}
-	defer root.Close()
-	workspaceRel := filepath.Join(parentRel, parts[0])
+	defer func() { _ = root.Close() }()
 	for _, rel := range []string{
 		"slivers", filepath.Join("slivers", targetOS),
 		filepath.Join("slivers", targetOS, targetArch), parentRel,
@@ -242,7 +255,7 @@ func copyFS(source fs.FS, dest string) error {
 	if err != nil {
 		return fmt.Errorf("open copy destination: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	paths := extractionBudget{
 		limits: ArchiveLimits{MaxEntries: defaultMaxEntries},
 		seen:   make(map[string]archivePathEntry),
@@ -272,39 +285,47 @@ func copyFS(source fs.FS, dest string) error {
 		if info.Size() < 0 || info.Size() > defaultMaxFileBytes || info.Size() > defaultMaxTotalBytes-totalBytes {
 			return fmt.Errorf("source file %q exceeds size limit", name)
 		}
-		if err := root.MkdirAll(filepath.Dir(local), 0o700); err != nil {
-			return err
-		}
-		in, err := source.Open(name)
-		if err != nil {
-			return err
-		}
-		mode := fs.FileMode(0o600)
-		if info.Mode()&0o100 != 0 {
-			mode = 0o700
-		}
-		out, err := root.OpenFile(local, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-		if err != nil {
-			_ = in.Close()
-			return err
-		}
 		limit := int64(defaultMaxFileBytes)
 		if remaining := defaultMaxTotalBytes - totalBytes; remaining < limit {
 			limit = remaining
 		}
-		count, copyErr := io.Copy(out, io.LimitReader(in, limit+1))
-		outCloseErr := out.Close()
-		inCloseErr := in.Close()
-		if count > limit || count != info.Size() || copyErr != nil || outCloseErr != nil || inCloseErr != nil {
-			_ = root.Remove(local)
-			if count > limit || count != info.Size() {
-				return fmt.Errorf("source file %q changed or exceeded its size limit", name)
-			}
-			return errors.Join(copyErr, outCloseErr, inCloseErr)
+		count, err := copySourceFile(source, root, name, local, info, limit)
+		if err != nil {
+			return err
 		}
 		totalBytes += count
 		return nil
 	})
+}
+
+func copySourceFile(source fs.FS, root *os.Root, name, local string, info fs.FileInfo, limit int64) (int64, error) {
+	if err := root.MkdirAll(filepath.Dir(local), 0o700); err != nil {
+		return 0, err
+	}
+	in, err := source.Open(name)
+	if err != nil {
+		return 0, err
+	}
+	mode := fs.FileMode(0o600)
+	if info.Mode()&0o100 != 0 {
+		mode = 0o700
+	}
+	out, err := root.OpenFile(local, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		_ = in.Close()
+		return 0, err
+	}
+	count, copyErr := io.Copy(out, io.LimitReader(in, limit+1))
+	outCloseErr := out.Close()
+	inCloseErr := in.Close()
+	if count > limit || count != info.Size() || copyErr != nil || outCloseErr != nil || inCloseErr != nil {
+		_ = root.Remove(local)
+		if count > limit || count != info.Size() {
+			return 0, fmt.Errorf("source file %q changed or exceeded its size limit", name)
+		}
+		return 0, errors.Join(copyErr, outCloseErr, inCloseErr)
+	}
+	return count, nil
 }
 
 func requireEmptyDir(directory string) error {

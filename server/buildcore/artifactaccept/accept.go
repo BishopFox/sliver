@@ -1,3 +1,4 @@
+// Package artifactaccept validates and identifies finished build artifacts.
 package artifactaccept
 
 import (
@@ -36,6 +37,8 @@ const (
 	maxARMembers               = 65536
 	maxARNameTableBytes        = 16 << 20
 )
+
+const arMemberHeaderSize = 60
 
 var arMagic = []byte("!<arch>\n")
 
@@ -135,7 +138,7 @@ func readRegularFile(filePath string, maxBytes int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	opened, err := file.Stat()
 	if err != nil {
 		return nil, err
@@ -195,7 +198,7 @@ func validatePE(data []byte, expected buildplan.Artifact) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	want := map[string]uint16{"386": 0x014c, "amd64": 0x8664, "arm64": 0xaa64}[expected.Target.Arch]
 	if want == 0 || file.Machine != want {
 		return fmt.Errorf("PE machine %#x does not match %s", file.Machine, expected.Target.Arch)
@@ -230,7 +233,7 @@ func validateELF(data []byte, expected buildplan.Artifact) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	want := map[string]elf.Machine{"386": elf.EM_386, "amd64": elf.EM_X86_64, "arm64": elf.EM_AARCH64}[expected.Target.Arch]
 	if want == 0 || file.Machine != want {
 		return fmt.Errorf("ELF machine %s does not match %s", file.Machine, expected.Target.Arch)
@@ -262,7 +265,7 @@ func validateMachO(data []byte, expected buildplan.Artifact) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	want := map[string]macho.Cpu{"amd64": macho.CpuAmd64, "arm64": macho.CpuArm64}[expected.Target.Arch]
 	if want == 0 || file.Cpu != want {
 		return fmt.Errorf("Mach-O CPU %s does not match %s", file.Cpu, expected.Target.Arch)
@@ -287,19 +290,15 @@ func validateMachO(data []byte, expected buildplan.Artifact) error {
 }
 
 func validateZIP(data []byte, requireCArchive bool) error {
-	if err := precheckZIPDirectory(data); err != nil {
-		return err
-	}
-	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	reader, err := openZIP(data)
 	if err != nil {
 		return err
 	}
-	if len(reader.File) == 0 || len(reader.File) > maxArchiveEntries {
-		return fmt.Errorf("ZIP entry count must be between 1 and %d", maxArchiveEntries)
+	count := len(reader.File)
+	names := zipNames{
+		seen: make(map[string]bool, count), impliedDirs: make(map[string]bool, count),
+		spellings: make(map[string]string, count),
 	}
-	seen := make(map[string]bool, len(reader.File))
-	impliedDirs := make(map[string]bool, len(reader.File))
-	spellings := make(map[string]string, len(reader.File))
 	var total uint64
 	archiveCount, headerCount := 0, 0
 	for _, entry := range reader.File {
@@ -307,96 +306,152 @@ func validateZIP(data []byte, requireCArchive bool) error {
 		if err != nil {
 			return fmt.Errorf("unsafe ZIP entry %q: %w", entry.Name, err)
 		}
-		key := norm.NFC.String(cases.Fold().String(norm.NFC.String(name)))
-		if seen[key] || !isDir && impliedDirs[key] {
-			return fmt.Errorf("duplicate or conflicting ZIP entry %q", entry.Name)
+		if err := names.add(entry.Name, name, isDir); err != nil {
+			return err
 		}
-		seen[key] = true
-		parts := strings.Split(key, "/")
-		originalParts := strings.Split(name, "/")
-		for i := range parts {
-			canonical := strings.Join(parts[:i+1], "/")
-			spelling := strings.Join(originalParts[:i+1], "/")
-			if prior, exists := spellings[canonical]; exists && prior != spelling {
-				return fmt.Errorf("case or Unicode alias in ZIP entry %q", entry.Name)
-			}
-			spellings[canonical] = spelling
-		}
-		for i := 1; i < len(parts); i++ {
-			ancestor := strings.Join(parts[:i], "/")
-			if seen[ancestor] && !impliedDirs[ancestor] {
-				return fmt.Errorf("ZIP entry %q has file ancestor", entry.Name)
-			}
-			impliedDirs[ancestor] = true
+		if err := validateZIPEntryHeader(entry, isDir, total); err != nil {
+			return err
 		}
 		if isDir {
-			impliedDirs[key] = true
-		}
-		mode := entry.Mode()
-		if mode&os.ModeSymlink != 0 || mode&os.ModeType != 0 && !mode.IsDir() || isDir != mode.IsDir() && mode&os.ModeType != 0 {
-			return fmt.Errorf("ZIP entry %q is a symlink, special file, or mismatched directory", entry.Name)
-		}
-		if entry.Flags&1 != 0 { // encrypted ZIP entries cannot be verified here.
-			return fmt.Errorf("ZIP entry %q is encrypted", entry.Name)
-		}
-		if entry.Method != zip.Store && entry.Method != zip.Deflate {
-			return fmt.Errorf("ZIP entry %q uses unsupported compression", entry.Name)
-		}
-		if isDir {
-			if entry.UncompressedSize64 != 0 || entry.CompressedSize64 != 0 {
-				return fmt.Errorf("ZIP directory %q has contents", entry.Name)
-			}
 			continue
 		}
-		if entry.UncompressedSize64 > maxArchiveEntryBytes ||
-			entry.UncompressedSize64 > maxArchiveTotalBytes-total {
-			return errors.New("ZIP expansion exceeds limit")
-		}
-		if entry.UncompressedSize64 > 0 && (entry.CompressedSize64 == 0 ||
-			entry.UncompressedSize64/entry.CompressedSize64 > maxCompressionRatio) {
-			return fmt.Errorf("ZIP entry %q has excessive expansion ratio", entry.Name)
-		}
 		total += entry.UncompressedSize64
-		if strings.EqualFold(path.Ext(name), ".a") {
+		isArchive := strings.EqualFold(path.Ext(name), ".a")
+		if isArchive {
 			archiveCount++
 		}
 		if strings.EqualFold(path.Ext(name), ".h") {
 			headerCount++
 		}
-		content, err := entry.Open()
-		if err != nil {
-			return fmt.Errorf("open ZIP entry %q: %w", entry.Name, err)
-		}
-		if requireCArchive && strings.EqualFold(path.Ext(name), ".a") {
-			err = validateAR(content, entry.UncompressedSize64)
-			if err == nil {
-				var tail [1]byte
-				_, err = content.Read(tail[:])
-				if errors.Is(err, io.EOF) {
-					err = nil // Force ZIP's CRC check at EOF.
-				} else if err == nil {
-					err = errors.New("ZIP archive member has trailing data")
-				}
-			}
-		} else {
-			var read uint64
-			read, err = copyBounded(content, entry.UncompressedSize64)
-			if err == nil && read != entry.UncompressedSize64 {
-				err = errors.New("ZIP entry size differs from header")
-			}
-		}
-		closeErr := content.Close()
-		if err != nil {
-			return fmt.Errorf("inspect ZIP entry %q: %w", entry.Name, err)
-		}
-		if closeErr != nil {
-			return fmt.Errorf("close ZIP entry %q: %w", entry.Name, closeErr)
+		if err := inspectZIPEntry(entry, requireCArchive && isArchive); err != nil {
+			return err
 		}
 	}
 	if requireCArchive && (archiveCount != 1 || headerCount == 0) {
-		return errors.New("C archive ZIP must contain exactly one .a and at least one .h")
+		return errors.New("a C archive ZIP must contain exactly one .a and at least one .h")
 	}
 	return nil
+}
+
+func openZIP(data []byte) (*zip.Reader, error) {
+	if err := precheckZIPDirectory(data); err != nil {
+		return nil, err
+	}
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	count := len(reader.File)
+	if count == 0 || count > maxArchiveEntries {
+		return nil, fmt.Errorf("ZIP entry count must be between 1 and %d", maxArchiveEntries)
+	}
+	return reader, nil
+}
+
+type zipNames struct {
+	seen        map[string]bool
+	impliedDirs map[string]bool
+	spellings   map[string]string
+}
+
+func (names zipNames) add(rawName, name string, isDir bool) error {
+	key := norm.NFC.String(cases.Fold().String(norm.NFC.String(name)))
+	if names.seen[key] || !isDir && names.impliedDirs[key] {
+		return fmt.Errorf("duplicate or conflicting ZIP entry %q", rawName)
+	}
+	names.seen[key] = true
+	parts := strings.Split(key, "/")
+	originalParts := strings.Split(name, "/")
+	for i := range parts {
+		canonical := strings.Join(parts[:i+1], "/")
+		spelling := strings.Join(originalParts[:i+1], "/")
+		if prior, exists := names.spellings[canonical]; exists && prior != spelling {
+			return fmt.Errorf("case or Unicode alias in ZIP entry %q", rawName)
+		}
+		names.spellings[canonical] = spelling
+	}
+	for i := 1; i < len(parts); i++ {
+		ancestor := strings.Join(parts[:i], "/")
+		if names.seen[ancestor] && !names.impliedDirs[ancestor] {
+			return fmt.Errorf("ZIP entry %q has file ancestor", rawName)
+		}
+		names.impliedDirs[ancestor] = true
+	}
+	if isDir {
+		names.impliedDirs[key] = true
+	}
+	return nil
+}
+
+func validateZIPEntryHeader(entry *zip.File, isDir bool, total uint64) error {
+	mode := entry.Mode()
+	if mode&os.ModeSymlink != 0 || mode&os.ModeType != 0 && !mode.IsDir() || isDir != mode.IsDir() && mode&os.ModeType != 0 {
+		return fmt.Errorf("ZIP entry %q is a symlink, special file, or mismatched directory", entry.Name)
+	}
+	if entry.Flags&1 != 0 { // encrypted ZIP entries cannot be verified here.
+		return fmt.Errorf("ZIP entry %q is encrypted", entry.Name)
+	}
+	if entry.Method != zip.Store && entry.Method != zip.Deflate {
+		return fmt.Errorf("ZIP entry %q uses unsupported compression", entry.Name)
+	}
+	if isDir {
+		if entry.UncompressedSize64 != 0 || entry.CompressedSize64 != 0 {
+			return fmt.Errorf("ZIP directory %q has contents", entry.Name)
+		}
+		return nil
+	}
+	return validateZIPEntrySize(entry, total)
+}
+
+func validateZIPEntrySize(entry *zip.File, total uint64) error {
+	if entry.UncompressedSize64 > maxArchiveEntryBytes ||
+		entry.UncompressedSize64 > maxArchiveTotalBytes-total {
+		return errors.New("ZIP expansion exceeds limit")
+	}
+	if entry.UncompressedSize64 > 0 && (entry.CompressedSize64 == 0 ||
+		entry.UncompressedSize64/entry.CompressedSize64 > maxCompressionRatio) {
+		return fmt.Errorf("ZIP entry %q has excessive expansion ratio", entry.Name)
+	}
+	return nil
+}
+
+func inspectZIPEntry(entry *zip.File, inspectAR bool) error {
+	content, err := entry.Open()
+	if err != nil {
+		return fmt.Errorf("open ZIP entry %q: %w", entry.Name, err)
+	}
+	if inspectAR {
+		err = inspectZIPArchive(content, entry.UncompressedSize64)
+	} else {
+		var read uint64
+		read, err = copyBounded(content, entry.UncompressedSize64)
+		if err == nil && read != entry.UncompressedSize64 {
+			err = errors.New("ZIP entry size differs from header")
+		}
+	}
+	closeErr := content.Close()
+	if err != nil {
+		return fmt.Errorf("inspect ZIP entry %q: %w", entry.Name, err)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close ZIP entry %q: %w", entry.Name, closeErr)
+	}
+	return nil
+}
+
+func inspectZIPArchive(content io.Reader, size uint64) error {
+	if err := validateAR(content, size); err != nil {
+		return err
+	}
+	var tail [1]byte
+	_, err := content.Read(tail[:])
+	if errors.Is(err, io.EOF) {
+		return nil // Force ZIP's CRC check at EOF.
+	}
+	if err == nil {
+		return errors.New("ZIP archive member has trailing data")
+	}
+	return err
 }
 
 // Bound the central directory's declared entry count before archive/zip
@@ -477,94 +532,125 @@ func validateAR(reader io.Reader, size uint64) error {
 		return errors.New("ar archive has invalid magic")
 	}
 	remaining := size - uint64(len(magic))
-	var nameTable []byte
-	regularCount := 0
-	memberCount := 0
-	for remaining > 0 {
-		memberCount++
-		if memberCount > maxARMembers {
+	var members arMembers
+	for count := 0; remaining > 0; count++ {
+		if count >= maxARMembers {
 			return errors.New("ar archive has too many members")
 		}
-		if remaining < 60 {
-			return errors.New("ar archive has truncated member header")
-		}
-		var header [60]byte
-		if _, err := io.ReadFull(reader, header[:]); err != nil {
+		name, memberSize, err := readARMemberHeader(reader, remaining)
+		if err != nil {
 			return err
 		}
-		remaining -= 60
-		if string(header[58:60]) != "`\n" {
-			return errors.New("ar archive has invalid member header")
-		}
-		memberSize, err := strconv.ParseUint(strings.TrimSpace(string(header[48:58])), 10, 64)
-		if err != nil || memberSize > remaining {
-			return errors.New("ar archive has invalid member size")
-		}
-		rawName := strings.TrimSpace(string(header[:16]))
-		dataSize := memberSize
-		special := false
-		switch {
-		case rawName == "//":
-			if memberSize > maxARNameTableBytes || nameTable != nil {
-				return errors.New("ar archive has oversized or duplicate name table")
-			}
-			nameTable = make([]byte, memberSize)
-			if _, err := io.ReadFull(reader, nameTable); err != nil {
-				return err
-			}
-			dataSize = 0
-			special = true
-		case rawName == "/" || rawName == "/SYM64/":
-			special = true
-		case strings.HasPrefix(rawName, "#1/"):
-			nameSize, err := strconv.ParseUint(strings.TrimPrefix(rawName, "#1/"), 10, 64)
-			if err != nil || nameSize == 0 || nameSize > dataSize || nameSize > 4096 {
-				return errors.New("ar archive has invalid extended name")
-			}
-			nameBytes := make([]byte, nameSize)
-			if _, err := io.ReadFull(reader, nameBytes); err != nil {
-				return err
-			}
-			rawName = strings.TrimRight(string(nameBytes), "\x00")
-			dataSize -= nameSize
-		case strings.HasPrefix(rawName, "/"):
-			offset, err := strconv.ParseUint(strings.TrimPrefix(rawName, "/"), 10, 64)
-			if err != nil || offset >= uint64(len(nameTable)) {
-				return errors.New("ar archive has invalid long-name reference")
-			}
-			end := bytes.IndexByte(nameTable[offset:], '\n')
-			if end < 0 {
-				return errors.New("ar archive has unterminated long name")
-			}
-			rawName = string(nameTable[offset : offset+uint64(end)])
-		}
-		if !special {
-			rawName = strings.TrimSuffix(rawName, "/")
-			if _, _, err := safeArchiveName(rawName); err != nil {
-				return fmt.Errorf("unsafe ar member %q: %w", rawName, err)
-			}
-			regularCount++
-		}
-		if _, err := io.CopyN(io.Discard, reader, int64(dataSize)); err != nil {
+		remaining -= arMemberHeaderSize + memberSize
+		if err := members.validateMember(reader, name, memberSize); err != nil {
 			return err
 		}
-		remaining -= memberSize
 		if memberSize%2 == 1 {
-			if remaining == 0 {
-				return errors.New("ar archive is missing alignment byte")
-			}
-			var pad [1]byte
-			if _, err := io.ReadFull(reader, pad[:]); err != nil {
+			if err := readARPadding(reader, remaining); err != nil {
 				return err
-			}
-			if pad[0] != '\n' {
-				return errors.New("ar archive has invalid alignment byte")
 			}
 			remaining--
 		}
 	}
-	if regularCount == 0 {
+	if members.regular == 0 {
 		return errors.New("ar archive has no file members")
+	}
+	return nil
+}
+
+func readARMemberHeader(reader io.Reader, remaining uint64) (string, uint64, error) {
+	var header [arMemberHeaderSize]byte
+	headerSize := uint64(len(header))
+	if remaining < headerSize {
+		return "", 0, errors.New("ar archive has truncated member header")
+	}
+	if _, err := io.ReadFull(reader, header[:]); err != nil {
+		return "", 0, err
+	}
+	if string(header[58:60]) != "`\n" {
+		return "", 0, errors.New("ar archive has invalid member header")
+	}
+	// Member sizes are passed to io.CopyN, which accepts an int64.
+	size, err := strconv.ParseUint(strings.TrimSpace(string(header[48:58])), 10, 63)
+	if err != nil || size > remaining-headerSize {
+		return "", 0, errors.New("ar archive has invalid member size")
+	}
+	return strings.TrimSpace(string(header[:16])), size, nil
+}
+
+type arMembers struct {
+	nameTable []byte
+	regular   int
+}
+
+func (members *arMembers) validateMember(reader io.Reader, name string, size uint64) error {
+	switch {
+	case name == "//":
+		if size > maxARNameTableBytes || members.nameTable != nil {
+			return errors.New("ar archive has oversized or duplicate name table")
+		}
+		members.nameTable = make([]byte, size)
+		_, err := io.ReadFull(reader, members.nameTable)
+		return err
+	case name == "/" || name == "/SYM64/":
+		_, err := io.CopyN(io.Discard, reader, int64(size))
+		return err
+	case strings.HasPrefix(name, "#1/"):
+		var err error
+		name, size, err = readARExtendedName(reader, name, size)
+		if err != nil {
+			return err
+		}
+	case strings.HasPrefix(name, "/"):
+		var err error
+		name, err = members.lookupName(name)
+		if err != nil {
+			return err
+		}
+	}
+	name = strings.TrimSuffix(name, "/")
+	if _, _, err := safeArchiveName(name); err != nil {
+		return fmt.Errorf("unsafe ar member %q: %w", name, err)
+	}
+	members.regular++
+	_, err := io.CopyN(io.Discard, reader, int64(size))
+	return err
+}
+
+func readARExtendedName(reader io.Reader, name string, size uint64) (string, uint64, error) {
+	nameSize, err := strconv.ParseUint(strings.TrimPrefix(name, "#1/"), 10, 64)
+	if err != nil || nameSize == 0 || nameSize > size || nameSize > 4096 {
+		return "", 0, errors.New("ar archive has invalid extended name")
+	}
+	nameBytes := make([]byte, nameSize)
+	if _, err := io.ReadFull(reader, nameBytes); err != nil {
+		return "", 0, err
+	}
+	return strings.TrimRight(string(nameBytes), "\x00"), size - nameSize, nil
+}
+
+func (members *arMembers) lookupName(name string) (string, error) {
+	offset, err := strconv.ParseUint(strings.TrimPrefix(name, "/"), 10, 64)
+	if err != nil || offset >= uint64(len(members.nameTable)) {
+		return "", errors.New("ar archive has invalid long-name reference")
+	}
+	end := bytes.IndexByte(members.nameTable[offset:], '\n')
+	if end < 0 {
+		return "", errors.New("ar archive has unterminated long name")
+	}
+	return string(members.nameTable[offset : offset+uint64(end)]), nil
+}
+
+func readARPadding(reader io.Reader, remaining uint64) error {
+	if remaining == 0 {
+		return errors.New("ar archive is missing alignment byte")
+	}
+	var pad [1]byte
+	if _, err := io.ReadFull(reader, pad[:]); err != nil {
+		return err
+	}
+	if pad[0] != '\n' {
+		return errors.New("ar archive has invalid alignment byte")
 	}
 	return nil
 }

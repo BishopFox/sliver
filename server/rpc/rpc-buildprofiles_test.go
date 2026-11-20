@@ -54,6 +54,7 @@ func m6TestProfile(t *testing.T, rpc *Server, name, goos, goarch string) buildpr
 	}
 }
 
+//nolint:gocyclo // Profile revisions and override controls are checked through one RPC lifecycle.
 func TestBuildProfileRPCImportExportRevisionAndOverrideValidation(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}
@@ -121,6 +122,7 @@ func TestBuildProfileRPCImportExportRevisionAndOverrideValidation(t *testing.T) 
 	}
 }
 
+//nolint:gocyclo // The same fixture proves that a failed migration preserves other profiles.
 func TestBuildProfileLegacyBackfillAndMigrationFailureIsolation(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}
@@ -203,7 +205,7 @@ func TestBuildProfileLegacySnapshotStripsGeneratedKeys(t *testing.T) {
 	}
 	var restored clientpb.ImplantConfig
 	if err := proto.Unmarshal(encoded, &restored); err != nil || len(restored.ImplantBuilds) != 0 || len(restored.Assets) != 1 {
-		t.Fatalf("sanitized profile config lost required assets: %+v, %v", restored, err)
+		t.Fatalf("sanitized profile config lost required assets: %+v, %v", &restored, err)
 	}
 }
 

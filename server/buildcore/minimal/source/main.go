@@ -1,3 +1,4 @@
+// Package main contains the minimal core fixture.
 package main
 
 // This source is copied literally. A Mage target generates only config_gen.go
@@ -100,7 +101,7 @@ func connect(cfg config, peer signingKey, server publicKey) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if _, err := conn.Write([]byte("MUX/1")); err != nil {
 		return err
 	}
@@ -110,7 +111,7 @@ func connect(cfg config, peer signingKey, server publicKey) error {
 	if err != nil {
 		return err
 	}
-	defer mux.Close()
+	defer func() { _ = mux.Close() }()
 	if err := register(mux, cfg, peer); err != nil {
 		return err
 	}
@@ -143,7 +144,7 @@ func register(mux *yamux.Session, cfg config, peer signingKey) error {
 }
 
 func handle(stream net.Conn, mux *yamux.Session, peer signingKey, server publicKey) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	envelope, err := receive(stream, server)
 	if err != nil || envelope.ID == 0 {
 		return
@@ -170,7 +171,7 @@ func send(mux *yamux.Session, signer signingKey, envelope *sliverpb.Envelope) er
 	if err != nil {
 		return err
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		return err

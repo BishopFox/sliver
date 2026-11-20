@@ -144,7 +144,7 @@ func TestSliverCoreAdapterCancelBeforeCredentials(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "missing implant config") {
 		t.Fatalf("nil config should be rejected: %v", err)
 	}
-	_, err = (SliverCoreAdapter{}).BuildLegacy(nil, "example", &clientpb.ImplantConfig{})
+	_, err = (SliverCoreAdapter{}).BuildLegacy(nil, "example", &clientpb.ImplantConfig{}) //nolint:staticcheck // Verify nil context rejection (SA1012).
 	if err == nil || !strings.Contains(err.Error(), "missing build context") {
 		t.Fatalf("nil context should be rejected: %v", err)
 	}

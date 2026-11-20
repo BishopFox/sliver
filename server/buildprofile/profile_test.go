@@ -111,38 +111,7 @@ func TestBuildProfileStoreBackfillRevisionAndTombstone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacy := exampleProfile(t)
-	config := []byte("sanitized legacy config")
-	first, err := store.UpsertLegacy(legacy, "config-one", config, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	first.Profile.C2.Endpoints[0].Address = "mtls://mutated.invalid:8888"
-	first.YAML[0] = 'X'
-	first.LegacyConfig[0] = 'X'
-	intact, err := store.Get(legacy.Metadata.Name)
-	if err != nil || intact.Profile.C2.Endpoints[0].Address == "mtls://mutated.invalid:8888" || intact.YAML[0] == 'X' || intact.LegacyConfig[0] == 'X' {
-		t.Fatalf("caller mutation changed stored document: %+v, %v", intact, err)
-	}
-	first = intact
-	legacy.C2.Endpoints[0].Address = "mtls://changed.example.invalid:8888"
-	second, err := store.UpsertLegacy(legacy, "config-two", []byte("changed"), false)
-	if err != nil || !bytes.Equal(first.YAML, second.YAML) || first.Profile.Metadata.Revision != second.Profile.Metadata.Revision {
-		t.Fatalf("idempotent backfill changed stored profile: %+v, %v", second, err)
-	}
-	second, err = store.UpsertLegacy(legacy, "config-two", []byte("changed"), true)
-	if err != nil || second.Profile.Metadata.Revision != 2 {
-		t.Fatalf("legacy edit did not advance revision: %+v, %v", second, err)
-	}
-	secondAgain, err := store.UpsertLegacy(legacy, "config-two", []byte("changed"), true)
-	if err != nil || secondAgain.Profile.Metadata.Revision != 2 {
-		t.Fatalf("unchanged legacy edit was not idempotent: %+v, %v", secondAgain, err)
-	}
-	previous := first // An exported old revision cannot overwrite a newer profile.
-	if _, err := store.Import(previous.Profile); !errors.Is(err, ErrRevision) {
-		t.Fatalf("stale import returned %v", err)
-	}
-	authored := second.Profile
+	legacy, authored := backfillAndReviseProfile(t, store)
 	authored.Metadata.Revision = 3
 	authored.C2.Endpoints[0].Address = "mtls://authored.example.invalid:8888"
 	imported, err := store.Import(authored)
@@ -175,4 +144,40 @@ func TestBuildProfileStoreBackfillRevisionAndTombstone(t *testing.T) {
 	if got, err := reopened.Get(authored.Metadata.Name); err != nil || !bytes.Equal(got.YAML, imported.YAML) {
 		t.Fatalf("compensation did not restore profile: %+v, %v", got, err)
 	}
+}
+
+func backfillAndReviseProfile(t *testing.T, store *Store) (Profile, Profile) {
+	t.Helper()
+	legacy := exampleProfile(t)
+	config := []byte("sanitized legacy config")
+	first, err := store.UpsertLegacy(legacy, "config-one", config, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.Profile.C2.Endpoints[0].Address = "mtls://mutated.invalid:8888"
+	first.YAML[0] = 'X'
+	first.LegacyConfig[0] = 'X'
+	intact, err := store.Get(legacy.Metadata.Name)
+	if err != nil || intact.Profile.C2.Endpoints[0].Address == "mtls://mutated.invalid:8888" || intact.YAML[0] == 'X' || intact.LegacyConfig[0] == 'X' {
+		t.Fatalf("caller mutation changed stored document: %+v, %v", intact, err)
+	}
+	first = intact
+	legacy.C2.Endpoints[0].Address = "mtls://changed.example.invalid:8888"
+	second, err := store.UpsertLegacy(legacy, "config-two", []byte("changed"), false)
+	if err != nil || !bytes.Equal(first.YAML, second.YAML) || first.Profile.Metadata.Revision != second.Profile.Metadata.Revision {
+		t.Fatalf("idempotent backfill changed stored profile: %+v, %v", second, err)
+	}
+	second, err = store.UpsertLegacy(legacy, "config-two", []byte("changed"), true)
+	if err != nil || second.Profile.Metadata.Revision != 2 {
+		t.Fatalf("legacy edit did not advance revision: %+v, %v", second, err)
+	}
+	secondAgain, err := store.UpsertLegacy(legacy, "config-two", []byte("changed"), true)
+	if err != nil || secondAgain.Profile.Metadata.Revision != 2 {
+		t.Fatalf("unchanged legacy edit was not idempotent: %+v, %v", secondAgain, err)
+	}
+	previous := first // An exported old revision cannot overwrite a newer profile.
+	if _, err := store.Import(previous.Profile); !errors.Is(err, ErrRevision) {
+		t.Fatalf("stale import returned %v", err)
+	}
+	return legacy, second.Profile
 }

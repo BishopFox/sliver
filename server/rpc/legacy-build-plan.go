@@ -17,6 +17,8 @@ import (
 // legacyBuildRequest translates the compatibility Generate request into the
 // neutral planner contract. Sliver-only configuration stays in ImplantConfig;
 // it is not interpreted by the generic planner.
+
+//nolint:gocyclo // The compatibility mapping uses one legacy configuration and one output request.
 func legacyBuildRequest(name string, config *clientpb.ImplantConfig) (buildplan.Request, error) {
 	if config == nil {
 		return buildplan.Request{}, fmt.Errorf("missing implant config")

@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+//nolint:gocyclo // The artifact and stored record are checked against the same on-demand request.
 func TestOnDemandShellcodeBuildRecord(t *testing.T) {
 	setupGenerateSpoofTest(t)
 	name := fmt.Sprintf("on-demand-shellcode-%d", time.Now().UnixNano())

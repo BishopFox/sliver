@@ -36,12 +36,25 @@ func TestRestrictedYAMLRejectsCaseEquivalentKeys(t *testing.T) {
 
 func changedFixture(t *testing.T, before, after string) []byte {
 	t.Helper()
-	raw := fixture(t)
+	return redigestFixture(t, replaceFixture(t, fixture(t), before, after))
+}
+
+func replaceFixture(t *testing.T, raw []byte, before, after string) []byte {
+	t.Helper()
+	// The embedded files may have CRLF line endings on Windows checkouts.
+	raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
 	if bytes.Count(raw, []byte(before)) != 1 {
 		t.Fatalf("expected one %q in fixture", before)
 	}
-	raw = bytes.Replace(raw, []byte(before), []byte(after), 1)
-	return redigestFixture(t, raw)
+	return bytes.Replace(raw, []byte(before), []byte(after), 1)
+}
+
+func TestReplaceFixtureWithCRLF(t *testing.T) {
+	raw := []byte("  - os: windows\r\n    arch: amd64\r\n")
+	want := "  - os: linux\n    arch: amd64\n"
+	if got := replaceFixture(t, raw, "os: windows\n    arch: amd64", "os: linux\n    arch: amd64"); string(got) != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
 }
 
 func redigestFixture(t *testing.T, raw []byte) []byte {
@@ -56,7 +69,7 @@ func redigestFixture(t *testing.T, raw []byte) []byte {
 	}
 	digest := sha256.Sum256(canonical)
 	old := yamlField(yamlField(document.Content[0], "metadata"), "digest").Value
-	return bytes.Replace(raw, []byte(old), []byte("sha256:"+hex.EncodeToString(digest[:])), 1)
+	return replaceFixture(t, raw, old, "sha256:"+hex.EncodeToString(digest[:]))
 }
 
 func TestOpenBuiltinInventoryAndCopy(t *testing.T) {
@@ -126,6 +139,13 @@ func TestStageAndMetadataBuiltinsHaveTypedLocalEdges(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStageAndMetadataBuiltinsRequireTypedOptions(t *testing.T) {
+	catalog, err := Open(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, test := range []struct{ name, option, typ string }{
 		{"builtin/stage-aes", "key", "secret-ref"},
 		{"builtin/stage-aes", "iv", "secret-ref"},
@@ -157,8 +177,8 @@ func TestCoreMageDeclarationRequiresInstalledRelativeBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw = bytes.Replace(raw, []byte("version: 1.0.0"), []byte("version: 2.0.0"), 1)
-	raw = bytes.Replace(raw, []byte("options:\n"), []byte("source:\n  mode: copy\n  renderer: builtin-sliver-template-v1\nbuilder:\n  engine: mage\n  magefile: magefiles/sliver\n  target: Build\noptions:\n"), 1)
+	raw = replaceFixture(t, raw, "version: 1.0.0", "version: 2.0.0")
+	raw = replaceFixture(t, raw, "options:\n", "source:\n  mode: copy\n  renderer: builtin-sliver-template-v1\nbuilder:\n  engine: mage\n  magefile: magefiles/sliver\n  target: Build\noptions:\n")
 	raw = redigestFixture(t, raw)
 	if _, err := catalog.ImportAdministrator(raw); err != nil {
 		t.Fatalf("valid installed Mage core was rejected: %v", err)
@@ -170,7 +190,7 @@ func TestCoreMageDeclarationRequiresInstalledRelativeBundle(t *testing.T) {
 		{"unsupported-engine", "engine: mage", "engine: shell"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			candidate := bytes.Replace(raw, []byte(test.before), []byte(test.after), 1)
+			candidate := replaceFixture(t, raw, test.before, test.after)
 			candidate = redigestFixture(t, candidate)
 			if _, err := parseSpec(candidate); err == nil {
 				t.Fatal("unsafe Mage core declaration was accepted")
@@ -237,19 +257,7 @@ func TestRemoteBatchOfflineAndRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	offline, err := reopened.Get(Reference{Name: "test/xor"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if offline.Available || len(offline.Providers) != 1 || offline.Providers[0].Online || !offline.Providers[0].LastSeen.Equal(seen) {
-		t.Fatalf("remote status changed on restart: %+v", offline)
-	}
-	if len(offline.Sources) != 1 || offline.Sources[0].Source != "remote" || !bytes.Equal(offline.RawYAML, unique) {
-		t.Fatalf("remote YAML or source was not retained: %+v", offline)
-	}
-	if got := reopened.List(Query{Name: "test/xor", AvailableOnly: true}); len(got) != 0 {
-		t.Fatalf("offline spec listed as available: %+v", got)
-	}
+	assertOfflineRemoteSpec(t, reopened, seen, unique)
 	if _, err := reopened.AdvertiseRemote("worker-one", unique, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +271,24 @@ func TestRemoteBatchOfflineAndRestart(t *testing.T) {
 	}
 }
 
-func TestAdministratorDirectoryAndAmbiguousReference(t *testing.T) {
+func assertOfflineRemoteSpec(t *testing.T, catalog *Catalog, seen time.Time, raw []byte) {
+	t.Helper()
+	offline, err := catalog.Get(Reference{Name: "test/xor"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offline.Available || len(offline.Providers) != 1 || offline.Providers[0].Online || !offline.Providers[0].LastSeen.Equal(seen) {
+		t.Fatalf("remote status changed on restart: %+v", offline)
+	}
+	if len(offline.Sources) != 1 || offline.Sources[0].Source != "remote" || !bytes.Equal(offline.RawYAML, raw) {
+		t.Fatalf("remote YAML or source was not retained: %+v", offline)
+	}
+	if got := catalog.List(Query{Name: "test/xor", AvailableOnly: true}); len(got) != 0 {
+		t.Fatalf("offline spec listed as available: %+v", got)
+	}
+}
+
+func TestAdministratorDirectoryAndPersistence(t *testing.T) {
 	root := t.TempDir()
 	adminDir := filepath.Join(root, "build-catalog", "admin")
 	if err := os.MkdirAll(adminDir, 0700); err != nil {
@@ -292,18 +317,25 @@ func TestAdministratorDirectoryAndAmbiguousReference(t *testing.T) {
 	if err != nil || !persisted.Available || !bytes.Equal(persisted.RawYAML, unique) {
 		t.Fatalf("administrator snapshot was not retained: %+v, %v", persisted, err)
 	}
-	second := changedFixture(t, "version: 1.0.0", "version: 2.0.0")
-	if _, err := reopened.ImportAdministrator(second); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := reopened.Get(Reference{Name: "builtin/xor"}); !errors.Is(err, ErrAmbiguous) {
-		t.Fatalf("want ambiguous bare name, got %v", err)
-	}
-	if _, err := reopened.Get(Reference{Name: "builtin/xor", Version: "2.0.0"}); err != nil {
-		t.Fatal(err)
-	}
 	if !strings.HasPrefix(string(admin.RawYAML), "---") {
 		t.Fatal("raw YAML header was not preserved")
+	}
+}
+
+func TestAmbiguousReference(t *testing.T) {
+	catalog, err := Open(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := changedFixture(t, "version: 1.0.0", "version: 2.0.0")
+	if _, err := catalog.ImportAdministrator(second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := catalog.Get(Reference{Name: "builtin/xor"}); !errors.Is(err, ErrAmbiguous) {
+		t.Fatalf("want ambiguous bare name, got %v", err)
+	}
+	if _, err := catalog.Get(Reference{Name: "builtin/xor", Version: "2.0.0"}); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -314,7 +346,7 @@ func TestRemovedAdministratorExecutorLeavesOfflineSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	custom := changedFixture(t, "name: builtin/xor", "name: test/custom")
-	custom = bytes.Replace(custom, []byte("id: xor-v1"), []byte("id: custom-v1"), 1)
+	custom = replaceFixture(t, custom, "id: xor-v1", "id: custom-v1")
 	custom = redigestFixture(t, custom)
 	if err := os.WriteFile(filepath.Join(adminDir, "custom.yaml"), custom, 0600); err != nil {
 		t.Fatal(err)

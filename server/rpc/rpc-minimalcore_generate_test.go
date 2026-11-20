@@ -28,6 +28,8 @@ import (
 // TestM7MinimalCoreLiveMTLSPing proves that an installed core outside the
 // Sliver adapter can build, register over the existing wire protocol, and
 // answer a real operator RPC. It runs only on the fixture's native targets.
+
+//nolint:gocyclo // The test follows the same fixture through build, connection, and cleanup.
 func TestM7MinimalCoreLiveMTLSPing(t *testing.T) {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("minimal core fixture supports Darwin and Linux")
@@ -78,6 +80,8 @@ func TestM7MinimalCoreLiveMTLSPing(t *testing.T) {
 // TestM7MinimalCoreAdvertisedTargets compiles every tuple in the installed
 // fixture spec. Cross-target outputs are build-only evidence; the native live
 // tests separately prove the wire contract.
+
+//nolint:gocyclo // The build outputs and format checks use the same advertised target matrix.
 func TestM7MinimalCoreAdvertisedTargets(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("cross-target fixture matrix runs on Linux")
@@ -122,7 +126,7 @@ func TestM7MinimalCoreAdvertisedTargets(t *testing.T) {
 				if err != nil {
 					t.Fatalf("parse ELF: %v", err)
 				}
-				defer parsed.Close()
+				defer func() { _ = parsed.Close() }()
 				wantMachine := elf.EM_AARCH64
 				if target.goarch == "amd64" {
 					wantMachine = elf.EM_X86_64
@@ -135,7 +139,7 @@ func TestM7MinimalCoreAdvertisedTargets(t *testing.T) {
 				if err != nil {
 					t.Fatalf("parse Mach-O: %v", err)
 				}
-				defer parsed.Close()
+				defer func() { _ = parsed.Close() }()
 				if parsed.Cpu != macho.CpuArm64 {
 					t.Fatalf("Mach-O CPU = %s, want arm64", parsed.Cpu)
 				}
@@ -174,6 +178,8 @@ func startM7MinimalCoreLoopbackMTLS(t *testing.T) int {
 
 // assertM7MinimalCoreLivePing runs an accepted artifact with a private process
 // environment and proves its declared Ping capability over the live listener.
+
+//nolint:gocyclo // Process lifecycle, registration, and reply checks share the same test deadline.
 func assertM7MinimalCoreLivePing(t *testing.T, name string, fileName string, data []byte, sha256Hex string) {
 	t.Helper()
 	if fileName == "" || filepath.Base(fileName) != fileName {

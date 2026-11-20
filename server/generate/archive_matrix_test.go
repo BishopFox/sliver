@@ -92,7 +92,11 @@ func assertArchiveBundle(t *testing.T, archivePath, name string) {
 	if err != nil {
 		t.Fatalf("open C archive bundle: %v", err)
 	}
-	defer bundle.Close()
+	defer func() {
+		if err := bundle.Close(); err != nil {
+			t.Errorf("close C archive bundle: %v", err)
+		}
+	}()
 	want := map[string]bool{name + ".a": false, name + ".h": false, "main.h": false}
 	if len(bundle.File) != len(want) {
 		t.Fatalf("bundle has %d entries, want %d", len(bundle.File), len(want))
@@ -102,36 +106,41 @@ func assertArchiveBundle(t *testing.T, archivePath, name string) {
 			t.Fatalf("unexpected or duplicate bundle entry %q", file.Name)
 		}
 		want[file.Name] = true
-		if file.UncompressedSize64 == 0 {
-			t.Fatalf("bundle entry %q is empty", file.Name)
+		assertArchiveBundleEntry(t, file, name)
+	}
+}
+
+func assertArchiveBundleEntry(t *testing.T, file *zip.File, name string) {
+	t.Helper()
+	if file.UncompressedSize64 == 0 {
+		t.Fatalf("bundle entry %q is empty", file.Name)
+	}
+	reader, err := file.Open()
+	if err != nil {
+		t.Fatalf("open bundle entry %q: %v", file.Name, err)
+	}
+	if file.Name == name+".a" {
+		magic := make([]byte, len("!<arch>\n"))
+		if _, err := io.ReadFull(reader, magic); err != nil || !bytes.Equal(magic, []byte("!<arch>\n")) {
+			_ = reader.Close()
+			t.Fatalf("bundle entry %q is not an ar archive: %v", file.Name, err)
 		}
-		reader, err := file.Open()
+	}
+	if file.Name == name+".h" {
+		header, err := io.ReadAll(reader)
 		if err != nil {
-			t.Fatalf("open bundle entry %q: %v", file.Name, err)
-		}
-		if file.Name == name+".a" {
-			magic := make([]byte, len("!<arch>\n"))
-			if _, err := io.ReadFull(reader, magic); err != nil || !bytes.Equal(magic, []byte("!<arch>\n")) {
-				reader.Close()
-				t.Fatalf("bundle entry %q is not an ar archive: %v", file.Name, err)
-			}
-		}
-		if file.Name == name+".h" {
-			header, err := io.ReadAll(reader)
-			if err != nil {
-				reader.Close()
-				t.Fatalf("read bundle entry %q: %v", file.Name, err)
-			}
-			if !bytes.Contains(header, []byte("StartW")) {
-				reader.Close()
-				t.Fatalf("generated header %q is missing the StartW export", file.Name)
-			}
-		} else if _, err := io.Copy(io.Discard, reader); err != nil {
-			reader.Close()
+			_ = reader.Close()
 			t.Fatalf("read bundle entry %q: %v", file.Name, err)
 		}
-		if err := reader.Close(); err != nil {
-			t.Fatalf("close bundle entry %q: %v", file.Name, err)
+		if !bytes.Contains(header, []byte("StartW")) {
+			_ = reader.Close()
+			t.Fatalf("generated header %q is missing the StartW export", file.Name)
 		}
+	} else if _, err := io.Copy(io.Discard, reader); err != nil {
+		_ = reader.Close()
+		t.Fatalf("read bundle entry %q: %v", file.Name, err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("close bundle entry %q: %v", file.Name, err)
 	}
 }

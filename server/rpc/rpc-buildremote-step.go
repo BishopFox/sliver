@@ -119,6 +119,7 @@ func cancelStepAssignments(builder string) {
 	}
 }
 
+// BuilderGetStep retrieves a step assigned to an authenticated builder session.
 func (rpc *Server) BuilderGetStep(ctx context.Context, ref *clientpb.BuilderStepRef) (*clientpb.BuilderStepRequest, error) {
 	if ref == nil || ref.AssignmentID == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing step assignment")
@@ -137,6 +138,9 @@ func (rpc *Server) BuilderGetStep(ctx context.Context, ref *clientpb.BuilderStep
 	return response, nil
 }
 
+// BuilderSubmitStep records the worker's result for an assigned step.
+//
+//nolint:gocyclo // Session, lease, and result checks gate a single submission transition.
 func (rpc *Server) BuilderSubmitStep(ctx context.Context, submitted *clientpb.BuilderStepResult) (*commonpb.Empty, error) {
 	if submitted == nil || submitted.AssignmentID == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing step result")
@@ -201,6 +205,8 @@ func (rpc *Server) BuilderSubmitStep(ctx context.Context, submitted *clientpb.Bu
 // dispatchRemoteStep reserves the reported capacity before publishing a
 // private assignment. The worker must authenticate both its operator TLS
 // certificate and its connection token to fetch or submit this step.
+
+//nolint:gocyclo // Assignment, completion, and cancellation share a single step lease.
 func (rpc *Server) dispatchRemoteStep(ctx context.Context, plan *buildplan.Plan, index int,
 	buildID string, input *clientpb.BuildArtifactPayload, prepared *clientpb.ExternalImplantConfig,
 	inputs []*clientpb.BuildInput) (out assignedStepResult, selected *buildplan.StepSelection, dispatchErr error) {
@@ -272,7 +278,7 @@ func (rpc *Server) dispatchRemoteStep(ctx context.Context, plan *buildplan.Plan,
 				}
 			}
 			if prepared == nil || prepared.Build == nil {
-				return assignedStepResult{}, selection, errors.New("Sliver core assignment lacks prepared build identity")
+				return assignedStepResult{}, selection, errors.New("the Sliver core assignment lacks prepared build identity")
 			}
 			buildID = prepared.Build.ID
 		} else {

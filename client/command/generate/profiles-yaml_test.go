@@ -149,6 +149,7 @@ func TestProfileInputsExactSlots(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test exercises the same bounded input handling for accepted and rejected files.
 func TestProfileInputBounds(t *testing.T) {
 	dir := t.TempDir()
 	secret := filepath.Join(dir, "secret")

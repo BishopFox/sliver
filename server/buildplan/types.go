@@ -36,13 +36,15 @@ type Toolchain struct {
 	Identity     string   `json:"identity,omitempty"`
 }
 
+// Endpoint pairs an address with its protocol.
 type Endpoint struct {
 	Protocol string `json:"protocol"`
 	Address  string `json:"address"`
 }
 
-// Runtime settings are optional for existing neutral callers. Profiles carry
-// them explicitly so the frozen plan retains all authored Sliver C2 timing.
+// C2Settings holds optional runtime settings for existing neutral callers.
+// Profiles carry these settings explicitly so that the frozen plan retains
+// all authored Sliver C2 timing.
 type C2Settings struct {
 	ConnectionStrategy       string `json:"connectionStrategy"`
 	ReconnectSeconds         uint64 `json:"reconnectSeconds"`
@@ -53,6 +55,7 @@ type C2Settings struct {
 	WireguardTCPCommsPort    uint32 `json:"wireguardTCPCommsPort,omitempty"`
 }
 
+// BeaconSettings records the interval and jitter in seconds.
 type BeaconSettings struct {
 	IntervalSeconds uint64 `json:"intervalSeconds"`
 	JitterSeconds   uint64 `json:"jitterSeconds"`
@@ -65,6 +68,7 @@ type Option struct {
 	ValueJSON json.RawMessage `json:"value"`
 }
 
+// ProviderPolicy records the requested provider mode and optional builder name.
 type ProviderPolicy struct {
 	Mode    string `json:"mode"`
 	Builder string `json:"builder,omitempty"`
@@ -83,6 +87,7 @@ type ProfileSnapshot struct {
 	EncoderOverride    string `json:"encoderOverride,omitempty"`
 }
 
+// TransformRequest identifies a catalog transform and its option values.
 type TransformRequest struct {
 	Spec    Reference `json:"spec"`
 	Options []Option  `json:"options,omitempty"`
@@ -122,6 +127,7 @@ type Step struct {
 	Options   []Option  `json:"options,omitempty"`
 }
 
+// Plan records the resolved steps, final artifact type, and plan digest.
 type Plan struct {
 	Request       Request  `json:"request"`
 	Steps         []Step   `json:"steps"`
@@ -129,8 +135,10 @@ type Plan struct {
 	SHA256        string   `json:"sha256"`
 }
 
+// StepState records the progress state of one step.
 type StepState string
 
+// Step states recorded in a build.
 const (
 	StepPending   StepState = "pending"
 	StepRunning   StepState = "running"
@@ -139,8 +147,10 @@ const (
 	StepCancelled StepState = "cancelled"
 )
 
+// BuildState records the progress state of a build.
 type BuildState string
 
+// Build states recorded in the store.
 const (
 	BuildPending   BuildState = "pending"
 	BuildRunning   BuildState = "running"
@@ -158,6 +168,7 @@ type ArtifactInfo struct {
 	SHA256 string   `json:"sha256"`
 }
 
+// StepRecord stores the progress and results of a planned step.
 type StepRecord struct {
 	ID                string         `json:"id"`
 	State             StepState      `json:"state"`
@@ -220,8 +231,10 @@ type Record struct {
 	FinalHistory  []FinalRevision `json:"finalHistory,omitempty"`
 }
 
+// ErrorCode identifies a class of plan errors.
 type ErrorCode string
 
+// Error codes for request validation and route resolution.
 const (
 	CodeInvalidRequest       ErrorCode = "invalid-request"
 	CodeUnknownSpec          ErrorCode = "unknown-spec"
@@ -240,6 +253,7 @@ type PlanError struct {
 	Detail string
 }
 
+// Error formats the plan error with its step when available.
 func (e *PlanError) Error() string {
 	if e.Step == "" {
 		return fmt.Sprintf("%s: %s", e.Code, e.Detail)

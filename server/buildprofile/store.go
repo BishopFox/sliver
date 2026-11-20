@@ -10,9 +10,13 @@ import (
 	"sync"
 )
 
+// ErrNotFound indicates that a profile name has no stored document.
 var ErrNotFound = errors.New("build profile not found")
+
+// ErrRevision indicates that a changed profile did not increase its revision.
 var ErrRevision = errors.New("build profile revision must increase")
 
+// Document contains a parsed profile, its canonical YAML, and optional legacy data.
 type Document struct {
 	Profile        Profile `json:"-"`
 	YAML           []byte  `json:"yaml"`
@@ -27,6 +31,7 @@ type index struct {
 	Tombstones map[string]bool     `json:"tombstones"`
 }
 
+// Store persists profiles and deletion tombstones in an atomic index.
 type Store struct {
 	mu   sync.Mutex
 	path string
@@ -73,6 +78,7 @@ func OpenStore(root string) (*Store, error) {
 	return store, nil
 }
 
+// Get returns a copy of a stored profile by name.
 func (store *Store) Get(name string) (Document, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -83,12 +89,14 @@ func (store *Store) Get(name string) (Document, error) {
 	return cloneDocument(document)
 }
 
+// IsTombstoned reports whether a deletion marker exists for the name.
 func (store *Store) IsTombstoned(name string) bool {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	return store.data.Tombstones[name]
 }
 
+// List returns copies of the stored profiles in name order.
 func (store *Store) List() ([]Document, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -99,11 +107,11 @@ func (store *Store) List() ([]Document, error) {
 	sort.Strings(names)
 	documents := make([]Document, 0, len(names))
 	for _, name := range names {
-		copy, err := cloneDocument(store.data.Documents[name])
+		document, err := cloneDocument(store.data.Documents[name])
 		if err != nil {
 			return nil, err
 		}
-		documents = append(documents, copy)
+		documents = append(documents, document)
 	}
 	return documents, nil
 }
@@ -224,11 +232,11 @@ func (store *Store) Restore(name string, document *Document) error {
 	if document == nil {
 		delete(store.data.Documents, name)
 	} else {
-		copy, err := cloneDocument(*document)
+		cloned, err := cloneDocument(*document)
 		if err != nil {
 			return err
 		}
-		store.data.Documents[name] = copy
+		store.data.Documents[name] = cloned
 	}
 	delete(store.data.Tombstones, name)
 	if err := store.save(); err != nil {
@@ -266,17 +274,17 @@ func (store *Store) save() error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if err := file.Chmod(0600); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if _, err := file.Write(encoded); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
+		_ = file.Close()
 		return err
 	}
 	if err := file.Close(); err != nil {
@@ -287,7 +295,7 @@ func (store *Store) save() error {
 	}
 	dir, err := os.Open(directory)
 	if err == nil {
-		defer dir.Close()
+		defer func() { _ = dir.Close() }()
 		_ = dir.Sync()
 	}
 	return nil

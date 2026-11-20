@@ -20,7 +20,9 @@ import (
 )
 
 const (
-	PEMetadataSpec         = "builtin/pe-metadata"
+	// PEMetadataSpec identifies the installed metadata transform.
+	PEMetadataSpec = "builtin/pe-metadata"
+	// PEMetadataDigest is the digest of the installed metadata spec.
 	PEMetadataDigest       = "sha256:b7205339fd8b8aa8ac4b14bc386dd4a1953b74a4b4444077a0a0dae2ea6c9bad"
 	metadataDigestPrefix   = "metadata-sha256:"
 	maxMetadataConfigBytes = 128 << 20
@@ -77,6 +79,7 @@ func ApplyPEMetadataConfig(ctx context.Context, step buildplan.Step, input, dono
 	return applyPEMetadata(ctx, step, input, donor, config)
 }
 
+//nolint:gocyclo // The scratch directory lifecycle covers input checks, the file operation, and cleanup.
 func applyPEMetadata(ctx context.Context, step buildplan.Step, input, donor []byte,
 	config *generate.SpoofMetadataConfig) (result []byte, resultErr error) {
 	if ctx == nil {
@@ -168,6 +171,7 @@ func peMetadataDonorReference(step buildplan.Step) (stageInputReference, error) 
 	return stageInputReference{}, errors.New("PE metadata requires a donor artifact reference")
 }
 
+//nolint:gocyclo // Keep all frozen step constraints at the transform boundary.
 func validatePEMetadataStep(step buildplan.Step) error {
 	if step.Kind != "transform" || step.Provider != "server" || step.Spec.Name != PEMetadataSpec ||
 		step.Toolchain.Driver != "builtin" || len(step.Toolchain.Requirements) != 0 ||

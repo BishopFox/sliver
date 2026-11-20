@@ -103,6 +103,7 @@ func (rpc *Server) resolveBuildPlan(ctx context.Context, req buildplan.Request) 
 	return planner.Plan(ctx, req)
 }
 
+// PlanBuild resolves a build request into a plan.
 func (rpc *Server) PlanBuild(ctx context.Context, req *clientpb.BuildRequest) (*clientpb.BuildPlan, error) {
 	neutral, err := buildRequestFromProto(req)
 	if err != nil {
@@ -303,6 +304,7 @@ func buildArtifactMetadataProto(info buildplan.ArtifactInfo) *clientpb.BuildArti
 	return &clientpb.BuildArtifactMetadata{Type: buildArtifactProto(info.Type), FileName: info.Name, SizeBytes: uint64(info.Size), SHA256: info.SHA256}
 }
 
+//nolint:gocyclo // The conversion keeps optional record, step, and selection fields visible together.
 func buildRecordProto(record buildplan.Record) *clientpb.BuildRecord {
 	result := &clientpb.BuildRecord{
 		ID: record.ID, Plan: buildPlanProto(record.Plan), CreatedUnix: unixOrZero(record.CreatedAt), UpdatedUnix: unixOrZero(record.UpdatedAt),
@@ -395,6 +397,7 @@ func buildRecordProto(record buildplan.Record) *clientpb.BuildRecord {
 	return result
 }
 
+// GetBuildRecord retrieves a persisted build record.
 func (rpc *Server) GetBuildRecord(_ context.Context, req *clientpb.BuildRecordRef) (*clientpb.BuildRecord, error) {
 	if req == nil || !buildRecordIDPattern.MatchString(req.ID) {
 		return nil, status.Error(codes.InvalidArgument, "valid build record ID is required")
@@ -410,6 +413,7 @@ func (rpc *Server) GetBuildRecord(_ context.Context, req *clientpb.BuildRecordRe
 	return buildRecordProto(record), nil
 }
 
+// GetBuildArtifact retrieves the stored artifact for a build.
 func (rpc *Server) GetBuildArtifact(_ context.Context, req *clientpb.BuildRecordRef) (*clientpb.BuildArtifactResponse, error) {
 	if req == nil || !buildRecordIDPattern.MatchString(req.ID) {
 		return nil, status.Error(codes.InvalidArgument, "valid build record ID is required")

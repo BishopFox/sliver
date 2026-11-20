@@ -124,6 +124,8 @@ func (client *workerStepClient) BuilderUpdateStatus(_ context.Context, report *c
 // authenticated fetches, builtin XOR execution, and result uploads all run
 // through the assigned-step protocol. Holding A's upload proves B can be
 // selected while A's unknown-peak reservation is exclusive.
+
+//nolint:gocyclo // The test compares both workers as they execute steps in one plan.
 func TestTwoBuilderLiveWorkersExecuteAssignedTransforms(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}
@@ -275,6 +277,8 @@ func payloadSHA(data []byte) string {
 // A timed-out builder is quarantined by closing its registration stream.
 // The worker reconnects and sends a fresh status report before it can receive
 // another assignment.
+
+//nolint:gocyclo // Quarantine and reconnect are observed for the same worker session.
 func TestAssignedStepQuarantineReconnectsWorker(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}

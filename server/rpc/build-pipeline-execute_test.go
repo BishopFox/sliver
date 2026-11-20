@@ -15,6 +15,7 @@ import (
 	"github.com/bishopfox/sliver/server/buildtransform"
 )
 
+//nolint:gocyclo // Every step's observed artifact and the resulting final bytes come from one execution.
 func TestResolvedPipelineRecordsEachObservedArtifactAndExactFinalBytes(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}

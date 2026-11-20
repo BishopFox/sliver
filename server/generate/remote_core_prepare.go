@@ -26,6 +26,8 @@ import (
 
 // PrepareRemoteSliverCore generates the runtime identity for an assigned-step
 // Sliver core build without compiling source code on the server.
+//
+//nolint:gocyclo // Keep platform file naming and the persisted configuration in the same preparation path.
 func PrepareRemoteSliverCore(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
 	config.IncludeMTLS = config.IncludeMTLS || models.IsC2Enabled([]string{"mtls"}, config.C2)
 	config.IncludeWG = config.IncludeWG || models.IsC2Enabled([]string{"wg"}, config.C2)

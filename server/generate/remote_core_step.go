@@ -19,6 +19,8 @@ import (
 // prepares the build keys and C2 configuration; the worker never generates a
 // second identity or writes a build record. Its private source and material
 // workspace is removed before the accepted artifact is returned.
+//
+//nolint:gocyclo // Validation, output acceptance, and cleanup are tied to the same worker assignment.
 func CompilePreparedSliverCore(ctx context.Context, plan buildplan.Plan, prepared *clientpb.ExternalImplantConfig) (result buildcore.Result, buildErr error) {
 	if ctx == nil || prepared == nil || prepared.GetConfig() == nil || prepared.GetBuild() == nil || prepared.GetHTTPC2() == nil ||
 		prepared.GetHTTPC2().GetImplantConfig() == nil {

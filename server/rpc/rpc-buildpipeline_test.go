@@ -94,6 +94,7 @@ func TestBuildCatalogRPCFiltersAndExactSpec(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test observes the same catalog spec before and after a builder disconnect.
 func TestBuildCatalogRPCPreservesOfflineRemoteSpec(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}
@@ -198,6 +199,7 @@ func TestCoreAdapterForPlanSelectsRegisteredExecutor(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Registration, execution, and artifact assertions exercise the same fixture.
 func TestRegisteredCoreAdapterExecutesWithoutSliverChanges(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	adapter := testRegisteredCoreAdapter{}
@@ -308,6 +310,7 @@ func TestSliverAdapterConfigFromPlanAcceptsOrderedTransform(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The record and downloaded bytes are checked for the same frozen build.
 func TestBuildRecordRPCServesFrozenBytes(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	rpc := &Server{}

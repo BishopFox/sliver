@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
+//nolint:gocyclo // The test compares build records and cleanup state through one injected failure.
 func TestRemotePreparedSliverBuildDiscardedOnFailure(t *testing.T) {
 	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	config, err := db.SaveImplantConfig(&clientpb.ImplantConfig{GOOS: "linux", GOARCH: "amd64", Format: clientpb.OutputFormat_EXECUTABLE})

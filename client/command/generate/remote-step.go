@@ -69,6 +69,8 @@ func hasWGEndpoint(config *clientpb.ImplantConfig) bool {
 // remoteStepBuild uses the server's assigned-step executor and retrieves the
 // exact final artifact recorded by the server. Metadata donor bytes are
 // carried as bounded per-build inputs, never as plan options.
+//
+//nolint:gocyclo // Keep request validation, cancellation, and result checks in one call lifecycle.
 func remoteStepBuild(cmd *cobra.Command, name string, config *clientpb.ImplantConfig,
 	metadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	request, err := planRequestFromFlags(cmd, config.GetIsBeacon())
@@ -140,6 +142,7 @@ func remoteStepBuild(cmd *cobra.Command, name string, config *clientpb.ImplantCo
 	return file, nil
 }
 
+//nolint:gocyclo // Check the response and its record together before accepting the file.
 func verifiedRemoteStepArtifact(record *clientpb.BuildRecord, response *clientpb.BuildArtifactResponse) (*commonpb.File, error) {
 	if record == nil || record.FinalArtifact == nil || record.FinalArtifact.Type == nil || response == nil ||
 		response.Metadata == nil || response.Metadata.Type == nil {
@@ -160,6 +163,7 @@ func verifiedRemoteStepArtifact(record *clientpb.BuildRecord, response *clientpb
 	return file, nil
 }
 
+//nolint:gocyclo // Metadata fields are validated together before the request is updated.
 func addRemoteMetadataInputs(request *clientpb.BuildRequest, metadata *clientpb.SpoofMetadataConfig) error {
 	if request == nil || metadata == nil || metadata.GetPE() == nil || metadata.GetPE().GetSource() == nil {
 		return errors.New("missing PE metadata donor")
