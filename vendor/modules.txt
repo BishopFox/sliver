@@ -689,7 +689,7 @@ github.com/glebarez/go-sqlite
 # github.com/glebarez/sqlite v1.11.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
-# github.com/go-jose/go-jose/v4 v4.1.4
+# github.com/go-jose/go-jose/v4 v4.1.6
 ## explicit; go 1.24.0
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher

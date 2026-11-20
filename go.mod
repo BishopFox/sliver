@@ -186,7 +186,7 @@ require (
 	github.com/gaissmai/bart v0.25.0 // indirect
 	github.com/gen2brain/shm v0.1.1 // indirect
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/go-lark/lark v1.16.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
