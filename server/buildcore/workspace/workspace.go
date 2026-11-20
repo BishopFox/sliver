@@ -243,8 +243,10 @@ func copyFS(source fs.FS, dest string) error {
 		return fmt.Errorf("open copy destination: %w", err)
 	}
 	defer root.Close()
-	seen := map[string]struct{}{}
-	var entries int
+	paths := extractionBudget{
+		limits: ArchiveLimits{MaxEntries: defaultMaxEntries},
+		seen:   make(map[string]archivePathEntry),
+	}
 	var totalBytes int64
 	return fs.WalkDir(source, ".", func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -253,18 +255,9 @@ func copyFS(source fs.FS, dest string) error {
 		if name == "." {
 			return nil
 		}
-		local, err := safeEntryPath(name)
+		local, err := paths.addPath(name, entry.IsDir())
 		if err != nil {
 			return err
-		}
-		key := strings.ToLower(name)
-		if _, exists := seen[key]; exists {
-			return fmt.Errorf("duplicate source path %q", name)
-		}
-		seen[key] = struct{}{}
-		entries++
-		if entries > defaultMaxEntries {
-			return errors.New("source bundle has too many entries")
 		}
 		info, err := entry.Info()
 		if err != nil {

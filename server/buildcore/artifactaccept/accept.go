@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/server/buildplan"
+	"github.com/bishopfox/sliver/util"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
@@ -111,8 +112,7 @@ func InspectBytes(data []byte, expected buildplan.Artifact, displayName string) 
 }
 
 func validateBasename(name string) error {
-	if name == "" || name == "." || name == ".." || strings.TrimSpace(name) != name ||
-		strings.ContainsAny(name, "/\\:\x00") || filepath.Base(name) != name {
+	if !util.ValidPortableFileName(name) {
 		return errors.New("invalid basename")
 	}
 	return nil

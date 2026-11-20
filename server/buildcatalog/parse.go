@@ -15,6 +15,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"golang.org/x/text/cases"
 	"gopkg.in/yaml.v3"
 )
 
@@ -292,6 +293,7 @@ func validateYAMLNode(node *yaml.Node) error {
 			return fmt.Errorf("unsupported YAML mapping tag %q", node.Tag)
 		}
 		keys := make(map[string]struct{}, len(node.Content)/2)
+		foldedKeys := make(map[string]string, len(node.Content)/2)
 		for index := 0; index < len(node.Content); index += 2 {
 			key, value := node.Content[index], node.Content[index+1]
 			if key.Kind != yaml.ScalarNode || key.Tag != "!!str" || key.Value == "<<" {
@@ -300,6 +302,11 @@ func validateYAMLNode(node *yaml.Node) error {
 			if _, exists := keys[key.Value]; exists {
 				return fmt.Errorf("duplicate YAML key %q", key.Value)
 			}
+			folded := cases.Fold().String(key.Value)
+			if prior, exists := foldedKeys[folded]; exists {
+				return fmt.Errorf("case-equivalent YAML keys %q and %q", prior, key.Value)
+			}
+			foldedKeys[folded] = key.Value
 			keys[key.Value] = struct{}{}
 			if err := validateYAMLNode(value); err != nil {
 				return fmt.Errorf("%s: %w", key.Value, err)

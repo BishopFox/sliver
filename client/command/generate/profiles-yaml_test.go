@@ -59,6 +59,22 @@ func TestNewProfileAuthoredYAMLGuard(t *testing.T) {
 	}
 }
 
+func TestProfileExportFileNamePortableAtNameLimit(t *testing.T) {
+	first := strings.Repeat("a", 254) + "b"
+	second := strings.Repeat("a", 254) + "c"
+	firstFile := profileExportFileName(first)
+	secondFile := profileExportFileName(second)
+	if !safeProfileFileName(firstFile) || !safeProfileFileName(secondFile) || firstFile == secondFile {
+		t.Fatalf("long profile export names collide or are unsafe: %q, %q", firstFile, secondFile)
+	}
+	if got := profileExportFileName("short"); got != "short.yaml" {
+		t.Fatalf("ordinary profile export name = %q", got)
+	}
+	if got := profileExportFileName("CON"); !safeProfileFileName(got) {
+		t.Fatalf("reserved profile export name = %q", got)
+	}
+}
+
 func TestProfileCommandsRegistered(t *testing.T) {
 	profiles := commandByUse(Commands(&console.SliverClient{}), consts.ProfilesStr)
 	if profiles == nil {

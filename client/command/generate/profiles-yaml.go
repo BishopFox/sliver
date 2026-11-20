@@ -75,7 +75,7 @@ func ExecuteProfile(ctx context.Context, request *clientpb.BuildProfileExecuteRe
 }
 
 func safeProfileFileName(name string) bool {
-	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, "/\\")
+	return util.ValidPortableFileName(name)
 }
 
 func readProfileYAML(path string) (string, error) {
@@ -141,7 +141,7 @@ func ProfilesExportCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		return
 	}
 	save, _ := cmd.Flags().GetString("save")
-	path, err := profileExportPath(save, doc.Name+".yaml")
+	path, err := profileExportPath(save, profileExportFileName(doc.Name))
 	if err != nil {
 		con.PrintErrorf("Choose profile export path: %s\n", err)
 		return
@@ -151,6 +151,21 @@ func ProfilesExportCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		return
 	}
 	con.PrintInfof("Exported profile %s revision %d to %s\n", doc.Name, doc.Revision, path)
+}
+
+func profileExportFileName(name string) string {
+	fileName := name + ".yaml"
+	if safeProfileFileName(fileName) {
+		return fileName
+	}
+	// A valid profile name can use all 255 bytes allowed by the API. Keep
+	// exports portable and distinguish names sharing a long prefix.
+	digest := sha256.Sum256([]byte(name))
+	suffix := "-" + hex.EncodeToString(digest[:8]) + ".yaml"
+	if len(name) > 255-len(suffix) {
+		name = name[:255-len(suffix)]
+	}
+	return name + suffix
 }
 
 func profileExportPath(save, fileName string) (string, error) {

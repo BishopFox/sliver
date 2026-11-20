@@ -41,7 +41,7 @@ func main() {
 		val := _os.Getenv(env)
 		if val == "" {
 			return false
-		}		
+		}
 		b, err := _strconv.ParseBool(val)
 		if err != nil {
 			_log.Printf("warning: environment variable %s is not a valid bool value: %v", env, val)
@@ -54,7 +54,7 @@ func main() {
 		val := _os.Getenv(env)
 		if val == "" {
 			return 0
-		}		
+		}
 		d, err := _time.ParseDuration(val)
 		if err != nil {
 			_log.Printf("warning: environment variable %s is not a valid duration value: %v", env, val)
@@ -95,7 +95,7 @@ Options:
 		fs.Usage()
 		return
 	}
-		
+
 	{{.PrintNameFunc}}
 
 	list := func() error {

@@ -25,6 +25,7 @@ import (
 
 const assignedStepEvent = "build-step-assigned"
 const maxStepInputBytes = 512 << 20
+const maxAssignedCoreMaterialBytes = 16 << 20
 
 // handleAssignedStep treats the event as a notification only. The assignment
 // and its per-build material are fetched through the authenticated RPC before
@@ -90,6 +91,9 @@ func splitAssignedEvent(data []byte) (name, assignmentID string, err error) {
 
 func (b *Builder) executeAssignedStep(ctx context.Context, assignmentID string,
 	request *clientpb.BuilderStepRequest) (*clientpb.BuildArtifactPayload, string, error) {
+	if request != nil {
+		defer clear(request.CoreMaterial)
+	}
 	if ctx == nil || request == nil || request.Step == nil || request.Request == nil ||
 		request.AssignmentID != assignmentID || assignmentID == "" || request.BuildID == "" || request.Step.ID == "" {
 		return nil, "", errors.New("missing or mismatched assigned step")
@@ -122,7 +126,7 @@ func (b *Builder) executeAssignedStep(ctx context.Context, assignmentID string,
 		}
 		data, name, identity, err = b.executeCore(ctx, request, step, snapshot)
 	} else {
-		if step.Input == nil || request.Input == nil || request.SliverConfig != nil || snapshot.Transform == nil {
+		if step.Input == nil || request.Input == nil || request.SliverConfig != nil || len(request.CoreMaterial) != 0 || snapshot.Transform == nil {
 			return nil, "", errors.New("transform assignment is missing typed input or has unexpected core material")
 		}
 		data, name, identity, err = executeTransform(ctx, request, step)
@@ -194,11 +198,21 @@ func claimProtocols(allowed []string, request *clientpb.BuildRequest) bool {
 func (b *Builder) executeCore(ctx context.Context, request *clientpb.BuilderStepRequest,
 	step buildplan.Step, snapshot buildcatalog.Snapshot) ([]byte, string, string, error) {
 	adapter, exists := buildcore.DefaultAdapter(snapshot.Core.Executor.ID)
-	if step.Spec.Name != "builtin/sliver" {
-		return nil, "", "", errors.New("core has no prepared-material remote integration")
-	}
 	if !exists || !matchesBinding(snapshot.Core, adapter) {
 		return nil, "", "", errors.New("core executor is unavailable or changed")
+	}
+	var remote buildcore.RemoteCoreAdapter
+	if step.Spec.Name == "builtin/sliver" {
+		if len(request.CoreMaterial) != 0 || request.SliverConfig == nil || request.SliverConfig.Build == nil ||
+			request.SliverConfig.Build.ID != request.BuildID {
+			return nil, "", "", errors.New("Sliver assignment has no valid prepared cryptographic material")
+		}
+	} else {
+		remote, exists = adapter.(buildcore.RemoteCoreAdapter)
+		if !exists || request.SliverConfig != nil || len(request.CoreMaterial) == 0 ||
+			len(request.CoreMaterial) > maxAssignedCoreMaterialBytes {
+			return nil, "", "", errors.New("core has no valid prepared remote material or installed integration")
+		}
 	}
 	availability, exists := adapter.(buildcore.Availability)
 	if !exists || !availability.Supports(step.Output.Target, step.Toolchain) {
@@ -212,14 +226,13 @@ func (b *Builder) executeCore(ctx context.Context, request *clientpb.BuilderStep
 	}
 	plan := buildplan.Plan{Request: buildRequest, Steps: []buildplan.Step{local}, FinalArtifact: local.Output}
 	if step.Spec.Name == "builtin/sliver" {
-		if request.SliverConfig == nil || request.SliverConfig.Build == nil ||
-			request.SliverConfig.Build.ID != request.BuildID {
-			return nil, "", "", errors.New("Sliver assignment has no prepared cryptographic material")
-		}
 		result, err := generate.CompilePreparedSliverCore(ctx, plan, request.SliverConfig)
 		return result.Data, result.FileName, result.ToolchainIdentity, err
 	}
-	return nil, "", "", errors.New("core has no installed remote integration")
+	material := bytes.Clone(request.CoreMaterial)
+	defer clear(material)
+	result, err := remote.BuildRemote(ctx, plan, material)
+	return result.Data, result.FileName, result.ToolchainIdentity, err
 }
 
 func executeTransform(ctx context.Context, request *clientpb.BuilderStepRequest,

@@ -1,0 +1,58 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: CoreSpec
+metadata:
+  name: fixture/minimal-sliver-v1
+  version: 1.0.0
+  digest: sha256:6e6654928672f3862aa49f14639b9f038dbf7e661223644e3b3f8586de10b78c
+runtime:
+  protocol: sliver-v1
+  commandSource: declared-subset
+  commands:
+  - MsgPing
+executor:
+  id: minimal-sliver-v1-go
+source:
+  mode: copy
+builder:
+  engine: mage
+  magefile: magefiles/minimal
+  target: Build
+options: []
+capabilities:
+- targets:
+  - os: darwin
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: executable
+      container: macho
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: executable
+      container: elf
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go

@@ -23,11 +23,12 @@ import (
 const remoteStepTimeout = 30 * time.Minute
 
 type assignedStepResult struct {
-	data     []byte
-	info     buildplan.ArtifactInfo
-	identity string
-	prepared *clientpb.ExternalImplantConfig
-	err      error
+	data         []byte
+	info         buildplan.ArtifactInfo
+	identity     string
+	prepared     *clientpb.ExternalImplantConfig
+	coreMaterial []byte
+	err          error
 }
 
 type assignedStep struct {
@@ -202,7 +203,15 @@ func (rpc *Server) BuilderSubmitStep(ctx context.Context, submitted *clientpb.Bu
 // certificate and its connection token to fetch or submit this step.
 func (rpc *Server) dispatchRemoteStep(ctx context.Context, plan *buildplan.Plan, index int,
 	buildID string, input *clientpb.BuildArtifactPayload, prepared *clientpb.ExternalImplantConfig,
-	inputs []*clientpb.BuildInput) (assignedStepResult, *buildplan.StepSelection, error) {
+	inputs []*clientpb.BuildInput) (out assignedStepResult, selected *buildplan.StepSelection, dispatchErr error) {
+	var coreMaterial []byte
+	defer func() {
+		if dispatchErr != nil {
+			clear(coreMaterial)
+		} else {
+			out.coreMaterial = coreMaterial
+		}
+	}()
 	if plan == nil || index < 0 || index >= len(plan.Steps) {
 		return assignedStepResult{}, nil, errors.New("invalid remote step plan or index")
 	}
@@ -229,6 +238,7 @@ func (rpc *Server) dispatchRemoteStep(ctx context.Context, plan *buildplan.Plan,
 			stepAssignments.Unlock()
 		}
 		if request != nil {
+			clear(request.CoreMaterial)
 			if request.Input != nil {
 				clear(request.Input.Data)
 			}
@@ -253,12 +263,33 @@ func (rpc *Server) dispatchRemoteStep(ctx context.Context, plan *buildplan.Plan,
 		step = plan.Steps[index]
 	}
 	selection := selectionFromReservation(reservation)
-	if step.Kind == "core" && prepared == nil {
-		prepared, err = rpc.prepareRemoteCore(*plan)
-		if err != nil {
-			return assignedStepResult{}, selection, fmt.Errorf("prepare assigned remote core: %w", err)
+	if step.Kind == "core" {
+		if step.Spec.Name == "builtin/sliver" {
+			if prepared == nil {
+				prepared, err = rpc.prepareRemoteCore(*plan)
+				if err != nil {
+					return assignedStepResult{}, selection, fmt.Errorf("prepare assigned remote core: %w", err)
+				}
+			}
+			if prepared == nil || prepared.Build == nil {
+				return assignedStepResult{}, selection, errors.New("Sliver core assignment lacks prepared build identity")
+			}
+			buildID = prepared.Build.ID
+		} else {
+			if prepared != nil {
+				return assignedStepResult{}, selection, errors.New("non-Sliver core assignment contains Sliver material")
+			}
+			coreMaterial, err = rpc.prepareRemoteInstalledCore(ctx, *plan)
+			if err != nil {
+				return assignedStepResult{}, selection, fmt.Errorf("prepare assigned remote core: %w", err)
+			}
 		}
-		buildID = prepared.Build.ID
+	}
+	if buildID == "" {
+		buildID, err = newStepAssignmentID()
+		if err != nil {
+			return assignedStepResult{}, selection, err
+		}
 	}
 	assignmentID, err = newStepAssignmentID()
 	if err != nil {
@@ -273,6 +304,9 @@ func (rpc *Server) dispatchRemoteStep(ctx context.Context, plan *buildplan.Plan,
 		if prepared.Build != nil {
 			request.Request.Name = prepared.Build.Name
 		}
+	}
+	if len(coreMaterial) != 0 {
+		request.CoreMaterial = bytes.Clone(coreMaterial)
 	}
 	for _, material := range inputs {
 		if material != nil {

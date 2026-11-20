@@ -151,7 +151,7 @@ def check_source():
         fail("beacon pivot transport support changed; update M0 baseline")
 
     compile_body = function_body(client, "compile")
-    ordered = ('con.Rpc.Generate(', 'os.WriteFile(saveTo, fileData')
+    ordered = ('con.Rpc.Generate(', 'verifiedGenerateOutput(', 'os.WriteFile(saveTo, file.Data')
     positions = [compile_body.find(item) for item in ordered]
     if any(position < 0 for position in positions) or positions != sorted(positions):
         fail("server-final Generate/save order changed")
@@ -161,17 +161,29 @@ def check_source():
     for fragment in ('legacyStageBuildRequest(', 'rpc.executeResolvedPlan(', 'Data: result.Data'):
         require(stage, fragment, "GenerateStage ordered transforms")
 
+    # M6 moved consumers to the canonical profile and final-artifact path.
+    # Keep the legacy client fallback in the inventory while checking that
+    # callers accepting authored profiles use the frozen artifact type.
     consumers = {
-        "client/command/jobs/stage.go": "generate.GetSliverBinary(profile, con)",
-        "client/command/exec/psexec.go": "generate.GetSliverBinary(implantProfile, con)",
-        "server/rpc/rpc-backdoor.go": "p.Config.Format != clientpb.OutputFormat_SHELLCODE",
-        "server/rpc/rpc-hijack.go": "p.Config.Format != clientpb.OutputFormat_SHARED_LIB",
-        "client/command/clean/clean.go": "DeleteImplantProfile(",
-        "client/command/generate/profiles-generate.go": "GetImplantProfileByName(name, con)",
-        "client/command/generate/profiles-stage.go": "con.Rpc.GenerateStage(",
+        "client/command/jobs/stage.go": (
+            "generate.GetProfileDefinitionOrLegacy(", "stageListenerProfileArtifact(",
+            "stageListenerProfilePayload(", "generate.ExecuteProfile(", "generate.GetSliverBinary("),
+        "client/command/exec/psexec.go": (
+            "generate.GetProfileDefinitionOrLegacy(", "psexecProfileArtifact(",
+            "psexecProfileBinary(", "generate.ExecuteProfile(", "generate.GetSliverBinary("),
+        "server/rpc/rpc-backdoor.go": (
+            'buildProfileBytesForConsumer(ctx, req.ProfileName, name, "shellcode", "raw", "windows")',),
+        "server/rpc/rpc-hijack.go": (
+            'buildProfileBytesForConsumer(ctx, req.ProfileName, name, "shared-library", "pe", "windows")',),
+        "client/command/clean/clean.go": ("DeleteImplantProfile(",),
+        "client/command/generate/profiles-generate.go": (
+            "canonicalProfileGenerate(", "GetImplantProfileByName(name, con)"),
+        "client/command/generate/profiles-stage.go": (
+            "canonicalProfileStage(", "con.Rpc.GenerateStage("),
     }
-    for path, fragment in consumers.items():
-        require(source(path), fragment, f"profile consumer {path}")
+    for path, fragments in consumers.items():
+        for fragment in fragments:
+            require(source(path), fragment, f"profile consumer {path}")
     return expected
 
 

@@ -15,6 +15,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
@@ -114,15 +115,9 @@ func remoteStepBuild(cmd *cobra.Command, name string, config *clientpb.ImplantCo
 	if err != nil {
 		return nil, err
 	}
-	file := response.GetFile()
-	if file == nil || file.GetName() == "" || len(file.GetData()) == 0 || response.GetMetadata() == nil {
-		return nil, errors.New("remote build returned an empty artifact")
-	}
-	hash := sha256.Sum256(file.Data)
-	checksum := hex.EncodeToString(hash[:])
-	if checksum != record.FinalArtifact.SHA256 || checksum != response.Metadata.SHA256 ||
-		uint64(len(file.Data)) != record.FinalArtifact.SizeBytes || uint64(len(file.Data)) != response.Metadata.SizeBytes {
-		return nil, errors.New("remote build artifact differs from its recorded checksum or size")
+	file, err := verifiedRemoteStepArtifact(record, response)
+	if err != nil {
+		return nil, err
 	}
 	saveTo, err := outputSavePath(save, file.Name, config, con)
 	if err != nil {
@@ -132,6 +127,26 @@ func remoteStepBuild(cmd *cobra.Command, name string, config *clientpb.ImplantCo
 		return nil, err
 	}
 	con.PrintInfof("Build completed in %s; artifact %s saved to %s\n", time.Since(start).Round(time.Second), record.GetID(), saveTo)
+	return file, nil
+}
+
+func verifiedRemoteStepArtifact(record *clientpb.BuildRecord, response *clientpb.BuildArtifactResponse) (*commonpb.File, error) {
+	if record == nil || record.FinalArtifact == nil || record.FinalArtifact.Type == nil || response == nil ||
+		response.Metadata == nil || response.Metadata.Type == nil {
+		return nil, errors.New("remote build returned an empty or untyped artifact")
+	}
+	file := response.File
+	if file == nil || !util.ValidPortableFileName(file.Name) || len(file.Data) == 0 {
+		return nil, errors.New("remote build returned an empty artifact or unsafe filename")
+	}
+	hash := sha256.Sum256(file.Data)
+	checksum := hex.EncodeToString(hash[:])
+	if checksum != record.FinalArtifact.SHA256 || checksum != response.Metadata.SHA256 ||
+		uint64(len(file.Data)) != record.FinalArtifact.SizeBytes || uint64(len(file.Data)) != response.Metadata.SizeBytes ||
+		!proto.Equal(record.FinalArtifact.Type, response.Metadata.Type) ||
+		file.Name != record.FinalArtifact.FileName || file.Name != response.Metadata.FileName {
+		return nil, errors.New("remote build artifact differs from its frozen record")
+	}
 	return file, nil
 }
 

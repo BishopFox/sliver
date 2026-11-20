@@ -10,6 +10,7 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/buildcatalog"
 	"github.com/bishopfox/sliver/server/buildcore"
+	_ "github.com/bishopfox/sliver/server/buildcore/minimal" // Register the installed alternate core on the server.
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

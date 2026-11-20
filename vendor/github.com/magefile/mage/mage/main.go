@@ -266,7 +266,7 @@ Commands:
   -version  show version info for the mage binary
 
 Options:
-  -d <string> 
+  -d <string>
               directory to read magefiles from (default "." or "magefiles" if exists)
   -debug      turn on debug messages
   -f          force recreation of compiled magefile

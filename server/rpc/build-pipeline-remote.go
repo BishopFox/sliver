@@ -13,14 +13,20 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/buildcatalog"
 	"github.com/bishopfox/sliver/server/buildcore"
 	"github.com/bishopfox/sliver/server/buildcore/artifactaccept"
 	"github.com/bishopfox/sliver/server/buildplan"
 	"github.com/bishopfox/sliver/server/buildtransform"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/util"
+	"gorm.io/gorm"
 )
+
+const maxRemoteCoreMaterialBytes = 16 << 20
 
 func hasRemoteStep(plan buildplan.Plan) bool {
 	for _, step := range plan.Steps {
@@ -106,7 +112,13 @@ func (rpc *Server) runMixedPlan(ctx context.Context, plan *buildplan.Plan, adapt
 		result, selection, err := rpc.dispatchRemoteStep(ctx, plan, 0, "", nil, nil, nil)
 		run.selections = append(run.selections, selection)
 		prepared := result.prepared
+		material := result.coreMaterial
+		defer clear(material)
 		if prepared != nil && prepared.Build != nil {
+			// SliverExternal persists runtime authentication before the worker
+			// compiles. A failed assignment, transform, or final save must not
+			// leave that prepared identity connectable.
+			defer discardFailedPreparedRemoteSliver(&run, prepared.Build)
 			run.result.BuildID = prepared.Build.ID
 			run.result.ImplantName = prepared.Build.Name
 		}
@@ -114,16 +126,26 @@ func (rpc *Server) runMixedPlan(ctx context.Context, plan *buildplan.Plan, adapt
 			run.err = fmt.Errorf("remote core build: %w", err)
 			return
 		}
-		if prepared == nil || prepared.Build == nil {
-			run.err = errors.New("remote core returned no prepared build identity")
-			return
-		}
 		data, name = result.data, result.info.Name
 		run.result.FileName, run.result.ToolchainIdentity = name, result.identity
 		run.steps = append(run.steps, result.info)
 		run.identities = append(run.identities, result.identity)
-		product.SaveFinal = func(saveCtx context.Context, final buildplan.Artifact, finalName string, finalBytes []byte) (string, error) {
-			return saveRemoteSliverFinal(saveCtx, *plan, prepared, final, finalName, finalBytes)
+		if prepared != nil && prepared.Build != nil {
+			product.SaveFinal = func(saveCtx context.Context, final buildplan.Artifact, finalName string, finalBytes []byte) (string, error) {
+				return saveRemoteSliverFinal(saveCtx, *plan, prepared, final, finalName, finalBytes)
+			}
+		} else if len(material) != 0 {
+			remote, adapterErr := rpc.remoteCoreAdapterForPlan(*plan)
+			if adapterErr != nil {
+				run.err = adapterErr
+				return
+			}
+			product.SaveFinal = func(saveCtx context.Context, final buildplan.Artifact, finalName string, finalBytes []byte) (string, error) {
+				return remote.CompleteRemote(saveCtx, *plan, material, final, finalName, finalBytes)
+			}
+		} else {
+			run.err = errors.New("remote core returned no prepared material or build identity")
+			return
 		}
 	}
 	if run.result.ImplantName == "" {
@@ -231,9 +253,78 @@ func (rpc *Server) runMixedPlan(ctx context.Context, plan *buildplan.Plan, adapt
 			return
 		}
 		run.result.BuildID = buildID
+		run.savedFinal = true
 	}
 	run.result.FileName, run.result.Data = name, data
 	return
+}
+
+func discardFailedPreparedRemoteSliver(run *pipelineRun, prepared *clientpb.ImplantBuild) {
+	if run == nil || run.savedFinal {
+		return
+	}
+	if cleanupErr := discardRuntimeBuildExact(prepared); cleanupErr != nil {
+		run.err = errors.Join(run.err, fmt.Errorf("discard prepared remote Sliver build: %w", cleanupErr))
+	}
+}
+
+// discardRuntimeBuildExact removes one saved or prepared runtime build by its
+// database ID and matching identity. It also removes any owned ResourceID and
+// final file; callers use it only when the enclosing build has failed.
+func discardRuntimeBuildExact(prepared *clientpb.ImplantBuild) error {
+	if prepared == nil || prepared.ID == "" || prepared.Name == "" {
+		return errors.New("missing prepared remote Sliver identity")
+	}
+	id, err := models.ParseUUID(prepared.ID)
+	if err != nil || id == models.NilUUID() {
+		return errors.New("invalid prepared remote Sliver build ID")
+	}
+	persisted, err := db.ImplantBuildByID(prepared.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	if persisted != nil && persisted.ID == prepared.ID {
+		if persisted.Name != prepared.Name || persisted.ImplantConfigID != prepared.ImplantConfigID {
+			return errors.New("prepared remote Sliver identity changed before cleanup")
+		}
+		if prepared.ImplantID != 0 && persisted.ImplantID != 0 && prepared.ImplantID != persisted.ImplantID {
+			return errors.New("prepared remote Sliver resource ID changed before cleanup")
+		}
+		removed := db.Session().Where("id = ? AND name = ?", id, prepared.Name).Delete(&models.ImplantBuild{})
+		if removed.Error != nil {
+			return removed.Error
+		}
+		if removed.RowsAffected != 1 {
+			return errors.New("prepared remote Sliver identity changed during cleanup")
+		}
+	}
+	resourceID := prepared.ImplantID
+	if resourceID == 0 && persisted != nil && persisted.ID == prepared.ID {
+		resourceID = persisted.ImplantID
+	}
+	if resourceID != 0 {
+		resource, lookupErr := db.ResourceIDByValue(resourceID)
+		if lookupErr != nil && !errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+			return lookupErr
+		}
+		if resource != nil {
+			if resource.Name != prepared.Name {
+				return errors.New("prepared remote Sliver resource ID changed before cleanup")
+			}
+			removed := db.Session().Where("value = ? AND name = ?", resourceID, prepared.Name).Delete(&models.ResourceID{})
+			if removed.Error != nil {
+				return removed.Error
+			}
+			if removed.RowsAffected != 1 {
+				return errors.New("prepared remote Sliver resource ID changed during cleanup")
+			}
+		}
+		encoders.UnavailableID = util.RemoveElement(encoders.UnavailableID, resourceID)
+	}
+	if err := generate.ImplantFileDelete(prepared); err != nil && !errors.Is(err, generate.ErrImplantBuildFileNotFound) {
+		return err
+	}
+	return nil
 }
 
 func (rpc *Server) prepareRemoteCore(plan buildplan.Plan) (*clientpb.ExternalImplantConfig, error) {
@@ -268,6 +359,51 @@ func (rpc *Server) prepareRemoteCore(plan buildplan.Plan) (*clientpb.ExternalImp
 		"gzip": encoders.GzipEncoderID, "hex": encoders.HexEncoderID, "png": encoders.PNGEncoderID,
 	}
 	return prepared, nil
+}
+
+// prepareRemoteInstalledCore uses only the server's exact installed executor.
+// The returned material remains in memory until the completed artifact is
+// registered; dispatch sends a separate copy to the authenticated worker.
+func (rpc *Server) prepareRemoteInstalledCore(ctx context.Context, plan buildplan.Plan) ([]byte, error) {
+	remote, err := rpc.remoteCoreAdapterForPlan(plan)
+	if err != nil {
+		return nil, err
+	}
+	material, err := remote.PrepareRemote(ctx, plan)
+	if err != nil {
+		clear(material)
+		return nil, err
+	}
+	if len(material) == 0 || len(material) > maxRemoteCoreMaterialBytes {
+		clear(material)
+		return nil, errors.New("remote core material is empty or exceeds size limit")
+	}
+	return material, nil
+}
+
+func (rpc *Server) remoteCoreAdapterForPlan(plan buildplan.Plan) (buildcore.RemoteCoreAdapter, error) {
+	if len(plan.Steps) == 0 || plan.Steps[0].Kind != "core" ||
+		plan.Steps[0].Provider == "server" || plan.Steps[0].Spec.Name == "builtin/sliver" {
+		return nil, errors.New("invalid installed remote core step")
+	}
+	catalog, err := rpc.buildCatalog()
+	if err != nil {
+		return nil, err
+	}
+	ref := plan.Steps[0].Spec
+	snapshot, err := catalog.Get(buildcatalog.Reference{Name: ref.Name, Version: ref.Version, Digest: ref.Digest})
+	if err != nil || snapshot.Core == nil {
+		return nil, errors.New("remote core has no exact installed spec")
+	}
+	adapter, installed := buildcore.DefaultAdapter(snapshot.Core.Executor.ID)
+	if !installed || !matchesInstalledMageBinding(snapshot.Core, adapter) {
+		return nil, errors.New("remote core executor or Mage binding differs from installed integration")
+	}
+	remote, ok := adapter.(buildcore.RemoteCoreAdapter)
+	if !ok {
+		return nil, errors.New("remote core has no installed material integration")
+	}
+	return remote, nil
 }
 
 func saveRemoteSliverFinal(ctx context.Context, plan buildplan.Plan, prepared *clientpb.ExternalImplantConfig,

@@ -26,6 +26,7 @@ var (
 
 var builtinExecutorIDs = []string{
 	"builtin-sliver-go-v1",
+	"minimal-sliver-v1-go",
 	"donut-v1",
 	"beignet-v1",
 	"malasada-v1",
@@ -228,19 +229,9 @@ func (catalog *Catalog) AdvertiseRemote(provider string, raw []byte, seen time.T
 // Definitions omitted from the new advertisement remain stored but offline.
 // A malformed or conflicting member changes none of the builder's entries.
 func (catalog *Catalog) AdvertiseRemoteBatch(provider string, raws [][]byte, seen time.Time) error {
-	if provider == "" || provider == "server" {
-		return fmt.Errorf("invalid remote provider %q", provider)
-	}
-	specs := make([]parsedSpec, 0, len(raws))
-	for index, raw := range raws {
-		spec, err := parseSpec(raw)
-		if err != nil {
-			return fmt.Errorf("remote spec %d: %w", index, err)
-		}
-		if err := catalog.checkInstalled(spec); err != nil {
-			return fmt.Errorf("remote spec %d: %w", index, err)
-		}
-		specs = append(specs, spec)
+	specs, err := catalog.parseRemoteBatch(provider, raws)
+	if err != nil {
+		return err
 	}
 	if seen.IsZero() {
 		seen = time.Now().UTC()
@@ -281,6 +272,60 @@ func (catalog *Catalog) AdvertiseRemoteBatch(provider string, raws [][]byte, see
 		return err
 	}
 	return nil
+}
+
+// PreviewRemoteBatch validates the exact candidate definitions without
+// publishing them. A registration can check its claims against these
+// snapshots before it makes a builder schedulable or changes catalog state.
+// AdvertiseRemoteBatch repeats the conflict check under its write lock.
+func (catalog *Catalog) PreviewRemoteBatch(provider string, raws [][]byte) (map[Reference]Snapshot, error) {
+	specs, err := catalog.parseRemoteBatch(provider, raws)
+	if err != nil {
+		return nil, err
+	}
+	catalog.mu.RLock()
+	defer catalog.mu.RUnlock()
+	preview := make(map[Reference]Snapshot, len(specs))
+	seen := make(map[string]parsedSpec, len(specs))
+	for _, spec := range specs {
+		key := recordKey(spec.kind, spec.reference)
+		if prior, exists := seen[key]; exists && (prior.kind != spec.kind || prior.reference.Digest != spec.reference.Digest) {
+			return nil, fmt.Errorf("%w: %s %s@%s", ErrConflict, spec.kind, spec.reference.Name, spec.reference.Version)
+		}
+		seen[key] = spec
+		rec := catalog.records[key]
+		if rec != nil {
+			if rec.spec.kind != spec.kind || rec.spec.reference.Digest != spec.reference.Digest {
+				return nil, fmt.Errorf("%w: %s %s@%s", ErrConflict, spec.kind, spec.reference.Name, spec.reference.Version)
+			}
+			preview[spec.reference] = snapshot(rec)
+			continue
+		}
+		preview[spec.reference] = snapshot(&record{
+			spec:      spec,
+			sources:   map[string]Origin{"remote\x00" + provider: {Source: "remote", Provider: provider}},
+			providers: map[string]ProviderStatus{provider: {Name: provider, Online: true}},
+		})
+	}
+	return preview, nil
+}
+
+func (catalog *Catalog) parseRemoteBatch(provider string, raws [][]byte) ([]parsedSpec, error) {
+	if provider == "" || provider == "server" {
+		return nil, fmt.Errorf("invalid remote provider %q", provider)
+	}
+	specs := make([]parsedSpec, 0, len(raws))
+	for index, raw := range raws {
+		spec, err := parseSpec(raw)
+		if err != nil {
+			return nil, fmt.Errorf("remote spec %d: %w", index, err)
+		}
+		if err := catalog.checkInstalled(spec); err != nil {
+			return nil, fmt.Errorf("remote spec %d: %w", index, err)
+		}
+		specs = append(specs, spec)
+	}
+	return specs, nil
 }
 
 func (catalog *Catalog) importSpec(spec parsedSpec, source, provider string, seen time.Time) (Snapshot, error) {

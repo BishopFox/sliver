@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +21,70 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 )
+
+func TestBuilderRegisterRejectsStepClaimsBeforeCatalogPublish(t *testing.T) {
+	for _, invalid := range []string{"short token", "wrong capability"} {
+		t.Run(invalid, func(t *testing.T) {
+			t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
+			rpc := &Server{}
+			catalog, err := rpc.buildCatalog()
+			if err != nil {
+				t.Fatal(err)
+			}
+			builtin, err := catalog.Get(buildcatalog.Reference{Name: "fixture/minimal-sliver-v1"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			name := "test/rejected-step"
+			raw := bytes.Replace(builtin.RawYAML, []byte("name: fixture/minimal-sliver-v1"), []byte("name: "+name), 1)
+			var document map[string]any
+			if err := yaml.Unmarshal(raw, &document); err != nil {
+				t.Fatal(err)
+			}
+			metadata := document["metadata"].(map[string]any)
+			oldDigest := metadata["digest"].(string)
+			delete(metadata, "digest")
+			canonical, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest := sha256.Sum256(canonical)
+			raw = bytes.Replace(raw, []byte(oldDigest), []byte("sha256:"+hex.EncodeToString(digest[:])), 1)
+			ref := &clientpb.BuildSpecRef{Name: name, Version: builtin.Reference.Version,
+				Digest: "sha256:" + hex.EncodeToString(digest[:])}
+			capability := proto.Clone(buildSpecProto(builtin).Capabilities[0]).(*clientpb.BuildSpecCapability)
+			capability.Targets = []*clientpb.BuildTarget{{GOOS: "darwin", GOARCH: "arm64"}}
+			worker := &clientpb.Builder{
+				Name: "rejected-step-builder", SpecYAML: []string{string(raw)}, SpecRefs: []*clientpb.BuildSpecRef{ref},
+				SessionToken: make([]byte, 32),
+				Capabilities: []*clientpb.BuilderCapability{{Spec: ref, Capability: capability}},
+				Status: &clientpb.BuilderStatus{EffectiveCPUCores: 4, AvailableMemoryBytes: 100_000_000,
+					Toolchains: []*clientpb.BuilderToolchainStatus{{Driver: "go", Target: &clientpb.BuildTarget{GOOS: "darwin", GOARCH: "arm64"}, Requirements: []string{"go"}, Identity: "test-go", Available: true}}},
+			}
+			switch invalid {
+			case "short token":
+				worker.SessionToken = []byte("short")
+			case "wrong capability":
+				worker.Capabilities[0].Capability.ToolchainDriver = "wrong-driver"
+			}
+			stream := &stepRegisterStream{ctx: contextWithCommonName("builder-operator"), events: make(chan *clientpb.Event, 1)}
+			if err := rpc.BuilderRegister(worker, stream); status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("invalid registration returned %v, want InvalidArgument", err)
+			}
+			if core.GetBuilder(worker.Name) != nil {
+				t.Fatal("rejected builder remained connected")
+			}
+			if _, err := catalog.Get(buildcatalog.Reference{Name: name}); !errors.Is(err, buildcatalog.ErrNotFound) {
+				t.Fatalf("rejected registration published a spec: %v", err)
+			}
+			if _, err := catalog.ImportAdministrator(raw); err != nil {
+				t.Fatalf("rejected builder reserved the admin spec name: %v", err)
+			}
+		})
+	}
+}
 
 func registerTestStepBuilder(t *testing.T, rpc *Server, name string, memory uint64) *clientpb.Builder {
 	t.Helper()
@@ -29,9 +94,6 @@ func registerTestStepBuilder(t *testing.T, rpc *Server, name string, memory uint
 	}
 	snapshot, err := catalog.Get(buildcatalog.Reference{Name: "builtin/xor"})
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := catalog.AdvertiseRemoteBatch(name, [][]byte{snapshot.RawYAML}, time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
 	ref := &clientpb.BuildSpecRef{Name: snapshot.Reference.Name, Version: snapshot.Reference.Version, Digest: snapshot.Reference.Digest}
@@ -58,7 +120,7 @@ func registerTestStepBuilder(t *testing.T, rpc *Server, name string, memory uint
 		core.RemoveBuilder(name)
 		_ = catalog.SetRemoteOnline(name, false, time.Now().UTC())
 	})
-	if err := rpc.registerStepBuilder(worker); err != nil {
+	if err := rpc.registerStepBuilderBeforeCatalog(worker, catalog, [][]byte{snapshot.RawYAML}); err != nil {
 		t.Fatalf("register exact step builder: %v", err)
 	}
 	return worker

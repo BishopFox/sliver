@@ -106,3 +106,7 @@ toolchains before execution. The [M5 implementation guide](m5-remote-execution.m
 describes remote capacity selection and assigned step execution. The
 [M6 profile guide](m6-yaml-profiles.md) describes canonical YAML profiles,
 legacy migration, per-build inputs, and consumer artifact rules.
+The [operator and integrator guide](m7-operations.md) covers installed
+executor authoring, Mage bindings, builder selection, profile use, and
+diagnostics. The [acceptance matrix](m7-acceptance.md) separates static checks,
+compiled artifacts, assigned remote builds, and live implant connections.

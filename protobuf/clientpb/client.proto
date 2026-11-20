@@ -915,6 +915,9 @@ message BuilderStepRequest {
   BuildArtifactPayload Input = 5;
   ExternalImplantConfig SliverConfig = 6;
   repeated BuildInput Inputs = 7;
+  // Opaque per-build material for an installed non-Sliver core. The server
+  // sends it only to the authenticated assigned worker; it is never recorded.
+  bytes CoreMaterial = 8;
 }
 
 message BuilderStepResult {

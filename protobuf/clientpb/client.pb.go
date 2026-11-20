@@ -10870,14 +10870,17 @@ func (x *BuildArtifactPayload) GetSHA256() string {
 }
 
 type BuilderStepRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AssignmentID  string                 `protobuf:"bytes,1,opt,name=AssignmentID,proto3" json:"AssignmentID,omitempty"`
-	BuildID       string                 `protobuf:"bytes,2,opt,name=BuildID,proto3" json:"BuildID,omitempty"`
-	Step          *BuildPlanStep         `protobuf:"bytes,3,opt,name=Step,proto3" json:"Step,omitempty"`
-	Request       *BuildRequest          `protobuf:"bytes,4,opt,name=Request,proto3" json:"Request,omitempty"`
-	Input         *BuildArtifactPayload  `protobuf:"bytes,5,opt,name=Input,proto3" json:"Input,omitempty"`
-	SliverConfig  *ExternalImplantConfig `protobuf:"bytes,6,opt,name=SliverConfig,proto3" json:"SliverConfig,omitempty"`
-	Inputs        []*BuildInput          `protobuf:"bytes,7,rep,name=Inputs,proto3" json:"Inputs,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentID string                 `protobuf:"bytes,1,opt,name=AssignmentID,proto3" json:"AssignmentID,omitempty"`
+	BuildID      string                 `protobuf:"bytes,2,opt,name=BuildID,proto3" json:"BuildID,omitempty"`
+	Step         *BuildPlanStep         `protobuf:"bytes,3,opt,name=Step,proto3" json:"Step,omitempty"`
+	Request      *BuildRequest          `protobuf:"bytes,4,opt,name=Request,proto3" json:"Request,omitempty"`
+	Input        *BuildArtifactPayload  `protobuf:"bytes,5,opt,name=Input,proto3" json:"Input,omitempty"`
+	SliverConfig *ExternalImplantConfig `protobuf:"bytes,6,opt,name=SliverConfig,proto3" json:"SliverConfig,omitempty"`
+	Inputs       []*BuildInput          `protobuf:"bytes,7,rep,name=Inputs,proto3" json:"Inputs,omitempty"`
+	// Opaque per-build material for an installed non-Sliver core. The server
+	// sends it only to the authenticated assigned worker; it is never recorded.
+	CoreMaterial  []byte `protobuf:"bytes,8,opt,name=CoreMaterial,proto3" json:"CoreMaterial,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -10957,6 +10960,13 @@ func (x *BuilderStepRequest) GetSliverConfig() *ExternalImplantConfig {
 func (x *BuilderStepRequest) GetInputs() []*BuildInput {
 	if x != nil {
 		return x.Inputs
+	}
+	return nil
+}
+
+func (x *BuilderStepRequest) GetCoreMaterial() []byte {
+	if x != nil {
+		return x.CoreMaterial
 	}
 	return nil
 }
@@ -20838,7 +20848,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04Type\x18\x01 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x04Type\x12\x1a\n" +
 	"\bFileName\x18\x02 \x01(\tR\bFileName\x12\x12\n" +
 	"\x04Data\x18\x03 \x01(\fR\x04Data\x12\x16\n" +
-	"\x06SHA256\x18\x04 \x01(\tR\x06SHA256\"\xda\x02\n" +
+	"\x06SHA256\x18\x04 \x01(\tR\x06SHA256\"\xfe\x02\n" +
 	"\x12BuilderStepRequest\x12\"\n" +
 	"\fAssignmentID\x18\x01 \x01(\tR\fAssignmentID\x12\x18\n" +
 	"\aBuildID\x18\x02 \x01(\tR\aBuildID\x12+\n" +
@@ -20846,7 +20856,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aRequest\x18\x04 \x01(\v2\x16.clientpb.BuildRequestR\aRequest\x124\n" +
 	"\x05Input\x18\x05 \x01(\v2\x1e.clientpb.BuildArtifactPayloadR\x05Input\x12C\n" +
 	"\fSliverConfig\x18\x06 \x01(\v2\x1f.clientpb.ExternalImplantConfigR\fSliverConfig\x12,\n" +
-	"\x06Inputs\x18\a \x03(\v2\x14.clientpb.BuildInputR\x06Inputs\"\xf0\x02\n" +
+	"\x06Inputs\x18\a \x03(\v2\x14.clientpb.BuildInputR\x06Inputs\x12\"\n" +
+	"\fCoreMaterial\x18\b \x01(\fR\fCoreMaterial\"\xf0\x02\n" +
 	"\x11BuilderStepResult\x12 \n" +
 	"\vBuilderName\x18\x01 \x01(\tR\vBuilderName\x12\"\n" +
 	"\fSessionToken\x18\x02 \x01(\fR\fSessionToken\x12\"\n" +

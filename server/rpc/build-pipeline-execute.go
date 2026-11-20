@@ -17,6 +17,7 @@ import (
 	"github.com/bishopfox/sliver/server/buildcore/artifactaccept"
 	"github.com/bishopfox/sliver/server/buildplan"
 	"github.com/bishopfox/sliver/server/buildtransform"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 )
 
@@ -28,6 +29,7 @@ type pipelineRun struct {
 	selections []*buildplan.StepSelection
 	identities []string
 	failed     int
+	savedFinal bool
 	err        error
 }
 
@@ -35,12 +37,22 @@ type pipelineRun struct {
 // the observed bytes at every completed step and freezes final bytes before a
 // successful caller can return. A failed run still returns its failed record.
 func (rpc *Server) executeResolvedPlan(ctx context.Context, plan buildplan.Plan, adapter buildcore.Adapter,
-	config *clientpb.ImplantConfig, resolve buildtransform.ResolveInput) (buildcore.Result, buildplan.Record, error) {
+	config *clientpb.ImplantConfig, resolve buildtransform.ResolveInput) (output buildcore.Result, record buildplan.Record, finalErr error) {
 	var run pipelineRun
 	if hasRemoteStep(plan) {
 		run = rpc.runMixedPlan(ctx, &plan, adapter, config, resolve)
 	} else {
 		run = runResolvedPlan(ctx, plan, adapter, config, resolve)
+	}
+	if run.savedFinal {
+		defer func() {
+			if finalErr == nil {
+				return
+			}
+			if err := rollbackSavedRuntimeBuild(run.result.BuildID, run.result.ImplantName); err != nil {
+				finalErr = errors.Join(finalErr, fmt.Errorf("roll back saved runtime build: %w", err))
+			}
+		}()
 	}
 	if run.err != nil {
 		var planErr *buildplan.PlanError
@@ -52,7 +64,6 @@ func (rpc *Server) executeResolvedPlan(ctx context.Context, plan buildplan.Plan,
 	if err != nil {
 		return buildcore.Result{}, buildplan.Record{}, fmt.Errorf("open build record store: %w", err)
 	}
-	var record buildplan.Record
 	if run.result.BuildID != "" {
 		record, err = store.CreateWithID(run.result.BuildID, plan)
 	} else {
@@ -114,6 +125,23 @@ func (rpc *Server) executeResolvedPlan(ctx context.Context, plan buildplan.Plan,
 		return buildcore.Result{}, record, fmt.Errorf("store final build bytes: %w", err)
 	}
 	return run.result, record, nil
+}
+
+// A runtime build is usable for authentication as soon as SaveFinal commits
+// it. If the typed record cannot be persisted afterward, remove precisely the
+// build saved by this run so failed builds cannot remain connectable.
+func rollbackSavedRuntimeBuild(id, name string) error {
+	if id == "" || name == "" {
+		return errors.New("missing saved runtime build identity")
+	}
+	build, err := db.ImplantBuildByID(id)
+	if err != nil {
+		return err
+	}
+	if build == nil || build.ID != id || build.Name != name {
+		return fmt.Errorf("saved runtime build %s changed identity", id)
+	}
+	return discardRuntimeBuildExact(build)
 }
 
 func runResolvedPlan(ctx context.Context, plan buildplan.Plan, adapter buildcore.Adapter,
@@ -244,6 +272,7 @@ func runResolvedPlan(ctx context.Context, plan buildplan.Plan, adapter buildcore
 			return
 		}
 		run.result.BuildID = buildID
+		run.savedFinal = true
 	}
 	run.result.FileName = name
 	run.result.Data = data

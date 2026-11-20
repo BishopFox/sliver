@@ -23,6 +23,7 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -33,6 +34,8 @@ import (
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -63,19 +66,23 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		return
 	}
 
-	profile, err := generate.GetProfileDefinition(context.Background(), profileName, con)
+	profile, legacyProfile, err := generate.GetProfileDefinitionOrLegacy(context.Background(), profileName, con)
 	if err != nil {
 		con.PrintErrorf("Could not load profile %s: %v\n", profileName, err)
 		return
 	}
-	if profile.GetMigrationError() != "" {
+	if !legacyProfile && profile.GetMigrationError() != "" {
 		con.PrintErrorf("Profile %s cannot be used for a stage listener: %s\n", profileName, profile.GetMigrationError())
 		return
 	}
-	preparedStage, supported := stageListenerProfileArtifact(profile.GetFinalArtifact())
-	if !supported {
-		con.PrintErrorf("Stage listener requires shellcode/raw or stage/raw as the profile's final artifact\n")
-		return
+	preparedStage := false
+	if !legacyProfile {
+		var supported bool
+		preparedStage, supported = stageListenerProfileArtifact(profile.GetFinalArtifact())
+		if !supported {
+			con.PrintErrorf("Stage listener requires shellcode/raw or stage/raw as the profile's final artifact\n")
+			return
+		}
 	}
 	if preparedStage && (compress != "none" || aesEncryptKey != "" || rc4EncryptKey != "") {
 		con.PrintErrorf("A stage/raw profile already defines its payload transforms; remove listener compression and encryption options\n")
@@ -119,19 +126,11 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		aesEncrypt = true
 	}
 
-	record, file, err := generate.ExecuteProfile(context.Background(), &clientpb.BuildProfileExecuteRequest{Name: profileName}, con)
+	stage2, err := stageListenerProfilePayload(profileName, profile, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	finalPreparedStage, finalSupported := stageListenerProfileArtifact(record.GetFinalArtifact().GetType())
-	finalType := record.GetFinalArtifact().GetType()
-	if !finalSupported || finalPreparedStage != preparedStage || file == nil ||
-		!proto.Equal(finalType, profile.GetFinalArtifact()) {
-		con.PrintErrorf("Profile final artifact changed during stage generation\n")
-		return
-	}
-	stage2 := file.Data
 
 	if !preparedStage {
 		switch compress {
@@ -196,6 +195,32 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	if rc4Encrypt {
 		con.PrintInfof("RC4 KEY: %v\n", rc4EncryptKey)
 	}
+}
+
+// stageListenerProfilePayload falls back only when the server does not support
+// profile builds. A fetched authored YAML profile must use its declared pipeline.
+func stageListenerProfilePayload(name string, profile *clientpb.BuildProfileDocument, con *console.SliverClient) ([]byte, error) {
+	if profile != nil {
+		record, file, err := generate.ExecuteProfile(context.Background(), &clientpb.BuildProfileExecuteRequest{Name: name}, con)
+		if err == nil {
+			finalType := record.GetFinalArtifact().GetType()
+			finalPreparedStage, finalSupported := stageListenerProfileArtifact(finalType)
+			preparedStage, supported := stageListenerProfileArtifact(profile.GetFinalArtifact())
+			if !supported || !finalSupported || finalPreparedStage != preparedStage || file == nil ||
+				!proto.Equal(finalType, profile.GetFinalArtifact()) {
+				return nil, errors.New("profile final artifact changed during stage generation")
+			}
+			return file.Data, nil
+		}
+		if status.Code(err) != codes.Unimplemented || !profile.GetMigrated() || profile.GetMigrationError() != "" {
+			return nil, err
+		}
+	}
+	legacy := generate.GetImplantProfileByName(name, con)
+	if legacy == nil {
+		return nil, errors.New("profile not found")
+	}
+	return generate.GetSliverBinary(legacy, con)
 }
 
 func stageListenerProfileArtifact(artifact *clientpb.BuildArtifactType) (prepared bool, supported bool) {

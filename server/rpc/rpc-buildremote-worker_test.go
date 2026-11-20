@@ -29,18 +29,34 @@ type workerStepClient struct {
 	operator    string
 	submitGate  <-chan struct{}
 	registered  chan error
+	ready       chan struct{}
 	stepFetched chan struct{}
+	coreFetched chan coreAssignmentObservation
+}
+
+// Observe only metadata; the test never retains or logs private core bytes.
+type coreAssignmentObservation struct {
+	specName      string
+	materialBytes int
+	hasSliver     bool
 }
 
 type workerStepEvents struct {
 	grpc.ClientStream
 	ctx    context.Context
 	events <-chan *clientpb.Event
+	ready  chan<- struct{}
 }
 
 func (stream *workerStepEvents) Recv() (*clientpb.Event, error) {
 	select {
 	case event := <-stream.events:
+		if event != nil && event.EventType == "builder-ready" && stream.ready != nil {
+			select {
+			case stream.ready <- struct{}{}:
+			default:
+			}
+		}
 		return event, nil
 	case <-stream.ctx.Done():
 		return nil, io.EOF
@@ -62,12 +78,22 @@ func (client *workerStepClient) BuilderRegister(ctx context.Context, config *cli
 		client.registered <- client.server.BuilderRegister(config, stream)
 		cancel()
 	}()
-	return &workerStepEvents{ctx: serverCtx, events: stream.events}, nil
+	return &workerStepEvents{ctx: serverCtx, events: stream.events, ready: client.ready}, nil
 }
 
 func (client *workerStepClient) BuilderGetStep(_ context.Context, ref *clientpb.BuilderStepRef,
 	_ ...grpc.CallOption) (*clientpb.BuilderStepRequest, error) {
 	request, err := client.server.BuilderGetStep(contextWithCommonName(client.operator), ref)
+	if err == nil && client.coreFetched != nil && request.GetStep().GetKind() == "core" {
+		observation := coreAssignmentObservation{
+			specName: request.GetStep().GetSpec().GetName(), materialBytes: len(request.CoreMaterial),
+			hasSliver: request.SliverConfig != nil,
+		}
+		select {
+		case client.coreFetched <- observation:
+		default:
+		}
+	}
 	if err == nil && client.stepFetched != nil {
 		select {
 		case client.stepFetched <- struct{}{}:
@@ -258,7 +284,7 @@ func TestAssignedStepQuarantineReconnectsWorker(t *testing.T) {
 	}
 	config.Status.AvailableMemoryBytes = 100_000_000
 	client := &workerStepClient{
-		server: rpc, operator: "reconnect-operator", registered: make(chan error, 2),
+		server: rpc, operator: "reconnect-operator", registered: make(chan error, 2), ready: make(chan struct{}, 2),
 	}
 	worker := builder.NewBuilder(config, &sync.Mutex{}, client, nil)
 	done := make(chan struct{})
@@ -286,6 +312,11 @@ func TestAssignedStepQuarantineReconnectsWorker(t *testing.T) {
 	if !connected() {
 		t.Fatal("worker did not register its first step stream")
 	}
+	select {
+	case <-client.ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not receive its first ready event")
+	}
 	quarantineStepBuilder(config.Name)
 	select {
 	case err := <-client.registered:
@@ -295,11 +326,23 @@ func TestAssignedStepQuarantineReconnectsWorker(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("quarantined registration did not close")
 	}
+	deadline = time.Now().Add(8 * time.Second)
+	for connected() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if connected() {
+		t.Fatal("quarantined worker remained schedulable")
+	}
 	for !connected() && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !connected() {
 		t.Fatal("worker did not reconnect with a fresh status report")
+	}
+	select {
+	case <-client.ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not receive its second ready event")
 	}
 	worker.Stop()
 	select {

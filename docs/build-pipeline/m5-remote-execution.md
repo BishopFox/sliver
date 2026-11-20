@@ -3,9 +3,10 @@
 M5 lets the server assign a resolved core or transform step to a connected
 builder. The server remains responsible for planning, Sliver build identity and
 cryptographic material, accepting each typed artifact, running any following
-steps, and storing the final bytes. The installed remote core integration in
-this milestone is `builtin/sliver`; another core needs the prepared material
-contract planned for M7.
+steps, and storing the final bytes. M5's two-process remote core exercise used
+`builtin/sliver`. M7 adds an installed `fixture/minimal-sliver-v1` core and
+tests both an in-process worker and a separate worker process connected over
+authenticated gRPC; see the [acceptance matrix](m7-acceptance.md).
 
 ## Register and inspect builders
 
@@ -104,9 +105,9 @@ beacon timing, WireGuard peer settings, a custom HTTP C2 profile, selected
 connection/retry settings, traffic encoder assets, and legacy shellcode
 configuration. `-E` keeps the existing external build compatibility path for
 those requests and prints that choice. `profiles generate --builder NAME`
-pins that legacy profile build; M6 will move profiles to full server-side YAML
-pipelines. The compatibility `GenerateExternal` RPCs remain until the M7
-replacement and migration gates pass.
+pins a migrated legacy profile build. M6 added authored server-side YAML
+profiles with ordered pipelines; see the [profile guide](m6-yaml-profiles.md).
+The compatibility `GenerateExternal` RPCs remain during migration.
 
 ## Verification scope
 
@@ -127,5 +128,6 @@ isolated private-network Docker exercise on the final source: the server
 assigned `builtin/sliver` to a separate builder process, then the client
 verified the Linux ELF magic, 15,503,587-byte size, and SHA-256
 `71cb76bfb62255378521a71d6f704f716c70b64b9c53e18f3f3a8fdfc10ce0d5`
-against the successful build record. Remote validation in CI remains
-unverified.
+against the successful build record. M7 also tests an assigned alternate-core
+build with a separate worker process, then launches its final artifact as a
+live mTLS session. Remote validation in CI remains unverified.

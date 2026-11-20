@@ -42,3 +42,12 @@ func TestSaveLocationPaths(t *testing.T) {
 		t.Fatal("non-NotExist stat error accepted")
 	}
 }
+
+func TestSaveLocationRejectsUnsafeArtifactName(t *testing.T) {
+	directory := t.TempDir()
+	for _, name := range []string{"../escape", `..\escape`, "CON", "payload\nnext"} {
+		if _, err := saveLocation(directory, name, nil); err == nil {
+			t.Fatalf("unsafe artifact filename %q was accepted", name)
+		}
+	}
+}

@@ -123,8 +123,10 @@ func (adapter MageCoreAdapter) Build(ctx context.Context, plan buildplan.Plan) (
 	if adapter.Prepare != nil {
 		material, err := adapter.Prepare(ctx, plan)
 		if err != nil {
+			clear(material)
 			return Result{}, fmt.Errorf("prepare core material: %w", err)
 		}
+		defer clear(material)
 		if len(material) > maxCoreMaterialBytes {
 			return Result{}, errors.New("core material exceeds size limit")
 		}

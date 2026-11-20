@@ -427,6 +427,31 @@ try {
                     GOPROXY    = "off"
                 }
         }
+
+        # Keep the tagged RPC builds in the same generation gate as Unix.
+        # Each case has its own timeout and build workspace.
+        $rpcGenerateTests = @(
+            "TestExecuteBuildSliverNativeExecutable",
+            "TestM4GenerateShellcodeFinalParity",
+            "TestM4GenerateStageFinalParity",
+            "TestGenerateSpoofMetadataAppliesPETimestampOverBufnet",
+            "TestM6AuthoredProfileBuildFreezesSnapshot",
+            "TestM6MigratedProfileBuildPreservesLegacyConfig",
+            "TestM7MinimalCoreAdvertisedTargets",
+            "TestM7MinimalCoreLiveMTLSPing",
+            "TestM7RemoteMinimalCoreLiveWorker",
+            "TestM7RemoteMinimalCoreSeparateProcessWorker"
+        )
+        foreach ($rpcGenerateTest in $rpcGenerateTests) {
+            Invoke-TestStep -Name "./server/rpc ($rpcGenerateTest)" -Action {
+                Invoke-ExternalCommand -FilePath "go" `
+                    -Arguments @("test", "-vet=off", "-timeout", "30m", "-p", $generateGoP, "-parallel", $generateTestParallel, "-tags=server,$tags,sliver_generate", "-run", "^${rpcGenerateTest}$", "-count=1", "./server/rpc") `
+                    -Environment @{
+                        GOMAXPROCS = $generateGoMaxProcs
+                        GOPROXY    = "off"
+                    }
+            }
+        }
     } else {
         Write-Host ""
         if ($UnitOnly) {

@@ -10,6 +10,7 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/buildcatalog"
 	"github.com/bishopfox/sliver/server/buildcore"
+	_ "github.com/bishopfox/sliver/server/buildcore/minimal" // Register the installed alternate core on workers.
 	"github.com/bishopfox/sliver/server/buildplan"
 	"github.com/bishopfox/sliver/server/generate"
 )
@@ -88,12 +89,14 @@ func installedCapabilities(config *clientpb.Builder, snapshot buildcatalog.Snaps
 	ref *clientpb.BuildSpecRef) []*clientpb.BuilderCapability {
 	var result []*clientpb.BuilderCapability
 	if snapshot.Core != nil {
-		if snapshot.Reference.Name != "builtin/sliver" {
-			return nil // Other cores need an explicit prepared-material remote contract in M7.
-		}
 		adapter, exists := buildcore.DefaultAdapter(snapshot.Core.Executor.ID)
 		if !exists || !matchesBinding(snapshot.Core, adapter) {
 			return nil
+		}
+		if snapshot.Reference.Name != "builtin/sliver" {
+			if _, remote := adapter.(buildcore.RemoteCoreAdapter); !remote {
+				return nil
+			}
 		}
 		availability, exists := adapter.(buildcore.Availability)
 		if !exists {

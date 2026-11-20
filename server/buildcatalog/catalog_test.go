@@ -23,6 +23,17 @@ func fixture(t *testing.T) []byte {
 	return raw
 }
 
+func TestRestrictedYAMLRejectsCaseEquivalentKeys(t *testing.T) {
+	for _, document := range []string{
+		"kind: CoreSpec\nKind: TransformSpec\n",
+		"metadata:\n  name: one\n  Name: two\n",
+	} {
+		if _, err := RestrictedYAMLJSON([]byte(document), MaxSpecYAMLBytes); err == nil {
+			t.Fatalf("case-equivalent YAML keys were accepted: %q", document)
+		}
+	}
+}
+
 func changedFixture(t *testing.T, before, after string) []byte {
 	t.Helper()
 	raw := fixture(t)
@@ -53,8 +64,8 @@ func TestOpenBuiltinInventoryAndCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(catalog.List(Query{Kind: "CoreSpec"})); got != 1 {
-		t.Fatalf("got %d built-in cores, want 1", got)
+	if got := len(catalog.List(Query{Kind: "CoreSpec"})); got != 2 {
+		t.Fatalf("got %d built-in cores, want 2", got)
 	}
 	if got := len(catalog.List(Query{Kind: "TransformSpec"})); got != 11 {
 		t.Fatalf("got %d built-in transforms, want 11", got)

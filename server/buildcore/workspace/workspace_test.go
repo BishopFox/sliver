@@ -76,6 +76,25 @@ func TestWorkspaceCopiesLiteralSourceAndPrivateInputs(t *testing.T) {
 	}
 }
 
+func TestWorkspaceCopyRejectsPortablePathCollisions(t *testing.T) {
+	for _, source := range []fstest.MapFS{
+		{"File.go": &fstest.MapFile{Data: []byte("a")}, "file.go": &fstest.MapFile{Data: []byte("b")}},
+		{"caf\u00e9/a.go": &fstest.MapFile{Data: []byte("a")}, "cafe\u0301/b.go": &fstest.MapFile{Data: []byte("b")}},
+		{"Stra\u00dfe/a.go": &fstest.MapFile{Data: []byte("a")}, "STRASSE/b.go": &fstest.MapFile{Data: []byte("b")}},
+	} {
+		work, err := New(t.TempDir(), "linux", "amd64", "collision")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := work.CopySource(source); err == nil {
+			t.Errorf("copied source with platform-colliding paths: %#v", source)
+		}
+		if err := work.Remove(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestWorkspaceRejectsUnsafeNamesAndSourceLinks(t *testing.T) {
 	appDir := t.TempDir()
 	for _, name := range []string{"..", "../escape", "C:drive", "name/other"} {

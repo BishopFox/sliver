@@ -38,6 +38,20 @@ type CoreStepAdapter interface {
 	BuildCore(context.Context, buildplan.Plan) (CoreProduct, error)
 }
 
+// RemoteCoreAdapter is an installed core's authenticated remote-build contract.
+// PrepareRemote runs on the server and returns opaque, per-build material. The
+// server sends a bounded copy only to the assigned worker and keeps the
+// original until the final artifact has been verified. BuildRemote runs on the
+// worker with that material. CompleteRemote runs on the server after all
+// transforms and registers any runtime authentication state for the artifact.
+// None of the material is stored in a build plan or record.
+type RemoteCoreAdapter interface {
+	Adapter
+	PrepareRemote(context.Context, buildplan.Plan) ([]byte, error)
+	BuildRemote(context.Context, buildplan.Plan, []byte) (Result, error)
+	CompleteRemote(context.Context, buildplan.Plan, []byte, buildplan.Artifact, string, []byte) (string, error)
+}
+
 // Adapter is a preinstalled compiler integration. The generic executor sees
 // only an immutable plan and output bytes; Sliver-only configuration stays in
 // the Sliver adapter. A future core can register another executor ID without

@@ -33,6 +33,8 @@ var (
 )
 
 func AddBuilder(builder *clientpb.Builder) error {
+	externalBuildMu.Lock()
+	defer externalBuildMu.Unlock()
 	_, loaded := builders.LoadOrStore(builder.Name, builder)
 	if loaded {
 		return ErrDuplicateExternalBuilderName
@@ -58,5 +60,7 @@ func AllBuilders() []*clientpb.Builder {
 }
 
 func RemoveBuilder(builderName string) {
+	externalBuildMu.Lock()
+	defer externalBuildMu.Unlock()
 	builders.Delete(builderName)
 }

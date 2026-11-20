@@ -61,7 +61,7 @@ Existing profiles contain one `ImplantConfig`. Remote builders advertise a `sliv
 | M4 | Server-owned transform pipeline | M3.5 | Codex | In progress |
 | M5 | Remote step execution and capacity scheduler | M2, M4 | Codex | In progress |
 | M6 | Server-side YAML profiles and legacy migration | M2, M4 | Codex | In progress |
-| M7 | Non-Sliver core proof and release validation | M5, M6 | Unassigned | Proposed |
+| M7 | Non-Sliver core proof and release validation | M5, M6 | Codex | In progress |
 
 ### M0 — Contract and baseline
 
@@ -161,11 +161,13 @@ See [the source and Mage handoff](docs/build-pipeline/mage-core-builds.md). M3.5
 
 ### M7 — Alternate core and release acceptance
 
-- [ ] Add a preinstalled non-Sliver core integration or representative test fixture that speaks `sliver-v1`, declares its real capability subset, and builds locally and through a remote provider. Do not add source-bundle upload or a second runtime protocol in this milestone.
-- [ ] Document spec authoring, installed executor registration, profile YAML, builder metrics, automatic selection and pinning, migration, and diagnostics.
+- [x] Add a preinstalled non-Sliver core integration or representative test fixture that speaks `sliver-v1`, declares its real capability subset, and builds locally and through a remote provider. Do not add source-bundle upload or a second runtime protocol in this milestone.
+- [x] Document spec authoring, installed executor registration, profile YAML, builder metrics, automatic selection and pinning, migration, and diagnostics.
 - [ ] Complete the compatibility and E2E matrix below and record exact commands, platforms, results, and remaining coverage gaps. Remove legacy paths only after their replacement and compatibility tests pass.
 
 **Exit:** An alternate core works without changes to generic planner or Sliver adapter code, and the final artifact is usable through the existing Sliver server protocol. All release gates below have recorded evidence.
+
+**M7 local acceptance (2026-11-19/20):** The installed `fixture/minimal-sliver-v1` core declares Linux/amd64, Linux/arm64, and Darwin/arm64 session executables over mTLS. The [M7 acceptance matrix](docs/build-pipeline/m7-acceptance.md) records exact commands and coverage. The two-commit clean branch based on `origin/master` passed 27 focused package groups on macOS/arm64 and Linux/arm64, plus 106 groups in the preferred Linux/arm64 Docker test target. The full Linux generation path passed `server/generate` plus 10 tagged RPC artifact tests, including the alternate-core target matrix, local live mTLS Ping, authenticated in-process worker, and separate-process worker over gRPC with final artifact verification and live Ping. Native macOS/arm64 passed all three M7 live cases, including a separate worker process. Independent code reviews led to catalog registration, client compatibility, archive/output validation, credential logging, transactional artifact-save, and legacy builder-disconnect cleanup fixes. The milestone remains In progress because no implementing PR or terminal CI evidence is linked, and remaining target/transport coverage is explicit in the matrix.
 
 ## Release gates and evidence
 

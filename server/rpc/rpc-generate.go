@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -477,7 +478,12 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	core.TrackExternalBuildAssignment(externalConfig.Build.ID, req.BuilderName, builder.OperatorName)
+	if !core.TrackExternalBuildAssignmentForBuilder(externalConfig.Build.ID, builder) {
+		if cleanupErr := discardPendingExternalBuild(externalConfig.Build.ID); cleanupErr != nil {
+			return nil, errors.Join(status.Error(codes.Unavailable, "builder disconnected before assignment"), cleanupErr)
+		}
+		return nil, status.Error(codes.Unavailable, "builder disconnected before assignment")
+	}
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
@@ -488,12 +494,24 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 }
 
 // GenerateExternalSaveBuild - Allows an external builder to save the build to the server
-func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
-	if req.GetFile() == nil {
-		return nil, status.Error(codes.InvalidArgument, "missing build file")
+func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (_ *commonpb.Empty, saveErr error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing external build")
 	}
 	if err := rpc.authorizeBuilderForExternalBuild(ctx, req.Name, req.ImplantBuildID); err != nil {
 		return nil, err
+	}
+	defer func() {
+		if saveErr == nil {
+			return
+		}
+		if err := discardPendingExternalBuild(req.ImplantBuildID); err != nil {
+			saveErr = errors.Join(saveErr, fmt.Errorf("discard failed external build: %w", err))
+		}
+		core.RemoveExternalBuildAssignment(req.ImplantBuildID)
+	}()
+	if req.GetFile() == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing build file")
 	}
 
 	implantBuild, err := db.ImplantBuildByID(req.ImplantBuildID)
@@ -511,11 +529,20 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		rpcLog.Errorf("Failed to create temporary file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
-	defer os.Remove(tmpFile.Name())
-	_, err = tmpFile.Write(req.File.Data)
-	if err != nil {
+	defer func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	}()
+	written, err := tmpFile.Write(req.File.Data)
+	if err != nil || written != len(req.File.Data) {
+		if err == nil {
+			err = io.ErrShortWrite
+		}
 		rcpGenLog.Errorf("Failed to write implant binary to temp file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
+	}
+	if err := tmpFile.Close(); err != nil {
+		return nil, status.Error(codes.Internal, "Failed to close implant binary temp file")
 	}
 
 	rpcLog.Infof("Saving external build %s from builder '%s' (%s)", req.ImplantBuildID, req.Name, tmpFile.Name())
@@ -588,29 +615,28 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 		rcpGenLog.Warnf("Failed to register builder: %s", err)
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
-	if len(req.GetSpecYAML()) > 0 {
+	if len(req.GetSpecYAML()) > 0 || stepRegistrationRequested(req) {
 		catalog, err := rpc.buildCatalog()
 		if err != nil {
-			core.RemoveBuilder(req.Name)
+			rpc.discardDisconnectedExternalBuilder(req)
 			return rpcError(err)
 		}
 		raw := make([][]byte, 0, len(req.GetSpecYAML()))
 		for _, spec := range req.GetSpecYAML() {
 			raw = append(raw, []byte(spec))
 		}
-		if err := catalog.AdvertiseRemoteBatch(req.Name, raw, time.Now().UTC()); err != nil {
-			core.RemoveBuilder(req.Name)
+		if stepRegistrationRequested(req) {
+			err = rpc.registerStepBuilderBeforeCatalog(req, catalog, raw)
+		} else if len(raw) > 0 {
+			err = catalog.AdvertiseRemoteBatch(req.Name, raw, time.Now().UTC())
+		}
+		if err != nil {
+			rpc.discardDisconnectedExternalBuilder(req)
+			if stepRegistrationRequested(req) {
+				return err
+			}
 			return status.Error(codes.InvalidArgument, err.Error())
 		}
-	}
-	if err := rpc.registerStepBuilder(req); err != nil {
-		core.RemoveBuilder(req.Name)
-		if len(req.GetSpecYAML()) > 0 {
-			if catalog, catalogErr := rpc.buildCatalog(); catalogErr == nil {
-				_ = catalog.SetRemoteOnline(req.Name, false, time.Now().UTC())
-			}
-		}
-		return err
 	}
 
 	rpcEventsLog.Infof("Builder %s (%s) connected", req.Name, req.OperatorName)
@@ -618,8 +644,8 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 	defer func() {
 		rpcEventsLog.Infof("Builder %s disconnected", req.Name)
 		core.EventBroker.Unsubscribe(events)
+		rpc.discardDisconnectedExternalBuilder(req)
 		rpc.disconnectStepBuilder(req.Name)
-		core.RemoveBuilder(req.Name)
 		if len(req.GetSpecYAML()) > 0 {
 			if catalog, err := rpc.buildCatalog(); err == nil {
 				if err := catalog.SetRemoteOnline(req.Name, false, time.Now().UTC()); err != nil {
@@ -695,6 +721,14 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 	}
 }
 
+func (rpc *Server) discardDisconnectedExternalBuilder(builder *clientpb.Builder) {
+	for _, buildID := range core.RemoveBuilderAndExternalBuildAssignments(builder) {
+		if err := discardPendingExternalBuild(buildID); err != nil {
+			rcpGenLog.Errorf("Failed to discard disconnected builder's pending build %s: %v", buildID, err)
+		}
+	}
+}
+
 // Builders - Get a list of all builders
 func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.Builders, error) {
 	return rpc.stepBuilderInventory(), nil
@@ -712,6 +746,9 @@ func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*co
 		}
 		if err = rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID); err != nil {
 			return nil, err
+		}
+		if err = discardPendingExternalBuild(buildID); err != nil {
+			return nil, rpcError(err)
 		}
 		core.RemoveExternalBuildAssignment(buildID)
 		core.EventBroker.Publish(core.Event{
@@ -749,6 +786,31 @@ func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*co
 	}
 
 	return &commonpb.Empty{}, nil
+}
+
+// discardPendingExternalBuild revokes a legacy external build only while its
+// authentication row has no final checksum. A late worker failure must not
+// delete a successfully published build after an upload response was lost.
+func discardPendingExternalBuild(buildID string) error {
+	id, err := models.ParseUUID(buildID)
+	if err != nil || id == models.NilUUID() {
+		return errors.New("invalid external build ID")
+	}
+	build, err := db.ImplantBuildByID(buildID)
+	if err != nil {
+		return err
+	}
+	if build == nil || build.ID != buildID || build.SHA256 != "" {
+		return nil
+	}
+	removed := db.Session().Where("id = ? AND name = ? AND sha256 = ?", id, build.Name, "").Delete(&models.ImplantBuild{})
+	if removed.Error != nil {
+		return removed.Error
+	}
+	if removed.RowsAffected == 0 {
+		return nil // The build completed or was already removed concurrently.
+	}
+	return discardRuntimeBuildExact(build)
 }
 
 func (rpc *Server) authorizeBuilderForExternalBuild(ctx context.Context, builderName string, buildID string) error {

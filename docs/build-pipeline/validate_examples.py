@@ -65,6 +65,7 @@ class StrictLoader(yaml.SafeLoader):
 
     def construct_mapping(self, node, deep=False):
         result = {}
+        folded_keys = {}
         for key_node, value_node in node.value:
             if key_node.tag != "tag:yaml.org,2002:str":
                 raise ValueError("YAML mapping keys must be strings")
@@ -73,6 +74,10 @@ class StrictLoader(yaml.SafeLoader):
                 raise ValueError("YAML merge keys are not permitted")
             if key in result:
                 raise ValueError(f"duplicate YAML key {key!r}")
+            folded = key.casefold()
+            if folded in folded_keys:
+                raise ValueError(f"case-equivalent YAML keys {folded_keys[folded]!r} and {key!r}")
+            folded_keys[folded] = key
             result[key] = self.construct_object(value_node, deep=deep)
         return result
 

@@ -49,38 +49,84 @@ func builderStatusFromProto(cpu uint32, memory uint64, tools []*clientpb.Builder
 	return result
 }
 
-// registerStepBuilder binds an M5 connection to immutable catalog claims and
-// one server-timestamped status report. A legacy builder without a session
-// token remains usable only through its compatibility RPCs.
-func (rpc *Server) registerStepBuilder(req *clientpb.Builder) error {
-	if len(req.GetSessionToken()) == 0 && len(req.GetSpecRefs()) == 0 && len(req.GetCapabilities()) == 0 && req.GetStatus() == nil {
-		return nil
+// registerStepBuilderBeforeCatalog checks all authenticated claims without
+// publishing new YAML. It makes the builder temporarily unavailable, commits
+// the exact definitions, and only then publishes its toolchain status. A
+// rejected registration never leaves a new offline catalog definition.
+func (rpc *Server) registerStepBuilderBeforeCatalog(req *clientpb.Builder, catalog *buildcatalog.Catalog, raws [][]byte) error {
+	preview, err := catalog.PreviewRemoteBatch(req.Name, raws)
+	if err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	registration, builderStatus, required, err := prepareStepRegistration(req, func(ref buildcatalog.Reference) (buildcatalog.Snapshot, error) {
+		if candidate, ok := preview[ref]; ok {
+			return candidate, nil
+		}
+		return buildcatalog.Snapshot{}, buildcatalog.ErrNotFound
+	})
+	if err != nil {
+		return err
+	}
+	if !required {
+		return catalog.AdvertiseRemoteBatch(req.Name, raws, time.Now().UTC())
+	}
+	scheduler, err := rpc.stepScheduler()
+	if err != nil {
+		return status.Errorf(codes.Internal, "open build scheduler: %v", err)
+	}
+	if err := registerStepSignals(req.Name); err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	dormant := builderStatus
+	dormant.Toolchains = slices.Clone(builderStatus.Toolchains)
+	for index := range dormant.Toolchains {
+		dormant.Toolchains[index].Available = false
+	}
+	if err := scheduler.Register(registration, dormant, time.Now()); err != nil {
+		unregisterStepSignals(req.Name)
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := catalog.AdvertiseRemoteBatch(req.Name, raws, time.Now().UTC()); err != nil {
+		rpc.disconnectStepBuilder(req.Name)
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := scheduler.UpdateStatus(req.Name, builderStatus, time.Now()); err != nil {
+		rpc.disconnectStepBuilder(req.Name)
+		_ = catalog.SetRemoteOnline(req.Name, false, time.Now().UTC())
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	return nil
+}
+
+func stepRegistrationRequested(req *clientpb.Builder) bool {
+	return len(req.GetSessionToken()) != 0 || len(req.GetSpecRefs()) != 0 || len(req.GetCapabilities()) != 0 || req.GetStatus() != nil
+}
+
+func prepareStepRegistration(req *clientpb.Builder, lookup func(buildcatalog.Reference) (buildcatalog.Snapshot, error)) (buildscheduler.Registration, buildscheduler.Status, bool, error) {
+	if !stepRegistrationRequested(req) {
+		return buildscheduler.Registration{}, buildscheduler.Status{}, false, nil
 	}
 	if len(req.GetSessionToken()) != 32 || req.GetOperatorName() == "" || req.GetStatus() == nil ||
 		len(req.GetSpecRefs()) == 0 || len(req.GetCapabilities()) == 0 || len(req.GetSpecYAML()) == 0 {
-		return status.Error(codes.InvalidArgument, "incomplete authenticated step builder registration")
-	}
-	catalog, err := rpc.buildCatalog()
-	if err != nil {
-		return status.Errorf(codes.Internal, "open build catalog: %v", err)
+		return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "incomplete authenticated step builder registration")
 	}
 	refs := make(map[buildplan.Reference]*buildscheduler.SpecSupport, len(req.SpecRefs))
 	registration := buildscheduler.Registration{Name: req.Name}
 	for _, advertised := range req.SpecRefs {
 		if advertised == nil || advertised.Name == "" || advertised.Version == "" || advertised.Digest == "" {
-			return status.Error(codes.InvalidArgument, "builder spec reference must be exact")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "builder spec reference must be exact")
 		}
 		ref := referenceFromProto(advertised)
 		if _, duplicate := refs[ref]; duplicate {
-			return status.Error(codes.InvalidArgument, "duplicate builder spec reference")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "duplicate builder spec reference")
 		}
-		snapshot, lookupErr := catalog.Get(buildcatalog.Reference{Name: ref.Name, Version: ref.Version, Digest: ref.Digest})
+		snapshot, lookupErr := lookup(buildcatalog.Reference{Name: ref.Name, Version: ref.Version, Digest: ref.Digest})
 		if lookupErr != nil || !builderSentSpecYAML(req.SpecYAML, snapshot.RawYAML) {
-			return status.Error(codes.InvalidArgument, "builder spec is absent from its exact YAML advertisement")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "builder spec is absent from its exact YAML advertisement")
 		}
-		if snapshot.Core != nil && ref.Name != "builtin/sliver" ||
+		if snapshot.Core != nil && !remotelyIntegratedCore(snapshot) ||
 			snapshot.Transform != nil && !builtinSnapshot(snapshot) {
-			return status.Error(codes.InvalidArgument, "remote spec has no installed assigned-step material or transform integration")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "remote spec has no installed assigned-step material or transform integration")
 		}
 		registration.Specs = append(registration.Specs, buildscheduler.SpecSupport{Reference: ref})
 		refs[ref] = &registration.Specs[len(registration.Specs)-1]
@@ -92,24 +138,24 @@ func (rpc *Server) registerStepBuilder(req *clientpb.Builder) error {
 	}
 	for _, advertised := range req.Capabilities {
 		if advertised == nil || advertised.Spec == nil || advertised.Capability == nil {
-			return status.Error(codes.InvalidArgument, "incomplete builder capability")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "incomplete builder capability")
 		}
 		ref := referenceFromProto(advertised.Spec)
 		support := refs[ref]
 		if support == nil {
-			return status.Error(codes.InvalidArgument, "capability references an unadvertised spec")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "capability references an unadvertised spec")
 		}
-		snapshot, _ := catalog.Get(buildcatalog.Reference{Name: ref.Name, Version: ref.Version, Digest: ref.Digest})
+		snapshot, _ := lookup(buildcatalog.Reference{Name: ref.Name, Version: ref.Version, Digest: ref.Digest})
 		if !matchesCatalogCapability(snapshot, advertised.Capability) {
-			return status.Error(codes.InvalidArgument, "capability differs from exact advertised spec")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "capability differs from exact advertised spec")
 		}
 		capability := advertised.Capability
 		if capability.Output == nil || capability.ToolchainDriver == "" || len(capability.Targets) == 0 {
-			return status.Error(codes.InvalidArgument, "builder capability has no output, target, or toolchain")
+			return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "builder capability has no output, target, or toolchain")
 		}
 		for _, target := range capability.Targets {
 			if target == nil {
-				return status.Error(codes.InvalidArgument, "builder capability has nil target")
+				return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, "builder capability has nil target")
 			}
 			resolved := targetFromProto(target)
 			var input *buildplan.Artifact
@@ -127,18 +173,12 @@ func (rpc *Server) registerStepBuilder(req *clientpb.Builder) error {
 			})
 		}
 	}
-	scheduler, err := rpc.stepScheduler()
-	if err != nil {
-		return status.Errorf(codes.Internal, "open build scheduler: %v", err)
+	builderStatus := builderStatusFromProto(req.Status.EffectiveCPUCores, req.Status.AvailableMemoryBytes, req.Status.Toolchains)
+	validation := buildscheduler.New(buildscheduler.DefaultStatusTTL)
+	if err := validation.Register(registration, builderStatus, time.Now()); err != nil {
+		return buildscheduler.Registration{}, buildscheduler.Status{}, true, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if err := registerStepSignals(req.Name); err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
-	}
-	if err := scheduler.Register(registration, builderStatusFromProto(req.Status.EffectiveCPUCores, req.Status.AvailableMemoryBytes, req.Status.Toolchains), time.Now()); err != nil {
-		unregisterStepSignals(req.Name)
-		return status.Error(codes.InvalidArgument, err.Error())
-	}
-	return nil
+	return registration, builderStatus, true, nil
 }
 
 func builtinSnapshot(snapshot buildcatalog.Snapshot) bool {
@@ -148,6 +188,21 @@ func builtinSnapshot(snapshot buildcatalog.Snapshot) bool {
 		}
 	}
 	return false
+}
+
+func remotelyIntegratedCore(snapshot buildcatalog.Snapshot) bool {
+	if snapshot.Core == nil {
+		return false
+	}
+	if snapshot.Reference.Name == "builtin/sliver" {
+		return true // Existing Sliver preparation retains its compatibility contract.
+	}
+	adapter, installed := buildcore.DefaultAdapter(snapshot.Core.Executor.ID)
+	if !installed || !matchesInstalledMageBinding(snapshot.Core, adapter) {
+		return false
+	}
+	_, remote := adapter.(buildcore.RemoteCoreAdapter)
+	return remote
 }
 
 func builderSentSpecYAML(advertised []string, raw []byte) bool {
