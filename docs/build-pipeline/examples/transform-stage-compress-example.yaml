@@ -1,0 +1,46 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: example/stage-compress
+  version: 1.0.0
+  digest: sha256:b649f1df178703e14530bd248d63037a2006f5dc273db6d2e2374ad4035298bb
+executor:
+  id: hypothetical-stage-compress-v1
+options:
+- name: algorithm
+  type: enum
+  required: false
+  default: zlib
+  values:
+  - zlib
+  - gzip
+  - deflate9
+  - deflate
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: stage
+    container: raw
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

@@ -39,8 +39,19 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		con.PrintErrorf("No profile name specified\n")
 		return
 	}
+	if handled, err := canonicalProfileGenerate(cmd, con, name); handled {
+		if err != nil {
+			con.PrintErrorf("Profile build failed: %s\n", err)
+		}
+		return
+	}
 
 	implantName, _ := cmd.Flags().GetString("name")
+	builderPin, _ := cmd.Flags().GetString("builder")
+	if cmd.Flags().Changed("builder") && strings.TrimSpace(builderPin) == "" {
+		con.PrintErrorf("builder pin cannot be empty\n")
+		return
+	}
 	save, _ := cmd.Flags().GetString("save")
 	if save == "" {
 		save, _ = os.Getwd()
@@ -82,13 +93,15 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 				profile.Config.SGNEnabled = encoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
 			}
 		}
-		if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+		external, _ := cmd.Flags().GetBool("external-builder")
+		if !external && builderPin == "" {
 			_, err := compile(implantName, profile.Config, nil, save, con)
 			if err != nil {
 				return
 			}
 		} else {
-			_, err := externalBuild(implantName, profile.Config, nil, save, con)
+			con.PrintInfof("Using legacy profile external build compatibility\n")
+			_, err := externalBuild(implantName, profile.Config, nil, save, builderPin, con)
 			if err != nil {
 				switch err {
 				case ErrNoExternalBuilder:

@@ -29,11 +29,11 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 // PsExecCmd - psexec command implementation.
@@ -70,27 +70,35 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			return
 		}
 
-		// generate sliver
-		generateCtrl := make(chan bool)
-		con.SpinUntil(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
-		profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+		definition, err := generate.GetProfileDefinition(context.Background(), profile, con)
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err)
+			con.PrintErrorf("Could not load profile %s: %v\n", profile, err)
 			return
 		}
+		if definition.GetMigrationError() != "" {
+			con.PrintErrorf("Profile %s cannot be used for PsExec: %s\n", profile, definition.GetMigrationError())
+			return
+		}
+		if !psexecProfileArtifact(definition.GetFinalArtifact()) {
+			con.PrintErrorf("PsExec requires a Windows service-executable/pe profile final artifact\n")
+			return
+		}
+		generateCtrl := make(chan bool)
+		con.SpinUntil(fmt.Sprintf("Generating service binary for %s\n", profile), generateCtrl)
+		record, file, err := generate.ExecuteProfile(context.Background(), &clientpb.BuildProfileExecuteRequest{Name: profile}, con)
 		generateCtrl <- true
 		<-generateCtrl
-		var implantProfile *clientpb.ImplantProfile
-		for _, prof := range profiles.Profiles {
-			if prof.Name == profile {
-				implantProfile = prof
-			}
-		}
-		if implantProfile.GetName() == "" {
-			con.PrintErrorf("No profile found for name %s\n", profile)
+		if err != nil {
+			con.PrintErrorf("Could not generate profile %s: %v\n", profile, err)
 			return
 		}
-		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
+		finalType := record.GetFinalArtifact().GetType()
+		if file == nil || !psexecProfileArtifact(finalType) ||
+			!proto.Equal(finalType, definition.GetFinalArtifact()) {
+			con.PrintErrorf("Profile final artifact changed during service generation\n")
+			return
+		}
+		serviceBinary = file.Data
 	} else {
 		// use a custom exe instead of generating a new Sliver
 		fileBytes, err := os.ReadFile(customExe)
@@ -170,6 +178,10 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	con.PrintInfof("Successfully removed service %s on %s\n", serviceName, hostname)
+}
+
+func psexecProfileArtifact(artifact *clientpb.BuildArtifactType) bool {
+	return artifact != nil && artifact.Kind == "service-executable" && artifact.Container == "pe" && artifact.GOOS == "windows" && artifact.GOARCH != ""
 }
 
 func randomString() string {

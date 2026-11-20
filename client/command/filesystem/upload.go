@@ -31,10 +31,10 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/implant/sliver/handlers/matcher"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/bishopfox/sliver/util/matcher"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )

@@ -102,6 +102,10 @@ const (
 
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	if preview, _ := cmd.Flags().GetBool("plan"); preview {
+		previewGeneratePlan(cmd, con, false)
+		return
+	}
 	if shouldRunGenerateForm(cmd, con, args) {
 		compiler, _ := compilerTargets(con)
 		result, err := forms.GenerateForm(compiler)
@@ -131,10 +135,20 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+	useRemote, explicit, pin := remoteStepFlags(cmd)
+	if !useRemote {
 		compile(name, config, spoofMetadata, save, con)
+	} else if compatibilityErr := remoteStepCompatibility(cmd, config); compatibilityErr == nil || explicit {
+		if compatibilityErr != nil {
+			con.PrintErrorf("Assigned-step build cannot preserve this configuration: %s\n", compatibilityErr)
+			return
+		}
+		if _, err := remoteStepBuild(cmd, name, config, spoofMetadata, save, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+		}
 	} else {
-		_, err := externalBuild(name, config, spoofMetadata, save, con)
+		con.PrintInfof("Using legacy external build compatibility for %s\n", compatibilityErr)
+		_, err := externalBuild(name, config, spoofMetadata, save, pin, con)
 		if err != nil {
 			switch err {
 			case ErrNoExternalBuilder:
@@ -216,35 +230,41 @@ func expandPath(path string) string {
 func saveLocation(save, DefaultName string, con *console.SliverClient) (string, error) {
 	var saveTo string
 	if save == "" {
-		save, _ = os.Getwd()
+		var err error
+		save, err = os.Getwd()
+		if err != nil {
+			return "", err
+		}
 	}
 	save = expandPath(save)
 	fi, err := os.Stat(save)
-	if os.IsNotExist(err) {
-		if strings.HasSuffix(save, "/") {
-			os.MkdirAll(save, 0o700)
-			saveTo, _ = filepath.Abs(filepath.Join(saveTo, DefaultName))
-		} else {
-			saveDir := filepath.Dir(save)
-			_, err := os.Stat(saveTo)
-			if os.IsNotExist(err) {
-				os.MkdirAll(saveDir, 0o700)
-			}
-			saveTo, _ = filepath.Abs(save)
-		}
-	} else {
+	if err == nil {
 		if fi.IsDir() {
-			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
+			saveTo = filepath.Join(save, DefaultName)
 		} else {
 			var confirm bool
 			_ = forms.Confirm("Overwrite existing file?", &confirm)
 			if !confirm {
 				return "", errors.New("file already exists")
 			}
-			saveTo, _ = filepath.Abs(save)
+			saveTo = save
 		}
+	} else if os.IsNotExist(err) {
+		if strings.HasSuffix(save, "/") || strings.HasSuffix(save, string(os.PathSeparator)) {
+			if err := os.MkdirAll(save, 0o700); err != nil {
+				return "", err
+			}
+			saveTo = filepath.Join(save, DefaultName)
+		} else {
+			if err := os.MkdirAll(filepath.Dir(save), 0o700); err != nil {
+				return "", err
+			}
+			saveTo = save
+		}
+	} else {
+		return "", err
 	}
-	return saveTo, nil
+	return filepath.Abs(saveTo)
 }
 
 func nameOfOutputFormat(value clientpb.OutputFormat) string {
@@ -261,6 +281,30 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 		return "Shellcode"
 	default:
 		return "Unknown"
+	}
+}
+
+type outputFormatSelection struct {
+	format    clientpb.OutputFormat
+	shared    bool
+	service   bool
+	shellcode bool
+}
+
+func selectOutputFormat(value string) (outputFormatSelection, error) {
+	switch value {
+	case "exe":
+		return outputFormatSelection{format: clientpb.OutputFormat_EXECUTABLE}, nil
+	case "shared":
+		return outputFormatSelection{format: clientpb.OutputFormat_SHARED_LIB, shared: true}, nil
+	case "archive":
+		return outputFormatSelection{format: clientpb.OutputFormat_GO_ARCHIVE, shared: true}, nil
+	case "shellcode":
+		return outputFormatSelection{format: clientpb.OutputFormat_SHELLCODE, shellcode: true}, nil
+	case "service":
+		return outputFormatSelection{format: clientpb.OutputFormat_SERVICE, service: true}, nil
+	default:
+		return outputFormatSelection{}, fmt.Errorf("no core capability for output format %q", value)
 	}
 }
 
@@ -369,10 +413,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	limitLocale, _ := cmd.Flags().GetString("limit-locale")
 	debugFile, _ := cmd.Flags().GetString("debug-file")
 
-	isSharedLib := false
-	isService := false
-	isShellcode := false
-
 	var exports []string
 	exportsArg, _ := cmd.Flags().GetString("exports")
 	if exportsArg == "" {
@@ -384,26 +424,17 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
-	var configFormat clientpb.OutputFormat
-	switch format {
-	case "exe":
-		configFormat = clientpb.OutputFormat_EXECUTABLE
-	case "shared":
-		configFormat = clientpb.OutputFormat_SHARED_LIB
-		isSharedLib = true
+	selection, err := selectOutputFormat(format)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
+	}
+	configFormat := selection.format
+	isSharedLib := selection.shared
+	isService := selection.service
+	isShellcode := selection.shellcode
+	if format == "shared" {
 		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
-	case "archive":
-		configFormat = clientpb.OutputFormat_GO_ARCHIVE
-		isSharedLib = true
-	case "shellcode":
-		configFormat = clientpb.OutputFormat_SHELLCODE
-		isShellcode = true
-	case "service":
-		configFormat = clientpb.OutputFormat_SERVICE
-		isService = true
-	default:
-		// Default to exe
-		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 	serviceName, _ := cmd.Flags().GetString("service-name")
 	if !isService {
@@ -1647,13 +1678,18 @@ func outputSavePath(save string, defaultName string, config *clientpb.ImplantCon
 	return adjustedPath, nil
 }
 
-func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save, builderPin string, con *console.SliverClient) (*commonpb.File, error) {
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
 		return nil, err
 	}
 	var externalBuilder *clientpb.Builder
-	if len(potentialBuilders) == 1 {
+	if builderPin != "" {
+		externalBuilder, err = selectPinnedExternalBuilder(potentialBuilders, builderPin)
+		if err != nil {
+			return nil, err
+		}
+	} else if len(potentialBuilders) == 1 {
 		externalBuilder = potentialBuilders[0]
 	} else {
 		con.PrintInfof("Found %d external builders that can compile this configuration", len(potentialBuilders))
@@ -1840,33 +1876,15 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
 	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
-		Name:   name,
-		Config: config,
+		Name:          name,
+		Config:        config,
+		SpoofMetadata: spoofMetadata,
 	})
 	ctrl <- true
 	<-ctrl
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil, err
-	}
-
-	if spoofMetadata != nil {
-		if err := applySpoofMetadataToBuild(generated.GetImplantBuildID(), generated.GetImplantName(), spoofMetadata, con); err != nil {
-			con.PrintErrorf("%s\n", err)
-			return nil, err
-		}
-
-		implantName := generated.GetImplantName()
-		if implantName == "" {
-			implantName = name
-		}
-		generated, err = con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-			ImplantName: implantName,
-		})
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return nil, err
-		}
 	}
 
 	elapsed := time.Since(start)
@@ -1876,54 +1894,10 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 		return nil, errors.New("no file data")
 	}
 
+	// Generate now returns the frozen plan's final bytes, including a selected
+	// shellcode encoder transform. External builders still use their legacy
+	// post-build encoding path above.
 	fileData := generated.File.Data
-	if config.IsShellcode {
-		encoder := config.ShellcodeEncoder
-		legacySGN := false
-		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
-			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-			legacySGN = true
-		}
-		if encoder != clientpb.ShellcodeEncoder_NONE {
-			encoderName := map[clientpb.ShellcodeEncoder]string{
-				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
-				clientpb.ShellcodeEncoder_XOR:            "xor",
-				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
-			}[encoder]
-			if encoderName == "" {
-				con.PrintWarnf("Unknown shellcode encoder enum %d, skipping.\n", int32(encoder))
-			} else {
-				encoderMap, err := fetchShellcodeEncoderMap(con)
-				if err != nil {
-					return nil, err
-				}
-				if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
-					msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
-					if legacySGN {
-						con.PrintWarnf("%s, skipping.\n", msg)
-					} else {
-						con.PrintErrorf("%s\n", msg)
-						return nil, errors.New(msg)
-					}
-				} else {
-					con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
-					resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-						Encoder:      encoder,
-						Architecture: config.GOARCH,
-						Iterations:   1,
-						BadChars:     []byte{},
-						Data:         fileData,
-					})
-					if err != nil {
-						con.PrintErrorf("%s\n", err)
-					} else {
-						con.Printf("success!\n")
-						fileData = resp.GetData()
-					}
-				}
-			}
-		}
-	}
 
 	saveTo, err := outputSavePath(save, generated.File.Name, config, con)
 	if err != nil {
@@ -2048,4 +2022,13 @@ func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient
 		}
 	}
 	return nil, ErrNoValidBuilders
+}
+
+func selectPinnedExternalBuilder(builders []*clientpb.Builder, name string) (*clientpb.Builder, error) {
+	for _, builder := range builders {
+		if builder != nil && builder.Name == name {
+			return builder, nil
+		}
+	}
+	return nil, fmt.Errorf("pinned builder %q is unavailable for this target", name)
 }

@@ -58,3 +58,31 @@ func TestZipFilesIncludesArchiveHeaders(t *testing.T) {
 		}
 	}
 }
+
+func TestZipFilesRejectsAmbiguousOrLinkedInputs(t *testing.T) {
+	root := t.TempDir()
+	firstDir := filepath.Join(root, "first")
+	secondDir := filepath.Join(root, "second")
+	for _, dir := range []string{firstDir, secondDir} {
+		if err := os.Mkdir(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "main.h"), []byte("header"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	output := filepath.Join(root, "bad.zip")
+	if err := zipFiles(output, filepath.Join(firstDir, "main.h"), filepath.Join(secondDir, "main.h")); err == nil {
+		t.Fatal("duplicate ZIP member names were accepted")
+	}
+	if _, err := os.Stat(output); !os.IsNotExist(err) {
+		t.Fatalf("failed ZIP was published: %v", err)
+	}
+	link := filepath.Join(root, "linked.h")
+	if err := os.Symlink(filepath.Join(firstDir, "main.h"), link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := zipFiles(output, link); err == nil {
+		t.Fatal("symlinked ZIP input was accepted")
+	}
+}

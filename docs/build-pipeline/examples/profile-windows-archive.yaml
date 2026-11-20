@@ -1,0 +1,40 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: windows-archive
+  revision: 1
+target:
+  os: windows
+  arch: amd64
+mode: session
+c2:
+  endpoints:
+  - protocol: dns
+    address: dns://c2.example.invalid
+  connectionStrategy: random
+  reconnectSeconds: 60
+  pollTimeoutSeconds: 360
+  maxConnectionErrors: 1000
+  httpC2Profile: default
+core:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+coreOutput:
+  kind: c-archive-bundle
+  container: zip
+  goBuildMode: c-archive
+coreOptions:
+- name: exports
+  value:
+  - StartW
+transforms: []
+finalOutput:
+  format: archive
+  artifact:
+    kind: c-archive-bundle
+    container: zip
+    goBuildMode: c-archive
+provider:
+  policy: automatic

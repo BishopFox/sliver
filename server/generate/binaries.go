@@ -21,13 +21,16 @@ package generate
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"debug/elf"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -38,6 +41,8 @@ import (
 	"github.com/bishopfox/sliver/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/buildcompiler"
+	"github.com/bishopfox/sliver/server/buildcore/workspace"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
@@ -53,6 +58,7 @@ import (
 	"golang.org/x/mod/module"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -347,18 +353,23 @@ func GetSliversDir() string {
 
 // SliverShellcode - Generates a sliver shellcode (Windows: Donut, macOS: beignet, Linux: malasada)
 func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	return SliverShellcodeContext(context.Background(), name, build, config, pbC2Implant)
+}
+
+// SliverShellcodeContext builds shellcode with a cancelable compiler invocation.
+func SliverShellcodeContext(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	switch config.GOOS {
 	case WINDOWS:
-		return windowsShellcode(name, build, config, pbC2Implant)
+		return windowsShellcode(ctx, name, build, config, pbC2Implant)
 	case DARWIN:
-		return darwinShellcode(name, build, config, pbC2Implant)
+		return darwinShellcode(ctx, name, build, config, pbC2Implant)
 	case LINUX:
-		return linuxShellcode(name, build, config, pbC2Implant)
+		return linuxShellcode(ctx, name, build, config, pbC2Implant)
 	}
 	return "", fmt.Errorf("shellcode format is not supported on %s", config.GOOS)
 }
 
-func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func linuxShellcode(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	if config.GOARCH != "amd64" && config.GOARCH != "arm64" {
 		return "", fmt.Errorf("linux shellcode format not supported on %s architecture", config.GOARCH)
 	}
@@ -401,14 +412,10 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 	if err != nil {
 		return "", err
 	}
+	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
-	tmpFile, err := os.CreateTemp("", "sliver-*.so")
-	if err != nil {
-		return "", err
-	}
-	tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-	soDest := tmpFile.Name()
+	soDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name)+".intermediate.so")
+	defer os.Remove(soDest)
 
 	tags := []string{}
 	if config.NetGoEnabled {
@@ -419,7 +426,11 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 	ldflags, wantStaticSO := applyZigStaticLinking(goConfig, "c-shared", ldflags)
 	gcFlags := ""
 	asmFlags := ""
-	_, err = gogo.GoBuild(*goConfig, pkgPath, soDest, "c-shared", tags, ldflags, gcFlags, asmFlags)
+	_, err = buildcompiler.Default().Build(ctx, buildcompiler.GoDriverID, buildcompiler.Request{
+		GoConfig: *goConfig, SourceDir: pkgPath, Destination: soDest, BuildMode: "c-shared",
+		Tags: tags, LDFlags: ldflags, GCFlags: gcFlags, ASMFlags: asmFlags,
+		MaterialPath: sliverMaterialPath(goConfig),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -448,7 +459,7 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 	return shellcodeDest, nil
 }
 
-func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func darwinShellcode(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	if config.GOARCH != "arm64" {
 		return "", fmt.Errorf("darwin shellcode format not supported on %s architecture", config.GOARCH)
 	}
@@ -488,14 +499,10 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	if err != nil {
 		return "", err
 	}
+	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
-	tmpFile, err := os.CreateTemp("", "sliver-*.dylib")
-	if err != nil {
-		return "", err
-	}
-	tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-	dylibDest := tmpFile.Name()
+	dylibDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name)+".intermediate.dylib")
+	defer os.Remove(dylibDest)
 
 	tags := []string{}
 	if config.NetGoEnabled {
@@ -505,7 +512,11 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dylibDest, "c-shared", tags, ldflags, gcFlags, asmFlags)
+	_, err = buildcompiler.Default().Build(ctx, buildcompiler.GoDriverID, buildcompiler.Request{
+		GoConfig: *goConfig, SourceDir: pkgPath, Destination: dylibDest, BuildMode: "c-shared",
+		Tags: tags, LDFlags: ldflags, GCFlags: gcFlags, ASMFlags: asmFlags,
+		MaterialPath: sliverMaterialPath(goConfig),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -538,7 +549,7 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 
 }
 
-func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func windowsShellcode(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	if config.GOARCH != "amd64" && config.GOARCH != "386" {
 		return "", fmt.Errorf("windows shellcode format is only supported for amd64 and 386 architectures")
 	}
@@ -563,6 +574,7 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 	if err != nil {
 		return "", err
 	}
+	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
 	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".bin"
@@ -583,7 +595,11 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcFlags, asmFlags)
+	_, err = buildcompiler.Default().Build(ctx, buildcompiler.GoDriverID, buildcompiler.Request{
+		GoConfig: *goConfig, SourceDir: pkgPath, Destination: dest, BuildMode: "pie",
+		Tags: tags, LDFlags: ldflags, GCFlags: gcFlags, ASMFlags: asmFlags,
+		MaterialPath: sliverMaterialPath(goConfig),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -603,6 +619,11 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	return SliverCoreAdapter{}.SharedLibrary(context.Background(), name, build, config, pbC2Implant)
+}
+
+// SharedLibrary compiles a Sliver dynamic library through the compiler driver.
+func (SliverCoreAdapter) SharedLibrary(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	appDir := assets.GetRootAppDir()
 
 	var cc string
@@ -640,6 +661,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 	if err != nil {
 		return "", err
 	}
+	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
 	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
@@ -665,7 +687,11 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcFlags, asmFlags)
+	_, err = buildcompiler.Default().Build(ctx, buildcompiler.GoDriverID, buildcompiler.Request{
+		GoConfig: *goConfig, SourceDir: pkgPath, Destination: dest, BuildMode: "c-shared",
+		Tags: tags, LDFlags: ldflags, GCFlags: gcFlags, ASMFlags: asmFlags,
+		MaterialPath: sliverMaterialPath(goConfig),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -679,38 +705,86 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 }
 
 func zipFiles(dest string, files ...string) error {
-	outFile, err := os.Create(dest)
+	if len(files) == 0 || len(files) > 64 {
+		return fmt.Errorf("invalid archive input count %d", len(files))
+	}
+	outFile, err := os.CreateTemp(filepath.Dir(dest), ".archive-*.zip")
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer os.Remove(outFile.Name())
+	if err := outFile.Chmod(0600); err != nil {
+		outFile.Close()
+		return err
+	}
 
 	zipWriter := zip.NewWriter(outFile)
-	defer zipWriter.Close()
+	seen := make(map[string]bool, len(files))
+	var total int64
 
 	for _, filePath := range files {
+		name := filepath.Base(filePath)
+		key := strings.ToLower(name)
+		if name == "." || name == ".." || seen[key] {
+			zipWriter.Close()
+			outFile.Close()
+			return fmt.Errorf("duplicate or invalid archive member %q", name)
+		}
+		seen[key] = true
+		info, err := os.Lstat(filePath)
+		if err != nil || !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > 512<<20-total {
+			zipWriter.Close()
+			outFile.Close()
+			return fmt.Errorf("archive input %q is missing, nonregular, or too large", name)
+		}
+		total += info.Size()
 		inFile, err := os.Open(filePath)
 		if err != nil {
+			zipWriter.Close()
+			outFile.Close()
 			return err
 		}
 
-		fileWriter, err := zipWriter.Create(filepath.Base(filePath))
+		fileWriter, err := zipWriter.Create(name)
 		if err != nil {
 			inFile.Close()
+			zipWriter.Close()
+			outFile.Close()
 			return err
 		}
-		_, err = io.Copy(fileWriter, inFile)
+		copied, err := io.CopyN(fileWriter, inFile, info.Size())
 		inFile.Close()
-		if err != nil {
-			return err
+		if err != nil || copied != info.Size() {
+			zipWriter.Close()
+			outFile.Close()
+			if err != nil {
+				return fmt.Errorf("copy archive input %q: %w", name, err)
+			}
+			return fmt.Errorf("copy archive input %q: %w", name, io.ErrUnexpectedEOF)
 		}
 	}
 
-	return nil
+	if err := zipWriter.Close(); err != nil {
+		outFile.Close()
+		return fmt.Errorf("finish archive: %w", err)
+	}
+	if err := outFile.Sync(); err != nil {
+		outFile.Close()
+		return err
+	}
+	if err := outFile.Close(); err != nil {
+		return err
+	}
+	return os.Rename(outFile.Name(), dest)
 }
 
 // SliverArchive - Generates a sliver c-archive bundle (.a and .h)
 func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	return SliverCoreAdapter{}.Archive(context.Background(), name, build, config, pbC2Implant)
+}
+
+// Archive compiles a Sliver C archive and packages its header in a ZIP.
+func (SliverCoreAdapter) Archive(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	appDir := assets.GetRootAppDir()
 
 	var cc string
@@ -749,6 +823,7 @@ func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.I
 	if err != nil {
 		return "", err
 	}
+	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
 	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".a"
@@ -765,7 +840,11 @@ func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.I
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-archive", tags, ldflags, gcFlags, asmFlags)
+	_, err = buildcompiler.Default().Build(ctx, buildcompiler.GoDriverID, buildcompiler.Request{
+		GoConfig: *goConfig, SourceDir: pkgPath, Destination: dest, BuildMode: "c-archive",
+		Tags: tags, LDFlags: ldflags, GCFlags: gcFlags, ASMFlags: asmFlags,
+		MaterialPath: sliverMaterialPath(goConfig),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -774,6 +853,20 @@ func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.I
 	}
 	if _, err := os.Stat(mainHeaderDest); err != nil {
 		return "", err
+	}
+	if strings.EqualFold(filepath.Base(headerDest), filepath.Base(mainHeaderDest)) {
+		// A core named "main" yields two distinct headers with the same ZIP
+		// member name. Keep the generated header's familiar name and give the
+		// source header a stable alternate name.
+		mainHeader, err := os.ReadFile(mainHeaderDest)
+		if err != nil {
+			return "", err
+		}
+		alternate := filepath.Join(goConfig.ProjectDir, "bin", "sliver-source-main.h")
+		if err := os.WriteFile(alternate, mainHeader, 0600); err != nil {
+			return "", err
+		}
+		mainHeaderDest = alternate
 	}
 
 	err = zipFiles(zipDest, dest, headerDest, mainHeaderDest)
@@ -786,6 +879,11 @@ func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.I
 
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	return SliverCoreAdapter{}.Executable(context.Background(), name, build, config, pbC2Implant)
+}
+
+// Executable compiles a Sliver executable through the compiler driver.
+func (SliverCoreAdapter) Executable(ctx context.Context, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (output string, buildErr error) {
 	appDir := assets.GetRootAppDir()
 
 	goConfig := &gogo.GoConfig{
@@ -807,6 +905,7 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	if err != nil {
 		return "", err
 	}
+	defer cleanupFailedSliverWorkspace(goConfig, config, name, &buildErr)
 
 	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
@@ -830,7 +929,11 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 		ldflags = []string{}
 	}
 	ldflags = applyCompactExecutableFunctionAlignment(config, ldflags)
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcFlags, asmFlags)
+	_, err = buildcompiler.Default().Build(ctx, buildcompiler.GoDriverID, buildcompiler.Request{
+		GoConfig: *goConfig, SourceDir: pkgPath, Destination: dest,
+		Tags: tags, LDFlags: ldflags, GCFlags: gcFlags, ASMFlags: asmFlags,
+		MaterialPath: sliverMaterialPath(goConfig),
+	})
 	if err != nil {
 		return "", err
 	}
@@ -838,7 +941,32 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	return dest, err
 }
 
-// This function is a little too long, we should probably refactor it as some point
+func sliverStagedPath(pkgDir, fsPath, name string, config *clientpb.ImplantConfig) (string, bool) {
+	if (name == "main.c" || name == "main.h") && !config.IsSharedLib && !config.IsShellcode {
+		return "", false
+	}
+	if name == "main.go" || name == "main.c" || name == "main.h" {
+		return filepath.Join(pkgDir, name), true
+	}
+	return filepath.Join(pkgDir, "implant", fsPath), true
+}
+
+func sliverMaterialPath(config *gogo.GoConfig) string {
+	return filepath.Join(config.ProjectDir, "inputs", "sliver-material.json")
+}
+
+func cleanupFailedSliverWorkspace(goConfig *gogo.GoConfig, config *clientpb.ImplantConfig, name string, buildErr *error) {
+	if buildErr == nil || *buildErr == nil || goConfig == nil || goConfig.ProjectDir == "" {
+		return
+	}
+	placeholder := filepath.Join(goConfig.ProjectDir, "bin", "failed")
+	if err := workspace.RemoveOutputWorkspace(assets.GetRootAppDir(), config.GOOS, config.GOARCH, name, placeholder); err != nil {
+		buildLog.Warnf("failed to remove private build workspace after error: %v", err)
+	}
+}
+
+// renderSliverGoCode stages the core source unchanged before applying Sliver's
+// explicitly selected source renderer to the staged copy.
 func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, goConfig *gogo.GoConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
@@ -847,90 +975,101 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 	if name == "" {
 		return "", fmt.Errorf("name cannot be empty")
 	}
+	if build == nil {
+		return "", fmt.Errorf("implant build material is missing")
+	}
 
 	buildLog.Debugf("Generating new sliver binary '%s'", name)
 	pbC2Implant = models.RandomizeImplantConfig(pbC2Implant, config.GOOS, config.GOARCH)
 
-	sliversDir := GetSliversDir() // ~/.sliver/slivers
-	projectGoPathDir := filepath.Join(sliversDir, config.GOOS, config.GOARCH, filepath.Base(name))
-	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
-		os.MkdirAll(projectGoPathDir, 0700)
+	project, err := workspace.New(assets.GetRootAppDir(), config.GOOS, config.GOARCH, name)
+	if err != nil {
+		return "", fmt.Errorf("create Sliver build workspace: %w", err)
 	}
-	goConfig.ProjectDir = projectGoPathDir
-
-	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
-	binDir := filepath.Join(projectGoPathDir, "bin")
-	os.MkdirAll(binDir, 0700)
-
-	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
-	srcDir := filepath.Join(projectGoPathDir, "src")
+	staged := false
+	defer func() {
+		if !staged {
+			_ = project.Remove()
+		}
+	}()
+	goConfig.ProjectDir = project.Root
+	srcDir := project.SourceDir
 	// Extract GOPATH dependency files before rendering the implant.
 	if err := assets.SetupGoPath(srcDir, config.IncludeDNS); err != nil {
 		return "", fmt.Errorf("setup implant source in %s: %w", srcDir, err)
 	}
-	err := util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
+	err = util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
 	if err != nil {
 		buildLog.Errorf("fs perms: %v", err)
 		return "", err
 	}
 
-	sliverPkgDir := filepath.Join(srcDir) // "main"
+	sliverPkgDir := srcDir // "main"
 	err = os.MkdirAll(sliverPkgDir, 0700)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
-	err = fs.WalkDir(implant.FS, ".", func(fsPath string, f fs.DirEntry, walkErr error) (retErr error) {
+	// Stage the embedded core byte-for-byte. The renderer below may mutate only
+	// this private per-build copy; other cores use the same copy stage without a
+	// renderer and retain literal template delimiters.
+	err = fs.WalkDir(implant.FS, ".", func(fsPath string, f fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if f.IsDir() {
 			return nil
 		}
-		buildLog.Debugf("Walking: %s %s", fsPath, f.Name())
-
-		sliverGoCodeRaw, err := implant.FS.ReadFile(fsPath)
-		if err != nil {
-			buildLog.Errorf("Failed to read %s: %s", fsPath, err)
+		dest, include := sliverStagedPath(sliverPkgDir, fsPath, f.Name(), config)
+		if !include {
 			return nil
 		}
-		sliverGoCode := string(sliverGoCodeRaw)
-
-		// Skip dllmain files for anything non windows
-		if f.Name() == "main.c" || f.Name() == "main.h" {
-			if !config.IsSharedLib && !config.IsShellcode {
-				return nil
-			}
-		}
-
-		var sliverCodePath string
-		if f.Name() == "main.go" || f.Name() == "main.c" || f.Name() == "main.h" {
-			sliverCodePath = filepath.Join(sliverPkgDir, f.Name())
-		} else {
-			sliverCodePath = filepath.Join(sliverPkgDir, "implant", fsPath)
-		}
-		dirPath := filepath.Dir(sliverCodePath)
-		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-			buildLog.Debugf("[mkdir] %#v", dirPath)
-			err = os.MkdirAll(dirPath, 0700)
-			if err != nil {
-				return err
-			}
-		}
-		fSliver, err := os.Create(sliverCodePath)
+		data, err := implant.FS.ReadFile(fsPath)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if closeErr := fSliver.Close(); retErr == nil && closeErr != nil {
-				retErr = closeErr
-			}
-		}()
-		if !slices.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
-			buildLog.Debugf("Skipping render for %s, does not appear to be source code file", f.Name())
-			_, err = fSliver.Write(sliverGoCodeRaw)
+		if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
 			return err
 		}
+		return os.WriteFile(dest, data, 0600)
+	})
+	if err != nil {
+		return "", fmt.Errorf("copy Sliver core source: %w", err)
+	}
+	material, err := protojson.Marshal(build)
+	if err != nil {
+		return "", fmt.Errorf("encode Sliver build material: %w", err)
+	}
+	material, err = json.Marshal(struct {
+		Version int             `json:"version"`
+		Build   json.RawMessage `json:"build"`
+	}{Version: 1, Build: material})
+	if err != nil {
+		return "", fmt.Errorf("encode Sliver material envelope: %w", err)
+	}
+	if _, err := project.WriteInput("sliver-material.json", material); err != nil {
+		return "", fmt.Errorf("write Sliver build material: %w", err)
+	}
+
+	err = fs.WalkDir(implant.FS, ".", func(fsPath string, f fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if f.IsDir() {
+			return nil
+		}
+		sliverCodePath, include := sliverStagedPath(sliverPkgDir, fsPath, f.Name(), config)
+		if !include {
+			return nil
+		}
+		if !slices.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
+			return nil
+		}
+		sliverGoCodeRaw, err := os.ReadFile(sliverCodePath)
+		if err != nil {
+			return fmt.Errorf("read staged Sliver source %s: %w", fsPath, err)
+		}
+		sliverGoCode := string(sliverGoCodeRaw)
 
 		encoderStruct := utilEncoders.EncodersList{
 			Base32EncoderID:  encoders.Base32EncoderID,
@@ -991,12 +1130,13 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		if err != nil {
 			return err
 		}
-		err = canaryTemplate.Execute(fSliver, canaryGenerator)
+		rendered := bytes.NewBuffer(nil)
+		err = canaryTemplate.Execute(rendered, canaryGenerator)
 		if err != nil {
 			buildLog.Debugf("Failed to render go code: %s", err)
 			return err
 		}
-		return nil
+		return os.WriteFile(sliverCodePath, rendered.Bytes(), 0600)
 	})
 	if err != nil {
 		return "", err
@@ -1072,6 +1212,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		buildLog.Infof("Renamed imports (%d files updated)", importResult.FilesUpdated)
 	}
 
+	staged = true
 	return sliverPkgDir, nil
 }
 
@@ -1164,6 +1305,10 @@ func renderImplantEnglish() []string {
 
 // GenerateConfig - Generate the keys/etc for the implant
 func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig) (*clientpb.ImplantBuild, error) {
+	return SliverCoreAdapter{}.Prepare(name, implantConfig)
+}
+
+func (SliverCoreAdapter) generateConfig(name string, implantConfig *clientpb.ImplantConfig) (*clientpb.ImplantBuild, error) {
 	var err error
 
 	// Cert PEM encoded certificates
@@ -1343,6 +1488,18 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 	return cc, cxx
 }
 
+// compilerCommandAvailable checks the executable at the start of a compiler
+// command. A configured command may include flags (as Zig's defaults do), but
+// a nonempty command string alone does not mean the compiler is installed.
+func compilerCommandAvailable(command string) bool {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return false
+	}
+	_, err := exec.LookPath(fields[0])
+	return err == nil
+}
+
 // GetCompilerTargets - This function attempts to determine what we can reasonably target
 func GetCompilerTargets() []*clientpb.CompilerTarget {
 	targets := []*clientpb.CompilerTarget{}
@@ -1379,7 +1536,7 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 		// Cross-compile with the right configuration
 		if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
 			cc, _ := findCrossCompilers(platform[0], platform[1])
-			if cc != "" {
+			if compilerCommandAvailable(cc) {
 				if runtime.GOOS == DARWIN && platform[0] == LINUX && platform[1] == "386" {
 					continue // Darwin can't target 32-bit Linux, even with a cc/cxx
 				}

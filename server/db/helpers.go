@@ -709,24 +709,21 @@ func ProfileByName(name string) (*clientpb.ImplantProfile, error) {
 	return pbProfile, err
 }
 
-// DeleteProfile - Delete a profile from the database
+// DeleteProfile removes only the profile definition. Its ImplantConfig and
+// completed builds remain for Regenerate and frozen build-record retrieval.
+// A build is purged explicitly through DeleteImplantBuild.
 func DeleteProfile(name string) error {
-	profile, err := ProfileByName(name)
-	if err != nil {
-		return err
-	}
-
-	uuid, _ := models.ParseUUID(profile.Config.ID)
-
-	// delete linked ImplantC2
-	err = Session().Where(&models.ImplantC2{ImplantConfigID: uuid}).Delete(&models.ImplantC2{}).Error
-
-	// delete linked ImplantConfig
-	err = Session().Where(&models.ImplantConfig{ID: uuid}).Delete(&models.ImplantConfig{}).Error
-
-	// delete profile
-	err = Session().Where(&models.ImplantProfile{Name: name}).Delete(&models.ImplantProfile{}).Error
-	return err
+	return Session().Transaction(func(tx *gorm.DB) error {
+		var profile models.ImplantProfile
+		if err := tx.Where("name = ?", name).First(&profile).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.ImplantConfig{}).Where("implant_profile_id = ?", profile.ID).
+			Update("implant_profile_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&profile).Error
+	})
 }
 
 // ListCanaries - List of all embedded canaries

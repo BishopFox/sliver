@@ -1,0 +1,68 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/pe-metadata
+  version: 1.0.0
+  digest: sha256:b7205339fd8b8aa8ac4b14bc386dd4a1953b74a4b4444077a0a0dae2ea6c9bad
+executor:
+  id: pe-metadata-v1
+options:
+- name: donorArtifact
+  type: input-artifact-ref
+  required: true
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: executable
+    container: pe
+    goBuildMode: default
+  output:
+    kind: executable
+    container: pe
+    goBuildMode: default
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: service-executable
+    container: pe
+    goBuildMode: default
+  output:
+    kind: service-executable
+    container: pe
+    goBuildMode: default
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: shared-library
+    container: pe
+    goBuildMode: c-shared
+  output:
+    kind: shared-library
+    container: pe
+    goBuildMode: c-shared
+  toolchain:
+    driver: builtin
+    requirements: []

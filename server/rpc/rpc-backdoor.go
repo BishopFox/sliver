@@ -21,7 +21,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/Binject/binjection/bj"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -29,8 +28,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/grpc/codes"
@@ -54,7 +51,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		if err != nil {
 			return nil, rpcError(err)
 		}
-	} else if err := util.AllowedName(name); err != nil {
+	} else if err := util.AllowedName(req.Name); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	} else {
 		name = req.Name
@@ -84,42 +81,9 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		}
 	}
 
-	profiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	shellcode, err := rpc.buildProfileBytesForConsumer(ctx, req.ProfileName, name, "shellcode", "raw", "windows")
 	if err != nil {
-		return nil, rpcError(err)
-	}
-	var p *clientpb.ImplantProfile
-	for _, prof := range profiles.Profiles {
-		if prof.Name == req.ProfileName {
-			p = prof
-		}
-	}
-	if p.GetName() == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("no profile found for name %s", req.ProfileName))
-	}
-
-	if p.Config.Format != clientpb.OutputFormat_SHELLCODE {
-		return nil, status.Error(codes.InvalidArgument, "please select a profile targeting a shellcode format")
-	}
-
-	build, err := generate.GenerateConfig(name, p.Config)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(p.Config.HTTPC2ConfigName)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	fPath, err := generate.SliverShellcode(name, build, p.Config, httpC2Config.ImplantConfig)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-	shellcode, err := os.ReadFile(fPath)
-	if err != nil {
-		return nil, rpcError(err)
+		return nil, err
 	}
 	bjConfig := &bj.BinjectConfig{
 		CodeCaveMode: true,

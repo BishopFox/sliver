@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "core-spec.schema.json",
+  "title": "Sliver CoreSpec v1alpha1",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "runtime", "executor", "options", "capabilities"],
+  "properties": {
+    "apiVersion": { "const": "sliver.bishopfox.com/v1alpha1" },
+    "kind": { "const": "CoreSpec" },
+    "metadata": { "$ref": "common.schema.json#/$defs/specReference" },
+    "runtime": {
+      "type": "object",
+      "required": ["protocol", "commandSource"],
+      "properties": {
+        "protocol": { "const": "sliver-v1" },
+        "commandSource": { "enum": ["installed-catalog", "declared-subset"] },
+        "commandCatalog": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]*$" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "commandSource": { "const": "declared-subset" } }, "required": ["commandSource"] },
+          "then": { "required": ["commands"], "not": { "required": ["commandCatalog"] } },
+          "else": { "required": ["commandCatalog"], "not": { "required": ["commands"] } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "executor": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["copy", "none"] },
+        "renderer": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "none" } }, "required": ["mode"] },
+          "then": { "not": { "required": ["renderer"] } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "builder": {
+      "type": "object",
+      "required": ["engine", "magefile", "target"],
+      "properties": {
+        "engine": { "const": "mage" },
+        "magefile": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$" },
+        "target": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" }
+      },
+      "additionalProperties": false
+    },
+    "options": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/optionDefinition" }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["targets", "mode", "protocols", "output", "toolchain"],
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/target" },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "mode": { "$ref": "common.schema.json#/$defs/mode" },
+          "protocols": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/protocol" },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "output": {
+            "type": "object",
+            "required": ["artifact", "operatorFormats"],
+            "properties": {
+              "artifact": { "$ref": "common.schema.json#/$defs/artifactSelector" },
+              "operatorFormats": {
+                "type": "array",
+                "items": { "$ref": "common.schema.json#/$defs/operatorFormat" },
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          },
+          "toolchain": { "$ref": "common.schema.json#/$defs/toolchain" },
+          "resources": { "$ref": "common.schema.json#/$defs/resources" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "toolchain": { "properties": { "driver": { "const": "go" } } } } },
+            "then": {
+              "properties": {
+                "output": { "properties": { "artifact": { "required": ["goBuildMode"] } } }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "operatorFormats": { "contains": { "const": "exe" } } } } } },
+            "then": { "properties": { "output": { "properties": { "artifact": { "properties": { "kind": { "const": "executable" } } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "operatorFormats": { "contains": { "const": "service" } } } } } },
+            "then": { "properties": { "output": { "properties": { "artifact": { "properties": { "kind": { "const": "service-executable" } } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "operatorFormats": { "contains": { "const": "shared" } } } } } },
+            "then": { "properties": { "output": { "properties": { "artifact": { "properties": { "kind": { "const": "shared-library" } } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "operatorFormats": { "contains": { "const": "archive" } } } } } },
+            "then": { "properties": { "output": { "properties": { "artifact": { "properties": { "kind": { "const": "c-archive-bundle" } } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "operatorFormats": { "contains": { "const": "shellcode" } } } } } },
+            "then": { "properties": { "output": { "properties": { "artifact": { "properties": { "kind": { "const": "shellcode" } } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "operatorFormats": { "contains": { "const": "stage" } } } } } },
+            "then": { "properties": { "output": { "properties": { "artifact": { "properties": { "kind": { "const": "stage" } } } } } } }
+          },
+          {
+            "if": { "properties": { "mode": { "const": "beacon" } }, "required": ["mode"] },
+            "then": {
+              "properties": {
+                "protocols": {
+                  "items": { "enum": ["mtls", "http", "https", "dns", "wireguard"] }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "protocols": { "contains": { "const": "named-pipe" } } },
+              "required": ["protocols"]
+            },
+            "then": {
+              "properties": {
+                "targets": {
+                  "items": { "properties": { "os": { "const": "windows" } } }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "output": { "properties": { "artifact": { "properties": { "container": { "const": "pe" } } } } }
+              }
+            },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "windows" } } } } } }
+          },
+          {
+            "if": {
+              "properties": {
+                "output": { "properties": { "artifact": { "properties": { "container": { "const": "elf" } } } } }
+              }
+            },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "linux" } } } } } }
+          },
+          {
+            "if": {
+              "properties": {
+                "output": { "properties": { "artifact": { "properties": { "container": { "const": "macho" } } } } }
+              }
+            },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "darwin" } } } } } }
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "dependentRequired": {
+    "source": ["builder"],
+    "builder": ["source"]
+  },
+  "additionalProperties": false
+}

@@ -46,6 +46,20 @@ func TestProfilesGenerateExternalBuilderFlagRegistered(t *testing.T) {
 	if flag.DefValue != "false" {
 		t.Fatalf("%q %q flag default mismatch: got=%q want=%q", profilesGenerateCmd.Use, "external-builder", flag.DefValue, "false")
 	}
+	if profilesGenerateCmd.Flags().Lookup("builder") == nil {
+		t.Fatal("profiles generate is missing builder pin")
+	}
+}
+
+func TestGenerateRemoteStepAndBuilderFlagsRegistered(t *testing.T) {
+	cmds := Commands(&console.SliverClient{})
+	generateCmd := commandByUse(cmds, consts.GenerateStr)
+	beaconCmd := commandByUse(generateCmd.Commands(), consts.BeaconStr)
+	for _, cmd := range []*cobra.Command{generateCmd, beaconCmd} {
+		if cmd.Flags().Lookup("remote-step") == nil || cmd.Flags().Lookup("builder") == nil {
+			t.Fatalf("%q is missing remote step or builder pin flag", cmd.Use)
+		}
+	}
 }
 
 func assertFlagHasDefaultFileCompletion(t *testing.T, cmd *cobra.Command, flag string) {

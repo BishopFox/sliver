@@ -2935,6 +2935,214 @@ func (CrackQueryMode) EnumDescriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{20}
 }
 
+type BuildSpecKind int32
+
+const (
+	BuildSpecKind_BUILD_SPEC_UNSPECIFIED BuildSpecKind = 0
+	BuildSpecKind_BUILD_SPEC_CORE        BuildSpecKind = 1
+	BuildSpecKind_BUILD_SPEC_TRANSFORM   BuildSpecKind = 2
+)
+
+// Enum value maps for BuildSpecKind.
+var (
+	BuildSpecKind_name = map[int32]string{
+		0: "BUILD_SPEC_UNSPECIFIED",
+		1: "BUILD_SPEC_CORE",
+		2: "BUILD_SPEC_TRANSFORM",
+	}
+	BuildSpecKind_value = map[string]int32{
+		"BUILD_SPEC_UNSPECIFIED": 0,
+		"BUILD_SPEC_CORE":        1,
+		"BUILD_SPEC_TRANSFORM":   2,
+	}
+)
+
+func (x BuildSpecKind) Enum() *BuildSpecKind {
+	p := new(BuildSpecKind)
+	*p = x
+	return p
+}
+
+func (x BuildSpecKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BuildSpecKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[21].Descriptor()
+}
+
+func (BuildSpecKind) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[21]
+}
+
+func (x BuildSpecKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BuildSpecKind.Descriptor instead.
+func (BuildSpecKind) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{21}
+}
+
+type BuildSpecAvailability int32
+
+const (
+	BuildSpecAvailability_BUILD_SPEC_ALL         BuildSpecAvailability = 0
+	BuildSpecAvailability_BUILD_SPEC_AVAILABLE   BuildSpecAvailability = 1
+	BuildSpecAvailability_BUILD_SPEC_UNAVAILABLE BuildSpecAvailability = 2
+)
+
+// Enum value maps for BuildSpecAvailability.
+var (
+	BuildSpecAvailability_name = map[int32]string{
+		0: "BUILD_SPEC_ALL",
+		1: "BUILD_SPEC_AVAILABLE",
+		2: "BUILD_SPEC_UNAVAILABLE",
+	}
+	BuildSpecAvailability_value = map[string]int32{
+		"BUILD_SPEC_ALL":         0,
+		"BUILD_SPEC_AVAILABLE":   1,
+		"BUILD_SPEC_UNAVAILABLE": 2,
+	}
+)
+
+func (x BuildSpecAvailability) Enum() *BuildSpecAvailability {
+	p := new(BuildSpecAvailability)
+	*p = x
+	return p
+}
+
+func (x BuildSpecAvailability) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BuildSpecAvailability) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[22].Descriptor()
+}
+
+func (BuildSpecAvailability) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[22]
+}
+
+func (x BuildSpecAvailability) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BuildSpecAvailability.Descriptor instead.
+func (BuildSpecAvailability) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{22}
+}
+
+type BuildStepState int32
+
+const (
+	BuildStepState_BUILD_STEP_PENDING   BuildStepState = 0
+	BuildStepState_BUILD_STEP_RUNNING   BuildStepState = 1
+	BuildStepState_BUILD_STEP_SUCCEEDED BuildStepState = 2
+	BuildStepState_BUILD_STEP_FAILED    BuildStepState = 3
+	BuildStepState_BUILD_STEP_CANCELLED BuildStepState = 4
+)
+
+// Enum value maps for BuildStepState.
+var (
+	BuildStepState_name = map[int32]string{
+		0: "BUILD_STEP_PENDING",
+		1: "BUILD_STEP_RUNNING",
+		2: "BUILD_STEP_SUCCEEDED",
+		3: "BUILD_STEP_FAILED",
+		4: "BUILD_STEP_CANCELLED",
+	}
+	BuildStepState_value = map[string]int32{
+		"BUILD_STEP_PENDING":   0,
+		"BUILD_STEP_RUNNING":   1,
+		"BUILD_STEP_SUCCEEDED": 2,
+		"BUILD_STEP_FAILED":    3,
+		"BUILD_STEP_CANCELLED": 4,
+	}
+)
+
+func (x BuildStepState) Enum() *BuildStepState {
+	p := new(BuildStepState)
+	*p = x
+	return p
+}
+
+func (x BuildStepState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BuildStepState) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[23].Descriptor()
+}
+
+func (BuildStepState) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[23]
+}
+
+func (x BuildStepState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BuildStepState.Descriptor instead.
+func (BuildStepState) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{23}
+}
+
+type BuildRecordState int32
+
+const (
+	BuildRecordState_BUILD_RECORD_PENDING   BuildRecordState = 0
+	BuildRecordState_BUILD_RECORD_RUNNING   BuildRecordState = 1
+	BuildRecordState_BUILD_RECORD_SUCCEEDED BuildRecordState = 2
+	BuildRecordState_BUILD_RECORD_FAILED    BuildRecordState = 3
+	BuildRecordState_BUILD_RECORD_CANCELLED BuildRecordState = 4
+)
+
+// Enum value maps for BuildRecordState.
+var (
+	BuildRecordState_name = map[int32]string{
+		0: "BUILD_RECORD_PENDING",
+		1: "BUILD_RECORD_RUNNING",
+		2: "BUILD_RECORD_SUCCEEDED",
+		3: "BUILD_RECORD_FAILED",
+		4: "BUILD_RECORD_CANCELLED",
+	}
+	BuildRecordState_value = map[string]int32{
+		"BUILD_RECORD_PENDING":   0,
+		"BUILD_RECORD_RUNNING":   1,
+		"BUILD_RECORD_SUCCEEDED": 2,
+		"BUILD_RECORD_FAILED":    3,
+		"BUILD_RECORD_CANCELLED": 4,
+	}
+)
+
+func (x BuildRecordState) Enum() *BuildRecordState {
+	p := new(BuildRecordState)
+	*p = x
+	return p
+}
+
+func (x BuildRecordState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BuildRecordState) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[24].Descriptor()
+}
+
+func (BuildRecordState) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[24]
+}
+
+func (x BuildRecordState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BuildRecordState.Descriptor instead.
+func (BuildRecordState) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{24}
+}
+
 type Version struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Major         int32                  `protobuf:"varint,1,opt,name=Major,proto3" json:"Major,omitempty"`
@@ -7401,9 +7609,11 @@ func (x *RenameReq) GetName() string {
 }
 
 type GenerateReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Config        *ImplantConfig         `protobuf:"bytes,1,opt,name=Config,proto3" json:"Config,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Config *ImplantConfig         `protobuf:"bytes,1,opt,name=Config,proto3" json:"Config,omitempty"`
+	Name   string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	// Optional per-build metadata input. Its bytes are never stored in BuildPlan.
+	SpoofMetadata *SpoofMetadataConfig `protobuf:"bytes,3,opt,name=SpoofMetadata,proto3" json:"SpoofMetadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7450,6 +7660,13 @@ func (x *GenerateReq) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *GenerateReq) GetSpoofMetadata() *SpoofMetadataConfig {
+	if x != nil {
+		return x.SpoofMetadata
+	}
+	return nil
 }
 
 type GenerateStageReq struct {
@@ -10099,8 +10316,17 @@ type Builder struct {
 	Templates      []string               `protobuf:"bytes,5,rep,name=Templates,proto3" json:"Templates,omitempty"`
 	Targets        []*CompilerTarget      `protobuf:"bytes,6,rep,name=Targets,proto3" json:"Targets,omitempty"`
 	CrossCompilers []*CrossCompiler       `protobuf:"bytes,7,rep,name=CrossCompilers,proto3" json:"CrossCompilers,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Immutable CoreSpec and TransformSpec YAML advertised by this connection.
+	SpecYAML []string `protobuf:"bytes,8,rep,name=SpecYAML,proto3" json:"SpecYAML,omitempty"`
+	// Exact immutable definitions and the capability tuples this worker supports.
+	SpecRefs     []*BuildSpecRef      `protobuf:"bytes,9,rep,name=SpecRefs,proto3" json:"SpecRefs,omitempty"`
+	Capabilities []*BuilderCapability `protobuf:"bytes,10,rep,name=Capabilities,proto3" json:"Capabilities,omitempty"`
+	// Inventory snapshot populated by the server from authenticated reports.
+	Status *BuilderStatus `protobuf:"bytes,11,opt,name=Status,proto3" json:"Status,omitempty"`
+	// Random per-connection credential. Never include this in Builders responses.
+	SessionToken  []byte `protobuf:"bytes,12,opt,name=SessionToken,proto3" json:"SessionToken,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Builder) Reset() {
@@ -10182,6 +10408,659 @@ func (x *Builder) GetCrossCompilers() []*CrossCompiler {
 	return nil
 }
 
+func (x *Builder) GetSpecYAML() []string {
+	if x != nil {
+		return x.SpecYAML
+	}
+	return nil
+}
+
+func (x *Builder) GetSpecRefs() []*BuildSpecRef {
+	if x != nil {
+		return x.SpecRefs
+	}
+	return nil
+}
+
+func (x *Builder) GetCapabilities() []*BuilderCapability {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
+func (x *Builder) GetStatus() *BuilderStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+func (x *Builder) GetSessionToken() []byte {
+	if x != nil {
+		return x.SessionToken
+	}
+	return nil
+}
+
+type BuilderCapability struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Spec          *BuildSpecRef          `protobuf:"bytes,1,opt,name=Spec,proto3" json:"Spec,omitempty"`
+	Capability    *BuildSpecCapability   `protobuf:"bytes,2,opt,name=Capability,proto3" json:"Capability,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuilderCapability) Reset() {
+	*x = BuilderCapability{}
+	mi := &file_clientpb_client_proto_msgTypes[98]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderCapability) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderCapability) ProtoMessage() {}
+
+func (x *BuilderCapability) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[98]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderCapability.ProtoReflect.Descriptor instead.
+func (*BuilderCapability) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{98}
+}
+
+func (x *BuilderCapability) GetSpec() *BuildSpecRef {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *BuilderCapability) GetCapability() *BuildSpecCapability {
+	if x != nil {
+		return x.Capability
+	}
+	return nil
+}
+
+type BuilderToolchainStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Driver        string                 `protobuf:"bytes,1,opt,name=Driver,proto3" json:"Driver,omitempty"`
+	Target        *BuildTarget           `protobuf:"bytes,2,opt,name=Target,proto3" json:"Target,omitempty"`
+	Requirements  []string               `protobuf:"bytes,3,rep,name=Requirements,proto3" json:"Requirements,omitempty"`
+	Identity      string                 `protobuf:"bytes,4,opt,name=Identity,proto3" json:"Identity,omitempty"`
+	Available     bool                   `protobuf:"varint,5,opt,name=Available,proto3" json:"Available,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuilderToolchainStatus) Reset() {
+	*x = BuilderToolchainStatus{}
+	mi := &file_clientpb_client_proto_msgTypes[99]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderToolchainStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderToolchainStatus) ProtoMessage() {}
+
+func (x *BuilderToolchainStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[99]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderToolchainStatus.ProtoReflect.Descriptor instead.
+func (*BuilderToolchainStatus) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{99}
+}
+
+func (x *BuilderToolchainStatus) GetDriver() string {
+	if x != nil {
+		return x.Driver
+	}
+	return ""
+}
+
+func (x *BuilderToolchainStatus) GetTarget() *BuildTarget {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *BuilderToolchainStatus) GetRequirements() []string {
+	if x != nil {
+		return x.Requirements
+	}
+	return nil
+}
+
+func (x *BuilderToolchainStatus) GetIdentity() string {
+	if x != nil {
+		return x.Identity
+	}
+	return ""
+}
+
+func (x *BuilderToolchainStatus) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+type BuilderStatus struct {
+	state                protoimpl.MessageState    `protogen:"open.v1"`
+	EffectiveCPUCores    uint32                    `protobuf:"varint,1,opt,name=EffectiveCPUCores,proto3" json:"EffectiveCPUCores,omitempty"`
+	AvailableMemoryBytes uint64                    `protobuf:"varint,2,opt,name=AvailableMemoryBytes,proto3" json:"AvailableMemoryBytes,omitempty"`
+	ReportedUnix         int64                     `protobuf:"varint,3,opt,name=ReportedUnix,proto3" json:"ReportedUnix,omitempty"` // Server observation time, not a client clock.
+	Online               bool                      `protobuf:"varint,4,opt,name=Online,proto3" json:"Online,omitempty"`
+	Available            bool                      `protobuf:"varint,5,opt,name=Available,proto3" json:"Available,omitempty"` // Online, fresh, and schedulable.
+	ReservedMemoryBytes  uint64                    `protobuf:"varint,6,opt,name=ReservedMemoryBytes,proto3" json:"ReservedMemoryBytes,omitempty"`
+	Toolchains           []*BuilderToolchainStatus `protobuf:"bytes,7,rep,name=Toolchains,proto3" json:"Toolchains,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *BuilderStatus) Reset() {
+	*x = BuilderStatus{}
+	mi := &file_clientpb_client_proto_msgTypes[100]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderStatus) ProtoMessage() {}
+
+func (x *BuilderStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[100]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderStatus.ProtoReflect.Descriptor instead.
+func (*BuilderStatus) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{100}
+}
+
+func (x *BuilderStatus) GetEffectiveCPUCores() uint32 {
+	if x != nil {
+		return x.EffectiveCPUCores
+	}
+	return 0
+}
+
+func (x *BuilderStatus) GetAvailableMemoryBytes() uint64 {
+	if x != nil {
+		return x.AvailableMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuilderStatus) GetReportedUnix() int64 {
+	if x != nil {
+		return x.ReportedUnix
+	}
+	return 0
+}
+
+func (x *BuilderStatus) GetOnline() bool {
+	if x != nil {
+		return x.Online
+	}
+	return false
+}
+
+func (x *BuilderStatus) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *BuilderStatus) GetReservedMemoryBytes() uint64 {
+	if x != nil {
+		return x.ReservedMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuilderStatus) GetToolchains() []*BuilderToolchainStatus {
+	if x != nil {
+		return x.Toolchains
+	}
+	return nil
+}
+
+type BuilderStatusReport struct {
+	state                protoimpl.MessageState    `protogen:"open.v1"`
+	Name                 string                    `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	SessionToken         []byte                    `protobuf:"bytes,2,opt,name=SessionToken,proto3" json:"SessionToken,omitempty"`
+	EffectiveCPUCores    uint32                    `protobuf:"varint,3,opt,name=EffectiveCPUCores,proto3" json:"EffectiveCPUCores,omitempty"`
+	AvailableMemoryBytes uint64                    `protobuf:"varint,4,opt,name=AvailableMemoryBytes,proto3" json:"AvailableMemoryBytes,omitempty"`
+	Toolchains           []*BuilderToolchainStatus `protobuf:"bytes,5,rep,name=Toolchains,proto3" json:"Toolchains,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *BuilderStatusReport) Reset() {
+	*x = BuilderStatusReport{}
+	mi := &file_clientpb_client_proto_msgTypes[101]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderStatusReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderStatusReport) ProtoMessage() {}
+
+func (x *BuilderStatusReport) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[101]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderStatusReport.ProtoReflect.Descriptor instead.
+func (*BuilderStatusReport) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{101}
+}
+
+func (x *BuilderStatusReport) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuilderStatusReport) GetSessionToken() []byte {
+	if x != nil {
+		return x.SessionToken
+	}
+	return nil
+}
+
+func (x *BuilderStatusReport) GetEffectiveCPUCores() uint32 {
+	if x != nil {
+		return x.EffectiveCPUCores
+	}
+	return 0
+}
+
+func (x *BuilderStatusReport) GetAvailableMemoryBytes() uint64 {
+	if x != nil {
+		return x.AvailableMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuilderStatusReport) GetToolchains() []*BuilderToolchainStatus {
+	if x != nil {
+		return x.Toolchains
+	}
+	return nil
+}
+
+// BuilderStepRef identifies an assignment and authenticates its assigned
+// worker. The assignment ID is unpredictable; the session token is secret.
+type BuilderStepRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BuilderName   string                 `protobuf:"bytes,1,opt,name=BuilderName,proto3" json:"BuilderName,omitempty"`
+	SessionToken  []byte                 `protobuf:"bytes,2,opt,name=SessionToken,proto3" json:"SessionToken,omitempty"`
+	AssignmentID  string                 `protobuf:"bytes,3,opt,name=AssignmentID,proto3" json:"AssignmentID,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuilderStepRef) Reset() {
+	*x = BuilderStepRef{}
+	mi := &file_clientpb_client_proto_msgTypes[102]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderStepRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderStepRef) ProtoMessage() {}
+
+func (x *BuilderStepRef) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[102]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderStepRef.ProtoReflect.Descriptor instead.
+func (*BuilderStepRef) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{102}
+}
+
+func (x *BuilderStepRef) GetBuilderName() string {
+	if x != nil {
+		return x.BuilderName
+	}
+	return ""
+}
+
+func (x *BuilderStepRef) GetSessionToken() []byte {
+	if x != nil {
+		return x.SessionToken
+	}
+	return nil
+}
+
+func (x *BuilderStepRef) GetAssignmentID() string {
+	if x != nil {
+		return x.AssignmentID
+	}
+	return ""
+}
+
+type BuildArtifactPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          *BuildArtifactType     `protobuf:"bytes,1,opt,name=Type,proto3" json:"Type,omitempty"`
+	FileName      string                 `protobuf:"bytes,2,opt,name=FileName,proto3" json:"FileName,omitempty"`
+	Data          []byte                 `protobuf:"bytes,3,opt,name=Data,proto3" json:"Data,omitempty"`
+	SHA256        string                 `protobuf:"bytes,4,opt,name=SHA256,proto3" json:"SHA256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildArtifactPayload) Reset() {
+	*x = BuildArtifactPayload{}
+	mi := &file_clientpb_client_proto_msgTypes[103]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildArtifactPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildArtifactPayload) ProtoMessage() {}
+
+func (x *BuildArtifactPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[103]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildArtifactPayload.ProtoReflect.Descriptor instead.
+func (*BuildArtifactPayload) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{103}
+}
+
+func (x *BuildArtifactPayload) GetType() *BuildArtifactType {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+func (x *BuildArtifactPayload) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+func (x *BuildArtifactPayload) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *BuildArtifactPayload) GetSHA256() string {
+	if x != nil {
+		return x.SHA256
+	}
+	return ""
+}
+
+type BuilderStepRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentID  string                 `protobuf:"bytes,1,opt,name=AssignmentID,proto3" json:"AssignmentID,omitempty"`
+	BuildID       string                 `protobuf:"bytes,2,opt,name=BuildID,proto3" json:"BuildID,omitempty"`
+	Step          *BuildPlanStep         `protobuf:"bytes,3,opt,name=Step,proto3" json:"Step,omitempty"`
+	Request       *BuildRequest          `protobuf:"bytes,4,opt,name=Request,proto3" json:"Request,omitempty"`
+	Input         *BuildArtifactPayload  `protobuf:"bytes,5,opt,name=Input,proto3" json:"Input,omitempty"`
+	SliverConfig  *ExternalImplantConfig `protobuf:"bytes,6,opt,name=SliverConfig,proto3" json:"SliverConfig,omitempty"`
+	Inputs        []*BuildInput          `protobuf:"bytes,7,rep,name=Inputs,proto3" json:"Inputs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuilderStepRequest) Reset() {
+	*x = BuilderStepRequest{}
+	mi := &file_clientpb_client_proto_msgTypes[104]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderStepRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderStepRequest) ProtoMessage() {}
+
+func (x *BuilderStepRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[104]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderStepRequest.ProtoReflect.Descriptor instead.
+func (*BuilderStepRequest) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{104}
+}
+
+func (x *BuilderStepRequest) GetAssignmentID() string {
+	if x != nil {
+		return x.AssignmentID
+	}
+	return ""
+}
+
+func (x *BuilderStepRequest) GetBuildID() string {
+	if x != nil {
+		return x.BuildID
+	}
+	return ""
+}
+
+func (x *BuilderStepRequest) GetStep() *BuildPlanStep {
+	if x != nil {
+		return x.Step
+	}
+	return nil
+}
+
+func (x *BuilderStepRequest) GetRequest() *BuildRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+func (x *BuilderStepRequest) GetInput() *BuildArtifactPayload {
+	if x != nil {
+		return x.Input
+	}
+	return nil
+}
+
+func (x *BuilderStepRequest) GetSliverConfig() *ExternalImplantConfig {
+	if x != nil {
+		return x.SliverConfig
+	}
+	return nil
+}
+
+func (x *BuilderStepRequest) GetInputs() []*BuildInput {
+	if x != nil {
+		return x.Inputs
+	}
+	return nil
+}
+
+type BuilderStepResult struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	BuilderName       string                 `protobuf:"bytes,1,opt,name=BuilderName,proto3" json:"BuilderName,omitempty"`
+	SessionToken      []byte                 `protobuf:"bytes,2,opt,name=SessionToken,proto3" json:"SessionToken,omitempty"`
+	AssignmentID      string                 `protobuf:"bytes,3,opt,name=AssignmentID,proto3" json:"AssignmentID,omitempty"`
+	Spec              *BuildSpecRef          `protobuf:"bytes,4,opt,name=Spec,proto3" json:"Spec,omitempty"`
+	Target            *BuildTarget           `protobuf:"bytes,5,opt,name=Target,proto3" json:"Target,omitempty"`
+	Output            *BuildArtifactPayload  `protobuf:"bytes,6,opt,name=Output,proto3" json:"Output,omitempty"`
+	ToolchainIdentity string                 `protobuf:"bytes,7,opt,name=ToolchainIdentity,proto3" json:"ToolchainIdentity,omitempty"`
+	Failure           *BuildFailure          `protobuf:"bytes,8,opt,name=Failure,proto3" json:"Failure,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *BuilderStepResult) Reset() {
+	*x = BuilderStepResult{}
+	mi := &file_clientpb_client_proto_msgTypes[105]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuilderStepResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuilderStepResult) ProtoMessage() {}
+
+func (x *BuilderStepResult) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[105]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuilderStepResult.ProtoReflect.Descriptor instead.
+func (*BuilderStepResult) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{105}
+}
+
+func (x *BuilderStepResult) GetBuilderName() string {
+	if x != nil {
+		return x.BuilderName
+	}
+	return ""
+}
+
+func (x *BuilderStepResult) GetSessionToken() []byte {
+	if x != nil {
+		return x.SessionToken
+	}
+	return nil
+}
+
+func (x *BuilderStepResult) GetAssignmentID() string {
+	if x != nil {
+		return x.AssignmentID
+	}
+	return ""
+}
+
+func (x *BuilderStepResult) GetSpec() *BuildSpecRef {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *BuilderStepResult) GetTarget() *BuildTarget {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *BuilderStepResult) GetOutput() *BuildArtifactPayload {
+	if x != nil {
+		return x.Output
+	}
+	return nil
+}
+
+func (x *BuilderStepResult) GetToolchainIdentity() string {
+	if x != nil {
+		return x.ToolchainIdentity
+	}
+	return ""
+}
+
+func (x *BuilderStepResult) GetFailure() *BuildFailure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
 // [ HTTP C2 ] ----------------------------------------
 type HTTPC2Configs struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -10192,7 +11071,7 @@ type HTTPC2Configs struct {
 
 func (x *HTTPC2Configs) Reset() {
 	*x = HTTPC2Configs{}
-	mi := &file_clientpb_client_proto_msgTypes[98]
+	mi := &file_clientpb_client_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10204,7 +11083,7 @@ func (x *HTTPC2Configs) String() string {
 func (*HTTPC2Configs) ProtoMessage() {}
 
 func (x *HTTPC2Configs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[98]
+	mi := &file_clientpb_client_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10217,7 +11096,7 @@ func (x *HTTPC2Configs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Configs.ProtoReflect.Descriptor instead.
 func (*HTTPC2Configs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{98}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *HTTPC2Configs) GetConfigs() []*HTTPC2Config {
@@ -10236,7 +11115,7 @@ type C2ProfileReq struct {
 
 func (x *C2ProfileReq) Reset() {
 	*x = C2ProfileReq{}
-	mi := &file_clientpb_client_proto_msgTypes[99]
+	mi := &file_clientpb_client_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10248,7 +11127,7 @@ func (x *C2ProfileReq) String() string {
 func (*C2ProfileReq) ProtoMessage() {}
 
 func (x *C2ProfileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[99]
+	mi := &file_clientpb_client_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10261,7 +11140,7 @@ func (x *C2ProfileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use C2ProfileReq.ProtoReflect.Descriptor instead.
 func (*C2ProfileReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{99}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *C2ProfileReq) GetName() string {
@@ -10281,7 +11160,7 @@ type HTTPC2ConfigReq struct {
 
 func (x *HTTPC2ConfigReq) Reset() {
 	*x = HTTPC2ConfigReq{}
-	mi := &file_clientpb_client_proto_msgTypes[100]
+	mi := &file_clientpb_client_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10293,7 +11172,7 @@ func (x *HTTPC2ConfigReq) String() string {
 func (*HTTPC2ConfigReq) ProtoMessage() {}
 
 func (x *HTTPC2ConfigReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[100]
+	mi := &file_clientpb_client_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10306,7 +11185,7 @@ func (x *HTTPC2ConfigReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ConfigReq.ProtoReflect.Descriptor instead.
 func (*HTTPC2ConfigReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{100}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *HTTPC2ConfigReq) GetOverwrite() bool {
@@ -10336,7 +11215,7 @@ type HTTPC2Config struct {
 
 func (x *HTTPC2Config) Reset() {
 	*x = HTTPC2Config{}
-	mi := &file_clientpb_client_proto_msgTypes[101]
+	mi := &file_clientpb_client_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10348,7 +11227,7 @@ func (x *HTTPC2Config) String() string {
 func (*HTTPC2Config) ProtoMessage() {}
 
 func (x *HTTPC2Config) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[101]
+	mi := &file_clientpb_client_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10361,7 +11240,7 @@ func (x *HTTPC2Config) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Config.ProtoReflect.Descriptor instead.
 func (*HTTPC2Config) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{101}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *HTTPC2Config) GetID() string {
@@ -10411,7 +11290,7 @@ type HTTPC2ServerConfig struct {
 
 func (x *HTTPC2ServerConfig) Reset() {
 	*x = HTTPC2ServerConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[102]
+	mi := &file_clientpb_client_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10423,7 +11302,7 @@ func (x *HTTPC2ServerConfig) String() string {
 func (*HTTPC2ServerConfig) ProtoMessage() {}
 
 func (x *HTTPC2ServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[102]
+	mi := &file_clientpb_client_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10436,7 +11315,7 @@ func (x *HTTPC2ServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ServerConfig.ProtoReflect.Descriptor instead.
 func (*HTTPC2ServerConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{102}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *HTTPC2ServerConfig) GetID() string {
@@ -10492,7 +11371,7 @@ type HTTPC2ImplantConfig struct {
 
 func (x *HTTPC2ImplantConfig) Reset() {
 	*x = HTTPC2ImplantConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[103]
+	mi := &file_clientpb_client_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10504,7 +11383,7 @@ func (x *HTTPC2ImplantConfig) String() string {
 func (*HTTPC2ImplantConfig) ProtoMessage() {}
 
 func (x *HTTPC2ImplantConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[103]
+	mi := &file_clientpb_client_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10517,7 +11396,7 @@ func (x *HTTPC2ImplantConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ImplantConfig.ProtoReflect.Descriptor instead.
 func (*HTTPC2ImplantConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{103}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *HTTPC2ImplantConfig) GetID() string {
@@ -10649,7 +11528,7 @@ type HTTPC2Cookie struct {
 
 func (x *HTTPC2Cookie) Reset() {
 	*x = HTTPC2Cookie{}
-	mi := &file_clientpb_client_proto_msgTypes[104]
+	mi := &file_clientpb_client_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10661,7 +11540,7 @@ func (x *HTTPC2Cookie) String() string {
 func (*HTTPC2Cookie) ProtoMessage() {}
 
 func (x *HTTPC2Cookie) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[104]
+	mi := &file_clientpb_client_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10674,7 +11553,7 @@ func (x *HTTPC2Cookie) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Cookie.ProtoReflect.Descriptor instead.
 func (*HTTPC2Cookie) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{104}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *HTTPC2Cookie) GetID() string {
@@ -10704,7 +11583,7 @@ type HTTPC2Header struct {
 
 func (x *HTTPC2Header) Reset() {
 	*x = HTTPC2Header{}
-	mi := &file_clientpb_client_proto_msgTypes[105]
+	mi := &file_clientpb_client_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10716,7 +11595,7 @@ func (x *HTTPC2Header) String() string {
 func (*HTTPC2Header) ProtoMessage() {}
 
 func (x *HTTPC2Header) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[105]
+	mi := &file_clientpb_client_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10729,7 +11608,7 @@ func (x *HTTPC2Header) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Header.ProtoReflect.Descriptor instead.
 func (*HTTPC2Header) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{105}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *HTTPC2Header) GetID() string {
@@ -10780,7 +11659,7 @@ type HTTPC2URLParameter struct {
 
 func (x *HTTPC2URLParameter) Reset() {
 	*x = HTTPC2URLParameter{}
-	mi := &file_clientpb_client_proto_msgTypes[106]
+	mi := &file_clientpb_client_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10792,7 +11671,7 @@ func (x *HTTPC2URLParameter) String() string {
 func (*HTTPC2URLParameter) ProtoMessage() {}
 
 func (x *HTTPC2URLParameter) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[106]
+	mi := &file_clientpb_client_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10805,7 +11684,7 @@ func (x *HTTPC2URLParameter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2URLParameter.ProtoReflect.Descriptor instead.
 func (*HTTPC2URLParameter) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{106}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *HTTPC2URLParameter) GetID() string {
@@ -10854,7 +11733,7 @@ type HTTPC2PathSegment struct {
 
 func (x *HTTPC2PathSegment) Reset() {
 	*x = HTTPC2PathSegment{}
-	mi := &file_clientpb_client_proto_msgTypes[107]
+	mi := &file_clientpb_client_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10866,7 +11745,7 @@ func (x *HTTPC2PathSegment) String() string {
 func (*HTTPC2PathSegment) ProtoMessage() {}
 
 func (x *HTTPC2PathSegment) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[107]
+	mi := &file_clientpb_client_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10879,7 +11758,7 @@ func (x *HTTPC2PathSegment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2PathSegment.ProtoReflect.Descriptor instead.
 func (*HTTPC2PathSegment) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{107}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *HTTPC2PathSegment) GetID() string {
@@ -10919,7 +11798,7 @@ type Credential struct {
 
 func (x *Credential) Reset() {
 	*x = Credential{}
-	mi := &file_clientpb_client_proto_msgTypes[108]
+	mi := &file_clientpb_client_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10931,7 +11810,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[108]
+	mi := &file_clientpb_client_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10944,7 +11823,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{108}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *Credential) GetID() string {
@@ -11012,7 +11891,7 @@ type Credentials struct {
 
 func (x *Credentials) Reset() {
 	*x = Credentials{}
-	mi := &file_clientpb_client_proto_msgTypes[109]
+	mi := &file_clientpb_client_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11024,7 +11903,7 @@ func (x *Credentials) String() string {
 func (*Credentials) ProtoMessage() {}
 
 func (x *Credentials) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[109]
+	mi := &file_clientpb_client_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11037,7 +11916,7 @@ func (x *Credentials) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credentials.ProtoReflect.Descriptor instead.
 func (*Credentials) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{109}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *Credentials) GetCredentials() []*Credential {
@@ -11057,7 +11936,7 @@ type Crackstations struct {
 
 func (x *Crackstations) Reset() {
 	*x = Crackstations{}
-	mi := &file_clientpb_client_proto_msgTypes[110]
+	mi := &file_clientpb_client_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11069,7 +11948,7 @@ func (x *Crackstations) String() string {
 func (*Crackstations) ProtoMessage() {}
 
 func (x *Crackstations) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[110]
+	mi := &file_clientpb_client_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11082,7 +11961,7 @@ func (x *Crackstations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Crackstations.ProtoReflect.Descriptor instead.
 func (*Crackstations) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{110}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *Crackstations) GetCrackstations() []*Crackstation {
@@ -11106,7 +11985,7 @@ type CrackstationStatus struct {
 
 func (x *CrackstationStatus) Reset() {
 	*x = CrackstationStatus{}
-	mi := &file_clientpb_client_proto_msgTypes[111]
+	mi := &file_clientpb_client_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11118,7 +11997,7 @@ func (x *CrackstationStatus) String() string {
 func (*CrackstationStatus) ProtoMessage() {}
 
 func (x *CrackstationStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[111]
+	mi := &file_clientpb_client_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11131,7 +12010,7 @@ func (x *CrackstationStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackstationStatus.ProtoReflect.Descriptor instead.
 func (*CrackstationStatus) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{111}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *CrackstationStatus) GetName() string {
@@ -11186,7 +12065,7 @@ type CrackSyncStatus struct {
 
 func (x *CrackSyncStatus) Reset() {
 	*x = CrackSyncStatus{}
-	mi := &file_clientpb_client_proto_msgTypes[112]
+	mi := &file_clientpb_client_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11198,7 +12077,7 @@ func (x *CrackSyncStatus) String() string {
 func (*CrackSyncStatus) ProtoMessage() {}
 
 func (x *CrackSyncStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[112]
+	mi := &file_clientpb_client_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11211,7 +12090,7 @@ func (x *CrackSyncStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackSyncStatus.ProtoReflect.Descriptor instead.
 func (*CrackSyncStatus) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{112}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *CrackSyncStatus) GetSpeed() float32 {
@@ -11241,7 +12120,7 @@ type CrackBenchmark struct {
 
 func (x *CrackBenchmark) Reset() {
 	*x = CrackBenchmark{}
-	mi := &file_clientpb_client_proto_msgTypes[113]
+	mi := &file_clientpb_client_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11253,7 +12132,7 @@ func (x *CrackBenchmark) String() string {
 func (*CrackBenchmark) ProtoMessage() {}
 
 func (x *CrackBenchmark) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[113]
+	mi := &file_clientpb_client_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11266,7 +12145,7 @@ func (x *CrackBenchmark) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackBenchmark.ProtoReflect.Descriptor instead.
 func (*CrackBenchmark) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{113}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *CrackBenchmark) GetName() string {
@@ -11339,7 +12218,7 @@ type CrackTask struct {
 
 func (x *CrackTask) Reset() {
 	*x = CrackTask{}
-	mi := &file_clientpb_client_proto_msgTypes[114]
+	mi := &file_clientpb_client_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11351,7 +12230,7 @@ func (x *CrackTask) String() string {
 func (*CrackTask) ProtoMessage() {}
 
 func (x *CrackTask) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[114]
+	mi := &file_clientpb_client_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11364,7 +12243,7 @@ func (x *CrackTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTask.ProtoReflect.Descriptor instead.
 func (*CrackTask) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{114}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *CrackTask) GetID() string {
@@ -11579,7 +12458,7 @@ type Crackstation struct {
 
 func (x *Crackstation) Reset() {
 	*x = Crackstation{}
-	mi := &file_clientpb_client_proto_msgTypes[115]
+	mi := &file_clientpb_client_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11591,7 +12470,7 @@ func (x *Crackstation) String() string {
 func (*Crackstation) ProtoMessage() {}
 
 func (x *Crackstation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[115]
+	mi := &file_clientpb_client_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11604,7 +12483,7 @@ func (x *Crackstation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Crackstation.ProtoReflect.Descriptor instead.
 func (*Crackstation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{115}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *Crackstation) GetID() string {
@@ -11737,7 +12616,7 @@ type CUDABackendInfo struct {
 
 func (x *CUDABackendInfo) Reset() {
 	*x = CUDABackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[116]
+	mi := &file_clientpb_client_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11749,7 +12628,7 @@ func (x *CUDABackendInfo) String() string {
 func (*CUDABackendInfo) ProtoMessage() {}
 
 func (x *CUDABackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[116]
+	mi := &file_clientpb_client_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11762,7 +12641,7 @@ func (x *CUDABackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CUDABackendInfo.ProtoReflect.Descriptor instead.
 func (*CUDABackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{116}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *CUDABackendInfo) GetType() string {
@@ -11914,7 +12793,7 @@ type OpenCLBackendInfo struct {
 
 func (x *OpenCLBackendInfo) Reset() {
 	*x = OpenCLBackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[117]
+	mi := &file_clientpb_client_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11926,7 +12805,7 @@ func (x *OpenCLBackendInfo) String() string {
 func (*OpenCLBackendInfo) ProtoMessage() {}
 
 func (x *OpenCLBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[117]
+	mi := &file_clientpb_client_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11939,7 +12818,7 @@ func (x *OpenCLBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenCLBackendInfo.ProtoReflect.Descriptor instead.
 func (*OpenCLBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{117}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *OpenCLBackendInfo) GetType() string {
@@ -12127,7 +13006,7 @@ type MetalBackendInfo struct {
 
 func (x *MetalBackendInfo) Reset() {
 	*x = MetalBackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[118]
+	mi := &file_clientpb_client_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12139,7 +13018,7 @@ func (x *MetalBackendInfo) String() string {
 func (*MetalBackendInfo) ProtoMessage() {}
 
 func (x *MetalBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[118]
+	mi := &file_clientpb_client_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12152,7 +13031,7 @@ func (x *MetalBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetalBackendInfo.ProtoReflect.Descriptor instead.
 func (*MetalBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{118}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *MetalBackendInfo) GetType() string {
@@ -12341,7 +13220,7 @@ type HIPBackendInfo struct {
 
 func (x *HIPBackendInfo) Reset() {
 	*x = HIPBackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[119]
+	mi := &file_clientpb_client_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12353,7 +13232,7 @@ func (x *HIPBackendInfo) String() string {
 func (*HIPBackendInfo) ProtoMessage() {}
 
 func (x *HIPBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[119]
+	mi := &file_clientpb_client_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12366,7 +13245,7 @@ func (x *HIPBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HIPBackendInfo.ProtoReflect.Descriptor instead.
 func (*HIPBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{119}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *HIPBackendInfo) GetType() string {
@@ -12685,7 +13564,7 @@ type CrackCommand struct {
 
 func (x *CrackCommand) Reset() {
 	*x = CrackCommand{}
-	mi := &file_clientpb_client_proto_msgTypes[120]
+	mi := &file_clientpb_client_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12697,7 +13576,7 @@ func (x *CrackCommand) String() string {
 func (*CrackCommand) ProtoMessage() {}
 
 func (x *CrackCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[120]
+	mi := &file_clientpb_client_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12710,7 +13589,7 @@ func (x *CrackCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackCommand.ProtoReflect.Descriptor instead.
 func (*CrackCommand) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{120}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *CrackCommand) GetAttackMode() CrackAttackMode {
@@ -13947,7 +14826,7 @@ type CrackJob struct {
 
 func (x *CrackJob) Reset() {
 	*x = CrackJob{}
-	mi := &file_clientpb_client_proto_msgTypes[121]
+	mi := &file_clientpb_client_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13959,7 +14838,7 @@ func (x *CrackJob) String() string {
 func (*CrackJob) ProtoMessage() {}
 
 func (x *CrackJob) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[121]
+	mi := &file_clientpb_client_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13972,7 +14851,7 @@ func (x *CrackJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackJob.ProtoReflect.Descriptor instead.
 func (*CrackJob) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{121}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *CrackJob) GetID() string {
@@ -14068,7 +14947,7 @@ type CrackJobs struct {
 
 func (x *CrackJobs) Reset() {
 	*x = CrackJobs{}
-	mi := &file_clientpb_client_proto_msgTypes[122]
+	mi := &file_clientpb_client_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14080,7 +14959,7 @@ func (x *CrackJobs) String() string {
 func (*CrackJobs) ProtoMessage() {}
 
 func (x *CrackJobs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[122]
+	mi := &file_clientpb_client_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14093,7 +14972,7 @@ func (x *CrackJobs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackJobs.ProtoReflect.Descriptor instead.
 func (*CrackJobs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{122}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *CrackJobs) GetJobs() []*CrackJob {
@@ -14119,7 +14998,7 @@ type CrackTopDevice struct {
 
 func (x *CrackTopDevice) Reset() {
 	*x = CrackTopDevice{}
-	mi := &file_clientpb_client_proto_msgTypes[123]
+	mi := &file_clientpb_client_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14131,7 +15010,7 @@ func (x *CrackTopDevice) String() string {
 func (*CrackTopDevice) ProtoMessage() {}
 
 func (x *CrackTopDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[123]
+	mi := &file_clientpb_client_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14144,7 +15023,7 @@ func (x *CrackTopDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTopDevice.ProtoReflect.Descriptor instead.
 func (*CrackTopDevice) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{123}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *CrackTopDevice) GetID() string {
@@ -14227,7 +15106,7 @@ type CrackTopTask struct {
 
 func (x *CrackTopTask) Reset() {
 	*x = CrackTopTask{}
-	mi := &file_clientpb_client_proto_msgTypes[124]
+	mi := &file_clientpb_client_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14239,7 +15118,7 @@ func (x *CrackTopTask) String() string {
 func (*CrackTopTask) ProtoMessage() {}
 
 func (x *CrackTopTask) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[124]
+	mi := &file_clientpb_client_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14252,7 +15131,7 @@ func (x *CrackTopTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTopTask.ProtoReflect.Descriptor instead.
 func (*CrackTopTask) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{124}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *CrackTopTask) GetID() string {
@@ -14407,7 +15286,7 @@ type CrackTopJob struct {
 
 func (x *CrackTopJob) Reset() {
 	*x = CrackTopJob{}
-	mi := &file_clientpb_client_proto_msgTypes[125]
+	mi := &file_clientpb_client_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14419,7 +15298,7 @@ func (x *CrackTopJob) String() string {
 func (*CrackTopJob) ProtoMessage() {}
 
 func (x *CrackTopJob) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[125]
+	mi := &file_clientpb_client_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14432,7 +15311,7 @@ func (x *CrackTopJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTopJob.ProtoReflect.Descriptor instead.
 func (*CrackTopJob) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{125}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *CrackTopJob) GetID() string {
@@ -14521,7 +15400,7 @@ type CrackTopStation struct {
 
 func (x *CrackTopStation) Reset() {
 	*x = CrackTopStation{}
-	mi := &file_clientpb_client_proto_msgTypes[126]
+	mi := &file_clientpb_client_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14533,7 +15412,7 @@ func (x *CrackTopStation) String() string {
 func (*CrackTopStation) ProtoMessage() {}
 
 func (x *CrackTopStation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[126]
+	mi := &file_clientpb_client_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14546,7 +15425,7 @@ func (x *CrackTopStation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTopStation.ProtoReflect.Descriptor instead.
 func (*CrackTopStation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{126}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *CrackTopStation) GetID() string {
@@ -14612,7 +15491,7 @@ type CrackTopSnapshot struct {
 
 func (x *CrackTopSnapshot) Reset() {
 	*x = CrackTopSnapshot{}
-	mi := &file_clientpb_client_proto_msgTypes[127]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14624,7 +15503,7 @@ func (x *CrackTopSnapshot) String() string {
 func (*CrackTopSnapshot) ProtoMessage() {}
 
 func (x *CrackTopSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[127]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14637,7 +15516,7 @@ func (x *CrackTopSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTopSnapshot.ProtoReflect.Descriptor instead.
 func (*CrackTopSnapshot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{127}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *CrackTopSnapshot) GetJobs() []*CrackTopJob {
@@ -14676,7 +15555,7 @@ type CrackResult struct {
 
 func (x *CrackResult) Reset() {
 	*x = CrackResult{}
-	mi := &file_clientpb_client_proto_msgTypes[128]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14688,7 +15567,7 @@ func (x *CrackResult) String() string {
 func (*CrackResult) ProtoMessage() {}
 
 func (x *CrackResult) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[128]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14701,7 +15580,7 @@ func (x *CrackResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackResult.ProtoReflect.Descriptor instead.
 func (*CrackResult) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{128}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *CrackResult) GetID() string {
@@ -14764,7 +15643,7 @@ type CrackResponse struct {
 
 func (x *CrackResponse) Reset() {
 	*x = CrackResponse{}
-	mi := &file_clientpb_client_proto_msgTypes[129]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14776,7 +15655,7 @@ func (x *CrackResponse) String() string {
 func (*CrackResponse) ProtoMessage() {}
 
 func (x *CrackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[129]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14789,7 +15668,7 @@ func (x *CrackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackResponse.ProtoReflect.Descriptor instead.
 func (*CrackResponse) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{129}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *CrackResponse) GetJob() *CrackJob {
@@ -14825,7 +15704,7 @@ type CrackConfig struct {
 
 func (x *CrackConfig) Reset() {
 	*x = CrackConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[130]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14837,7 +15716,7 @@ func (x *CrackConfig) String() string {
 func (*CrackConfig) ProtoMessage() {}
 
 func (x *CrackConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[130]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14850,7 +15729,7 @@ func (x *CrackConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackConfig.ProtoReflect.Descriptor instead.
 func (*CrackConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{130}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *CrackConfig) GetAutoFire() bool {
@@ -14892,7 +15771,7 @@ type CrackFiles struct {
 
 func (x *CrackFiles) Reset() {
 	*x = CrackFiles{}
-	mi := &file_clientpb_client_proto_msgTypes[131]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14904,7 +15783,7 @@ func (x *CrackFiles) String() string {
 func (*CrackFiles) ProtoMessage() {}
 
 func (x *CrackFiles) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[131]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14917,7 +15796,7 @@ func (x *CrackFiles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFiles.ProtoReflect.Descriptor instead.
 func (*CrackFiles) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{131}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *CrackFiles) GetFiles() []*CrackFile {
@@ -14961,7 +15840,7 @@ type CrackFile struct {
 
 func (x *CrackFile) Reset() {
 	*x = CrackFile{}
-	mi := &file_clientpb_client_proto_msgTypes[132]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14973,7 +15852,7 @@ func (x *CrackFile) String() string {
 func (*CrackFile) ProtoMessage() {}
 
 func (x *CrackFile) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[132]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14986,7 +15865,7 @@ func (x *CrackFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFile.ProtoReflect.Descriptor instead.
 func (*CrackFile) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{132}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *CrackFile) GetID() string {
@@ -15085,7 +15964,7 @@ type CrackFileChunk struct {
 
 func (x *CrackFileChunk) Reset() {
 	*x = CrackFileChunk{}
-	mi := &file_clientpb_client_proto_msgTypes[133]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15097,7 +15976,7 @@ func (x *CrackFileChunk) String() string {
 func (*CrackFileChunk) ProtoMessage() {}
 
 func (x *CrackFileChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[133]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15110,7 +15989,7 @@ func (x *CrackFileChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFileChunk.ProtoReflect.Descriptor instead.
 func (*CrackFileChunk) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{133}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *CrackFileChunk) GetID() string {
@@ -15151,7 +16030,7 @@ type AIProviderConfigs struct {
 
 func (x *AIProviderConfigs) Reset() {
 	*x = AIProviderConfigs{}
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15163,7 +16042,7 @@ func (x *AIProviderConfigs) String() string {
 func (*AIProviderConfigs) ProtoMessage() {}
 
 func (x *AIProviderConfigs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15176,7 +16055,7 @@ func (x *AIProviderConfigs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIProviderConfigs.ProtoReflect.Descriptor instead.
 func (*AIProviderConfigs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *AIProviderConfigs) GetProviders() []*AIProviderConfig {
@@ -15203,7 +16082,7 @@ type AIProviderConfig struct {
 
 func (x *AIProviderConfig) Reset() {
 	*x = AIProviderConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15215,7 +16094,7 @@ func (x *AIProviderConfig) String() string {
 func (*AIProviderConfig) ProtoMessage() {}
 
 func (x *AIProviderConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15228,7 +16107,7 @@ func (x *AIProviderConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIProviderConfig.ProtoReflect.Descriptor instead.
 func (*AIProviderConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *AIProviderConfig) GetName() string {
@@ -15259,7 +16138,7 @@ type AIConfigSummary struct {
 
 func (x *AIConfigSummary) Reset() {
 	*x = AIConfigSummary{}
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15271,7 +16150,7 @@ func (x *AIConfigSummary) String() string {
 func (*AIConfigSummary) ProtoMessage() {}
 
 func (x *AIConfigSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15284,7 +16163,7 @@ func (x *AIConfigSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConfigSummary.ProtoReflect.Descriptor instead.
 func (*AIConfigSummary) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *AIConfigSummary) GetProvider() string {
@@ -15339,7 +16218,7 @@ type AIConversationReq struct {
 
 func (x *AIConversationReq) Reset() {
 	*x = AIConversationReq{}
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15351,7 +16230,7 @@ func (x *AIConversationReq) String() string {
 func (*AIConversationReq) ProtoMessage() {}
 
 func (x *AIConversationReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15364,7 +16243,7 @@ func (x *AIConversationReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationReq.ProtoReflect.Descriptor instead.
 func (*AIConversationReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *AIConversationReq) GetID() string {
@@ -15390,7 +16269,7 @@ type AIConversations struct {
 
 func (x *AIConversations) Reset() {
 	*x = AIConversations{}
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15402,7 +16281,7 @@ func (x *AIConversations) String() string {
 func (*AIConversations) ProtoMessage() {}
 
 func (x *AIConversations) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15415,7 +16294,7 @@ func (x *AIConversations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversations.ProtoReflect.Descriptor instead.
 func (*AIConversations) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *AIConversations) GetConversations() []*AIConversation {
@@ -15438,7 +16317,7 @@ type AIContextWindowUsage struct {
 
 func (x *AIContextWindowUsage) Reset() {
 	*x = AIContextWindowUsage{}
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15450,7 +16329,7 @@ func (x *AIContextWindowUsage) String() string {
 func (*AIContextWindowUsage) ProtoMessage() {}
 
 func (x *AIContextWindowUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15463,7 +16342,7 @@ func (x *AIContextWindowUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIContextWindowUsage.ProtoReflect.Descriptor instead.
 func (*AIContextWindowUsage) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *AIContextWindowUsage) GetInputTokens() int64 {
@@ -15525,7 +16404,7 @@ type AIConversation struct {
 
 func (x *AIConversation) Reset() {
 	*x = AIConversation{}
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15537,7 +16416,7 @@ func (x *AIConversation) String() string {
 func (*AIConversation) ProtoMessage() {}
 
 func (x *AIConversation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15550,7 +16429,7 @@ func (x *AIConversation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversation.ProtoReflect.Descriptor instead.
 func (*AIConversation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *AIConversation) GetID() string {
@@ -15675,7 +16554,7 @@ type AIConversationMessages struct {
 
 func (x *AIConversationMessages) Reset() {
 	*x = AIConversationMessages{}
-	mi := &file_clientpb_client_proto_msgTypes[141]
+	mi := &file_clientpb_client_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15687,7 +16566,7 @@ func (x *AIConversationMessages) String() string {
 func (*AIConversationMessages) ProtoMessage() {}
 
 func (x *AIConversationMessages) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[141]
+	mi := &file_clientpb_client_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15700,7 +16579,7 @@ func (x *AIConversationMessages) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationMessages.ProtoReflect.Descriptor instead.
 func (*AIConversationMessages) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *AIConversationMessages) GetConversationID() string {
@@ -15748,7 +16627,7 @@ type AIConversationMessage struct {
 
 func (x *AIConversationMessage) Reset() {
 	*x = AIConversationMessage{}
-	mi := &file_clientpb_client_proto_msgTypes[142]
+	mi := &file_clientpb_client_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15760,7 +16639,7 @@ func (x *AIConversationMessage) String() string {
 func (*AIConversationMessage) ProtoMessage() {}
 
 func (x *AIConversationMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[142]
+	mi := &file_clientpb_client_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15773,7 +16652,7 @@ func (x *AIConversationMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationMessage.ProtoReflect.Descriptor instead.
 func (*AIConversationMessage) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{142}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *AIConversationMessage) GetID() string {
@@ -15951,7 +16830,7 @@ type AIConversationEvent struct {
 
 func (x *AIConversationEvent) Reset() {
 	*x = AIConversationEvent{}
-	mi := &file_clientpb_client_proto_msgTypes[143]
+	mi := &file_clientpb_client_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15963,7 +16842,7 @@ func (x *AIConversationEvent) String() string {
 func (*AIConversationEvent) ProtoMessage() {}
 
 func (x *AIConversationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[143]
+	mi := &file_clientpb_client_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15976,7 +16855,7 @@ func (x *AIConversationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationEvent.ProtoReflect.Descriptor instead.
 func (*AIConversationEvent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{143}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *AIConversationEvent) GetEventType() AIConversationEventType {
@@ -16031,7 +16910,7 @@ type MonitoringProviders struct {
 
 func (x *MonitoringProviders) Reset() {
 	*x = MonitoringProviders{}
-	mi := &file_clientpb_client_proto_msgTypes[144]
+	mi := &file_clientpb_client_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16043,7 +16922,7 @@ func (x *MonitoringProviders) String() string {
 func (*MonitoringProviders) ProtoMessage() {}
 
 func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[144]
+	mi := &file_clientpb_client_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16056,7 +16935,7 @@ func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProviders.ProtoReflect.Descriptor instead.
 func (*MonitoringProviders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{144}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *MonitoringProviders) GetProviders() []*MonitoringProvider {
@@ -16078,7 +16957,7 @@ type MonitoringProvider struct {
 
 func (x *MonitoringProvider) Reset() {
 	*x = MonitoringProvider{}
-	mi := &file_clientpb_client_proto_msgTypes[145]
+	mi := &file_clientpb_client_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16090,7 +16969,7 @@ func (x *MonitoringProvider) String() string {
 func (*MonitoringProvider) ProtoMessage() {}
 
 func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[145]
+	mi := &file_clientpb_client_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16103,7 +16982,7 @@ func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProvider.ProtoReflect.Descriptor instead.
 func (*MonitoringProvider) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{145}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *MonitoringProvider) GetID() string {
@@ -16147,7 +17026,7 @@ type ResourceID struct {
 
 func (x *ResourceID) Reset() {
 	*x = ResourceID{}
-	mi := &file_clientpb_client_proto_msgTypes[146]
+	mi := &file_clientpb_client_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16159,7 +17038,7 @@ func (x *ResourceID) String() string {
 func (*ResourceID) ProtoMessage() {}
 
 func (x *ResourceID) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[146]
+	mi := &file_clientpb_client_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16172,7 +17051,7 @@ func (x *ResourceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceID.ProtoReflect.Descriptor instead.
 func (*ResourceID) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{146}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *ResourceID) GetID() string {
@@ -16213,7 +17092,7 @@ type CertificatesReq struct {
 
 func (x *CertificatesReq) Reset() {
 	*x = CertificatesReq{}
-	mi := &file_clientpb_client_proto_msgTypes[147]
+	mi := &file_clientpb_client_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16225,7 +17104,7 @@ func (x *CertificatesReq) String() string {
 func (*CertificatesReq) ProtoMessage() {}
 
 func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[147]
+	mi := &file_clientpb_client_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16238,7 +17117,7 @@ func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificatesReq.ProtoReflect.Descriptor instead.
 func (*CertificatesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{147}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *CertificatesReq) GetCategoryFilters() uint32 {
@@ -16270,7 +17149,7 @@ type CertificateData struct {
 
 func (x *CertificateData) Reset() {
 	*x = CertificateData{}
-	mi := &file_clientpb_client_proto_msgTypes[148]
+	mi := &file_clientpb_client_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16282,7 +17161,7 @@ func (x *CertificateData) String() string {
 func (*CertificateData) ProtoMessage() {}
 
 func (x *CertificateData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[148]
+	mi := &file_clientpb_client_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16295,7 +17174,7 @@ func (x *CertificateData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateData.ProtoReflect.Descriptor instead.
 func (*CertificateData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{148}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *CertificateData) GetCN() string {
@@ -16356,7 +17235,7 @@ type CertificateInfo struct {
 
 func (x *CertificateInfo) Reset() {
 	*x = CertificateInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[149]
+	mi := &file_clientpb_client_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16368,7 +17247,7 @@ func (x *CertificateInfo) String() string {
 func (*CertificateInfo) ProtoMessage() {}
 
 func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[149]
+	mi := &file_clientpb_client_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16381,7 +17260,7 @@ func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateInfo.ProtoReflect.Descriptor instead.
 func (*CertificateInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{149}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *CertificateInfo) GetInfo() []*CertificateData {
@@ -16406,7 +17285,7 @@ type CertificateAuthorityData struct {
 
 func (x *CertificateAuthorityData) Reset() {
 	*x = CertificateAuthorityData{}
-	mi := &file_clientpb_client_proto_msgTypes[150]
+	mi := &file_clientpb_client_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16418,7 +17297,7 @@ func (x *CertificateAuthorityData) String() string {
 func (*CertificateAuthorityData) ProtoMessage() {}
 
 func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[150]
+	mi := &file_clientpb_client_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16431,7 +17310,7 @@ func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityData.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{150}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *CertificateAuthorityData) GetCN() string {
@@ -16492,7 +17371,7 @@ type CertificateAuthorityInfo struct {
 
 func (x *CertificateAuthorityInfo) Reset() {
 	*x = CertificateAuthorityInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[151]
+	mi := &file_clientpb_client_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16504,7 +17383,7 @@ func (x *CertificateAuthorityInfo) String() string {
 func (*CertificateAuthorityInfo) ProtoMessage() {}
 
 func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[151]
+	mi := &file_clientpb_client_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16517,7 +17396,7 @@ func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityInfo.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{151}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *CertificateAuthorityInfo) GetInfo() []*CertificateAuthorityData {
@@ -16541,7 +17420,7 @@ type CrackQueryResult struct {
 
 func (x *CrackQueryResult) Reset() {
 	*x = CrackQueryResult{}
-	mi := &file_clientpb_client_proto_msgTypes[152]
+	mi := &file_clientpb_client_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16553,7 +17432,7 @@ func (x *CrackQueryResult) String() string {
 func (*CrackQueryResult) ProtoMessage() {}
 
 func (x *CrackQueryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[152]
+	mi := &file_clientpb_client_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16566,7 +17445,7 @@ func (x *CrackQueryResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackQueryResult.ProtoReflect.Descriptor instead.
 func (*CrackQueryResult) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{152}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *CrackQueryResult) GetMode() CrackQueryMode {
@@ -16629,7 +17508,7 @@ type CrackBenchmarkSnapshot struct {
 
 func (x *CrackBenchmarkSnapshot) Reset() {
 	*x = CrackBenchmarkSnapshot{}
-	mi := &file_clientpb_client_proto_msgTypes[153]
+	mi := &file_clientpb_client_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16641,7 +17520,7 @@ func (x *CrackBenchmarkSnapshot) String() string {
 func (*CrackBenchmarkSnapshot) ProtoMessage() {}
 
 func (x *CrackBenchmarkSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[153]
+	mi := &file_clientpb_client_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16654,7 +17533,7 @@ func (x *CrackBenchmarkSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackBenchmarkSnapshot.ProtoReflect.Descriptor instead.
 func (*CrackBenchmarkSnapshot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{153}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *CrackBenchmarkSnapshot) GetName() string {
@@ -16736,7 +17615,7 @@ type CrackBenchmarkSnapshots struct {
 
 func (x *CrackBenchmarkSnapshots) Reset() {
 	*x = CrackBenchmarkSnapshots{}
-	mi := &file_clientpb_client_proto_msgTypes[154]
+	mi := &file_clientpb_client_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16748,7 +17627,7 @@ func (x *CrackBenchmarkSnapshots) String() string {
 func (*CrackBenchmarkSnapshots) ProtoMessage() {}
 
 func (x *CrackBenchmarkSnapshots) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[154]
+	mi := &file_clientpb_client_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16761,12 +17640,2514 @@ func (x *CrackBenchmarkSnapshots) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackBenchmarkSnapshots.ProtoReflect.Descriptor instead.
 func (*CrackBenchmarkSnapshots) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{154}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *CrackBenchmarkSnapshots) GetSnapshots() []*CrackBenchmarkSnapshot {
 	if x != nil {
 		return x.Snapshots
+	}
+	return nil
+}
+
+type BuildTarget struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GOOS          string                 `protobuf:"bytes,1,opt,name=GOOS,proto3" json:"GOOS,omitempty"`
+	GOARCH        string                 `protobuf:"bytes,2,opt,name=GOARCH,proto3" json:"GOARCH,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildTarget) Reset() {
+	*x = BuildTarget{}
+	mi := &file_clientpb_client_proto_msgTypes[163]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildTarget) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildTarget) ProtoMessage() {}
+
+func (x *BuildTarget) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[163]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildTarget.ProtoReflect.Descriptor instead.
+func (*BuildTarget) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{163}
+}
+
+func (x *BuildTarget) GetGOOS() string {
+	if x != nil {
+		return x.GOOS
+	}
+	return ""
+}
+
+func (x *BuildTarget) GetGOARCH() string {
+	if x != nil {
+		return x.GOARCH
+	}
+	return ""
+}
+
+// A spec reference is exact when all three identity fields are present.
+type BuildSpecRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=Version,proto3" json:"Version,omitempty"`
+	Digest        string                 `protobuf:"bytes,3,opt,name=Digest,proto3" json:"Digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildSpecRef) Reset() {
+	*x = BuildSpecRef{}
+	mi := &file_clientpb_client_proto_msgTypes[164]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecRef) ProtoMessage() {}
+
+func (x *BuildSpecRef) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[164]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecRef.ProtoReflect.Descriptor instead.
+func (*BuildSpecRef) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{164}
+}
+
+func (x *BuildSpecRef) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildSpecRef) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *BuildSpecRef) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+type BuildArtifactType struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=Kind,proto3" json:"Kind,omitempty"`
+	Container     string                 `protobuf:"bytes,2,opt,name=Container,proto3" json:"Container,omitempty"`
+	GOOS          string                 `protobuf:"bytes,3,opt,name=GOOS,proto3" json:"GOOS,omitempty"`
+	GOARCH        string                 `protobuf:"bytes,4,opt,name=GOARCH,proto3" json:"GOARCH,omitempty"`
+	GoBuildMode   string                 `protobuf:"bytes,5,opt,name=GoBuildMode,proto3" json:"GoBuildMode,omitempty"`
+	EntrySymbols  []string               `protobuf:"bytes,6,rep,name=EntrySymbols,proto3" json:"EntrySymbols,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildArtifactType) Reset() {
+	*x = BuildArtifactType{}
+	mi := &file_clientpb_client_proto_msgTypes[165]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildArtifactType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildArtifactType) ProtoMessage() {}
+
+func (x *BuildArtifactType) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[165]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildArtifactType.ProtoReflect.Descriptor instead.
+func (*BuildArtifactType) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{165}
+}
+
+func (x *BuildArtifactType) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *BuildArtifactType) GetContainer() string {
+	if x != nil {
+		return x.Container
+	}
+	return ""
+}
+
+func (x *BuildArtifactType) GetGOOS() string {
+	if x != nil {
+		return x.GOOS
+	}
+	return ""
+}
+
+func (x *BuildArtifactType) GetGOARCH() string {
+	if x != nil {
+		return x.GOARCH
+	}
+	return ""
+}
+
+func (x *BuildArtifactType) GetGoBuildMode() string {
+	if x != nil {
+		return x.GoBuildMode
+	}
+	return ""
+}
+
+func (x *BuildArtifactType) GetEntrySymbols() []string {
+	if x != nil {
+		return x.EntrySymbols
+	}
+	return nil
+}
+
+type BuildSpecCapability struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Targets                  []*BuildTarget         `protobuf:"bytes,1,rep,name=Targets,proto3" json:"Targets,omitempty"`
+	Mode                     string                 `protobuf:"bytes,2,opt,name=Mode,proto3" json:"Mode,omitempty"`
+	Protocols                []string               `protobuf:"bytes,3,rep,name=Protocols,proto3" json:"Protocols,omitempty"`
+	Input                    *BuildArtifactType     `protobuf:"bytes,4,opt,name=Input,proto3" json:"Input,omitempty"`
+	Output                   *BuildArtifactType     `protobuf:"bytes,5,opt,name=Output,proto3" json:"Output,omitempty"`
+	OperatorFormats          []string               `protobuf:"bytes,6,rep,name=OperatorFormats,proto3" json:"OperatorFormats,omitempty"`
+	ToolchainDriver          string                 `protobuf:"bytes,7,opt,name=ToolchainDriver,proto3" json:"ToolchainDriver,omitempty"`
+	ToolchainRequirements    []string               `protobuf:"bytes,8,rep,name=ToolchainRequirements,proto3" json:"ToolchainRequirements,omitempty"`
+	EstimatedPeakMemoryBytes uint64                 `protobuf:"varint,9,opt,name=EstimatedPeakMemoryBytes,proto3" json:"EstimatedPeakMemoryBytes,omitempty"`
+	RequiresEntrySymbol      bool                   `protobuf:"varint,10,opt,name=RequiresEntrySymbol,proto3" json:"RequiresEntrySymbol,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *BuildSpecCapability) Reset() {
+	*x = BuildSpecCapability{}
+	mi := &file_clientpb_client_proto_msgTypes[166]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecCapability) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecCapability) ProtoMessage() {}
+
+func (x *BuildSpecCapability) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[166]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecCapability.ProtoReflect.Descriptor instead.
+func (*BuildSpecCapability) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{166}
+}
+
+func (x *BuildSpecCapability) GetTargets() []*BuildTarget {
+	if x != nil {
+		return x.Targets
+	}
+	return nil
+}
+
+func (x *BuildSpecCapability) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *BuildSpecCapability) GetProtocols() []string {
+	if x != nil {
+		return x.Protocols
+	}
+	return nil
+}
+
+func (x *BuildSpecCapability) GetInput() *BuildArtifactType {
+	if x != nil {
+		return x.Input
+	}
+	return nil
+}
+
+func (x *BuildSpecCapability) GetOutput() *BuildArtifactType {
+	if x != nil {
+		return x.Output
+	}
+	return nil
+}
+
+func (x *BuildSpecCapability) GetOperatorFormats() []string {
+	if x != nil {
+		return x.OperatorFormats
+	}
+	return nil
+}
+
+func (x *BuildSpecCapability) GetToolchainDriver() string {
+	if x != nil {
+		return x.ToolchainDriver
+	}
+	return ""
+}
+
+func (x *BuildSpecCapability) GetToolchainRequirements() []string {
+	if x != nil {
+		return x.ToolchainRequirements
+	}
+	return nil
+}
+
+func (x *BuildSpecCapability) GetEstimatedPeakMemoryBytes() uint64 {
+	if x != nil {
+		return x.EstimatedPeakMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuildSpecCapability) GetRequiresEntrySymbol() bool {
+	if x != nil {
+		return x.RequiresEntrySymbol
+	}
+	return false
+}
+
+type BuildSpecOrigin struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Source        string                 `protobuf:"bytes,1,opt,name=Source,proto3" json:"Source,omitempty"`
+	Provider      string                 `protobuf:"bytes,2,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	LastSeenUnix  int64                  `protobuf:"varint,3,opt,name=LastSeenUnix,proto3" json:"LastSeenUnix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildSpecOrigin) Reset() {
+	*x = BuildSpecOrigin{}
+	mi := &file_clientpb_client_proto_msgTypes[167]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecOrigin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecOrigin) ProtoMessage() {}
+
+func (x *BuildSpecOrigin) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[167]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecOrigin.ProtoReflect.Descriptor instead.
+func (*BuildSpecOrigin) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{167}
+}
+
+func (x *BuildSpecOrigin) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *BuildSpecOrigin) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *BuildSpecOrigin) GetLastSeenUnix() int64 {
+	if x != nil {
+		return x.LastSeenUnix
+	}
+	return 0
+}
+
+type BuildSpecProvider struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	Online        bool                   `protobuf:"varint,2,opt,name=Online,proto3" json:"Online,omitempty"`
+	LastSeenUnix  int64                  `protobuf:"varint,3,opt,name=LastSeenUnix,proto3" json:"LastSeenUnix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildSpecProvider) Reset() {
+	*x = BuildSpecProvider{}
+	mi := &file_clientpb_client_proto_msgTypes[168]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecProvider) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecProvider) ProtoMessage() {}
+
+func (x *BuildSpecProvider) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[168]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecProvider.ProtoReflect.Descriptor instead.
+func (*BuildSpecProvider) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{168}
+}
+
+func (x *BuildSpecProvider) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildSpecProvider) GetOnline() bool {
+	if x != nil {
+		return x.Online
+	}
+	return false
+}
+
+func (x *BuildSpecProvider) GetLastSeenUnix() int64 {
+	if x != nil {
+		return x.LastSeenUnix
+	}
+	return 0
+}
+
+type BuildSpec struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Kind            BuildSpecKind          `protobuf:"varint,1,opt,name=Kind,proto3,enum=clientpb.BuildSpecKind" json:"Kind,omitempty"`
+	Ref             *BuildSpecRef          `protobuf:"bytes,2,opt,name=Ref,proto3" json:"Ref,omitempty"`
+	ExecutorID      string                 `protobuf:"bytes,3,opt,name=ExecutorID,proto3" json:"ExecutorID,omitempty"`
+	RuntimeProtocol string                 `protobuf:"bytes,4,opt,name=RuntimeProtocol,proto3" json:"RuntimeProtocol,omitempty"`
+	CommandSource   string                 `protobuf:"bytes,5,opt,name=CommandSource,proto3" json:"CommandSource,omitempty"`
+	RuntimeCommands []string               `protobuf:"bytes,6,rep,name=RuntimeCommands,proto3" json:"RuntimeCommands,omitempty"`
+	Capabilities    []*BuildSpecCapability `protobuf:"bytes,7,rep,name=Capabilities,proto3" json:"Capabilities,omitempty"`
+	Origins         []*BuildSpecOrigin     `protobuf:"bytes,8,rep,name=Origins,proto3" json:"Origins,omitempty"`
+	Providers       []*BuildSpecProvider   `protobuf:"bytes,9,rep,name=Providers,proto3" json:"Providers,omitempty"`
+	Available       bool                   `protobuf:"varint,10,opt,name=Available,proto3" json:"Available,omitempty"`
+	YAML            []byte                 `protobuf:"bytes,11,opt,name=YAML,proto3" json:"YAML,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BuildSpec) Reset() {
+	*x = BuildSpec{}
+	mi := &file_clientpb_client_proto_msgTypes[169]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpec) ProtoMessage() {}
+
+func (x *BuildSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[169]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpec.ProtoReflect.Descriptor instead.
+func (*BuildSpec) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{169}
+}
+
+func (x *BuildSpec) GetKind() BuildSpecKind {
+	if x != nil {
+		return x.Kind
+	}
+	return BuildSpecKind_BUILD_SPEC_UNSPECIFIED
+}
+
+func (x *BuildSpec) GetRef() *BuildSpecRef {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
+}
+
+func (x *BuildSpec) GetExecutorID() string {
+	if x != nil {
+		return x.ExecutorID
+	}
+	return ""
+}
+
+func (x *BuildSpec) GetRuntimeProtocol() string {
+	if x != nil {
+		return x.RuntimeProtocol
+	}
+	return ""
+}
+
+func (x *BuildSpec) GetCommandSource() string {
+	if x != nil {
+		return x.CommandSource
+	}
+	return ""
+}
+
+func (x *BuildSpec) GetRuntimeCommands() []string {
+	if x != nil {
+		return x.RuntimeCommands
+	}
+	return nil
+}
+
+func (x *BuildSpec) GetCapabilities() []*BuildSpecCapability {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
+func (x *BuildSpec) GetOrigins() []*BuildSpecOrigin {
+	if x != nil {
+		return x.Origins
+	}
+	return nil
+}
+
+func (x *BuildSpec) GetProviders() []*BuildSpecProvider {
+	if x != nil {
+		return x.Providers
+	}
+	return nil
+}
+
+func (x *BuildSpec) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *BuildSpec) GetYAML() []byte {
+	if x != nil {
+		return x.YAML
+	}
+	return nil
+}
+
+type BuildSpecQuery struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          BuildSpecKind          `protobuf:"varint,1,opt,name=Kind,proto3,enum=clientpb.BuildSpecKind" json:"Kind,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	TargetGOOS    string                 `protobuf:"bytes,3,opt,name=TargetGOOS,proto3" json:"TargetGOOS,omitempty"`
+	TargetGOARCH  string                 `protobuf:"bytes,4,opt,name=TargetGOARCH,proto3" json:"TargetGOARCH,omitempty"`
+	Availability  BuildSpecAvailability  `protobuf:"varint,5,opt,name=Availability,proto3,enum=clientpb.BuildSpecAvailability" json:"Availability,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildSpecQuery) Reset() {
+	*x = BuildSpecQuery{}
+	mi := &file_clientpb_client_proto_msgTypes[170]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecQuery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecQuery) ProtoMessage() {}
+
+func (x *BuildSpecQuery) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[170]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecQuery.ProtoReflect.Descriptor instead.
+func (*BuildSpecQuery) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{170}
+}
+
+func (x *BuildSpecQuery) GetKind() BuildSpecKind {
+	if x != nil {
+		return x.Kind
+	}
+	return BuildSpecKind_BUILD_SPEC_UNSPECIFIED
+}
+
+func (x *BuildSpecQuery) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildSpecQuery) GetTargetGOOS() string {
+	if x != nil {
+		return x.TargetGOOS
+	}
+	return ""
+}
+
+func (x *BuildSpecQuery) GetTargetGOARCH() string {
+	if x != nil {
+		return x.TargetGOARCH
+	}
+	return ""
+}
+
+func (x *BuildSpecQuery) GetAvailability() BuildSpecAvailability {
+	if x != nil {
+		return x.Availability
+	}
+	return BuildSpecAvailability_BUILD_SPEC_ALL
+}
+
+type BuildSpecRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          BuildSpecKind          `protobuf:"varint,1,opt,name=Kind,proto3,enum=clientpb.BuildSpecKind" json:"Kind,omitempty"`
+	Ref           *BuildSpecRef          `protobuf:"bytes,2,opt,name=Ref,proto3" json:"Ref,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildSpecRequest) Reset() {
+	*x = BuildSpecRequest{}
+	mi := &file_clientpb_client_proto_msgTypes[171]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecRequest) ProtoMessage() {}
+
+func (x *BuildSpecRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[171]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecRequest.ProtoReflect.Descriptor instead.
+func (*BuildSpecRequest) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{171}
+}
+
+func (x *BuildSpecRequest) GetKind() BuildSpecKind {
+	if x != nil {
+		return x.Kind
+	}
+	return BuildSpecKind_BUILD_SPEC_UNSPECIFIED
+}
+
+func (x *BuildSpecRequest) GetRef() *BuildSpecRef {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
+}
+
+type BuildSpecList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Specs         []*BuildSpec           `protobuf:"bytes,1,rep,name=Specs,proto3" json:"Specs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildSpecList) Reset() {
+	*x = BuildSpecList{}
+	mi := &file_clientpb_client_proto_msgTypes[172]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildSpecList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildSpecList) ProtoMessage() {}
+
+func (x *BuildSpecList) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[172]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildSpecList.ProtoReflect.Descriptor instead.
+func (*BuildSpecList) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{172}
+}
+
+func (x *BuildSpecList) GetSpecs() []*BuildSpec {
+	if x != nil {
+		return x.Specs
+	}
+	return nil
+}
+
+// ValueJSON contains one JSON value. The referenced spec defines its type;
+// an option can also be a typed per-build input or secret reference.
+type BuildOption struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	ValueJSON     []byte                 `protobuf:"bytes,2,opt,name=ValueJSON,proto3" json:"ValueJSON,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildOption) Reset() {
+	*x = BuildOption{}
+	mi := &file_clientpb_client_proto_msgTypes[173]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildOption) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildOption) ProtoMessage() {}
+
+func (x *BuildOption) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[173]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildOption.ProtoReflect.Descriptor instead.
+func (*BuildOption) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{173}
+}
+
+func (x *BuildOption) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildOption) GetValueJSON() []byte {
+	if x != nil {
+		return x.ValueJSON
+	}
+	return nil
+}
+
+type BuildEndpoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Protocol      string                 `protobuf:"bytes,1,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
+	Address       string                 `protobuf:"bytes,2,opt,name=Address,proto3" json:"Address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildEndpoint) Reset() {
+	*x = BuildEndpoint{}
+	mi := &file_clientpb_client_proto_msgTypes[174]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildEndpoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildEndpoint) ProtoMessage() {}
+
+func (x *BuildEndpoint) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[174]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildEndpoint.ProtoReflect.Descriptor instead.
+func (*BuildEndpoint) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{174}
+}
+
+func (x *BuildEndpoint) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *BuildEndpoint) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type BuildTransformRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Spec          *BuildSpecRef          `protobuf:"bytes,1,opt,name=Spec,proto3" json:"Spec,omitempty"`
+	Options       []*BuildOption         `protobuf:"bytes,2,rep,name=Options,proto3" json:"Options,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildTransformRequest) Reset() {
+	*x = BuildTransformRequest{}
+	mi := &file_clientpb_client_proto_msgTypes[175]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildTransformRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildTransformRequest) ProtoMessage() {}
+
+func (x *BuildTransformRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[175]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildTransformRequest.ProtoReflect.Descriptor instead.
+func (*BuildTransformRequest) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{175}
+}
+
+func (x *BuildTransformRequest) GetSpec() *BuildSpecRef {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *BuildTransformRequest) GetOptions() []*BuildOption {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+type BuildProviderPolicy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Mode          string                 `protobuf:"bytes,1,opt,name=Mode,proto3" json:"Mode,omitempty"` // automatic or pinned
+	Builder       string                 `protobuf:"bytes,2,opt,name=Builder,proto3" json:"Builder,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildProviderPolicy) Reset() {
+	*x = BuildProviderPolicy{}
+	mi := &file_clientpb_client_proto_msgTypes[176]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildProviderPolicy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildProviderPolicy) ProtoMessage() {}
+
+func (x *BuildProviderPolicy) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[176]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildProviderPolicy.ProtoReflect.Descriptor instead.
+func (*BuildProviderPolicy) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{176}
+}
+
+func (x *BuildProviderPolicy) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *BuildProviderPolicy) GetBuilder() string {
+	if x != nil {
+		return x.Builder
+	}
+	return ""
+}
+
+// Per-build material is carried to the executor and omitted from the plan.
+type BuildInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=Kind,proto3" json:"Kind,omitempty"` // secret, input-artifact, or metadata-config
+	Name          string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	Data          []byte                 `protobuf:"bytes,3,opt,name=Data,proto3" json:"Data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildInput) Reset() {
+	*x = BuildInput{}
+	mi := &file_clientpb_client_proto_msgTypes[177]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildInput) ProtoMessage() {}
+
+func (x *BuildInput) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[177]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildInput.ProtoReflect.Descriptor instead.
+func (*BuildInput) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{177}
+}
+
+func (x *BuildInput) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *BuildInput) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildInput) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+// The neutral request contains references and typed options, never executor
+// commands or source bundles. Inputs carry ephemeral per-build material;
+// normalized BuildPlan requests omit that material.
+type BuildRequest struct {
+	state            protoimpl.MessageState   `protogen:"open.v1"`
+	Name             string                   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	Target           *BuildTarget             `protobuf:"bytes,2,opt,name=Target,proto3" json:"Target,omitempty"`
+	Mode             string                   `protobuf:"bytes,3,opt,name=Mode,proto3" json:"Mode,omitempty"` // session or beacon
+	C2               []*BuildEndpoint         `protobuf:"bytes,4,rep,name=C2,proto3" json:"C2,omitempty"`
+	IncludeProtocols []string                 `protobuf:"bytes,5,rep,name=IncludeProtocols,proto3" json:"IncludeProtocols,omitempty"`
+	Format           string                   `protobuf:"bytes,6,opt,name=Format,proto3" json:"Format,omitempty"`
+	Core             *BuildSpecRef            `protobuf:"bytes,7,opt,name=Core,proto3" json:"Core,omitempty"`
+	CoreOutput       *BuildArtifactType       `protobuf:"bytes,8,opt,name=CoreOutput,proto3" json:"CoreOutput,omitempty"`
+	CoreOptions      []*BuildOption           `protobuf:"bytes,9,rep,name=CoreOptions,proto3" json:"CoreOptions,omitempty"`
+	Transforms       []*BuildTransformRequest `protobuf:"bytes,10,rep,name=Transforms,proto3" json:"Transforms,omitempty"`
+	Provider         *BuildProviderPolicy     `protobuf:"bytes,11,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	Inputs           []*BuildInput            `protobuf:"bytes,12,rep,name=Inputs,proto3" json:"Inputs,omitempty"`
+	C2Settings       *BuildC2Settings         `protobuf:"bytes,13,opt,name=C2Settings,proto3" json:"C2Settings,omitempty"`
+	BeaconSettings   *BuildBeaconSettings     `protobuf:"bytes,14,opt,name=BeaconSettings,proto3" json:"BeaconSettings,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *BuildRequest) Reset() {
+	*x = BuildRequest{}
+	mi := &file_clientpb_client_proto_msgTypes[178]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildRequest) ProtoMessage() {}
+
+func (x *BuildRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[178]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildRequest.ProtoReflect.Descriptor instead.
+func (*BuildRequest) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{178}
+}
+
+func (x *BuildRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildRequest) GetTarget() *BuildTarget {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *BuildRequest) GetC2() []*BuildEndpoint {
+	if x != nil {
+		return x.C2
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetIncludeProtocols() []string {
+	if x != nil {
+		return x.IncludeProtocols
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *BuildRequest) GetCore() *BuildSpecRef {
+	if x != nil {
+		return x.Core
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetCoreOutput() *BuildArtifactType {
+	if x != nil {
+		return x.CoreOutput
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetCoreOptions() []*BuildOption {
+	if x != nil {
+		return x.CoreOptions
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetTransforms() []*BuildTransformRequest {
+	if x != nil {
+		return x.Transforms
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetProvider() *BuildProviderPolicy {
+	if x != nil {
+		return x.Provider
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetInputs() []*BuildInput {
+	if x != nil {
+		return x.Inputs
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetC2Settings() *BuildC2Settings {
+	if x != nil {
+		return x.C2Settings
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetBeaconSettings() *BuildBeaconSettings {
+	if x != nil {
+		return x.BeaconSettings
+	}
+	return nil
+}
+
+type BuildC2Settings struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	ConnectionStrategy       string                 `protobuf:"bytes,1,opt,name=ConnectionStrategy,proto3" json:"ConnectionStrategy,omitempty"` // sequential, random, random-domain
+	ReconnectSeconds         uint64                 `protobuf:"varint,2,opt,name=ReconnectSeconds,proto3" json:"ReconnectSeconds,omitempty"`
+	PollTimeoutSeconds       uint64                 `protobuf:"varint,3,opt,name=PollTimeoutSeconds,proto3" json:"PollTimeoutSeconds,omitempty"`
+	MaxConnectionErrors      uint32                 `protobuf:"varint,4,opt,name=MaxConnectionErrors,proto3" json:"MaxConnectionErrors,omitempty"`
+	HTTPC2Profile            string                 `protobuf:"bytes,5,opt,name=HTTPC2Profile,proto3" json:"HTTPC2Profile,omitempty"`
+	WireguardKeyExchangePort uint32                 `protobuf:"varint,6,opt,name=WireguardKeyExchangePort,proto3" json:"WireguardKeyExchangePort,omitempty"`
+	WireguardTCPCommsPort    uint32                 `protobuf:"varint,7,opt,name=WireguardTCPCommsPort,proto3" json:"WireguardTCPCommsPort,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *BuildC2Settings) Reset() {
+	*x = BuildC2Settings{}
+	mi := &file_clientpb_client_proto_msgTypes[179]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildC2Settings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildC2Settings) ProtoMessage() {}
+
+func (x *BuildC2Settings) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[179]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildC2Settings.ProtoReflect.Descriptor instead.
+func (*BuildC2Settings) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{179}
+}
+
+func (x *BuildC2Settings) GetConnectionStrategy() string {
+	if x != nil {
+		return x.ConnectionStrategy
+	}
+	return ""
+}
+
+func (x *BuildC2Settings) GetReconnectSeconds() uint64 {
+	if x != nil {
+		return x.ReconnectSeconds
+	}
+	return 0
+}
+
+func (x *BuildC2Settings) GetPollTimeoutSeconds() uint64 {
+	if x != nil {
+		return x.PollTimeoutSeconds
+	}
+	return 0
+}
+
+func (x *BuildC2Settings) GetMaxConnectionErrors() uint32 {
+	if x != nil {
+		return x.MaxConnectionErrors
+	}
+	return 0
+}
+
+func (x *BuildC2Settings) GetHTTPC2Profile() string {
+	if x != nil {
+		return x.HTTPC2Profile
+	}
+	return ""
+}
+
+func (x *BuildC2Settings) GetWireguardKeyExchangePort() uint32 {
+	if x != nil {
+		return x.WireguardKeyExchangePort
+	}
+	return 0
+}
+
+func (x *BuildC2Settings) GetWireguardTCPCommsPort() uint32 {
+	if x != nil {
+		return x.WireguardTCPCommsPort
+	}
+	return 0
+}
+
+type BuildBeaconSettings struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	IntervalSeconds uint64                 `protobuf:"varint,1,opt,name=IntervalSeconds,proto3" json:"IntervalSeconds,omitempty"`
+	JitterSeconds   uint64                 `protobuf:"varint,2,opt,name=JitterSeconds,proto3" json:"JitterSeconds,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BuildBeaconSettings) Reset() {
+	*x = BuildBeaconSettings{}
+	mi := &file_clientpb_client_proto_msgTypes[180]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildBeaconSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildBeaconSettings) ProtoMessage() {}
+
+func (x *BuildBeaconSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[180]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildBeaconSettings.ProtoReflect.Descriptor instead.
+func (*BuildBeaconSettings) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{180}
+}
+
+func (x *BuildBeaconSettings) GetIntervalSeconds() uint64 {
+	if x != nil {
+		return x.IntervalSeconds
+	}
+	return 0
+}
+
+func (x *BuildBeaconSettings) GetJitterSeconds() uint64 {
+	if x != nil {
+		return x.JitterSeconds
+	}
+	return 0
+}
+
+// BuildProfileDocument is a canonical server-owned YAML profile. Its final
+// artifact type is resolved from the full ordered pipeline, not a legacy
+// ImplantConfig format flag.
+type BuildProfileDocument struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	Revision       uint64                 `protobuf:"varint,2,opt,name=Revision,proto3" json:"Revision,omitempty"`
+	YAML           string                 `protobuf:"bytes,3,opt,name=YAML,proto3" json:"YAML,omitempty"`
+	FinalArtifact  *BuildArtifactType     `protobuf:"bytes,4,opt,name=FinalArtifact,proto3" json:"FinalArtifact,omitempty"`
+	Migrated       bool                   `protobuf:"varint,5,opt,name=Migrated,proto3" json:"Migrated,omitempty"`
+	MigrationError string                 `protobuf:"bytes,6,opt,name=MigrationError,proto3" json:"MigrationError,omitempty"` // Legacy definition cannot be represented faithfully.
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *BuildProfileDocument) Reset() {
+	*x = BuildProfileDocument{}
+	mi := &file_clientpb_client_proto_msgTypes[181]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildProfileDocument) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildProfileDocument) ProtoMessage() {}
+
+func (x *BuildProfileDocument) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[181]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildProfileDocument.ProtoReflect.Descriptor instead.
+func (*BuildProfileDocument) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{181}
+}
+
+func (x *BuildProfileDocument) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildProfileDocument) GetRevision() uint64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *BuildProfileDocument) GetYAML() string {
+	if x != nil {
+		return x.YAML
+	}
+	return ""
+}
+
+func (x *BuildProfileDocument) GetFinalArtifact() *BuildArtifactType {
+	if x != nil {
+		return x.FinalArtifact
+	}
+	return nil
+}
+
+func (x *BuildProfileDocument) GetMigrated() bool {
+	if x != nil {
+		return x.Migrated
+	}
+	return false
+}
+
+func (x *BuildProfileDocument) GetMigrationError() string {
+	if x != nil {
+		return x.MigrationError
+	}
+	return ""
+}
+
+type BuildProfileRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildProfileRef) Reset() {
+	*x = BuildProfileRef{}
+	mi := &file_clientpb_client_proto_msgTypes[182]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildProfileRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildProfileRef) ProtoMessage() {}
+
+func (x *BuildProfileRef) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[182]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildProfileRef.ProtoReflect.Descriptor instead.
+func (*BuildProfileRef) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{182}
+}
+
+func (x *BuildProfileRef) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type BuildProfileList struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Profiles      []*BuildProfileDocument `protobuf:"bytes,1,rep,name=Profiles,proto3" json:"Profiles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildProfileList) Reset() {
+	*x = BuildProfileList{}
+	mi := &file_clientpb_client_proto_msgTypes[183]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildProfileList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildProfileList) ProtoMessage() {}
+
+func (x *BuildProfileList) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[183]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildProfileList.ProtoReflect.Descriptor instead.
+func (*BuildProfileList) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{183}
+}
+
+func (x *BuildProfileList) GetProfiles() []*BuildProfileDocument {
+	if x != nil {
+		return x.Profiles
+	}
+	return nil
+}
+
+type BuildProfileImportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	YAML          string                 `protobuf:"bytes,1,opt,name=YAML,proto3" json:"YAML,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildProfileImportRequest) Reset() {
+	*x = BuildProfileImportRequest{}
+	mi := &file_clientpb_client_proto_msgTypes[184]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildProfileImportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildProfileImportRequest) ProtoMessage() {}
+
+func (x *BuildProfileImportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[184]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildProfileImportRequest.ProtoReflect.Descriptor instead.
+func (*BuildProfileImportRequest) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{184}
+}
+
+func (x *BuildProfileImportRequest) GetYAML() string {
+	if x != nil {
+		return x.YAML
+	}
+	return ""
+}
+
+// Only these per-build values may override a saved profile. Each override is
+// checked by the planner again before any build work starts.
+type BuildProfileExecuteRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Name             string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	BuildName        string                 `protobuf:"bytes,2,opt,name=BuildName,proto3" json:"BuildName,omitempty"`
+	Provider         *BuildProviderPolicy   `protobuf:"bytes,3,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	Inputs           []*BuildInput          `protobuf:"bytes,4,rep,name=Inputs,proto3" json:"Inputs,omitempty"`
+	ShellcodeEncoder string                 `protobuf:"bytes,5,opt,name=ShellcodeEncoder,proto3" json:"ShellcodeEncoder,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *BuildProfileExecuteRequest) Reset() {
+	*x = BuildProfileExecuteRequest{}
+	mi := &file_clientpb_client_proto_msgTypes[185]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildProfileExecuteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildProfileExecuteRequest) ProtoMessage() {}
+
+func (x *BuildProfileExecuteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[185]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildProfileExecuteRequest.ProtoReflect.Descriptor instead.
+func (*BuildProfileExecuteRequest) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{185}
+}
+
+func (x *BuildProfileExecuteRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildProfileExecuteRequest) GetBuildName() string {
+	if x != nil {
+		return x.BuildName
+	}
+	return ""
+}
+
+func (x *BuildProfileExecuteRequest) GetProvider() *BuildProviderPolicy {
+	if x != nil {
+		return x.Provider
+	}
+	return nil
+}
+
+func (x *BuildProfileExecuteRequest) GetInputs() []*BuildInput {
+	if x != nil {
+		return x.Inputs
+	}
+	return nil
+}
+
+func (x *BuildProfileExecuteRequest) GetShellcodeEncoder() string {
+	if x != nil {
+		return x.ShellcodeEncoder
+	}
+	return ""
+}
+
+type BuildPlanStep struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	ID                    string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	Kind                  string                 `protobuf:"bytes,2,opt,name=Kind,proto3" json:"Kind,omitempty"` // core or transform
+	Spec                  *BuildSpecRef          `protobuf:"bytes,3,opt,name=Spec,proto3" json:"Spec,omitempty"`
+	Provider              string                 `protobuf:"bytes,4,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	Toolchain             string                 `protobuf:"bytes,5,opt,name=Toolchain,proto3" json:"Toolchain,omitempty"`
+	Input                 *BuildArtifactType     `protobuf:"bytes,6,opt,name=Input,proto3" json:"Input,omitempty"`
+	Output                *BuildArtifactType     `protobuf:"bytes,7,opt,name=Output,proto3" json:"Output,omitempty"`
+	ToolchainRequirements []string               `protobuf:"bytes,8,rep,name=ToolchainRequirements,proto3" json:"ToolchainRequirements,omitempty"`
+	ToolchainIdentity     string                 `protobuf:"bytes,9,opt,name=ToolchainIdentity,proto3" json:"ToolchainIdentity,omitempty"`
+	Options               []*BuildOption         `protobuf:"bytes,10,rep,name=Options,proto3" json:"Options,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *BuildPlanStep) Reset() {
+	*x = BuildPlanStep{}
+	mi := &file_clientpb_client_proto_msgTypes[186]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildPlanStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildPlanStep) ProtoMessage() {}
+
+func (x *BuildPlanStep) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[186]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildPlanStep.ProtoReflect.Descriptor instead.
+func (*BuildPlanStep) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{186}
+}
+
+func (x *BuildPlanStep) GetID() string {
+	if x != nil {
+		return x.ID
+	}
+	return ""
+}
+
+func (x *BuildPlanStep) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *BuildPlanStep) GetSpec() *BuildSpecRef {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *BuildPlanStep) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *BuildPlanStep) GetToolchain() string {
+	if x != nil {
+		return x.Toolchain
+	}
+	return ""
+}
+
+func (x *BuildPlanStep) GetInput() *BuildArtifactType {
+	if x != nil {
+		return x.Input
+	}
+	return nil
+}
+
+func (x *BuildPlanStep) GetOutput() *BuildArtifactType {
+	if x != nil {
+		return x.Output
+	}
+	return nil
+}
+
+func (x *BuildPlanStep) GetToolchainRequirements() []string {
+	if x != nil {
+		return x.ToolchainRequirements
+	}
+	return nil
+}
+
+func (x *BuildPlanStep) GetToolchainIdentity() string {
+	if x != nil {
+		return x.ToolchainIdentity
+	}
+	return ""
+}
+
+func (x *BuildPlanStep) GetOptions() []*BuildOption {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+type BuildPlan struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *BuildRequest          `protobuf:"bytes,1,opt,name=Request,proto3" json:"Request,omitempty"`
+	Steps         []*BuildPlanStep       `protobuf:"bytes,2,rep,name=Steps,proto3" json:"Steps,omitempty"`
+	FinalArtifact *BuildArtifactType     `protobuf:"bytes,3,opt,name=FinalArtifact,proto3" json:"FinalArtifact,omitempty"`
+	PlanSHA256    string                 `protobuf:"bytes,4,opt,name=PlanSHA256,proto3" json:"PlanSHA256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildPlan) Reset() {
+	*x = BuildPlan{}
+	mi := &file_clientpb_client_proto_msgTypes[187]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildPlan) ProtoMessage() {}
+
+func (x *BuildPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[187]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildPlan.ProtoReflect.Descriptor instead.
+func (*BuildPlan) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{187}
+}
+
+func (x *BuildPlan) GetRequest() *BuildRequest {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+func (x *BuildPlan) GetSteps() []*BuildPlanStep {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+func (x *BuildPlan) GetFinalArtifact() *BuildArtifactType {
+	if x != nil {
+		return x.FinalArtifact
+	}
+	return nil
+}
+
+func (x *BuildPlan) GetPlanSHA256() string {
+	if x != nil {
+		return x.PlanSHA256
+	}
+	return ""
+}
+
+type BuildFailure struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=Code,proto3" json:"Code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=Message,proto3" json:"Message,omitempty"`
+	StepID        string                 `protobuf:"bytes,3,opt,name=StepID,proto3" json:"StepID,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildFailure) Reset() {
+	*x = BuildFailure{}
+	mi := &file_clientpb_client_proto_msgTypes[188]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildFailure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildFailure) ProtoMessage() {}
+
+func (x *BuildFailure) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[188]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildFailure.ProtoReflect.Descriptor instead.
+func (*BuildFailure) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{188}
+}
+
+func (x *BuildFailure) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *BuildFailure) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *BuildFailure) GetStepID() string {
+	if x != nil {
+		return x.StepID
+	}
+	return ""
+}
+
+type BuildArtifactMetadata struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          *BuildArtifactType     `protobuf:"bytes,1,opt,name=Type,proto3" json:"Type,omitempty"`
+	FileName      string                 `protobuf:"bytes,2,opt,name=FileName,proto3" json:"FileName,omitempty"`
+	SizeBytes     uint64                 `protobuf:"varint,3,opt,name=SizeBytes,proto3" json:"SizeBytes,omitempty"`
+	SHA256        string                 `protobuf:"bytes,4,opt,name=SHA256,proto3" json:"SHA256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildArtifactMetadata) Reset() {
+	*x = BuildArtifactMetadata{}
+	mi := &file_clientpb_client_proto_msgTypes[189]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildArtifactMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildArtifactMetadata) ProtoMessage() {}
+
+func (x *BuildArtifactMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[189]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildArtifactMetadata.ProtoReflect.Descriptor instead.
+func (*BuildArtifactMetadata) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{189}
+}
+
+func (x *BuildArtifactMetadata) GetType() *BuildArtifactType {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+func (x *BuildArtifactMetadata) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+func (x *BuildArtifactMetadata) GetSizeBytes() uint64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *BuildArtifactMetadata) GetSHA256() string {
+	if x != nil {
+		return x.SHA256
+	}
+	return ""
+}
+
+type BuildArtifactRevision struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Number        uint32                 `protobuf:"varint,1,opt,name=Number,proto3" json:"Number,omitempty"`
+	UpdatedUnix   int64                  `protobuf:"varint,2,opt,name=UpdatedUnix,proto3" json:"UpdatedUnix,omitempty"`
+	Artifact      *BuildArtifactMetadata `protobuf:"bytes,3,opt,name=Artifact,proto3" json:"Artifact,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildArtifactRevision) Reset() {
+	*x = BuildArtifactRevision{}
+	mi := &file_clientpb_client_proto_msgTypes[190]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildArtifactRevision) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildArtifactRevision) ProtoMessage() {}
+
+func (x *BuildArtifactRevision) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[190]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildArtifactRevision.ProtoReflect.Descriptor instead.
+func (*BuildArtifactRevision) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{190}
+}
+
+func (x *BuildArtifactRevision) GetNumber() uint32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *BuildArtifactRevision) GetUpdatedUnix() int64 {
+	if x != nil {
+		return x.UpdatedUnix
+	}
+	return 0
+}
+
+func (x *BuildArtifactRevision) GetArtifact() *BuildArtifactMetadata {
+	if x != nil {
+		return x.Artifact
+	}
+	return nil
+}
+
+type BuildStepCandidate struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Name                 string                 `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	ReportedUnix         int64                  `protobuf:"varint,2,opt,name=ReportedUnix,proto3" json:"ReportedUnix,omitempty"`
+	AvailableMemoryBytes uint64                 `protobuf:"varint,3,opt,name=AvailableMemoryBytes,proto3" json:"AvailableMemoryBytes,omitempty"`
+	ReservedMemoryBytes  uint64                 `protobuf:"varint,4,opt,name=ReservedMemoryBytes,proto3" json:"ReservedMemoryBytes,omitempty"`
+	RoundedAvailableMB   uint64                 `protobuf:"varint,5,opt,name=RoundedAvailableMB,proto3" json:"RoundedAvailableMB,omitempty"`
+	EffectiveCPUCores    uint32                 `protobuf:"varint,6,opt,name=EffectiveCPUCores,proto3" json:"EffectiveCPUCores,omitempty"`
+	ToolchainIdentity    string                 `protobuf:"bytes,7,opt,name=ToolchainIdentity,proto3" json:"ToolchainIdentity,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *BuildStepCandidate) Reset() {
+	*x = BuildStepCandidate{}
+	mi := &file_clientpb_client_proto_msgTypes[191]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildStepCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildStepCandidate) ProtoMessage() {}
+
+func (x *BuildStepCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[191]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildStepCandidate.ProtoReflect.Descriptor instead.
+func (*BuildStepCandidate) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{191}
+}
+
+func (x *BuildStepCandidate) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BuildStepCandidate) GetReportedUnix() int64 {
+	if x != nil {
+		return x.ReportedUnix
+	}
+	return 0
+}
+
+func (x *BuildStepCandidate) GetAvailableMemoryBytes() uint64 {
+	if x != nil {
+		return x.AvailableMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuildStepCandidate) GetReservedMemoryBytes() uint64 {
+	if x != nil {
+		return x.ReservedMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuildStepCandidate) GetRoundedAvailableMB() uint64 {
+	if x != nil {
+		return x.RoundedAvailableMB
+	}
+	return 0
+}
+
+func (x *BuildStepCandidate) GetEffectiveCPUCores() uint32 {
+	if x != nil {
+		return x.EffectiveCPUCores
+	}
+	return 0
+}
+
+func (x *BuildStepCandidate) GetToolchainIdentity() string {
+	if x != nil {
+		return x.ToolchainIdentity
+	}
+	return ""
+}
+
+// The server records the status report and scheduling decision used for an
+// assigned step. Values are captured at selection, not recomputed later.
+type BuildStepSelection struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Builder                 string                 `protobuf:"bytes,1,opt,name=Builder,proto3" json:"Builder,omitempty"`
+	ReportedUnix            int64                  `protobuf:"varint,2,opt,name=ReportedUnix,proto3" json:"ReportedUnix,omitempty"`
+	AvailableMemoryBytes    uint64                 `protobuf:"varint,3,opt,name=AvailableMemoryBytes,proto3" json:"AvailableMemoryBytes,omitempty"`
+	ReservedMemoryBytes     uint64                 `protobuf:"varint,4,opt,name=ReservedMemoryBytes,proto3" json:"ReservedMemoryBytes,omitempty"`
+	RoundedAvailableMB      uint64                 `protobuf:"varint,5,opt,name=RoundedAvailableMB,proto3" json:"RoundedAvailableMB,omitempty"`
+	EffectiveCPUCores       uint32                 `protobuf:"varint,6,opt,name=EffectiveCPUCores,proto3" json:"EffectiveCPUCores,omitempty"`
+	RequiredPeakMemoryBytes uint64                 `protobuf:"varint,7,opt,name=RequiredPeakMemoryBytes,proto3" json:"RequiredPeakMemoryBytes,omitempty"`
+	Decision                string                 `protobuf:"bytes,8,opt,name=Decision,proto3" json:"Decision,omitempty"`
+	Candidates              []*BuildStepCandidate  `protobuf:"bytes,9,rep,name=Candidates,proto3" json:"Candidates,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *BuildStepSelection) Reset() {
+	*x = BuildStepSelection{}
+	mi := &file_clientpb_client_proto_msgTypes[192]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildStepSelection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildStepSelection) ProtoMessage() {}
+
+func (x *BuildStepSelection) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[192]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildStepSelection.ProtoReflect.Descriptor instead.
+func (*BuildStepSelection) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{192}
+}
+
+func (x *BuildStepSelection) GetBuilder() string {
+	if x != nil {
+		return x.Builder
+	}
+	return ""
+}
+
+func (x *BuildStepSelection) GetReportedUnix() int64 {
+	if x != nil {
+		return x.ReportedUnix
+	}
+	return 0
+}
+
+func (x *BuildStepSelection) GetAvailableMemoryBytes() uint64 {
+	if x != nil {
+		return x.AvailableMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuildStepSelection) GetReservedMemoryBytes() uint64 {
+	if x != nil {
+		return x.ReservedMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuildStepSelection) GetRoundedAvailableMB() uint64 {
+	if x != nil {
+		return x.RoundedAvailableMB
+	}
+	return 0
+}
+
+func (x *BuildStepSelection) GetEffectiveCPUCores() uint32 {
+	if x != nil {
+		return x.EffectiveCPUCores
+	}
+	return 0
+}
+
+func (x *BuildStepSelection) GetRequiredPeakMemoryBytes() uint64 {
+	if x != nil {
+		return x.RequiredPeakMemoryBytes
+	}
+	return 0
+}
+
+func (x *BuildStepSelection) GetDecision() string {
+	if x != nil {
+		return x.Decision
+	}
+	return ""
+}
+
+func (x *BuildStepSelection) GetCandidates() []*BuildStepCandidate {
+	if x != nil {
+		return x.Candidates
+	}
+	return nil
+}
+
+type BuildStepProgress struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	StepID            string                 `protobuf:"bytes,1,opt,name=StepID,proto3" json:"StepID,omitempty"`
+	State             BuildStepState         `protobuf:"varint,2,opt,name=State,proto3,enum=clientpb.BuildStepState" json:"State,omitempty"`
+	Message           string                 `protobuf:"bytes,3,opt,name=Message,proto3" json:"Message,omitempty"`
+	StartedUnix       int64                  `protobuf:"varint,4,opt,name=StartedUnix,proto3" json:"StartedUnix,omitempty"`
+	FinishedUnix      int64                  `protobuf:"varint,5,opt,name=FinishedUnix,proto3" json:"FinishedUnix,omitempty"`
+	Artifact          *BuildArtifactMetadata `protobuf:"bytes,6,opt,name=Artifact,proto3" json:"Artifact,omitempty"`
+	Failure           *BuildFailure          `protobuf:"bytes,7,opt,name=Failure,proto3" json:"Failure,omitempty"`
+	ProgressPercent   uint32                 `protobuf:"varint,8,opt,name=ProgressPercent,proto3" json:"ProgressPercent,omitempty"`
+	ToolchainIdentity string                 `protobuf:"bytes,9,opt,name=ToolchainIdentity,proto3" json:"ToolchainIdentity,omitempty"`
+	Selection         *BuildStepSelection    `protobuf:"bytes,10,opt,name=Selection,proto3" json:"Selection,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *BuildStepProgress) Reset() {
+	*x = BuildStepProgress{}
+	mi := &file_clientpb_client_proto_msgTypes[193]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildStepProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildStepProgress) ProtoMessage() {}
+
+func (x *BuildStepProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[193]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildStepProgress.ProtoReflect.Descriptor instead.
+func (*BuildStepProgress) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{193}
+}
+
+func (x *BuildStepProgress) GetStepID() string {
+	if x != nil {
+		return x.StepID
+	}
+	return ""
+}
+
+func (x *BuildStepProgress) GetState() BuildStepState {
+	if x != nil {
+		return x.State
+	}
+	return BuildStepState_BUILD_STEP_PENDING
+}
+
+func (x *BuildStepProgress) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *BuildStepProgress) GetStartedUnix() int64 {
+	if x != nil {
+		return x.StartedUnix
+	}
+	return 0
+}
+
+func (x *BuildStepProgress) GetFinishedUnix() int64 {
+	if x != nil {
+		return x.FinishedUnix
+	}
+	return 0
+}
+
+func (x *BuildStepProgress) GetArtifact() *BuildArtifactMetadata {
+	if x != nil {
+		return x.Artifact
+	}
+	return nil
+}
+
+func (x *BuildStepProgress) GetFailure() *BuildFailure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+func (x *BuildStepProgress) GetProgressPercent() uint32 {
+	if x != nil {
+		return x.ProgressPercent
+	}
+	return 0
+}
+
+func (x *BuildStepProgress) GetToolchainIdentity() string {
+	if x != nil {
+		return x.ToolchainIdentity
+	}
+	return ""
+}
+
+func (x *BuildStepProgress) GetSelection() *BuildStepSelection {
+	if x != nil {
+		return x.Selection
+	}
+	return nil
+}
+
+type BuildRecord struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	ID            string                   `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	State         BuildRecordState         `protobuf:"varint,2,opt,name=State,proto3,enum=clientpb.BuildRecordState" json:"State,omitempty"`
+	Plan          *BuildPlan               `protobuf:"bytes,3,opt,name=Plan,proto3" json:"Plan,omitempty"`
+	Steps         []*BuildStepProgress     `protobuf:"bytes,4,rep,name=Steps,proto3" json:"Steps,omitempty"`
+	FinalArtifact *BuildArtifactMetadata   `protobuf:"bytes,5,opt,name=FinalArtifact,proto3" json:"FinalArtifact,omitempty"`
+	Failure       *BuildFailure            `protobuf:"bytes,6,opt,name=Failure,proto3" json:"Failure,omitempty"`
+	CreatedUnix   int64                    `protobuf:"varint,7,opt,name=CreatedUnix,proto3" json:"CreatedUnix,omitempty"`
+	FinishedUnix  int64                    `protobuf:"varint,8,opt,name=FinishedUnix,proto3" json:"FinishedUnix,omitempty"`
+	UpdatedUnix   int64                    `protobuf:"varint,9,opt,name=UpdatedUnix,proto3" json:"UpdatedUnix,omitempty"`
+	FinalRevision uint32                   `protobuf:"varint,10,opt,name=FinalRevision,proto3" json:"FinalRevision,omitempty"`
+	FinalHistory  []*BuildArtifactRevision `protobuf:"bytes,11,rep,name=FinalHistory,proto3" json:"FinalHistory,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildRecord) Reset() {
+	*x = BuildRecord{}
+	mi := &file_clientpb_client_proto_msgTypes[194]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildRecord) ProtoMessage() {}
+
+func (x *BuildRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[194]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildRecord.ProtoReflect.Descriptor instead.
+func (*BuildRecord) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{194}
+}
+
+func (x *BuildRecord) GetID() string {
+	if x != nil {
+		return x.ID
+	}
+	return ""
+}
+
+func (x *BuildRecord) GetState() BuildRecordState {
+	if x != nil {
+		return x.State
+	}
+	return BuildRecordState_BUILD_RECORD_PENDING
+}
+
+func (x *BuildRecord) GetPlan() *BuildPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+func (x *BuildRecord) GetSteps() []*BuildStepProgress {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+func (x *BuildRecord) GetFinalArtifact() *BuildArtifactMetadata {
+	if x != nil {
+		return x.FinalArtifact
+	}
+	return nil
+}
+
+func (x *BuildRecord) GetFailure() *BuildFailure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+func (x *BuildRecord) GetCreatedUnix() int64 {
+	if x != nil {
+		return x.CreatedUnix
+	}
+	return 0
+}
+
+func (x *BuildRecord) GetFinishedUnix() int64 {
+	if x != nil {
+		return x.FinishedUnix
+	}
+	return 0
+}
+
+func (x *BuildRecord) GetUpdatedUnix() int64 {
+	if x != nil {
+		return x.UpdatedUnix
+	}
+	return 0
+}
+
+func (x *BuildRecord) GetFinalRevision() uint32 {
+	if x != nil {
+		return x.FinalRevision
+	}
+	return 0
+}
+
+func (x *BuildRecord) GetFinalHistory() []*BuildArtifactRevision {
+	if x != nil {
+		return x.FinalHistory
+	}
+	return nil
+}
+
+type BuildRecordRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ID            string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildRecordRef) Reset() {
+	*x = BuildRecordRef{}
+	mi := &file_clientpb_client_proto_msgTypes[195]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildRecordRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildRecordRef) ProtoMessage() {}
+
+func (x *BuildRecordRef) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[195]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildRecordRef.ProtoReflect.Descriptor instead.
+func (*BuildRecordRef) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{195}
+}
+
+func (x *BuildRecordRef) GetID() string {
+	if x != nil {
+		return x.ID
+	}
+	return ""
+}
+
+type BuildArtifactResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	File          *commonpb.File         `protobuf:"bytes,1,opt,name=File,proto3" json:"File,omitempty"`
+	Metadata      *BuildArtifactMetadata `protobuf:"bytes,2,opt,name=Metadata,proto3" json:"Metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildArtifactResponse) Reset() {
+	*x = BuildArtifactResponse{}
+	mi := &file_clientpb_client_proto_msgTypes[196]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildArtifactResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildArtifactResponse) ProtoMessage() {}
+
+func (x *BuildArtifactResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[196]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildArtifactResponse.ProtoReflect.Descriptor instead.
+func (*BuildArtifactResponse) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{196}
+}
+
+func (x *BuildArtifactResponse) GetFile() *commonpb.File {
+	if x != nil {
+		return x.File
+	}
+	return nil
+}
+
+func (x *BuildArtifactResponse) GetMetadata() *BuildArtifactMetadata {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
@@ -17189,10 +20570,11 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\tRenameReq\x12\x1c\n" +
 	"\tSessionID\x18\x01 \x01(\tR\tSessionID\x12\x1a\n" +
 	"\bBeaconID\x18\x02 \x01(\tR\bBeaconID\x12\x12\n" +
-	"\x04Name\x18\x03 \x01(\tR\x04Name\"R\n" +
+	"\x04Name\x18\x03 \x01(\tR\x04Name\"\x97\x01\n" +
 	"\vGenerateReq\x12/\n" +
 	"\x06Config\x18\x01 \x01(\v2\x17.clientpb.ImplantConfigR\x06Config\x12\x12\n" +
-	"\x04Name\x18\x02 \x01(\tR\x04Name\"\x8c\x02\n" +
+	"\x04Name\x18\x02 \x01(\tR\x04Name\x12C\n" +
+	"\rSpoofMetadata\x18\x03 \x01(\v2\x1d.clientpb.SpoofMetadataConfigR\rSpoofMetadata\"\x8c\x02\n" +
 	"\x10GenerateStageReq\x12\x18\n" +
 	"\aProfile\x18\x01 \x01(\tR\aProfile\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12$\n" +
@@ -17404,7 +20786,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\vBuilderName\x18\x02 \x01(\tR\vBuilderName\x12\x12\n" +
 	"\x04Name\x18\x03 \x01(\tR\x04Name\"9\n" +
 	"\bBuilders\x12-\n" +
-	"\bBuilders\x18\x01 \x03(\v2\x11.clientpb.BuilderR\bBuilders\"\x80\x02\n" +
+	"\bBuilders\x18\x01 \x03(\v2\x11.clientpb.BuilderR\bBuilders\"\xe6\x03\n" +
 	"\aBuilder\x12\x12\n" +
 	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\"\n" +
 	"\fOperatorName\x18\x02 \x01(\tR\fOperatorName\x12\x12\n" +
@@ -17412,7 +20794,68 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x06GOARCH\x18\x04 \x01(\tR\x06GOARCH\x12\x1c\n" +
 	"\tTemplates\x18\x05 \x03(\tR\tTemplates\x122\n" +
 	"\aTargets\x18\x06 \x03(\v2\x18.clientpb.CompilerTargetR\aTargets\x12?\n" +
-	"\x0eCrossCompilers\x18\a \x03(\v2\x17.clientpb.CrossCompilerR\x0eCrossCompilers\"A\n" +
+	"\x0eCrossCompilers\x18\a \x03(\v2\x17.clientpb.CrossCompilerR\x0eCrossCompilers\x12\x1a\n" +
+	"\bSpecYAML\x18\b \x03(\tR\bSpecYAML\x122\n" +
+	"\bSpecRefs\x18\t \x03(\v2\x16.clientpb.BuildSpecRefR\bSpecRefs\x12?\n" +
+	"\fCapabilities\x18\n" +
+	" \x03(\v2\x1b.clientpb.BuilderCapabilityR\fCapabilities\x12/\n" +
+	"\x06Status\x18\v \x01(\v2\x17.clientpb.BuilderStatusR\x06Status\x12\"\n" +
+	"\fSessionToken\x18\f \x01(\fR\fSessionToken\"~\n" +
+	"\x11BuilderCapability\x12*\n" +
+	"\x04Spec\x18\x01 \x01(\v2\x16.clientpb.BuildSpecRefR\x04Spec\x12=\n" +
+	"\n" +
+	"Capability\x18\x02 \x01(\v2\x1d.clientpb.BuildSpecCapabilityR\n" +
+	"Capability\"\xbd\x01\n" +
+	"\x16BuilderToolchainStatus\x12\x16\n" +
+	"\x06Driver\x18\x01 \x01(\tR\x06Driver\x12-\n" +
+	"\x06Target\x18\x02 \x01(\v2\x15.clientpb.BuildTargetR\x06Target\x12\"\n" +
+	"\fRequirements\x18\x03 \x03(\tR\fRequirements\x12\x1a\n" +
+	"\bIdentity\x18\x04 \x01(\tR\bIdentity\x12\x1c\n" +
+	"\tAvailable\x18\x05 \x01(\bR\tAvailable\"\xbf\x02\n" +
+	"\rBuilderStatus\x12,\n" +
+	"\x11EffectiveCPUCores\x18\x01 \x01(\rR\x11EffectiveCPUCores\x122\n" +
+	"\x14AvailableMemoryBytes\x18\x02 \x01(\x04R\x14AvailableMemoryBytes\x12\"\n" +
+	"\fReportedUnix\x18\x03 \x01(\x03R\fReportedUnix\x12\x16\n" +
+	"\x06Online\x18\x04 \x01(\bR\x06Online\x12\x1c\n" +
+	"\tAvailable\x18\x05 \x01(\bR\tAvailable\x120\n" +
+	"\x13ReservedMemoryBytes\x18\x06 \x01(\x04R\x13ReservedMemoryBytes\x12@\n" +
+	"\n" +
+	"Toolchains\x18\a \x03(\v2 .clientpb.BuilderToolchainStatusR\n" +
+	"Toolchains\"\xf1\x01\n" +
+	"\x13BuilderStatusReport\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\"\n" +
+	"\fSessionToken\x18\x02 \x01(\fR\fSessionToken\x12,\n" +
+	"\x11EffectiveCPUCores\x18\x03 \x01(\rR\x11EffectiveCPUCores\x122\n" +
+	"\x14AvailableMemoryBytes\x18\x04 \x01(\x04R\x14AvailableMemoryBytes\x12@\n" +
+	"\n" +
+	"Toolchains\x18\x05 \x03(\v2 .clientpb.BuilderToolchainStatusR\n" +
+	"Toolchains\"z\n" +
+	"\x0eBuilderStepRef\x12 \n" +
+	"\vBuilderName\x18\x01 \x01(\tR\vBuilderName\x12\"\n" +
+	"\fSessionToken\x18\x02 \x01(\fR\fSessionToken\x12\"\n" +
+	"\fAssignmentID\x18\x03 \x01(\tR\fAssignmentID\"\x8f\x01\n" +
+	"\x14BuildArtifactPayload\x12/\n" +
+	"\x04Type\x18\x01 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x04Type\x12\x1a\n" +
+	"\bFileName\x18\x02 \x01(\tR\bFileName\x12\x12\n" +
+	"\x04Data\x18\x03 \x01(\fR\x04Data\x12\x16\n" +
+	"\x06SHA256\x18\x04 \x01(\tR\x06SHA256\"\xda\x02\n" +
+	"\x12BuilderStepRequest\x12\"\n" +
+	"\fAssignmentID\x18\x01 \x01(\tR\fAssignmentID\x12\x18\n" +
+	"\aBuildID\x18\x02 \x01(\tR\aBuildID\x12+\n" +
+	"\x04Step\x18\x03 \x01(\v2\x17.clientpb.BuildPlanStepR\x04Step\x120\n" +
+	"\aRequest\x18\x04 \x01(\v2\x16.clientpb.BuildRequestR\aRequest\x124\n" +
+	"\x05Input\x18\x05 \x01(\v2\x1e.clientpb.BuildArtifactPayloadR\x05Input\x12C\n" +
+	"\fSliverConfig\x18\x06 \x01(\v2\x1f.clientpb.ExternalImplantConfigR\fSliverConfig\x12,\n" +
+	"\x06Inputs\x18\a \x03(\v2\x14.clientpb.BuildInputR\x06Inputs\"\xf0\x02\n" +
+	"\x11BuilderStepResult\x12 \n" +
+	"\vBuilderName\x18\x01 \x01(\tR\vBuilderName\x12\"\n" +
+	"\fSessionToken\x18\x02 \x01(\fR\fSessionToken\x12\"\n" +
+	"\fAssignmentID\x18\x03 \x01(\tR\fAssignmentID\x12*\n" +
+	"\x04Spec\x18\x04 \x01(\v2\x16.clientpb.BuildSpecRefR\x04Spec\x12-\n" +
+	"\x06Target\x18\x05 \x01(\v2\x15.clientpb.BuildTargetR\x06Target\x126\n" +
+	"\x06Output\x18\x06 \x01(\v2\x1e.clientpb.BuildArtifactPayloadR\x06Output\x12,\n" +
+	"\x11ToolchainIdentity\x18\a \x01(\tR\x11ToolchainIdentity\x120\n" +
+	"\aFailure\x18\b \x01(\v2\x16.clientpb.BuildFailureR\aFailure\"A\n" +
 	"\rHTTPC2Configs\x120\n" +
 	"\aconfigs\x18\x01 \x03(\v2\x16.clientpb.HTTPC2ConfigR\aconfigs\"\"\n" +
 	"\fC2ProfileReq\x12\x12\n" +
@@ -18182,7 +21625,220 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"Y\n" +
 	"\x17CrackBenchmarkSnapshots\x12>\n" +
-	"\tSnapshots\x18\x01 \x03(\v2 .clientpb.CrackBenchmarkSnapshotR\tSnapshots*k\n" +
+	"\tSnapshots\x18\x01 \x03(\v2 .clientpb.CrackBenchmarkSnapshotR\tSnapshots\"9\n" +
+	"\vBuildTarget\x12\x12\n" +
+	"\x04GOOS\x18\x01 \x01(\tR\x04GOOS\x12\x16\n" +
+	"\x06GOARCH\x18\x02 \x01(\tR\x06GOARCH\"T\n" +
+	"\fBuildSpecRef\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x18\n" +
+	"\aVersion\x18\x02 \x01(\tR\aVersion\x12\x16\n" +
+	"\x06Digest\x18\x03 \x01(\tR\x06Digest\"\xb7\x01\n" +
+	"\x11BuildArtifactType\x12\x12\n" +
+	"\x04Kind\x18\x01 \x01(\tR\x04Kind\x12\x1c\n" +
+	"\tContainer\x18\x02 \x01(\tR\tContainer\x12\x12\n" +
+	"\x04GOOS\x18\x03 \x01(\tR\x04GOOS\x12\x16\n" +
+	"\x06GOARCH\x18\x04 \x01(\tR\x06GOARCH\x12 \n" +
+	"\vGoBuildMode\x18\x05 \x01(\tR\vGoBuildMode\x12\"\n" +
+	"\fEntrySymbols\x18\x06 \x03(\tR\fEntrySymbols\"\xd8\x03\n" +
+	"\x13BuildSpecCapability\x12/\n" +
+	"\aTargets\x18\x01 \x03(\v2\x15.clientpb.BuildTargetR\aTargets\x12\x12\n" +
+	"\x04Mode\x18\x02 \x01(\tR\x04Mode\x12\x1c\n" +
+	"\tProtocols\x18\x03 \x03(\tR\tProtocols\x121\n" +
+	"\x05Input\x18\x04 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x05Input\x123\n" +
+	"\x06Output\x18\x05 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x06Output\x12(\n" +
+	"\x0fOperatorFormats\x18\x06 \x03(\tR\x0fOperatorFormats\x12(\n" +
+	"\x0fToolchainDriver\x18\a \x01(\tR\x0fToolchainDriver\x124\n" +
+	"\x15ToolchainRequirements\x18\b \x03(\tR\x15ToolchainRequirements\x12:\n" +
+	"\x18EstimatedPeakMemoryBytes\x18\t \x01(\x04R\x18EstimatedPeakMemoryBytes\x120\n" +
+	"\x13RequiresEntrySymbol\x18\n" +
+	" \x01(\bR\x13RequiresEntrySymbol\"i\n" +
+	"\x0fBuildSpecOrigin\x12\x16\n" +
+	"\x06Source\x18\x01 \x01(\tR\x06Source\x12\x1a\n" +
+	"\bProvider\x18\x02 \x01(\tR\bProvider\x12\"\n" +
+	"\fLastSeenUnix\x18\x03 \x01(\x03R\fLastSeenUnix\"c\n" +
+	"\x11BuildSpecProvider\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x16\n" +
+	"\x06Online\x18\x02 \x01(\bR\x06Online\x12\"\n" +
+	"\fLastSeenUnix\x18\x03 \x01(\x03R\fLastSeenUnix\"\xe1\x03\n" +
+	"\tBuildSpec\x12+\n" +
+	"\x04Kind\x18\x01 \x01(\x0e2\x17.clientpb.BuildSpecKindR\x04Kind\x12(\n" +
+	"\x03Ref\x18\x02 \x01(\v2\x16.clientpb.BuildSpecRefR\x03Ref\x12\x1e\n" +
+	"\n" +
+	"ExecutorID\x18\x03 \x01(\tR\n" +
+	"ExecutorID\x12(\n" +
+	"\x0fRuntimeProtocol\x18\x04 \x01(\tR\x0fRuntimeProtocol\x12$\n" +
+	"\rCommandSource\x18\x05 \x01(\tR\rCommandSource\x12(\n" +
+	"\x0fRuntimeCommands\x18\x06 \x03(\tR\x0fRuntimeCommands\x12A\n" +
+	"\fCapabilities\x18\a \x03(\v2\x1d.clientpb.BuildSpecCapabilityR\fCapabilities\x123\n" +
+	"\aOrigins\x18\b \x03(\v2\x19.clientpb.BuildSpecOriginR\aOrigins\x129\n" +
+	"\tProviders\x18\t \x03(\v2\x1b.clientpb.BuildSpecProviderR\tProviders\x12\x1c\n" +
+	"\tAvailable\x18\n" +
+	" \x01(\bR\tAvailable\x12\x12\n" +
+	"\x04YAML\x18\v \x01(\fR\x04YAML\"\xda\x01\n" +
+	"\x0eBuildSpecQuery\x12+\n" +
+	"\x04Kind\x18\x01 \x01(\x0e2\x17.clientpb.BuildSpecKindR\x04Kind\x12\x12\n" +
+	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x1e\n" +
+	"\n" +
+	"TargetGOOS\x18\x03 \x01(\tR\n" +
+	"TargetGOOS\x12\"\n" +
+	"\fTargetGOARCH\x18\x04 \x01(\tR\fTargetGOARCH\x12C\n" +
+	"\fAvailability\x18\x05 \x01(\x0e2\x1f.clientpb.BuildSpecAvailabilityR\fAvailability\"i\n" +
+	"\x10BuildSpecRequest\x12+\n" +
+	"\x04Kind\x18\x01 \x01(\x0e2\x17.clientpb.BuildSpecKindR\x04Kind\x12(\n" +
+	"\x03Ref\x18\x02 \x01(\v2\x16.clientpb.BuildSpecRefR\x03Ref\":\n" +
+	"\rBuildSpecList\x12)\n" +
+	"\x05Specs\x18\x01 \x03(\v2\x13.clientpb.BuildSpecR\x05Specs\"?\n" +
+	"\vBuildOption\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x1c\n" +
+	"\tValueJSON\x18\x02 \x01(\fR\tValueJSON\"E\n" +
+	"\rBuildEndpoint\x12\x1a\n" +
+	"\bProtocol\x18\x01 \x01(\tR\bProtocol\x12\x18\n" +
+	"\aAddress\x18\x02 \x01(\tR\aAddress\"t\n" +
+	"\x15BuildTransformRequest\x12*\n" +
+	"\x04Spec\x18\x01 \x01(\v2\x16.clientpb.BuildSpecRefR\x04Spec\x12/\n" +
+	"\aOptions\x18\x02 \x03(\v2\x15.clientpb.BuildOptionR\aOptions\"C\n" +
+	"\x13BuildProviderPolicy\x12\x12\n" +
+	"\x04Mode\x18\x01 \x01(\tR\x04Mode\x12\x18\n" +
+	"\aBuilder\x18\x02 \x01(\tR\aBuilder\"H\n" +
+	"\n" +
+	"BuildInput\x12\x12\n" +
+	"\x04Kind\x18\x01 \x01(\tR\x04Kind\x12\x12\n" +
+	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x12\n" +
+	"\x04Data\x18\x03 \x01(\fR\x04Data\"\xa0\x05\n" +
+	"\fBuildRequest\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12-\n" +
+	"\x06Target\x18\x02 \x01(\v2\x15.clientpb.BuildTargetR\x06Target\x12\x12\n" +
+	"\x04Mode\x18\x03 \x01(\tR\x04Mode\x12'\n" +
+	"\x02C2\x18\x04 \x03(\v2\x17.clientpb.BuildEndpointR\x02C2\x12*\n" +
+	"\x10IncludeProtocols\x18\x05 \x03(\tR\x10IncludeProtocols\x12\x16\n" +
+	"\x06Format\x18\x06 \x01(\tR\x06Format\x12*\n" +
+	"\x04Core\x18\a \x01(\v2\x16.clientpb.BuildSpecRefR\x04Core\x12;\n" +
+	"\n" +
+	"CoreOutput\x18\b \x01(\v2\x1b.clientpb.BuildArtifactTypeR\n" +
+	"CoreOutput\x127\n" +
+	"\vCoreOptions\x18\t \x03(\v2\x15.clientpb.BuildOptionR\vCoreOptions\x12?\n" +
+	"\n" +
+	"Transforms\x18\n" +
+	" \x03(\v2\x1f.clientpb.BuildTransformRequestR\n" +
+	"Transforms\x129\n" +
+	"\bProvider\x18\v \x01(\v2\x1d.clientpb.BuildProviderPolicyR\bProvider\x12,\n" +
+	"\x06Inputs\x18\f \x03(\v2\x14.clientpb.BuildInputR\x06Inputs\x129\n" +
+	"\n" +
+	"C2Settings\x18\r \x01(\v2\x19.clientpb.BuildC2SettingsR\n" +
+	"C2Settings\x12E\n" +
+	"\x0eBeaconSettings\x18\x0e \x01(\v2\x1d.clientpb.BuildBeaconSettingsR\x0eBeaconSettings\"\xe7\x02\n" +
+	"\x0fBuildC2Settings\x12.\n" +
+	"\x12ConnectionStrategy\x18\x01 \x01(\tR\x12ConnectionStrategy\x12*\n" +
+	"\x10ReconnectSeconds\x18\x02 \x01(\x04R\x10ReconnectSeconds\x12.\n" +
+	"\x12PollTimeoutSeconds\x18\x03 \x01(\x04R\x12PollTimeoutSeconds\x120\n" +
+	"\x13MaxConnectionErrors\x18\x04 \x01(\rR\x13MaxConnectionErrors\x12$\n" +
+	"\rHTTPC2Profile\x18\x05 \x01(\tR\rHTTPC2Profile\x12:\n" +
+	"\x18WireguardKeyExchangePort\x18\x06 \x01(\rR\x18WireguardKeyExchangePort\x124\n" +
+	"\x15WireguardTCPCommsPort\x18\a \x01(\rR\x15WireguardTCPCommsPort\"e\n" +
+	"\x13BuildBeaconSettings\x12(\n" +
+	"\x0fIntervalSeconds\x18\x01 \x01(\x04R\x0fIntervalSeconds\x12$\n" +
+	"\rJitterSeconds\x18\x02 \x01(\x04R\rJitterSeconds\"\xe1\x01\n" +
+	"\x14BuildProfileDocument\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x1a\n" +
+	"\bRevision\x18\x02 \x01(\x04R\bRevision\x12\x12\n" +
+	"\x04YAML\x18\x03 \x01(\tR\x04YAML\x12A\n" +
+	"\rFinalArtifact\x18\x04 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\rFinalArtifact\x12\x1a\n" +
+	"\bMigrated\x18\x05 \x01(\bR\bMigrated\x12&\n" +
+	"\x0eMigrationError\x18\x06 \x01(\tR\x0eMigrationError\"%\n" +
+	"\x0fBuildProfileRef\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\"N\n" +
+	"\x10BuildProfileList\x12:\n" +
+	"\bProfiles\x18\x01 \x03(\v2\x1e.clientpb.BuildProfileDocumentR\bProfiles\"/\n" +
+	"\x19BuildProfileImportRequest\x12\x12\n" +
+	"\x04YAML\x18\x01 \x01(\tR\x04YAML\"\xe3\x01\n" +
+	"\x1aBuildProfileExecuteRequest\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x1c\n" +
+	"\tBuildName\x18\x02 \x01(\tR\tBuildName\x129\n" +
+	"\bProvider\x18\x03 \x01(\v2\x1d.clientpb.BuildProviderPolicyR\bProvider\x12,\n" +
+	"\x06Inputs\x18\x04 \x03(\v2\x14.clientpb.BuildInputR\x06Inputs\x12*\n" +
+	"\x10ShellcodeEncoder\x18\x05 \x01(\tR\x10ShellcodeEncoder\"\x96\x03\n" +
+	"\rBuildPlanStep\x12\x0e\n" +
+	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
+	"\x04Kind\x18\x02 \x01(\tR\x04Kind\x12*\n" +
+	"\x04Spec\x18\x03 \x01(\v2\x16.clientpb.BuildSpecRefR\x04Spec\x12\x1a\n" +
+	"\bProvider\x18\x04 \x01(\tR\bProvider\x12\x1c\n" +
+	"\tToolchain\x18\x05 \x01(\tR\tToolchain\x121\n" +
+	"\x05Input\x18\x06 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x05Input\x123\n" +
+	"\x06Output\x18\a \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x06Output\x124\n" +
+	"\x15ToolchainRequirements\x18\b \x03(\tR\x15ToolchainRequirements\x12,\n" +
+	"\x11ToolchainIdentity\x18\t \x01(\tR\x11ToolchainIdentity\x12/\n" +
+	"\aOptions\x18\n" +
+	" \x03(\v2\x15.clientpb.BuildOptionR\aOptions\"\xcf\x01\n" +
+	"\tBuildPlan\x120\n" +
+	"\aRequest\x18\x01 \x01(\v2\x16.clientpb.BuildRequestR\aRequest\x12-\n" +
+	"\x05Steps\x18\x02 \x03(\v2\x17.clientpb.BuildPlanStepR\x05Steps\x12A\n" +
+	"\rFinalArtifact\x18\x03 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\rFinalArtifact\x12\x1e\n" +
+	"\n" +
+	"PlanSHA256\x18\x04 \x01(\tR\n" +
+	"PlanSHA256\"T\n" +
+	"\fBuildFailure\x12\x12\n" +
+	"\x04Code\x18\x01 \x01(\tR\x04Code\x12\x18\n" +
+	"\aMessage\x18\x02 \x01(\tR\aMessage\x12\x16\n" +
+	"\x06StepID\x18\x03 \x01(\tR\x06StepID\"\x9a\x01\n" +
+	"\x15BuildArtifactMetadata\x12/\n" +
+	"\x04Type\x18\x01 \x01(\v2\x1b.clientpb.BuildArtifactTypeR\x04Type\x12\x1a\n" +
+	"\bFileName\x18\x02 \x01(\tR\bFileName\x12\x1c\n" +
+	"\tSizeBytes\x18\x03 \x01(\x04R\tSizeBytes\x12\x16\n" +
+	"\x06SHA256\x18\x04 \x01(\tR\x06SHA256\"\x8e\x01\n" +
+	"\x15BuildArtifactRevision\x12\x16\n" +
+	"\x06Number\x18\x01 \x01(\rR\x06Number\x12 \n" +
+	"\vUpdatedUnix\x18\x02 \x01(\x03R\vUpdatedUnix\x12;\n" +
+	"\bArtifact\x18\x03 \x01(\v2\x1f.clientpb.BuildArtifactMetadataR\bArtifact\"\xbe\x02\n" +
+	"\x12BuildStepCandidate\x12\x12\n" +
+	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\"\n" +
+	"\fReportedUnix\x18\x02 \x01(\x03R\fReportedUnix\x122\n" +
+	"\x14AvailableMemoryBytes\x18\x03 \x01(\x04R\x14AvailableMemoryBytes\x120\n" +
+	"\x13ReservedMemoryBytes\x18\x04 \x01(\x04R\x13ReservedMemoryBytes\x12.\n" +
+	"\x12RoundedAvailableMB\x18\x05 \x01(\x04R\x12RoundedAvailableMB\x12,\n" +
+	"\x11EffectiveCPUCores\x18\x06 \x01(\rR\x11EffectiveCPUCores\x12,\n" +
+	"\x11ToolchainIdentity\x18\a \x01(\tR\x11ToolchainIdentity\"\xaa\x03\n" +
+	"\x12BuildStepSelection\x12\x18\n" +
+	"\aBuilder\x18\x01 \x01(\tR\aBuilder\x12\"\n" +
+	"\fReportedUnix\x18\x02 \x01(\x03R\fReportedUnix\x122\n" +
+	"\x14AvailableMemoryBytes\x18\x03 \x01(\x04R\x14AvailableMemoryBytes\x120\n" +
+	"\x13ReservedMemoryBytes\x18\x04 \x01(\x04R\x13ReservedMemoryBytes\x12.\n" +
+	"\x12RoundedAvailableMB\x18\x05 \x01(\x04R\x12RoundedAvailableMB\x12,\n" +
+	"\x11EffectiveCPUCores\x18\x06 \x01(\rR\x11EffectiveCPUCores\x128\n" +
+	"\x17RequiredPeakMemoryBytes\x18\a \x01(\x04R\x17RequiredPeakMemoryBytes\x12\x1a\n" +
+	"\bDecision\x18\b \x01(\tR\bDecision\x12<\n" +
+	"\n" +
+	"Candidates\x18\t \x03(\v2\x1c.clientpb.BuildStepCandidateR\n" +
+	"Candidates\"\xbe\x03\n" +
+	"\x11BuildStepProgress\x12\x16\n" +
+	"\x06StepID\x18\x01 \x01(\tR\x06StepID\x12.\n" +
+	"\x05State\x18\x02 \x01(\x0e2\x18.clientpb.BuildStepStateR\x05State\x12\x18\n" +
+	"\aMessage\x18\x03 \x01(\tR\aMessage\x12 \n" +
+	"\vStartedUnix\x18\x04 \x01(\x03R\vStartedUnix\x12\"\n" +
+	"\fFinishedUnix\x18\x05 \x01(\x03R\fFinishedUnix\x12;\n" +
+	"\bArtifact\x18\x06 \x01(\v2\x1f.clientpb.BuildArtifactMetadataR\bArtifact\x120\n" +
+	"\aFailure\x18\a \x01(\v2\x16.clientpb.BuildFailureR\aFailure\x12(\n" +
+	"\x0fProgressPercent\x18\b \x01(\rR\x0fProgressPercent\x12,\n" +
+	"\x11ToolchainIdentity\x18\t \x01(\tR\x11ToolchainIdentity\x12:\n" +
+	"\tSelection\x18\n" +
+	" \x01(\v2\x1c.clientpb.BuildStepSelectionR\tSelection\"\xf7\x03\n" +
+	"\vBuildRecord\x12\x0e\n" +
+	"\x02ID\x18\x01 \x01(\tR\x02ID\x120\n" +
+	"\x05State\x18\x02 \x01(\x0e2\x1a.clientpb.BuildRecordStateR\x05State\x12'\n" +
+	"\x04Plan\x18\x03 \x01(\v2\x13.clientpb.BuildPlanR\x04Plan\x121\n" +
+	"\x05Steps\x18\x04 \x03(\v2\x1b.clientpb.BuildStepProgressR\x05Steps\x12E\n" +
+	"\rFinalArtifact\x18\x05 \x01(\v2\x1f.clientpb.BuildArtifactMetadataR\rFinalArtifact\x120\n" +
+	"\aFailure\x18\x06 \x01(\v2\x16.clientpb.BuildFailureR\aFailure\x12 \n" +
+	"\vCreatedUnix\x18\a \x01(\x03R\vCreatedUnix\x12\"\n" +
+	"\fFinishedUnix\x18\b \x01(\x03R\fFinishedUnix\x12 \n" +
+	"\vUpdatedUnix\x18\t \x01(\x03R\vUpdatedUnix\x12$\n" +
+	"\rFinalRevision\x18\n" +
+	" \x01(\rR\rFinalRevision\x12C\n" +
+	"\fFinalHistory\x18\v \x03(\v2\x1f.clientpb.BuildArtifactRevisionR\fFinalHistory\" \n" +
+	"\x0eBuildRecordRef\x12\x0e\n" +
+	"\x02ID\x18\x01 \x01(\tR\x02ID\"x\n" +
+	"\x15BuildArtifactResponse\x12\"\n" +
+	"\x04File\x18\x01 \x01(\v2\x0e.commonpb.FileR\x04File\x12;\n" +
+	"\bMetadata\x18\x02 \x01(\v2\x1f.clientpb.BuildArtifactMetadataR\bMetadata*k\n" +
 	"\fOutputFormat\x12\x0e\n" +
 	"\n" +
 	"SHARED_LIB\x10\x00\x12\r\n" +
@@ -18929,7 +22585,27 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x1cCRACK_QUERY_TOTAL_CANDIDATES\x10\x02\x12\x16\n" +
 	"\x12CRACK_QUERY_LOOKUP\x10\x03\x12\x18\n" +
 	"\x14CRACK_QUERY_IDENTIFY\x10\x04\x12\x19\n" +
-	"\x15CRACK_QUERY_HASH_INFO\x10\x05B/Z-github.com/bishopfox/sliver/protobuf/clientpbb\x06proto3"
+	"\x15CRACK_QUERY_HASH_INFO\x10\x05*Z\n" +
+	"\rBuildSpecKind\x12\x1a\n" +
+	"\x16BUILD_SPEC_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fBUILD_SPEC_CORE\x10\x01\x12\x18\n" +
+	"\x14BUILD_SPEC_TRANSFORM\x10\x02*a\n" +
+	"\x15BuildSpecAvailability\x12\x12\n" +
+	"\x0eBUILD_SPEC_ALL\x10\x00\x12\x18\n" +
+	"\x14BUILD_SPEC_AVAILABLE\x10\x01\x12\x1a\n" +
+	"\x16BUILD_SPEC_UNAVAILABLE\x10\x02*\x8b\x01\n" +
+	"\x0eBuildStepState\x12\x16\n" +
+	"\x12BUILD_STEP_PENDING\x10\x00\x12\x16\n" +
+	"\x12BUILD_STEP_RUNNING\x10\x01\x12\x18\n" +
+	"\x14BUILD_STEP_SUCCEEDED\x10\x02\x12\x15\n" +
+	"\x11BUILD_STEP_FAILED\x10\x03\x12\x18\n" +
+	"\x14BUILD_STEP_CANCELLED\x10\x04*\x97\x01\n" +
+	"\x10BuildRecordState\x12\x18\n" +
+	"\x14BUILD_RECORD_PENDING\x10\x00\x12\x18\n" +
+	"\x14BUILD_RECORD_RUNNING\x10\x01\x12\x1a\n" +
+	"\x16BUILD_RECORD_SUCCEEDED\x10\x02\x12\x17\n" +
+	"\x13BUILD_RECORD_FAILED\x10\x03\x12\x1a\n" +
+	"\x16BUILD_RECORD_CANCELLED\x10\x04B/Z-github.com/bishopfox/sliver/protobuf/clientpbb\x06proto3"
 
 var (
 	file_clientpb_client_proto_rawDescOnce sync.Once
@@ -18943,8 +22619,8 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 	return file_clientpb_client_proto_rawDescData
 }
 
-var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 21)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 170)
+var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 25)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 212)
 var file_clientpb_client_proto_goTypes = []any{
 	(OutputFormat)(0),                      // 0: clientpb.OutputFormat
 	(StageProtocol)(0),                     // 1: clientpb.StageProtocol
@@ -18967,354 +22643,470 @@ var file_clientpb_client_proto_goTypes = []any{
 	(AIConversationMessageState)(0),        // 18: clientpb.AIConversationMessageState
 	(AIConversationEventType)(0),           // 19: clientpb.AIConversationEventType
 	(CrackQueryMode)(0),                    // 20: clientpb.CrackQueryMode
-	(*Version)(nil),                        // 21: clientpb.Version
-	(*ClientLogData)(nil),                  // 22: clientpb.ClientLogData
-	(*Session)(nil),                        // 23: clientpb.Session
-	(*Beacon)(nil),                         // 24: clientpb.Beacon
-	(*Beacons)(nil),                        // 25: clientpb.Beacons
-	(*BeaconTask)(nil),                     // 26: clientpb.BeaconTask
-	(*BeaconTasks)(nil),                    // 27: clientpb.BeaconTasks
-	(*BeaconIntegrity)(nil),                // 28: clientpb.BeaconIntegrity
-	(*ImplantC2)(nil),                      // 29: clientpb.ImplantC2
-	(*ShellcodeConfig)(nil),                // 30: clientpb.ShellcodeConfig
-	(*ImplantConfig)(nil),                  // 31: clientpb.ImplantConfig
-	(*SpoofMetadataFile)(nil),              // 32: clientpb.SpoofMetadataFile
-	(*IMAGE_RESOURCE_DIRECTORY)(nil),       // 33: clientpb.IMAGE_RESOURCE_DIRECTORY
-	(*IMAGE_RESOURCE_DIRECTORY_ENTRY)(nil), // 34: clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
-	(*IMAGE_RESOURCE_DATA_ENTRY)(nil),      // 35: clientpb.IMAGE_RESOURCE_DATA_ENTRY
-	(*IMAGE_EXPORT_DIRECTORY)(nil),         // 36: clientpb.IMAGE_EXPORT_DIRECTORY
-	(*PESpoofMetadataConfig)(nil),          // 37: clientpb.PESpoofMetadataConfig
-	(*SpoofMetadataConfig)(nil),            // 38: clientpb.SpoofMetadataConfig
-	(*TrafficEncoder)(nil),                 // 39: clientpb.TrafficEncoder
-	(*TrafficEncoderMap)(nil),              // 40: clientpb.TrafficEncoderMap
-	(*TrafficEncoderTest)(nil),             // 41: clientpb.TrafficEncoderTest
-	(*TrafficEncoderTests)(nil),            // 42: clientpb.TrafficEncoderTests
-	(*ExternalImplantConfig)(nil),          // 43: clientpb.ExternalImplantConfig
-	(*ExternalImplantBinary)(nil),          // 44: clientpb.ExternalImplantBinary
-	(*ImplantBuilds)(nil),                  // 45: clientpb.ImplantBuilds
-	(*ImplantStageReq)(nil),                // 46: clientpb.ImplantStageReq
-	(*ImplantBuild)(nil),                   // 47: clientpb.ImplantBuild
-	(*CompilerTarget)(nil),                 // 48: clientpb.CompilerTarget
-	(*CrossCompiler)(nil),                  // 49: clientpb.CrossCompiler
-	(*Compiler)(nil),                       // 50: clientpb.Compiler
-	(*DeleteReq)(nil),                      // 51: clientpb.DeleteReq
-	(*DNSCanary)(nil),                      // 52: clientpb.DNSCanary
-	(*Canaries)(nil),                       // 53: clientpb.Canaries
-	(*UniqueWGIP)(nil),                     // 54: clientpb.UniqueWGIP
-	(*ImplantProfile)(nil),                 // 55: clientpb.ImplantProfile
-	(*ImplantProfiles)(nil),                // 56: clientpb.ImplantProfiles
-	(*RegenerateReq)(nil),                  // 57: clientpb.RegenerateReq
-	(*Job)(nil),                            // 58: clientpb.Job
-	(*Jobs)(nil),                           // 59: clientpb.Jobs
-	(*KillJobReq)(nil),                     // 60: clientpb.KillJobReq
-	(*RestartJobReq)(nil),                  // 61: clientpb.RestartJobReq
-	(*KillJob)(nil),                        // 62: clientpb.KillJob
-	(*ListenerJob)(nil),                    // 63: clientpb.ListenerJob
-	(*MultiplayerListenerReq)(nil),         // 64: clientpb.MultiplayerListenerReq
-	(*MTLSListenerReq)(nil),                // 65: clientpb.MTLSListenerReq
-	(*WGListenerReq)(nil),                  // 66: clientpb.WGListenerReq
-	(*DNSListenerReq)(nil),                 // 67: clientpb.DNSListenerReq
-	(*HTTPListenerReq)(nil),                // 68: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),                  // 69: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),                     // 70: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),                    // 71: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),                       // 72: clientpb.TCPPivot
-	(*Sessions)(nil),                       // 73: clientpb.Sessions
-	(*RenameReq)(nil),                      // 74: clientpb.RenameReq
-	(*GenerateReq)(nil),                    // 75: clientpb.GenerateReq
-	(*GenerateStageReq)(nil),               // 76: clientpb.GenerateStageReq
-	(*Generate)(nil),                       // 77: clientpb.Generate
-	(*GenerateSpoofMetadataReq)(nil),       // 78: clientpb.GenerateSpoofMetadataReq
-	(*MSFReq)(nil),                         // 79: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),                   // 80: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),              // 81: clientpb.StagerListenerReq
-	(*StagerListener)(nil),                 // 82: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),                // 83: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),                   // 84: clientpb.ShellcodeRDI
-	(*GetSystemReq)(nil),                   // 85: clientpb.GetSystemReq
-	(*MigrateReq)(nil),                     // 86: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),                // 87: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),                   // 88: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),                 // 89: clientpb.CloseTunnelReq
-	(*PivotGraphEntry)(nil),                // 90: clientpb.PivotGraphEntry
-	(*PivotGraph)(nil),                     // 91: clientpb.PivotGraph
-	(*Client)(nil),                         // 92: clientpb.Client
-	(*Event)(nil),                          // 93: clientpb.Event
-	(*Operators)(nil),                      // 94: clientpb.Operators
-	(*Operator)(nil),                       // 95: clientpb.Operator
-	(*WebContent)(nil),                     // 96: clientpb.WebContent
-	(*WebsiteAddContent)(nil),              // 97: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil),           // 98: clientpb.WebsiteRemoveContent
-	(*Website)(nil),                        // 99: clientpb.Website
-	(*Websites)(nil),                       // 100: clientpb.Websites
-	(*WGClientConfig)(nil),                 // 101: clientpb.WGClientConfig
-	(*Loot)(nil),                           // 102: clientpb.Loot
-	(*AllLoot)(nil),                        // 103: clientpb.AllLoot
-	(*IOC)(nil),                            // 104: clientpb.IOC
-	(*ExtensionData)(nil),                  // 105: clientpb.ExtensionData
-	(*Host)(nil),                           // 106: clientpb.Host
-	(*AllHosts)(nil),                       // 107: clientpb.AllHosts
-	(*DllHijackReq)(nil),                   // 108: clientpb.DllHijackReq
-	(*DllHijack)(nil),                      // 109: clientpb.DllHijack
-	(*BackdoorReq)(nil),                    // 110: clientpb.BackdoorReq
-	(*Backdoor)(nil),                       // 111: clientpb.Backdoor
-	(*ShellcodeEncodeReq)(nil),             // 112: clientpb.ShellcodeEncodeReq
-	(*ShellcodeEncode)(nil),                // 113: clientpb.ShellcodeEncode
-	(*ShellcodeEncoderArchMap)(nil),        // 114: clientpb.ShellcodeEncoderArchMap
-	(*ShellcodeEncoderMap)(nil),            // 115: clientpb.ShellcodeEncoderMap
-	(*ExternalGenerateReq)(nil),            // 116: clientpb.ExternalGenerateReq
-	(*Builders)(nil),                       // 117: clientpb.Builders
-	(*Builder)(nil),                        // 118: clientpb.Builder
-	(*HTTPC2Configs)(nil),                  // 119: clientpb.HTTPC2Configs
-	(*C2ProfileReq)(nil),                   // 120: clientpb.C2ProfileReq
-	(*HTTPC2ConfigReq)(nil),                // 121: clientpb.HTTPC2ConfigReq
-	(*HTTPC2Config)(nil),                   // 122: clientpb.HTTPC2Config
-	(*HTTPC2ServerConfig)(nil),             // 123: clientpb.HTTPC2ServerConfig
-	(*HTTPC2ImplantConfig)(nil),            // 124: clientpb.HTTPC2ImplantConfig
-	(*HTTPC2Cookie)(nil),                   // 125: clientpb.HTTPC2Cookie
-	(*HTTPC2Header)(nil),                   // 126: clientpb.HTTPC2Header
-	(*HTTPC2URLParameter)(nil),             // 127: clientpb.HTTPC2URLParameter
-	(*HTTPC2PathSegment)(nil),              // 128: clientpb.HTTPC2PathSegment
-	(*Credential)(nil),                     // 129: clientpb.Credential
-	(*Credentials)(nil),                    // 130: clientpb.Credentials
-	(*Crackstations)(nil),                  // 131: clientpb.Crackstations
-	(*CrackstationStatus)(nil),             // 132: clientpb.CrackstationStatus
-	(*CrackSyncStatus)(nil),                // 133: clientpb.CrackSyncStatus
-	(*CrackBenchmark)(nil),                 // 134: clientpb.CrackBenchmark
-	(*CrackTask)(nil),                      // 135: clientpb.CrackTask
-	(*Crackstation)(nil),                   // 136: clientpb.Crackstation
-	(*CUDABackendInfo)(nil),                // 137: clientpb.CUDABackendInfo
-	(*OpenCLBackendInfo)(nil),              // 138: clientpb.OpenCLBackendInfo
-	(*MetalBackendInfo)(nil),               // 139: clientpb.MetalBackendInfo
-	(*HIPBackendInfo)(nil),                 // 140: clientpb.HIPBackendInfo
-	(*CrackCommand)(nil),                   // 141: clientpb.CrackCommand
-	(*CrackJob)(nil),                       // 142: clientpb.CrackJob
-	(*CrackJobs)(nil),                      // 143: clientpb.CrackJobs
-	(*CrackTopDevice)(nil),                 // 144: clientpb.CrackTopDevice
-	(*CrackTopTask)(nil),                   // 145: clientpb.CrackTopTask
-	(*CrackTopJob)(nil),                    // 146: clientpb.CrackTopJob
-	(*CrackTopStation)(nil),                // 147: clientpb.CrackTopStation
-	(*CrackTopSnapshot)(nil),               // 148: clientpb.CrackTopSnapshot
-	(*CrackResult)(nil),                    // 149: clientpb.CrackResult
-	(*CrackResponse)(nil),                  // 150: clientpb.CrackResponse
-	(*CrackConfig)(nil),                    // 151: clientpb.CrackConfig
-	(*CrackFiles)(nil),                     // 152: clientpb.CrackFiles
-	(*CrackFile)(nil),                      // 153: clientpb.CrackFile
-	(*CrackFileChunk)(nil),                 // 154: clientpb.CrackFileChunk
-	(*AIProviderConfigs)(nil),              // 155: clientpb.AIProviderConfigs
-	(*AIProviderConfig)(nil),               // 156: clientpb.AIProviderConfig
-	(*AIConfigSummary)(nil),                // 157: clientpb.AIConfigSummary
-	(*AIConversationReq)(nil),              // 158: clientpb.AIConversationReq
-	(*AIConversations)(nil),                // 159: clientpb.AIConversations
-	(*AIContextWindowUsage)(nil),           // 160: clientpb.AIContextWindowUsage
-	(*AIConversation)(nil),                 // 161: clientpb.AIConversation
-	(*AIConversationMessages)(nil),         // 162: clientpb.AIConversationMessages
-	(*AIConversationMessage)(nil),          // 163: clientpb.AIConversationMessage
-	(*AIConversationEvent)(nil),            // 164: clientpb.AIConversationEvent
-	(*MonitoringProviders)(nil),            // 165: clientpb.MonitoringProviders
-	(*MonitoringProvider)(nil),             // 166: clientpb.MonitoringProvider
-	(*ResourceID)(nil),                     // 167: clientpb.ResourceID
-	(*CertificatesReq)(nil),                // 168: clientpb.CertificatesReq
-	(*CertificateData)(nil),                // 169: clientpb.CertificateData
-	(*CertificateInfo)(nil),                // 170: clientpb.CertificateInfo
-	(*CertificateAuthorityData)(nil),       // 171: clientpb.CertificateAuthorityData
-	(*CertificateAuthorityInfo)(nil),       // 172: clientpb.CertificateAuthorityInfo
-	(*CrackQueryResult)(nil),               // 173: clientpb.CrackQueryResult
-	(*CrackBenchmarkSnapshot)(nil),         // 174: clientpb.CrackBenchmarkSnapshot
-	(*CrackBenchmarkSnapshots)(nil),        // 175: clientpb.CrackBenchmarkSnapshots
-	nil,                                    // 176: clientpb.TrafficEncoderMap.EncodersEntry
-	nil,                                    // 177: clientpb.ExternalImplantConfig.EncodersEntry
-	nil,                                    // 178: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                                    // 179: clientpb.ImplantBuilds.ResourceIDsEntry
-	nil,                                    // 180: clientpb.ImplantBuilds.StagedEntry
-	nil,                                    // 181: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                                    // 182: clientpb.Website.ContentsEntry
-	nil,                                    // 183: clientpb.Host.ExtensionDataEntry
-	nil,                                    // 184: clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	nil,                                    // 185: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	nil,                                    // 186: clientpb.ShellcodeEncoderMap.EncodersEntry
-	nil,                                    // 187: clientpb.CrackSyncStatus.ProgressEntry
-	nil,                                    // 188: clientpb.CrackBenchmark.BenchmarksEntry
-	nil,                                    // 189: clientpb.Crackstation.BenchmarksEntry
-	nil,                                    // 190: clientpb.CrackBenchmarkSnapshot.BenchmarksEntry
-	(*commonpb.File)(nil),                  // 191: commonpb.File
-	(*commonpb.Request)(nil),               // 192: commonpb.Request
-	(*commonpb.Response)(nil),              // 193: commonpb.Response
+	(BuildSpecKind)(0),                     // 21: clientpb.BuildSpecKind
+	(BuildSpecAvailability)(0),             // 22: clientpb.BuildSpecAvailability
+	(BuildStepState)(0),                    // 23: clientpb.BuildStepState
+	(BuildRecordState)(0),                  // 24: clientpb.BuildRecordState
+	(*Version)(nil),                        // 25: clientpb.Version
+	(*ClientLogData)(nil),                  // 26: clientpb.ClientLogData
+	(*Session)(nil),                        // 27: clientpb.Session
+	(*Beacon)(nil),                         // 28: clientpb.Beacon
+	(*Beacons)(nil),                        // 29: clientpb.Beacons
+	(*BeaconTask)(nil),                     // 30: clientpb.BeaconTask
+	(*BeaconTasks)(nil),                    // 31: clientpb.BeaconTasks
+	(*BeaconIntegrity)(nil),                // 32: clientpb.BeaconIntegrity
+	(*ImplantC2)(nil),                      // 33: clientpb.ImplantC2
+	(*ShellcodeConfig)(nil),                // 34: clientpb.ShellcodeConfig
+	(*ImplantConfig)(nil),                  // 35: clientpb.ImplantConfig
+	(*SpoofMetadataFile)(nil),              // 36: clientpb.SpoofMetadataFile
+	(*IMAGE_RESOURCE_DIRECTORY)(nil),       // 37: clientpb.IMAGE_RESOURCE_DIRECTORY
+	(*IMAGE_RESOURCE_DIRECTORY_ENTRY)(nil), // 38: clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
+	(*IMAGE_RESOURCE_DATA_ENTRY)(nil),      // 39: clientpb.IMAGE_RESOURCE_DATA_ENTRY
+	(*IMAGE_EXPORT_DIRECTORY)(nil),         // 40: clientpb.IMAGE_EXPORT_DIRECTORY
+	(*PESpoofMetadataConfig)(nil),          // 41: clientpb.PESpoofMetadataConfig
+	(*SpoofMetadataConfig)(nil),            // 42: clientpb.SpoofMetadataConfig
+	(*TrafficEncoder)(nil),                 // 43: clientpb.TrafficEncoder
+	(*TrafficEncoderMap)(nil),              // 44: clientpb.TrafficEncoderMap
+	(*TrafficEncoderTest)(nil),             // 45: clientpb.TrafficEncoderTest
+	(*TrafficEncoderTests)(nil),            // 46: clientpb.TrafficEncoderTests
+	(*ExternalImplantConfig)(nil),          // 47: clientpb.ExternalImplantConfig
+	(*ExternalImplantBinary)(nil),          // 48: clientpb.ExternalImplantBinary
+	(*ImplantBuilds)(nil),                  // 49: clientpb.ImplantBuilds
+	(*ImplantStageReq)(nil),                // 50: clientpb.ImplantStageReq
+	(*ImplantBuild)(nil),                   // 51: clientpb.ImplantBuild
+	(*CompilerTarget)(nil),                 // 52: clientpb.CompilerTarget
+	(*CrossCompiler)(nil),                  // 53: clientpb.CrossCompiler
+	(*Compiler)(nil),                       // 54: clientpb.Compiler
+	(*DeleteReq)(nil),                      // 55: clientpb.DeleteReq
+	(*DNSCanary)(nil),                      // 56: clientpb.DNSCanary
+	(*Canaries)(nil),                       // 57: clientpb.Canaries
+	(*UniqueWGIP)(nil),                     // 58: clientpb.UniqueWGIP
+	(*ImplantProfile)(nil),                 // 59: clientpb.ImplantProfile
+	(*ImplantProfiles)(nil),                // 60: clientpb.ImplantProfiles
+	(*RegenerateReq)(nil),                  // 61: clientpb.RegenerateReq
+	(*Job)(nil),                            // 62: clientpb.Job
+	(*Jobs)(nil),                           // 63: clientpb.Jobs
+	(*KillJobReq)(nil),                     // 64: clientpb.KillJobReq
+	(*RestartJobReq)(nil),                  // 65: clientpb.RestartJobReq
+	(*KillJob)(nil),                        // 66: clientpb.KillJob
+	(*ListenerJob)(nil),                    // 67: clientpb.ListenerJob
+	(*MultiplayerListenerReq)(nil),         // 68: clientpb.MultiplayerListenerReq
+	(*MTLSListenerReq)(nil),                // 69: clientpb.MTLSListenerReq
+	(*WGListenerReq)(nil),                  // 70: clientpb.WGListenerReq
+	(*DNSListenerReq)(nil),                 // 71: clientpb.DNSListenerReq
+	(*HTTPListenerReq)(nil),                // 72: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),                  // 73: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),                     // 74: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),                    // 75: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),                       // 76: clientpb.TCPPivot
+	(*Sessions)(nil),                       // 77: clientpb.Sessions
+	(*RenameReq)(nil),                      // 78: clientpb.RenameReq
+	(*GenerateReq)(nil),                    // 79: clientpb.GenerateReq
+	(*GenerateStageReq)(nil),               // 80: clientpb.GenerateStageReq
+	(*Generate)(nil),                       // 81: clientpb.Generate
+	(*GenerateSpoofMetadataReq)(nil),       // 82: clientpb.GenerateSpoofMetadataReq
+	(*MSFReq)(nil),                         // 83: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),                   // 84: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),              // 85: clientpb.StagerListenerReq
+	(*StagerListener)(nil),                 // 86: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),                // 87: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),                   // 88: clientpb.ShellcodeRDI
+	(*GetSystemReq)(nil),                   // 89: clientpb.GetSystemReq
+	(*MigrateReq)(nil),                     // 90: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),                // 91: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),                   // 92: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),                 // 93: clientpb.CloseTunnelReq
+	(*PivotGraphEntry)(nil),                // 94: clientpb.PivotGraphEntry
+	(*PivotGraph)(nil),                     // 95: clientpb.PivotGraph
+	(*Client)(nil),                         // 96: clientpb.Client
+	(*Event)(nil),                          // 97: clientpb.Event
+	(*Operators)(nil),                      // 98: clientpb.Operators
+	(*Operator)(nil),                       // 99: clientpb.Operator
+	(*WebContent)(nil),                     // 100: clientpb.WebContent
+	(*WebsiteAddContent)(nil),              // 101: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil),           // 102: clientpb.WebsiteRemoveContent
+	(*Website)(nil),                        // 103: clientpb.Website
+	(*Websites)(nil),                       // 104: clientpb.Websites
+	(*WGClientConfig)(nil),                 // 105: clientpb.WGClientConfig
+	(*Loot)(nil),                           // 106: clientpb.Loot
+	(*AllLoot)(nil),                        // 107: clientpb.AllLoot
+	(*IOC)(nil),                            // 108: clientpb.IOC
+	(*ExtensionData)(nil),                  // 109: clientpb.ExtensionData
+	(*Host)(nil),                           // 110: clientpb.Host
+	(*AllHosts)(nil),                       // 111: clientpb.AllHosts
+	(*DllHijackReq)(nil),                   // 112: clientpb.DllHijackReq
+	(*DllHijack)(nil),                      // 113: clientpb.DllHijack
+	(*BackdoorReq)(nil),                    // 114: clientpb.BackdoorReq
+	(*Backdoor)(nil),                       // 115: clientpb.Backdoor
+	(*ShellcodeEncodeReq)(nil),             // 116: clientpb.ShellcodeEncodeReq
+	(*ShellcodeEncode)(nil),                // 117: clientpb.ShellcodeEncode
+	(*ShellcodeEncoderArchMap)(nil),        // 118: clientpb.ShellcodeEncoderArchMap
+	(*ShellcodeEncoderMap)(nil),            // 119: clientpb.ShellcodeEncoderMap
+	(*ExternalGenerateReq)(nil),            // 120: clientpb.ExternalGenerateReq
+	(*Builders)(nil),                       // 121: clientpb.Builders
+	(*Builder)(nil),                        // 122: clientpb.Builder
+	(*BuilderCapability)(nil),              // 123: clientpb.BuilderCapability
+	(*BuilderToolchainStatus)(nil),         // 124: clientpb.BuilderToolchainStatus
+	(*BuilderStatus)(nil),                  // 125: clientpb.BuilderStatus
+	(*BuilderStatusReport)(nil),            // 126: clientpb.BuilderStatusReport
+	(*BuilderStepRef)(nil),                 // 127: clientpb.BuilderStepRef
+	(*BuildArtifactPayload)(nil),           // 128: clientpb.BuildArtifactPayload
+	(*BuilderStepRequest)(nil),             // 129: clientpb.BuilderStepRequest
+	(*BuilderStepResult)(nil),              // 130: clientpb.BuilderStepResult
+	(*HTTPC2Configs)(nil),                  // 131: clientpb.HTTPC2Configs
+	(*C2ProfileReq)(nil),                   // 132: clientpb.C2ProfileReq
+	(*HTTPC2ConfigReq)(nil),                // 133: clientpb.HTTPC2ConfigReq
+	(*HTTPC2Config)(nil),                   // 134: clientpb.HTTPC2Config
+	(*HTTPC2ServerConfig)(nil),             // 135: clientpb.HTTPC2ServerConfig
+	(*HTTPC2ImplantConfig)(nil),            // 136: clientpb.HTTPC2ImplantConfig
+	(*HTTPC2Cookie)(nil),                   // 137: clientpb.HTTPC2Cookie
+	(*HTTPC2Header)(nil),                   // 138: clientpb.HTTPC2Header
+	(*HTTPC2URLParameter)(nil),             // 139: clientpb.HTTPC2URLParameter
+	(*HTTPC2PathSegment)(nil),              // 140: clientpb.HTTPC2PathSegment
+	(*Credential)(nil),                     // 141: clientpb.Credential
+	(*Credentials)(nil),                    // 142: clientpb.Credentials
+	(*Crackstations)(nil),                  // 143: clientpb.Crackstations
+	(*CrackstationStatus)(nil),             // 144: clientpb.CrackstationStatus
+	(*CrackSyncStatus)(nil),                // 145: clientpb.CrackSyncStatus
+	(*CrackBenchmark)(nil),                 // 146: clientpb.CrackBenchmark
+	(*CrackTask)(nil),                      // 147: clientpb.CrackTask
+	(*Crackstation)(nil),                   // 148: clientpb.Crackstation
+	(*CUDABackendInfo)(nil),                // 149: clientpb.CUDABackendInfo
+	(*OpenCLBackendInfo)(nil),              // 150: clientpb.OpenCLBackendInfo
+	(*MetalBackendInfo)(nil),               // 151: clientpb.MetalBackendInfo
+	(*HIPBackendInfo)(nil),                 // 152: clientpb.HIPBackendInfo
+	(*CrackCommand)(nil),                   // 153: clientpb.CrackCommand
+	(*CrackJob)(nil),                       // 154: clientpb.CrackJob
+	(*CrackJobs)(nil),                      // 155: clientpb.CrackJobs
+	(*CrackTopDevice)(nil),                 // 156: clientpb.CrackTopDevice
+	(*CrackTopTask)(nil),                   // 157: clientpb.CrackTopTask
+	(*CrackTopJob)(nil),                    // 158: clientpb.CrackTopJob
+	(*CrackTopStation)(nil),                // 159: clientpb.CrackTopStation
+	(*CrackTopSnapshot)(nil),               // 160: clientpb.CrackTopSnapshot
+	(*CrackResult)(nil),                    // 161: clientpb.CrackResult
+	(*CrackResponse)(nil),                  // 162: clientpb.CrackResponse
+	(*CrackConfig)(nil),                    // 163: clientpb.CrackConfig
+	(*CrackFiles)(nil),                     // 164: clientpb.CrackFiles
+	(*CrackFile)(nil),                      // 165: clientpb.CrackFile
+	(*CrackFileChunk)(nil),                 // 166: clientpb.CrackFileChunk
+	(*AIProviderConfigs)(nil),              // 167: clientpb.AIProviderConfigs
+	(*AIProviderConfig)(nil),               // 168: clientpb.AIProviderConfig
+	(*AIConfigSummary)(nil),                // 169: clientpb.AIConfigSummary
+	(*AIConversationReq)(nil),              // 170: clientpb.AIConversationReq
+	(*AIConversations)(nil),                // 171: clientpb.AIConversations
+	(*AIContextWindowUsage)(nil),           // 172: clientpb.AIContextWindowUsage
+	(*AIConversation)(nil),                 // 173: clientpb.AIConversation
+	(*AIConversationMessages)(nil),         // 174: clientpb.AIConversationMessages
+	(*AIConversationMessage)(nil),          // 175: clientpb.AIConversationMessage
+	(*AIConversationEvent)(nil),            // 176: clientpb.AIConversationEvent
+	(*MonitoringProviders)(nil),            // 177: clientpb.MonitoringProviders
+	(*MonitoringProvider)(nil),             // 178: clientpb.MonitoringProvider
+	(*ResourceID)(nil),                     // 179: clientpb.ResourceID
+	(*CertificatesReq)(nil),                // 180: clientpb.CertificatesReq
+	(*CertificateData)(nil),                // 181: clientpb.CertificateData
+	(*CertificateInfo)(nil),                // 182: clientpb.CertificateInfo
+	(*CertificateAuthorityData)(nil),       // 183: clientpb.CertificateAuthorityData
+	(*CertificateAuthorityInfo)(nil),       // 184: clientpb.CertificateAuthorityInfo
+	(*CrackQueryResult)(nil),               // 185: clientpb.CrackQueryResult
+	(*CrackBenchmarkSnapshot)(nil),         // 186: clientpb.CrackBenchmarkSnapshot
+	(*CrackBenchmarkSnapshots)(nil),        // 187: clientpb.CrackBenchmarkSnapshots
+	(*BuildTarget)(nil),                    // 188: clientpb.BuildTarget
+	(*BuildSpecRef)(nil),                   // 189: clientpb.BuildSpecRef
+	(*BuildArtifactType)(nil),              // 190: clientpb.BuildArtifactType
+	(*BuildSpecCapability)(nil),            // 191: clientpb.BuildSpecCapability
+	(*BuildSpecOrigin)(nil),                // 192: clientpb.BuildSpecOrigin
+	(*BuildSpecProvider)(nil),              // 193: clientpb.BuildSpecProvider
+	(*BuildSpec)(nil),                      // 194: clientpb.BuildSpec
+	(*BuildSpecQuery)(nil),                 // 195: clientpb.BuildSpecQuery
+	(*BuildSpecRequest)(nil),               // 196: clientpb.BuildSpecRequest
+	(*BuildSpecList)(nil),                  // 197: clientpb.BuildSpecList
+	(*BuildOption)(nil),                    // 198: clientpb.BuildOption
+	(*BuildEndpoint)(nil),                  // 199: clientpb.BuildEndpoint
+	(*BuildTransformRequest)(nil),          // 200: clientpb.BuildTransformRequest
+	(*BuildProviderPolicy)(nil),            // 201: clientpb.BuildProviderPolicy
+	(*BuildInput)(nil),                     // 202: clientpb.BuildInput
+	(*BuildRequest)(nil),                   // 203: clientpb.BuildRequest
+	(*BuildC2Settings)(nil),                // 204: clientpb.BuildC2Settings
+	(*BuildBeaconSettings)(nil),            // 205: clientpb.BuildBeaconSettings
+	(*BuildProfileDocument)(nil),           // 206: clientpb.BuildProfileDocument
+	(*BuildProfileRef)(nil),                // 207: clientpb.BuildProfileRef
+	(*BuildProfileList)(nil),               // 208: clientpb.BuildProfileList
+	(*BuildProfileImportRequest)(nil),      // 209: clientpb.BuildProfileImportRequest
+	(*BuildProfileExecuteRequest)(nil),     // 210: clientpb.BuildProfileExecuteRequest
+	(*BuildPlanStep)(nil),                  // 211: clientpb.BuildPlanStep
+	(*BuildPlan)(nil),                      // 212: clientpb.BuildPlan
+	(*BuildFailure)(nil),                   // 213: clientpb.BuildFailure
+	(*BuildArtifactMetadata)(nil),          // 214: clientpb.BuildArtifactMetadata
+	(*BuildArtifactRevision)(nil),          // 215: clientpb.BuildArtifactRevision
+	(*BuildStepCandidate)(nil),             // 216: clientpb.BuildStepCandidate
+	(*BuildStepSelection)(nil),             // 217: clientpb.BuildStepSelection
+	(*BuildStepProgress)(nil),              // 218: clientpb.BuildStepProgress
+	(*BuildRecord)(nil),                    // 219: clientpb.BuildRecord
+	(*BuildRecordRef)(nil),                 // 220: clientpb.BuildRecordRef
+	(*BuildArtifactResponse)(nil),          // 221: clientpb.BuildArtifactResponse
+	nil,                                    // 222: clientpb.TrafficEncoderMap.EncodersEntry
+	nil,                                    // 223: clientpb.ExternalImplantConfig.EncodersEntry
+	nil,                                    // 224: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                                    // 225: clientpb.ImplantBuilds.ResourceIDsEntry
+	nil,                                    // 226: clientpb.ImplantBuilds.StagedEntry
+	nil,                                    // 227: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                                    // 228: clientpb.Website.ContentsEntry
+	nil,                                    // 229: clientpb.Host.ExtensionDataEntry
+	nil,                                    // 230: clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	nil,                                    // 231: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	nil,                                    // 232: clientpb.ShellcodeEncoderMap.EncodersEntry
+	nil,                                    // 233: clientpb.CrackSyncStatus.ProgressEntry
+	nil,                                    // 234: clientpb.CrackBenchmark.BenchmarksEntry
+	nil,                                    // 235: clientpb.Crackstation.BenchmarksEntry
+	nil,                                    // 236: clientpb.CrackBenchmarkSnapshot.BenchmarksEntry
+	(*commonpb.File)(nil),                  // 237: commonpb.File
+	(*commonpb.Request)(nil),               // 238: commonpb.Request
+	(*commonpb.Response)(nil),              // 239: commonpb.Response
 }
 var file_clientpb_client_proto_depIdxs = []int32{
-	24,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
-	26,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
-	47,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
-	29,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
+	28,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
+	30,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
+	51,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
+	33,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
 	0,   // 4: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
-	30,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
+	34,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
 	3,   // 6: clientpb.ImplantConfig.ShellcodeEncoder:type_name -> clientpb.ShellcodeEncoder
-	191, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
-	32,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
-	32,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
-	33,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
-	34,  // 11: clientpb.PESpoofMetadataConfig.ResourceDirectoryEntries:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
-	35,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
-	36,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
-	37,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
-	191, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
-	176, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
-	39,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
-	41,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
-	31,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
-	47,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
-	122, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
-	177, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
-	191, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
-	178, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
-	179, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
-	180, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
+	237, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
+	36,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
+	36,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
+	37,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
+	38,  // 11: clientpb.PESpoofMetadataConfig.ResourceDirectoryEntries:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
+	39,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
+	40,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
+	41,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
+	237, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
+	222, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
+	43,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
+	45,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
+	35,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
+	51,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
+	134, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
+	223, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
+	237, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
+	224, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	225, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
+	226, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
 	0,   // 27: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
-	48,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
-	49,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
-	48,  // 30: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
-	52,  // 31: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
-	31,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
-	55,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
-	58,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
-	65,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
-	66,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
-	67,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
-	68,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
-	64,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
-	81,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
-	192, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	193, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	192, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	193, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	23,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	31,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	191, // 47: clientpb.Generate.File:type_name -> commonpb.File
-	38,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
-	192, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	192, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
-	1,   // 51: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
-	31,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	192, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	31,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
-	3,   // 55: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	192, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	192, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	192, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	23,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
-	90,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
-	90,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
-	95,  // 62: clientpb.Client.Operator:type_name -> clientpb.Operator
-	23,  // 63: clientpb.Event.Session:type_name -> clientpb.Session
-	58,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
-	92,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
-	95,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	181, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	182, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	99,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
-	2,   // 70: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	191, // 71: clientpb.Loot.File:type_name -> commonpb.File
-	102, // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	104, // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	183, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
-	106, // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	192, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	193, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	192, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
-	193, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
-	3,   // 80: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	192, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
-	193, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
-	184, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	185, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	186, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
-	31,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
-	118, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
-	48,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
-	49,  // 89: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
-	122, // 90: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
-	122, // 91: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
-	123, // 92: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
-	124, // 93: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
-	126, // 94: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
-	125, // 95: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
-	127, // 96: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
-	126, // 97: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
-	128, // 98: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
-	5,   // 99: clientpb.Credential.HashType:type_name -> clientpb.HashType
-	129, // 100: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
-	136, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
-	6,   // 102: clientpb.CrackstationStatus.State:type_name -> clientpb.States
-	133, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	187, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	188, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
-	141, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
-	8,   // 107: clientpb.CrackTask.Kind:type_name -> clientpb.CrackTaskKind
-	9,   // 108: clientpb.CrackTask.State:type_name -> clientpb.CrackTaskState
-	189, // 109: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
-	132, // 110: clientpb.Crackstation.Status:type_name -> clientpb.CrackstationStatus
-	137, // 111: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
-	139, // 112: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
-	138, // 113: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
-	140, // 114: clientpb.Crackstation.HIP:type_name -> clientpb.HIPBackendInfo
-	10,  // 115: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
-	5,   // 116: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
-	12,  // 117: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
-	11,  // 118: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
-	11,  // 119: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
-	13,  // 120: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
-	7,   // 121: clientpb.CrackJob.Status:type_name -> clientpb.CrackJobStatus
-	141, // 122: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
-	135, // 123: clientpb.CrackJob.Tasks:type_name -> clientpb.CrackTask
-	149, // 124: clientpb.CrackJob.Results:type_name -> clientpb.CrackResult
-	142, // 125: clientpb.CrackJobs.Jobs:type_name -> clientpb.CrackJob
-	8,   // 126: clientpb.CrackTopTask.Kind:type_name -> clientpb.CrackTaskKind
-	9,   // 127: clientpb.CrackTopTask.State:type_name -> clientpb.CrackTaskState
-	144, // 128: clientpb.CrackTopTask.Devices:type_name -> clientpb.CrackTopDevice
-	7,   // 129: clientpb.CrackTopJob.Status:type_name -> clientpb.CrackJobStatus
-	10,  // 130: clientpb.CrackTopJob.AttackMode:type_name -> clientpb.CrackAttackMode
-	5,   // 131: clientpb.CrackTopJob.HashType:type_name -> clientpb.HashType
-	145, // 132: clientpb.CrackTopJob.Tasks:type_name -> clientpb.CrackTopTask
-	6,   // 133: clientpb.CrackTopStation.State:type_name -> clientpb.States
-	146, // 134: clientpb.CrackTopSnapshot.Jobs:type_name -> clientpb.CrackTopJob
-	147, // 135: clientpb.CrackTopSnapshot.Crackstations:type_name -> clientpb.CrackTopStation
-	142, // 136: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
-	173, // 137: clientpb.CrackResponse.Query:type_name -> clientpb.CrackQueryResult
-	153, // 138: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
-	14,  // 139: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
-	154, // 140: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
-	156, // 141: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
-	157, // 142: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
-	161, // 143: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
-	163, // 144: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
-	15,  // 145: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
-	160, // 146: clientpb.AIConversation.ContextWindowUsage:type_name -> clientpb.AIContextWindowUsage
-	163, // 147: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
-	16,  // 148: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
-	17,  // 149: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
-	18,  // 150: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
-	19,  // 151: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
-	161, // 152: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
-	163, // 153: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
-	166, // 154: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	169, // 155: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	171, // 156: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
-	20,  // 157: clientpb.CrackQueryResult.Mode:type_name -> clientpb.CrackQueryMode
-	190, // 158: clientpb.CrackBenchmarkSnapshot.Benchmarks:type_name -> clientpb.CrackBenchmarkSnapshot.BenchmarksEntry
-	174, // 159: clientpb.CrackBenchmarkSnapshots.Snapshots:type_name -> clientpb.CrackBenchmarkSnapshot
-	39,  // 160: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	31,  // 161: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	167, // 162: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	96,  // 163: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	96,  // 164: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	105, // 165: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 166: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	114, // 167: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
-	168, // [168:168] is the sub-list for method output_type
-	168, // [168:168] is the sub-list for method input_type
-	168, // [168:168] is the sub-list for extension type_name
-	168, // [168:168] is the sub-list for extension extendee
-	0,   // [0:168] is the sub-list for field type_name
+	52,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
+	53,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
+	52,  // 30: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
+	56,  // 31: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
+	35,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
+	59,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
+	62,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
+	69,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
+	70,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
+	71,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
+	72,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
+	68,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
+	85,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
+	238, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	239, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	238, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	239, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	27,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	35,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	42,  // 47: clientpb.GenerateReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
+	237, // 48: clientpb.Generate.File:type_name -> commonpb.File
+	42,  // 49: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
+	238, // 50: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	238, // 51: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	1,   // 52: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
+	35,  // 53: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	238, // 54: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	35,  // 55: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	3,   // 56: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	238, // 57: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	238, // 58: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	238, // 59: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	27,  // 60: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
+	94,  // 61: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
+	94,  // 62: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
+	99,  // 63: clientpb.Client.Operator:type_name -> clientpb.Operator
+	27,  // 64: clientpb.Event.Session:type_name -> clientpb.Session
+	62,  // 65: clientpb.Event.Job:type_name -> clientpb.Job
+	96,  // 66: clientpb.Event.Client:type_name -> clientpb.Client
+	99,  // 67: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	227, // 68: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	228, // 69: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	103, // 70: clientpb.Websites.Websites:type_name -> clientpb.Website
+	2,   // 71: clientpb.Loot.FileType:type_name -> clientpb.FileType
+	237, // 72: clientpb.Loot.File:type_name -> commonpb.File
+	106, // 73: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	108, // 74: clientpb.Host.IOCs:type_name -> clientpb.IOC
+	229, // 75: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	110, // 76: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
+	238, // 77: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	239, // 78: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	238, // 79: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
+	239, // 80: clientpb.Backdoor.Response:type_name -> commonpb.Response
+	3,   // 81: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	238, // 82: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	239, // 83: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	230, // 84: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	231, // 85: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	232, // 86: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	35,  // 87: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
+	122, // 88: clientpb.Builders.Builders:type_name -> clientpb.Builder
+	52,  // 89: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
+	53,  // 90: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
+	189, // 91: clientpb.Builder.SpecRefs:type_name -> clientpb.BuildSpecRef
+	123, // 92: clientpb.Builder.Capabilities:type_name -> clientpb.BuilderCapability
+	125, // 93: clientpb.Builder.Status:type_name -> clientpb.BuilderStatus
+	189, // 94: clientpb.BuilderCapability.Spec:type_name -> clientpb.BuildSpecRef
+	191, // 95: clientpb.BuilderCapability.Capability:type_name -> clientpb.BuildSpecCapability
+	188, // 96: clientpb.BuilderToolchainStatus.Target:type_name -> clientpb.BuildTarget
+	124, // 97: clientpb.BuilderStatus.Toolchains:type_name -> clientpb.BuilderToolchainStatus
+	124, // 98: clientpb.BuilderStatusReport.Toolchains:type_name -> clientpb.BuilderToolchainStatus
+	190, // 99: clientpb.BuildArtifactPayload.Type:type_name -> clientpb.BuildArtifactType
+	211, // 100: clientpb.BuilderStepRequest.Step:type_name -> clientpb.BuildPlanStep
+	203, // 101: clientpb.BuilderStepRequest.Request:type_name -> clientpb.BuildRequest
+	128, // 102: clientpb.BuilderStepRequest.Input:type_name -> clientpb.BuildArtifactPayload
+	47,  // 103: clientpb.BuilderStepRequest.SliverConfig:type_name -> clientpb.ExternalImplantConfig
+	202, // 104: clientpb.BuilderStepRequest.Inputs:type_name -> clientpb.BuildInput
+	189, // 105: clientpb.BuilderStepResult.Spec:type_name -> clientpb.BuildSpecRef
+	188, // 106: clientpb.BuilderStepResult.Target:type_name -> clientpb.BuildTarget
+	128, // 107: clientpb.BuilderStepResult.Output:type_name -> clientpb.BuildArtifactPayload
+	213, // 108: clientpb.BuilderStepResult.Failure:type_name -> clientpb.BuildFailure
+	134, // 109: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
+	134, // 110: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
+	135, // 111: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
+	136, // 112: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
+	138, // 113: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
+	137, // 114: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
+	139, // 115: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
+	138, // 116: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
+	140, // 117: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
+	5,   // 118: clientpb.Credential.HashType:type_name -> clientpb.HashType
+	141, // 119: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
+	148, // 120: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
+	6,   // 121: clientpb.CrackstationStatus.State:type_name -> clientpb.States
+	145, // 122: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
+	233, // 123: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	234, // 124: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	153, // 125: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
+	8,   // 126: clientpb.CrackTask.Kind:type_name -> clientpb.CrackTaskKind
+	9,   // 127: clientpb.CrackTask.State:type_name -> clientpb.CrackTaskState
+	235, // 128: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	144, // 129: clientpb.Crackstation.Status:type_name -> clientpb.CrackstationStatus
+	149, // 130: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
+	151, // 131: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
+	150, // 132: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
+	152, // 133: clientpb.Crackstation.HIP:type_name -> clientpb.HIPBackendInfo
+	10,  // 134: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
+	5,   // 135: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
+	12,  // 136: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
+	11,  // 137: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
+	11,  // 138: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
+	13,  // 139: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
+	7,   // 140: clientpb.CrackJob.Status:type_name -> clientpb.CrackJobStatus
+	153, // 141: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
+	147, // 142: clientpb.CrackJob.Tasks:type_name -> clientpb.CrackTask
+	161, // 143: clientpb.CrackJob.Results:type_name -> clientpb.CrackResult
+	154, // 144: clientpb.CrackJobs.Jobs:type_name -> clientpb.CrackJob
+	8,   // 145: clientpb.CrackTopTask.Kind:type_name -> clientpb.CrackTaskKind
+	9,   // 146: clientpb.CrackTopTask.State:type_name -> clientpb.CrackTaskState
+	156, // 147: clientpb.CrackTopTask.Devices:type_name -> clientpb.CrackTopDevice
+	7,   // 148: clientpb.CrackTopJob.Status:type_name -> clientpb.CrackJobStatus
+	10,  // 149: clientpb.CrackTopJob.AttackMode:type_name -> clientpb.CrackAttackMode
+	5,   // 150: clientpb.CrackTopJob.HashType:type_name -> clientpb.HashType
+	157, // 151: clientpb.CrackTopJob.Tasks:type_name -> clientpb.CrackTopTask
+	6,   // 152: clientpb.CrackTopStation.State:type_name -> clientpb.States
+	158, // 153: clientpb.CrackTopSnapshot.Jobs:type_name -> clientpb.CrackTopJob
+	159, // 154: clientpb.CrackTopSnapshot.Crackstations:type_name -> clientpb.CrackTopStation
+	154, // 155: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
+	185, // 156: clientpb.CrackResponse.Query:type_name -> clientpb.CrackQueryResult
+	165, // 157: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
+	14,  // 158: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
+	166, // 159: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
+	168, // 160: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
+	169, // 161: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
+	173, // 162: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
+	175, // 163: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
+	15,  // 164: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
+	172, // 165: clientpb.AIConversation.ContextWindowUsage:type_name -> clientpb.AIContextWindowUsage
+	175, // 166: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
+	16,  // 167: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
+	17,  // 168: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
+	18,  // 169: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
+	19,  // 170: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
+	173, // 171: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
+	175, // 172: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
+	178, // 173: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	181, // 174: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	183, // 175: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
+	20,  // 176: clientpb.CrackQueryResult.Mode:type_name -> clientpb.CrackQueryMode
+	236, // 177: clientpb.CrackBenchmarkSnapshot.Benchmarks:type_name -> clientpb.CrackBenchmarkSnapshot.BenchmarksEntry
+	186, // 178: clientpb.CrackBenchmarkSnapshots.Snapshots:type_name -> clientpb.CrackBenchmarkSnapshot
+	188, // 179: clientpb.BuildSpecCapability.Targets:type_name -> clientpb.BuildTarget
+	190, // 180: clientpb.BuildSpecCapability.Input:type_name -> clientpb.BuildArtifactType
+	190, // 181: clientpb.BuildSpecCapability.Output:type_name -> clientpb.BuildArtifactType
+	21,  // 182: clientpb.BuildSpec.Kind:type_name -> clientpb.BuildSpecKind
+	189, // 183: clientpb.BuildSpec.Ref:type_name -> clientpb.BuildSpecRef
+	191, // 184: clientpb.BuildSpec.Capabilities:type_name -> clientpb.BuildSpecCapability
+	192, // 185: clientpb.BuildSpec.Origins:type_name -> clientpb.BuildSpecOrigin
+	193, // 186: clientpb.BuildSpec.Providers:type_name -> clientpb.BuildSpecProvider
+	21,  // 187: clientpb.BuildSpecQuery.Kind:type_name -> clientpb.BuildSpecKind
+	22,  // 188: clientpb.BuildSpecQuery.Availability:type_name -> clientpb.BuildSpecAvailability
+	21,  // 189: clientpb.BuildSpecRequest.Kind:type_name -> clientpb.BuildSpecKind
+	189, // 190: clientpb.BuildSpecRequest.Ref:type_name -> clientpb.BuildSpecRef
+	194, // 191: clientpb.BuildSpecList.Specs:type_name -> clientpb.BuildSpec
+	189, // 192: clientpb.BuildTransformRequest.Spec:type_name -> clientpb.BuildSpecRef
+	198, // 193: clientpb.BuildTransformRequest.Options:type_name -> clientpb.BuildOption
+	188, // 194: clientpb.BuildRequest.Target:type_name -> clientpb.BuildTarget
+	199, // 195: clientpb.BuildRequest.C2:type_name -> clientpb.BuildEndpoint
+	189, // 196: clientpb.BuildRequest.Core:type_name -> clientpb.BuildSpecRef
+	190, // 197: clientpb.BuildRequest.CoreOutput:type_name -> clientpb.BuildArtifactType
+	198, // 198: clientpb.BuildRequest.CoreOptions:type_name -> clientpb.BuildOption
+	200, // 199: clientpb.BuildRequest.Transforms:type_name -> clientpb.BuildTransformRequest
+	201, // 200: clientpb.BuildRequest.Provider:type_name -> clientpb.BuildProviderPolicy
+	202, // 201: clientpb.BuildRequest.Inputs:type_name -> clientpb.BuildInput
+	204, // 202: clientpb.BuildRequest.C2Settings:type_name -> clientpb.BuildC2Settings
+	205, // 203: clientpb.BuildRequest.BeaconSettings:type_name -> clientpb.BuildBeaconSettings
+	190, // 204: clientpb.BuildProfileDocument.FinalArtifact:type_name -> clientpb.BuildArtifactType
+	206, // 205: clientpb.BuildProfileList.Profiles:type_name -> clientpb.BuildProfileDocument
+	201, // 206: clientpb.BuildProfileExecuteRequest.Provider:type_name -> clientpb.BuildProviderPolicy
+	202, // 207: clientpb.BuildProfileExecuteRequest.Inputs:type_name -> clientpb.BuildInput
+	189, // 208: clientpb.BuildPlanStep.Spec:type_name -> clientpb.BuildSpecRef
+	190, // 209: clientpb.BuildPlanStep.Input:type_name -> clientpb.BuildArtifactType
+	190, // 210: clientpb.BuildPlanStep.Output:type_name -> clientpb.BuildArtifactType
+	198, // 211: clientpb.BuildPlanStep.Options:type_name -> clientpb.BuildOption
+	203, // 212: clientpb.BuildPlan.Request:type_name -> clientpb.BuildRequest
+	211, // 213: clientpb.BuildPlan.Steps:type_name -> clientpb.BuildPlanStep
+	190, // 214: clientpb.BuildPlan.FinalArtifact:type_name -> clientpb.BuildArtifactType
+	190, // 215: clientpb.BuildArtifactMetadata.Type:type_name -> clientpb.BuildArtifactType
+	214, // 216: clientpb.BuildArtifactRevision.Artifact:type_name -> clientpb.BuildArtifactMetadata
+	216, // 217: clientpb.BuildStepSelection.Candidates:type_name -> clientpb.BuildStepCandidate
+	23,  // 218: clientpb.BuildStepProgress.State:type_name -> clientpb.BuildStepState
+	214, // 219: clientpb.BuildStepProgress.Artifact:type_name -> clientpb.BuildArtifactMetadata
+	213, // 220: clientpb.BuildStepProgress.Failure:type_name -> clientpb.BuildFailure
+	217, // 221: clientpb.BuildStepProgress.Selection:type_name -> clientpb.BuildStepSelection
+	24,  // 222: clientpb.BuildRecord.State:type_name -> clientpb.BuildRecordState
+	212, // 223: clientpb.BuildRecord.Plan:type_name -> clientpb.BuildPlan
+	218, // 224: clientpb.BuildRecord.Steps:type_name -> clientpb.BuildStepProgress
+	214, // 225: clientpb.BuildRecord.FinalArtifact:type_name -> clientpb.BuildArtifactMetadata
+	213, // 226: clientpb.BuildRecord.Failure:type_name -> clientpb.BuildFailure
+	215, // 227: clientpb.BuildRecord.FinalHistory:type_name -> clientpb.BuildArtifactRevision
+	237, // 228: clientpb.BuildArtifactResponse.File:type_name -> commonpb.File
+	214, // 229: clientpb.BuildArtifactResponse.Metadata:type_name -> clientpb.BuildArtifactMetadata
+	43,  // 230: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	35,  // 231: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	179, // 232: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	100, // 233: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	100, // 234: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	109, // 235: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 236: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	118, // 237: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
+	238, // [238:238] is the sub-list for method output_type
+	238, // [238:238] is the sub-list for method input_type
+	238, // [238:238] is the sub-list for extension type_name
+	238, // [238:238] is the sub-list for extension extendee
+	0,   // [0:238] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -19322,20 +23114,20 @@ func file_clientpb_client_proto_init() {
 	if File_clientpb_client_proto != nil {
 		return
 	}
-	file_clientpb_client_proto_msgTypes[116].OneofWrappers = []any{}
-	file_clientpb_client_proto_msgTypes[117].OneofWrappers = []any{}
-	file_clientpb_client_proto_msgTypes[118].OneofWrappers = []any{}
-	file_clientpb_client_proto_msgTypes[119].OneofWrappers = []any{}
-	file_clientpb_client_proto_msgTypes[120].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[124].OneofWrappers = []any{}
 	file_clientpb_client_proto_msgTypes[125].OneofWrappers = []any{}
-	file_clientpb_client_proto_msgTypes[142].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[126].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[127].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[128].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[133].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[150].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_clientpb_client_proto_rawDesc), len(file_clientpb_client_proto_rawDesc)),
-			NumEnums:      21,
-			NumMessages:   170,
+			NumEnums:      25,
+			NumMessages:   212,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

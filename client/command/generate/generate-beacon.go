@@ -21,6 +21,10 @@ var (
 
 // GenerateBeaconCmd - The main command used to generate implant binaries
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	if preview, _ := cmd.Flags().GetBool("plan"); preview {
+		previewGeneratePlan(cmd, con, true)
+		return
+	}
 	if shouldRunGenerateBeaconForm(cmd, con, args) {
 		compiler, _ := compilerTargets(con)
 		result, err := forms.GenerateBeaconForm(compiler)
@@ -56,10 +60,22 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+	useRemote, explicit, pin := remoteStepFlags(cmd)
+	if !useRemote {
 		compile(name, config, spoofMetadata, save, con)
+	} else if compatibilityErr := remoteStepCompatibility(cmd, config); compatibilityErr == nil || explicit {
+		if compatibilityErr != nil {
+			con.PrintErrorf("Assigned-step build cannot preserve this configuration: %s\n", compatibilityErr)
+			return
+		}
+		if _, err := remoteStepBuild(cmd, name, config, spoofMetadata, save, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+		}
 	} else {
-		externalBuild(name, config, spoofMetadata, save, con)
+		con.PrintInfof("Using legacy external build compatibility for %s\n", compatibilityErr)
+		if _, err := externalBuild(name, config, spoofMetadata, save, pin, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+		}
 	}
 }
 

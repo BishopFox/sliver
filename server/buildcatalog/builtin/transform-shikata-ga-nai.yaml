@@ -1,0 +1,31 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/shikata-ga-nai
+  version: 1.0.0
+  digest: sha256:630d2624378a7559a7c0fd1dbda0431f8ad3e61071e2756758ce12c93731739a
+executor:
+  id: shikata-ga-nai-v1
+options: []
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: linux
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: linux
+    arch: amd64
+  - os: darwin
+    arch: amd64
+  input:
+    kind: shellcode
+    container: raw
+  output:
+    kind: shellcode
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

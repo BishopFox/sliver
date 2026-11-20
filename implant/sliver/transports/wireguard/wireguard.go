@@ -37,7 +37,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -70,7 +69,7 @@ var (
 	wgSessPrivKey string
 	wgSessPubKey  string
 
-	PingInterval = 2 * time.Minute
+	PingInterval = pb.WireGuardPingInterval
 	failedConn   = 0
 )
 

@@ -1,0 +1,199 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/stage-frame
+  version: 1.0.0
+  digest: sha256:a947be3966ef01bc1f287894efdf0a1ca2e08a7f8329eeae83c88a9b5bc5b8d3
+executor:
+  id: stage-frame-v1
+options:
+- name: prependSize
+  type: boolean
+  required: false
+  default: false
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: executable
+    container: pe
+    goBuildMode: default
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: shared-library
+    container: pe
+    goBuildMode: c-shared
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: c-archive-bundle
+    container: zip
+    goBuildMode: c-archive
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  input:
+    kind: service-executable
+    container: pe
+    goBuildMode: default
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  input:
+    kind: executable
+    container: elf
+    goBuildMode: default
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  input:
+    kind: shared-library
+    container: elf
+    goBuildMode: c-shared
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  input:
+    kind: c-archive-bundle
+    container: zip
+    goBuildMode: c-archive
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: executable
+    container: macho
+    goBuildMode: default
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: shared-library
+    container: macho
+    goBuildMode: c-shared
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: c-archive-bundle
+    container: zip
+    goBuildMode: c-archive
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  input:
+    kind: shellcode
+    container: raw
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

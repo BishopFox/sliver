@@ -964,6 +964,13 @@ github.com/lucasb-eyer/go-colorful
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 ## explicit; go 1.12
 github.com/lxn/win
+# github.com/magefile/mage v1.17.2
+## explicit; go 1.18
+github.com/magefile/mage/internal
+github.com/magefile/mage/mage
+github.com/magefile/mage/mg
+github.com/magefile/mage/parse
+github.com/magefile/mage/sh
 # github.com/mailgun/mailgun-go/v5 v5.19.3
 ## explicit; go 1.24.0
 github.com/mailgun/mailgun-go/v5

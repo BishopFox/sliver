@@ -215,6 +215,7 @@ func SaveStage(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, sta
 	if err != nil {
 		return err
 	}
+	overwriteImplantBuild(build, implantBuild)
 
 	watchtower.AddImplantToWatchlist(implantBuild)
 	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)

@@ -20,7 +20,6 @@ package rpc
 
 import (
 	"context"
-	"os"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -127,7 +126,10 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		if err != nil {
 			return nil, rpcError(err)
 		}
-		shellcode, _ = os.ReadFile(shellcodePath)
+		shellcode, err = generate.ReadAndRemoveSliverBuildOutput(name, req.Config, shellcodePath)
+		if err != nil {
+			return nil, rpcError(err)
+		}
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,

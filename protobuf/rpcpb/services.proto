@@ -109,6 +109,23 @@ service SliverRPC {
   rpc StageImplantBuild(clientpb.ImplantStageReq)
       returns (commonpb.Empty);
 
+  // *** Build catalog and neutral build APIs ***
+  rpc ListBuildSpecs(clientpb.BuildSpecQuery) returns (clientpb.BuildSpecList);
+  rpc GetBuildSpec(clientpb.BuildSpecRequest) returns (clientpb.BuildSpec);
+  rpc PlanBuild(clientpb.BuildRequest) returns (clientpb.BuildPlan);
+  rpc ExecuteBuild(clientpb.BuildRequest) returns (clientpb.BuildRecord);
+  rpc GetBuildRecord(clientpb.BuildRecordRef) returns (clientpb.BuildRecord);
+  rpc GetBuildArtifact(clientpb.BuildRecordRef)
+      returns (clientpb.BuildArtifactResponse);
+
+  // *** Server-owned YAML build profiles ***
+  rpc ListBuildProfiles(commonpb.Empty) returns (clientpb.BuildProfileList);
+  rpc GetBuildProfile(clientpb.BuildProfileRef) returns (clientpb.BuildProfileDocument);
+  rpc ValidateBuildProfile(clientpb.BuildProfileImportRequest) returns (clientpb.BuildProfileDocument);
+  rpc ImportBuildProfile(clientpb.BuildProfileImportRequest) returns (clientpb.BuildProfileDocument);
+  rpc DeleteBuildProfile(clientpb.BuildProfileRef) returns (commonpb.Empty);
+  rpc ExecuteProfileBuild(clientpb.BuildProfileExecuteRequest) returns (clientpb.BuildRecord);
+
   // *** HTTP C2 Profiles ***
   rpc GetHTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
   rpc GetHTTPC2ProfileByName(clientpb.C2ProfileReq) returns (clientpb.HTTPC2Config);
@@ -118,6 +135,9 @@ service SliverRPC {
   rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
   rpc BuilderTrigger(clientpb.Event) returns (commonpb.Empty);
   rpc Builders(commonpb.Empty) returns (clientpb.Builders);
+  rpc BuilderUpdateStatus(clientpb.BuilderStatusReport) returns (commonpb.Empty);
+  rpc BuilderGetStep(clientpb.BuilderStepRef) returns (clientpb.BuilderStepRequest);
+  rpc BuilderSubmitStep(clientpb.BuilderStepResult) returns (commonpb.Empty);
 
   // *** Certificates ***
   rpc GetCertificateInfo(clientpb.CertificatesReq) returns (clientpb.CertificateInfo);

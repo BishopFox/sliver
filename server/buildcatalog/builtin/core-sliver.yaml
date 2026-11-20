@@ -1,0 +1,656 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: CoreSpec
+metadata:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+runtime:
+  protocol: sliver-v1
+  commandSource: installed-catalog
+  commandCatalog: builtin-sliver-v1
+executor:
+  id: builtin-sliver-go-v1
+options:
+- name: debug
+  type: boolean
+  required: false
+  default: false
+- name: evasion
+  type: boolean
+  required: false
+  default: false
+- name: obfuscateSymbols
+  type: boolean
+  required: false
+  default: true
+- name: exports
+  type: string-list
+  required: false
+  default:
+  - StartW
+  - VoidFunc
+  - DllInstall
+  - DllRegisterServer
+  - DllUnregisterServer
+- name: serviceName
+  type: string
+  required: false
+  default: ''
+- name: runAtLoad
+  type: boolean
+  required: false
+  default: false
+- name: netgo
+  type: boolean
+  required: false
+  default: false
+- name: trafficEncoders
+  type: string-list
+  required: false
+  default: []
+- name: canaryDomains
+  type: string-list
+  required: false
+  default: []
+- name: debugFile
+  type: string
+  required: false
+  default: ''
+- name: limitDomainJoined
+  type: boolean
+  required: false
+  default: false
+- name: limitDatetime
+  type: string
+  required: false
+  default: ''
+- name: limitHostname
+  type: string
+  required: false
+  default: ''
+- name: limitUsername
+  type: string
+  required: false
+  default: ''
+- name: limitFileExists
+  type: string
+  required: false
+  default: ''
+- name: limitLocale
+  type: string
+  required: false
+  default: ''
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  - named-pipe
+  output:
+    artifact:
+      kind: executable
+      container: pe
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  - named-pipe
+  output:
+    artifact:
+      kind: shared-library
+      container: pe
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  - named-pipe
+  output:
+    artifact:
+      kind: c-archive-bundle
+      container: zip
+      goBuildMode: c-archive
+    operatorFormats:
+    - archive
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  - named-pipe
+  output:
+    artifact:
+      kind: service-executable
+      container: pe
+      goBuildMode: default
+    operatorFormats:
+    - service
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  - named-pipe
+  output:
+    artifact:
+      kind: executable
+      container: pe
+      goBuildMode: pie
+    operatorFormats: []
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: executable
+      container: pe
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: shared-library
+      container: pe
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: c-archive-bundle
+      container: zip
+      goBuildMode: c-archive
+    operatorFormats:
+    - archive
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: service-executable
+      container: pe
+      goBuildMode: default
+    operatorFormats:
+    - service
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: executable
+      container: pe
+      goBuildMode: pie
+    operatorFormats: []
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  output:
+    artifact:
+      kind: executable
+      container: elf
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  output:
+    artifact:
+      kind: shared-library
+      container: elf
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  output:
+    artifact:
+      kind: c-archive-bundle
+      container: zip
+      goBuildMode: c-archive
+    operatorFormats:
+    - archive
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: executable
+      container: elf
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: shared-library
+      container: elf
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: c-archive-bundle
+      container: zip
+      goBuildMode: c-archive
+    operatorFormats:
+    - archive
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  output:
+    artifact:
+      kind: executable
+      container: macho
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  output:
+    artifact:
+      kind: shared-library
+      container: macho
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  mode: session
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  - tcp-pivot
+  output:
+    artifact:
+      kind: c-archive-bundle
+      container: zip
+      goBuildMode: c-archive
+    operatorFormats:
+    - archive
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: executable
+      container: macho
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: shared-library
+      container: macho
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  mode: beacon
+  protocols:
+  - mtls
+  - http
+  - https
+  - dns
+  - wireguard
+  output:
+    artifact:
+      kind: c-archive-bundle
+      container: zip
+      goBuildMode: c-archive
+    operatorFormats:
+    - archive
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc

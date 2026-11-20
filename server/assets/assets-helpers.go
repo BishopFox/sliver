@@ -21,9 +21,11 @@ package assets
 import (
 	"archive/tar"
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"embed"
+	"encoding/binary"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -41,10 +43,20 @@ import (
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/util"
 	"github.com/ulikunitz/xz"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
 	zigDirName = "zig"
+	// These limits cover the bundled Go and Zig toolchains while bounding the
+	// amount of work an archive can force during unpacking.
+	maxAssetArchiveEntries                 = 250000
+	maxAssetArchiveBytes            int64  = 4 << 30
+	maxAssetArchiveCentralBytes     uint32 = 256 << 20
+	maxAssetArchiveFileBytes        int64  = 2 << 30
+	maxAssetArchiveTotalBytes       int64  = 8 << 30
+	maxAssetArchiveTarStreamBytes   int64  = 10 << 30
+	maxAssetArchiveCompressionRatio uint64 = 1000
 )
 
 var (
@@ -82,6 +94,9 @@ func unpackDefaultTrafficEncoders(force bool) error {
 }
 
 func unzipBuf(src []byte, dest string) ([]string, error) {
+	if err := checkZipDirectoryBounds(bytes.NewReader(src), int64(len(src))); err != nil {
+		return nil, err
+	}
 	reader, err := zip.NewReader(bytes.NewReader(src), int64(len(src)))
 	if err != nil {
 		return nil, err
@@ -139,6 +154,9 @@ func setupZig(appDir string) error {
 		zigZipBuf, err := assetsFs.ReadFile(zigZipFSPath)
 		if err != nil {
 			setupLog.Errorf("static asset not found: %s", zigZipFSPath)
+			return err
+		}
+		if err := checkZipDirectoryBounds(bytes.NewReader(zigZipBuf), int64(len(zigZipBuf))); err != nil {
 			return err
 		}
 		reader, err := zip.NewReader(bytes.NewReader(zigZipBuf), int64(len(zigZipBuf)))
@@ -247,6 +265,11 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		setupLog.Info("Static asset not found: capabilities.go")
 		return err
 	}
+	sliverpbTransportTimingSrc, err := protobufs.FS.ReadFile("sliverpb/transport_timing.go")
+	if err != nil {
+		setupLog.Info("Static asset not found: transport_timing.go")
+		return err
+	}
 	sliverpbGoSrc, err = xorPBRawBytes(sliverpbGoSrc)
 	if err != nil {
 		return fmt.Errorf("obfuscate sliverpb descriptor: %w", err)
@@ -268,6 +291,9 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	}
 	if err := os.WriteFile(filepath.Join(sliverpbDir, "capabilities.go"), sliverpbCapabilitiesSrc, 0600); err != nil {
 		return fmt.Errorf("write sliverpb capabilities.go: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(sliverpbDir, "transport_timing.go"), sliverpbTransportTimingSrc, 0600); err != nil {
+		return fmt.Errorf("write sliverpb transport_timing.go: %w", err)
 	}
 
 	// Common PB
@@ -539,7 +565,7 @@ func rewriteProtobufStructTags(src []byte) ([]byte, error) {
 
 // UntarSkipTopLevel - Untar a tar file, skipping the top level directory
 func untarSkipTopLevel(dst string, r io.Reader) error {
-	tr := tar.NewReader(r)
+	tr := tar.NewReader(&archiveStreamLimitReader{source: r, remaining: maxAssetArchiveTarStreamBytes})
 	topLevel, err := tr.Next()
 	if err == io.EOF {
 		return fmt.Errorf("no files found in tar")
@@ -550,6 +576,9 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 	if topLevel.Typeflag != tar.TypeDir {
 		return fmt.Errorf("expected top level to be a directory, got %v", topLevel.Typeflag)
 	}
+	if topLevel.Size != 0 {
+		return fmt.Errorf("tar directory %q has content", topLevel.Name)
+	}
 	topLevelName, err := archiveTopLevel(topLevel.Name)
 	if err != nil {
 		return err
@@ -559,6 +588,9 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 		return err
 	}
 	defer func() { _ = root.Close() }()
+	seen := map[string]archiveSeenEntry{}
+	entries := 1
+	var expanded int64
 
 	for {
 		header, err := tr.Next()
@@ -578,12 +610,22 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 			continue
 		}
 
+		entries++
+		if entries > maxAssetArchiveEntries {
+			return fmt.Errorf("tar archive exceeds entry limit")
+		}
 		entryPath, err := archivePathBelowTopLevel(header.Name, topLevelName)
 		if err != nil {
 			return err
 		}
 		if entryPath == "" {
-			continue
+			return fmt.Errorf("duplicate tar archive top-level directory %q", header.Name)
+		}
+		if err := recordArchiveEntry(seen, entryPath, header.Typeflag == tar.TypeDir); err != nil {
+			return err
+		}
+		if header.Size < 0 || header.Size > maxAssetArchiveFileBytes || header.Size > maxAssetArchiveTotalBytes-expanded {
+			return fmt.Errorf("tar archive member %q exceeds size limit", header.Name)
 		}
 
 		// the following switch could also be done using fi.Mode(), not sure if there
@@ -595,17 +637,40 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 
 		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
+			if header.Size != 0 {
+				return fmt.Errorf("tar directory %q has content", header.Name)
+			}
 			if err := root.MkdirAll(entryPath, 0o700); err != nil {
 				return fmt.Errorf("create archive directory: %w", err)
 			}
 
 		// if it's a file create it
 		case tar.TypeReg, tar.TypeRegA: //nolint:staticcheck // TypeRegA is valid in legacy tar archives.
-			if err := writeArchiveFile(root, entryPath, os.FileMode(header.Mode), 0o700, tr); err != nil {
+			if err := writeArchiveFile(root, entryPath, os.FileMode(header.Mode), 0o700, tr, header.Size); err != nil {
 				return err
 			}
+			expanded += header.Size
+		default:
+			return fmt.Errorf("unsupported tar archive member type %q at %q", header.Typeflag, header.Name)
 		}
 	}
+}
+
+type archiveStreamLimitReader struct {
+	source    io.Reader
+	remaining int64
+}
+
+func (reader *archiveStreamLimitReader) Read(buf []byte) (int, error) {
+	if reader.remaining <= 0 {
+		return 0, fmt.Errorf("tar archive stream exceeds size limit")
+	}
+	if int64(len(buf)) > reader.remaining {
+		buf = buf[:int(reader.remaining)]
+	}
+	n, err := reader.source.Read(buf)
+	reader.remaining -= int64(n)
+	return n, err
 }
 
 // UnzipSkipTopLevel - Unzip a zip file, skipping the top level directory
@@ -836,12 +901,103 @@ func parseHelperDecl(src string) (ast.Decl, error) {
 }
 
 func unzip(src string, dest string) ([]string, error) {
-	reader, err := zip.OpenReader(src)
+	file, err := os.Open(src)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = reader.Close() }()
-	return extractZipReader(&reader.Reader, dest, false)
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if err := checkZipDirectoryBounds(file, info.Size()); err != nil {
+		return nil, err
+	}
+	reader, err := zip.NewReader(file, info.Size())
+	if err != nil {
+		return nil, err
+	}
+	return extractZipReader(reader, dest, false)
+}
+
+func checkZipDirectoryBounds(src io.ReaderAt, size int64) error {
+	const endSize = 22
+	if size < endSize || size > maxAssetArchiveBytes {
+		return fmt.Errorf("zip archive size is outside allowed limits")
+	}
+	tailSize := min(size, endSize+65535)
+	tail := make([]byte, tailSize)
+	if _, err := src.ReadAt(tail, size-tailSize); err != nil {
+		return fmt.Errorf("read zip directory end: %w", err)
+	}
+	for index := len(tail) - endSize; index >= 0; index-- {
+		if binary.LittleEndian.Uint32(tail[index:]) != 0x06054b50 {
+			continue
+		}
+		commentSize := int(binary.LittleEndian.Uint16(tail[index+20:]))
+		if index+endSize+commentSize > len(tail) {
+			continue
+		}
+		end := tail[index:]
+		if binary.LittleEndian.Uint16(end[4:]) != 0 || binary.LittleEndian.Uint16(end[6:]) != 0 ||
+			binary.LittleEndian.Uint16(end[8:]) != binary.LittleEndian.Uint16(end[10:]) {
+			return fmt.Errorf("multi-disk zip archives are unsupported")
+		}
+		count := binary.LittleEndian.Uint16(end[10:])
+		centralSize := binary.LittleEndian.Uint32(end[12:])
+		centralOffset := binary.LittleEndian.Uint32(end[16:])
+		if count == 0xffff || centralSize == 0xffffffff || centralOffset == 0xffffffff {
+			return fmt.Errorf("zip64 archives are unsupported")
+		}
+		if int(count) > maxAssetArchiveEntries || centralSize > maxAssetArchiveCentralBytes ||
+			int64(centralSize) > size-tailSize+int64(index) {
+			return fmt.Errorf("zip archive directory exceeds limit")
+		}
+		centralStart := size - tailSize + int64(index) - int64(centralSize)
+		actualCount, err := countZipCentralEntries(src, centralStart, centralSize)
+		if err != nil {
+			return err
+		}
+		if uint16(actualCount) != count {
+			return fmt.Errorf("zip archive directory entry count mismatch")
+		}
+		return nil
+	}
+	return fmt.Errorf("zip archive directory end not found")
+}
+
+func countZipCentralEntries(src io.ReaderAt, start int64, size uint32) (int, error) {
+	reader := bufio.NewReader(io.NewSectionReader(src, start, int64(size)))
+	var consumed int64
+	count := 0
+	for consumed < int64(size) {
+		const headerSize = 46
+		if int64(size)-consumed < headerSize {
+			return 0, fmt.Errorf("truncated zip central directory")
+		}
+		var header [headerSize]byte
+		if _, err := io.ReadFull(reader, header[:]); err != nil {
+			return 0, fmt.Errorf("read zip central directory: %w", err)
+		}
+		if binary.LittleEndian.Uint32(header[:]) != 0x02014b50 {
+			return 0, fmt.Errorf("invalid zip central directory entry")
+		}
+		variableSize := int64(binary.LittleEndian.Uint16(header[28:])) +
+			int64(binary.LittleEndian.Uint16(header[30:])) +
+			int64(binary.LittleEndian.Uint16(header[32:]))
+		if variableSize > int64(size)-consumed-headerSize {
+			return 0, fmt.Errorf("truncated zip central directory entry")
+		}
+		if _, err := reader.Discard(int(variableSize)); err != nil {
+			return 0, fmt.Errorf("read zip central directory entry: %w", err)
+		}
+		consumed += headerSize + variableSize
+		count++
+		if count > maxAssetArchiveEntries {
+			return 0, fmt.Errorf("zip archive exceeds entry limit")
+		}
+	}
+	return count, nil
 }
 
 func openArchiveRoot(dest string, mode fs.FileMode) (*os.Root, error) {
@@ -857,10 +1013,51 @@ func openArchiveRoot(dest string, mode fs.FileMode) (*os.Root, error) {
 
 func cleanArchiveName(name string) (string, error) {
 	archiveName := strings.TrimSuffix(name, "/")
-	if archiveName == "." || !fs.ValidPath(archiveName) {
+	if archiveName == "." || !fs.ValidPath(archiveName) || strings.ContainsAny(archiveName, "\\:\x00") {
 		return "", fmt.Errorf("invalid path in archive: %q", name)
 	}
 	return archiveName, nil
+}
+
+type archiveSeenEntry struct {
+	name     string
+	explicit bool
+	dir      bool
+}
+
+func recordArchiveEntry(seen map[string]archiveSeenEntry, name string, isDir bool) error {
+	parts := strings.Split(filepath.ToSlash(name), "/")
+	path := ""
+	for i, part := range parts {
+		if i > 0 {
+			path += "/"
+		}
+		path += part
+		key := strings.ToLower(norm.NFC.String(path))
+		current, exists := seen[key]
+		if exists && current.name != path {
+			return fmt.Errorf("case-colliding archive paths %q and %q", current.name, path)
+		}
+		if i < len(parts)-1 {
+			if exists && current.explicit && !current.dir {
+				return fmt.Errorf("archive path %q has a file parent", name)
+			}
+			if !exists {
+				seen[key] = archiveSeenEntry{name: path, dir: true}
+			}
+			continue
+		}
+		if exists {
+			if current.explicit {
+				return fmt.Errorf("duplicate archive path %q", name)
+			}
+			if !isDir {
+				return fmt.Errorf("archive path %q conflicts with a directory", name)
+			}
+		}
+		seen[key] = archiveSeenEntry{name: path, explicit: true, dir: isDir}
+	}
+	return nil
 }
 
 func archiveEntryPath(name string) (string, error) {
@@ -908,27 +1105,48 @@ func archivePathBelowTopLevel(name, topLevel string) (string, error) {
 	return entryPath, nil
 }
 
-func writeArchiveFile(root *os.Root, name string, mode, parentMode fs.FileMode, src io.Reader) error {
+func writeArchiveFile(root *os.Root, name string, mode, parentMode fs.FileMode, src io.Reader, expectedSize int64) error {
+	if expectedSize < 0 || expectedSize > maxAssetArchiveFileBytes {
+		return fmt.Errorf("archive file %q exceeds size limit", name)
+	}
 	if err := root.MkdirAll(filepath.Dir(name), parentMode); err != nil {
 		return fmt.Errorf("create archive parent directory: %w", err)
 	}
-	out, err := root.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+	fileMode := fs.FileMode(0o600) | mode.Perm()&0o100
+	out, err := root.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fileMode)
 	if err != nil {
 		return fmt.Errorf("create archive file: %w", err)
 	}
-	_, copyErr := io.Copy(out, src)
+	copied, copyErr := io.CopyN(out, src, expectedSize)
+	if copyErr == nil && copied != expectedSize {
+		copyErr = io.ErrUnexpectedEOF
+	}
+	if copyErr == nil {
+		var extra [1]byte
+		if n, err := src.Read(extra[:]); n != 0 || err != io.EOF {
+			if err == nil {
+				copyErr = fmt.Errorf("archive file has excess data")
+			} else {
+				copyErr = err
+			}
+		}
+	}
 	closeErr := out.Close()
 	if copyErr != nil {
+		_ = root.Remove(name)
 		return fmt.Errorf("write archive file: %w", copyErr)
 	}
 	if closeErr != nil {
+		_ = root.Remove(name)
 		return fmt.Errorf("close archive file: %w", closeErr)
 	}
 	return nil
 }
 
 func extractZipReader(reader *zip.Reader, dest string, skipTopLevel bool) ([]string, error) {
-	var filenames []string
+	if len(reader.File) > maxAssetArchiveEntries {
+		return nil, fmt.Errorf("zip archive exceeds entry limit")
+	}
 	topLevel := ""
 	if skipTopLevel {
 		if len(reader.File) == 0 {
@@ -944,37 +1162,76 @@ func extractZipReader(reader *zip.Reader, dest string, skipTopLevel bool) ([]str
 		}
 	}
 
-	root, err := openArchiveRoot(dest, 0o700)
-	if err != nil {
-		return nil, err
+	type zipEntry struct {
+		file *zip.File
+		path string
+		size int64
 	}
-	defer func() { _ = root.Close() }()
-
-	for _, file := range reader.File {
+	entries := make([]zipEntry, 0, len(reader.File))
+	seen := make(map[string]archiveSeenEntry, len(reader.File))
+	var expanded int64
+	for index, file := range reader.File {
 		entryPath, err := archiveEntryPath(file.Name)
 		if skipTopLevel {
 			entryPath, err = archivePathBelowTopLevel(file.Name, topLevel)
 		}
 		if err != nil {
-			return filenames, err
+			return nil, err
 		}
 		if entryPath == "" {
+			if index != 0 {
+				return nil, fmt.Errorf("duplicate zip archive top-level directory %q", file.Name)
+			}
+			if file.UncompressedSize64 != 0 {
+				return nil, fmt.Errorf("zip directory %q has content", file.Name)
+			}
 			continue
 		}
-		filenames = append(filenames, filepath.Join(dest, entryPath))
+		isDir := file.FileInfo().IsDir()
+		if err := recordArchiveEntry(seen, entryPath, isDir); err != nil {
+			return nil, err
+		}
+		if file.UncompressedSize64 > uint64(maxAssetArchiveFileBytes) ||
+			file.UncompressedSize64 > uint64(maxAssetArchiveTotalBytes-expanded) {
+			return nil, fmt.Errorf("zip archive member %q exceeds size limit", file.Name)
+		}
+		if isDir {
+			if file.UncompressedSize64 != 0 {
+				return nil, fmt.Errorf("zip directory %q has content", file.Name)
+			}
+		} else {
+			if !file.Mode().IsRegular() || file.Method != zip.Store && file.Method != zip.Deflate {
+				return nil, fmt.Errorf("unsupported zip archive member %q", file.Name)
+			}
+			if file.UncompressedSize64 > 0 && (file.CompressedSize64 == 0 ||
+				file.UncompressedSize64/file.CompressedSize64 > maxAssetArchiveCompressionRatio) {
+				return nil, fmt.Errorf("zip archive member %q exceeds compression ratio", file.Name)
+			}
+			expanded += int64(file.UncompressedSize64)
+		}
+		entries = append(entries, zipEntry{file: file, path: entryPath, size: int64(file.UncompressedSize64)})
+	}
 
-		if file.FileInfo().IsDir() {
-			if err := root.MkdirAll(entryPath, 0o700); err != nil {
+	root, err := openArchiveRoot(dest, 0o700)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	filenames := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		filenames = append(filenames, filepath.Join(dest, entry.path))
+		if entry.file.FileInfo().IsDir() {
+			if err := root.MkdirAll(entry.path, 0o700); err != nil {
 				return filenames, fmt.Errorf("create archive directory: %w", err)
 			}
 			continue
 		}
 
-		rc, err := file.Open()
+		rc, err := entry.file.Open()
 		if err != nil {
 			return filenames, err
 		}
-		writeErr := writeArchiveFile(root, entryPath, file.Mode(), 0o700, rc)
+		writeErr := writeArchiveFile(root, entry.path, entry.file.Mode(), 0o700, rc, entry.size)
 		closeErr := rc.Close()
 		if writeErr != nil {
 			return filenames, writeErr

@@ -1,0 +1,45 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: windows-shared
+  revision: 1
+target:
+  os: windows
+  arch: amd64
+mode: beacon
+c2:
+  endpoints:
+  - protocol: https
+    address: https://c2.example.invalid
+  connectionStrategy: random
+  reconnectSeconds: 60
+  pollTimeoutSeconds: 360
+  maxConnectionErrors: 1000
+  httpC2Profile: default
+core:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+coreOutput:
+  kind: shared-library
+  container: pe
+  goBuildMode: c-shared
+coreOptions:
+- name: exports
+  value:
+  - StartW
+- name: runAtLoad
+  value: true
+transforms: []
+finalOutput:
+  format: shared
+  artifact:
+    kind: shared-library
+    container: pe
+    goBuildMode: c-shared
+provider:
+  policy: automatic
+beacon:
+  intervalSeconds: 60
+  jitterSeconds: 30

@@ -19,10 +19,21 @@ package gogo
 */
 
 import (
+	"context"
+	"errors"
 	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestGoBuildContextHonorsCancellationBeforeToolExecution(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := GoBuildContext(ctx, GoConfig{}, "source", "destination", "", nil, nil, "", "")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled build returned %v", err)
+	}
+}
 
 func TestGoToolExecutableName(t *testing.T) {
 	tests := []struct {

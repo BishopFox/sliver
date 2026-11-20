@@ -253,6 +253,9 @@ func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) (*b
 		}
 	}
 	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
+	if err := builder.ConfigureInstalledCapabilities(externalBuilder); err != nil {
+		return nil, fmt.Errorf("prepare builder capabilities: %w", err)
+	}
 
 	// connect to the server
 	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)

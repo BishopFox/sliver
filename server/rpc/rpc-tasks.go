@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -123,7 +122,10 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, rpcError(err)
 		}
-		sc, _ = os.ReadFile(shellcodePath)
+		sc, err = generate.ReadAndRemoveSliverBuildOutput(name, config, shellcodePath)
+		if err != nil {
+			return nil, rpcError(err)
+		}
 		// Save the implant config in the database so that the server recognizes it when it tries to connect
 		config.ID = ""
 		savedConfig, err := db.SaveImplantConfig(config)
