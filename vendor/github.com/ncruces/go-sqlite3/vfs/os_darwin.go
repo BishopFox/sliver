@@ -50,27 +50,37 @@ func osSync(file *os.File, open OpenFlag, sync SyncFlag) error {
 }
 
 func osAllocate(file *os.File, size int64) error {
-	off, err := file.Seek(0, io.SeekEnd)
+	if size == 0 {
+		return nil
+	}
+	end, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return err
 	}
-	if size <= off {
+	if end >= size {
 		return nil
 	}
 
 	store := unix.Fstore_t{
 		Flags:   unix.F_ALLOCATEALL | unix.F_ALLOCATECONTIG,
 		Posmode: unix.F_PEOFPOSMODE,
+		Length:  size - end,
 		Offset:  0,
-		Length:  size - off,
 	}
 
-	// Try to get a continuous chunk of disk space.
-	err = unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store)
-	if err != nil {
+	// Try once to get a continuous chunk of disk space.
+	if unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store) != nil {
 		// OK, perhaps we are too fragmented, allocate non-continuous.
 		store.Flags = unix.F_ALLOCATEALL
-		unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store)
+		for {
+			err := unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store)
+			if err == nil {
+				break
+			}
+			if err != unix.EINTR {
+				return err
+			}
+		}
 	}
 	return file.Truncate(size)
 }

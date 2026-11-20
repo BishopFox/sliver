@@ -1,11 +1,10 @@
-//go:build (windows && (386 || arm || amd64 || arm64 || riscv64 || ppc64le || loong64)) || sqlite3_dotlk
+//go:build sqlite3_dotlk
 
 package vfs
 
 import (
+	"sync/atomic"
 	"unsafe"
-
-	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
 const (
@@ -42,7 +41,7 @@ func (s *vfsShm) shmAcquire(errp *error) {
 	for id, p := range s.ptrs {
 		shared := shmPage(s.shared[id][:])
 		shadow := shmPage(s.shadow[id][:])
-		privat := shmPage(util.View(s.mod, p, _WALINDEX_PGSZ))
+		privat := shmPage(s.wrp.Bytes(p, _WALINDEX_PGSZ))
 		for i, shared := range shared {
 			if shadow[i] != shared {
 				shadow[i] = shared
@@ -53,14 +52,14 @@ func (s *vfsShm) shmAcquire(errp *error) {
 }
 
 func (s *vfsShm) shmRelease() {
-	if len(s.ptrs) == 0 || shmEqual(s.shadow[0][:], util.View(s.mod, s.ptrs[0], _WALINDEX_HDR_SIZE)) {
+	if len(s.ptrs) == 0 || shmEqual(s.shadow[0][:], s.wrp.Bytes(s.ptrs[0], _WALINDEX_HDR_SIZE)) {
 		return
 	}
 	// Copies modified words from private to shared memory.
 	for id, p := range s.ptrs {
 		shared := shmPage(s.shared[id][:])
 		shadow := shmPage(s.shadow[id][:])
-		privat := shmPage(util.View(s.mod, p, _WALINDEX_PGSZ))
+		privat := shmPage(s.wrp.Bytes(p, _WALINDEX_PGSZ))
 		for i, privat := range privat {
 			if shadow[i] != privat {
 				shadow[i] = privat
@@ -71,17 +70,21 @@ func (s *vfsShm) shmRelease() {
 }
 
 func (s *vfsShm) shmBarrier() {
+	var b atomic.Bool
 	s.Lock()
 	s.shmAcquire(nil)
+	b.Swap(true)
 	s.shmRelease()
 	s.Unlock()
 }
 
+//go:nosplit
 func shmPage(s []byte) *[_WALINDEX_PGSZ / 4]uint32 {
 	p := (*uint32)(unsafe.Pointer(unsafe.SliceData(s)))
 	return (*[_WALINDEX_PGSZ / 4]uint32)(unsafe.Slice(p, _WALINDEX_PGSZ/4))
 }
 
+//go:nosplit
 func shmEqual(v1, v2 []byte) bool {
 	return *(*[_WALINDEX_HDR_SIZE]byte)(v1[:]) == *(*[_WALINDEX_HDR_SIZE]byte)(v2[:])
 }

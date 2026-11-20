@@ -1,10 +1,8 @@
 // Package driver provides a database/sql driver for SQLite.
 //
 // Importing package driver registers a [database/sql] driver named "sqlite3".
-// You may also need to import package embed.
 //
 //	import _ "github.com/ncruces/go-sqlite3/driver"
-//	import _ "github.com/ncruces/go-sqlite3/embed"
 //
 // The data source name for "sqlite3" databases can be a filename or a "file:" [URI].
 //
@@ -110,6 +108,7 @@ import (
 	"unsafe"
 
 	"github.com/ncruces/go-sqlite3"
+	"github.com/ncruces/go-sqlite3/internal/errutil"
 	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
@@ -175,15 +174,17 @@ func newConnector(name string, init, term func(*sqlite3.Conn) error) (*connector
 
 	var txlock, timefmt string
 	if strings.HasPrefix(name, "file:") {
-		if _, after, ok := strings.Cut(name, "?"); ok {
-			query, err := url.ParseQuery(after)
-			if err != nil {
-				return nil, err
-			}
-			txlock = query.Get("_txlock")
-			timefmt = query.Get("_timefmt")
-			c.pragmas = query.Has("_pragma")
+		u, err := url.Parse(name)
+		if err != nil {
+			return nil, err
 		}
+		query, err := url.ParseQuery(u.RawQuery)
+		if err != nil {
+			return nil, err
+		}
+		txlock = query.Get("_txlock")
+		timefmt = query.Get("_timefmt")
+		c.pragmas = query.Has("_pragma")
 	}
 
 	switch txlock {
@@ -343,7 +344,7 @@ func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 	var txLock string
 	switch opts.Isolation {
 	default:
-		return nil, util.IsolationErr
+		return nil, errutil.IsolationErr
 	case driver.IsolationLevel(sql.LevelLinearizable):
 		txLock = "exclusive"
 	case driver.IsolationLevel(sql.LevelSerializable):
@@ -405,7 +406,7 @@ func (c *conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 	}
 	if notWhitespace(tail) {
 		s.Close()
-		return nil, util.TailErr
+		return nil, errutil.TailErr
 	}
 	return &stmt{Stmt: s, tmRead: c.tmRead, tmWrite: c.tmWrite, inputs: -2}, nil
 }
@@ -549,7 +550,7 @@ func (s *stmt) setupBindings(args []driver.NamedValue) (err error) {
 			case nil:
 				err = s.Stmt.BindNull(id)
 			default:
-				panic(util.AssertErr())
+				panic(errutil.AssertErr())
 			}
 			if err != nil {
 				return err
@@ -698,17 +699,23 @@ func (r *rows) loadColumnMetadata() {
 		types := make([]string, count)
 		scans := make([]scantype, count)
 		for i := range types {
-			var notnull bool
-			if col := r.Stmt.ColumnOriginName(i); col != "" {
-				types[i], _, notnull, _, _, _ = c.TableColumnMetadata(
+			var declType string
+			var notNull, autoInc bool
+			if column := r.Stmt.ColumnOriginName(i); column != "" {
+				declType, _, notNull, _, autoInc, _ = c.TableColumnMetadata(
 					r.Stmt.ColumnDatabaseName(i),
 					r.Stmt.ColumnTableName(i),
-					col)
-				types[i] = strings.ToUpper(types[i])
-				scans[i] = scanFromDecl(types[i])
-				if notnull {
-					scans[i] |= _NOT_NULL
-				}
+					column)
+			} else {
+				declType = r.Stmt.ColumnDeclType(i)
+			}
+			if declType != "" {
+				declType = strings.ToUpper(declType)
+				scans[i] = scanFromDecl(declType)
+				types[i] = declType
+			}
+			if notNull || autoInc {
+				scans[i] |= _NOT_NULL
 			}
 		}
 		r.types = types
@@ -777,17 +784,23 @@ func (r *rows) ColumnTypeScanType(index int) (typ reflect.Type) {
 	}
 }
 
-func (r *rows) Next(dest []driver.Value) error {
+func (r *rows) NextRow() error {
 	c := r.Stmt.Conn()
 	if old := c.SetInterrupt(r.ctx); old != r.ctx {
 		defer c.SetInterrupt(old)
 	}
+	if r.Stmt.Step() {
+		return nil
+	}
+	if err := r.Stmt.Err(); err != nil {
+		return err
+	}
+	return io.EOF
+}
 
-	if !r.Stmt.Step() {
-		if err := r.Stmt.Err(); err != nil {
-			return err
-		}
-		return io.EOF
+func (r *rows) Next(dest []driver.Value) error {
+	if err := r.NextRow(); err != nil {
+		return err
 	}
 
 	data := unsafe.Slice((*any)(unsafe.SliceData(dest)), len(dest))
@@ -795,37 +808,38 @@ func (r *rows) Next(dest []driver.Value) error {
 		return err
 	}
 	for i := range dest {
-		scan := r.scanType(i)
-		if v, ok := dest[i].([]byte); ok {
-			if len(v) == cap(v) { // a BLOB
-				continue
-			}
-			if scan != _TEXT {
-				switch r.tmWrite {
-				case "", time.RFC3339, time.RFC3339Nano:
-					t, ok := maybeTime(v)
-					if ok {
-						dest[i] = t
-						continue
-					}
-				}
-			}
-			dest[i] = string(v)
-		}
-		switch scan {
-		case _TIME:
-			t, err := r.tmRead.Decode(dest[i])
-			if err == nil {
-				dest[i] = t
-			}
-		case _BOOL:
-			switch dest[i] {
-			case int64(0):
-				dest[i] = false
-			case int64(1):
-				dest[i] = true
-			}
-		}
+		dest[i] = r.convert(i, dest[i])
 	}
 	return nil
+}
+
+func (r *rows) convert(i int, val driver.Value) driver.Value {
+	scan := r.scanType(i)
+	if v, ok := val.([]byte); ok {
+		if len(v) == cap(v) { // a BLOB
+			return val
+		}
+		if scan != _TEXT {
+			t, ok := r.maybeTime(v)
+			if ok {
+				return t
+			}
+		}
+		val = string(v)
+	}
+	switch scan {
+	case _TIME:
+		t, err := r.tmRead.Decode(val)
+		if err == nil {
+			return t
+		}
+	case _BOOL:
+		switch val {
+		case int64(0):
+			return false
+		case int64(1):
+			return true
+		}
+	}
+	return val
 }

@@ -1,4 +1,4 @@
-//go:build !goexperiment.jsonv2
+//go:build !go1.27
 
 package sqlite3
 
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/ncruces/go-sqlite3/internal/errutil"
 	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
@@ -19,6 +20,10 @@ func JSON(value any) any {
 }
 
 // ResultJSON sets the result of the function to the JSON encoding of value.
+//
+// If you return JSON from application-defined functions,
+// consider registering those functions with [RESULT_SUBTYPE]
+// and calling [Context.ResultSubtype] with 'J'.
 //
 // https://sqlite.org/c3ref/result_blob.html
 func (ctx Context) ResultJSON(value any) {
@@ -62,7 +67,7 @@ func (s *Stmt) ColumnJSON(col int, ptr any) error {
 	case FLOAT:
 		data = util.AppendNumber(nil, s.ColumnFloat(col))
 	default:
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 	return json.Unmarshal(data, ptr)
 }
@@ -83,7 +88,7 @@ func (v Value) JSON(ptr any) error {
 	case FLOAT:
 		data = util.AppendNumber(nil, v.Float())
 	default:
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 	return json.Unmarshal(data, ptr)
 }
@@ -91,3 +96,5 @@ func (v Value) JSON(ptr any) error {
 type callbackWriter func(p []byte) (int, error)
 
 func (fn callbackWriter) Write(p []byte) (int, error) { return fn(p) }
+
+func (c *Conn) uuid() error { return nil }

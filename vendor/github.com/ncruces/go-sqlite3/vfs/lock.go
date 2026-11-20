@@ -2,7 +2,7 @@
 
 package vfs
 
-import "github.com/ncruces/go-sqlite3/internal/util"
+import "github.com/ncruces/go-sqlite3/internal/errutil"
 
 // SupportsFileLocking is false on platforms that do not support file locking.
 // To open a database file on those platforms,
@@ -23,16 +23,16 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 	switch {
 	case lock != LOCK_SHARED && lock != LOCK_RESERVED && lock != LOCK_EXCLUSIVE:
 		// Argument check. SQLite never explicitly requests a pending lock.
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	case f.lock < LOCK_NONE || f.lock > LOCK_EXCLUSIVE:
 		// Connection state check.
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	case f.lock == LOCK_NONE && lock > LOCK_SHARED:
 		// We never move from unlocked to anything higher than a shared lock.
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	case f.lock != LOCK_SHARED && lock == LOCK_RESERVED:
 		// A shared lock is always held when a reserved lock is requested.
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 
 	// If we already have an equal or more restrictive lock, do nothing.
@@ -49,7 +49,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 	case LOCK_SHARED:
 		// Must be unlocked to get SHARED.
 		if f.lock != LOCK_NONE {
-			panic(util.AssertErr())
+			panic(errutil.AssertErr())
 		}
 		if err := osGetSharedLock(f.File); err != nil {
 			return err
@@ -60,7 +60,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 	case LOCK_RESERVED:
 		// Must be SHARED to get RESERVED.
 		if f.lock != LOCK_SHARED {
-			panic(util.AssertErr())
+			panic(errutil.AssertErr())
 		}
 		if err := osGetReservedLock(f.File); err != nil {
 			return err
@@ -71,7 +71,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 	case LOCK_EXCLUSIVE:
 		// Must be SHARED, RESERVED or PENDING to get EXCLUSIVE.
 		if f.lock <= LOCK_NONE || f.lock >= LOCK_EXCLUSIVE {
-			panic(util.AssertErr())
+			panic(errutil.AssertErr())
 		}
 		if err := osGetExclusiveLock(f.File, &f.lock); err != nil {
 			return err
@@ -80,7 +80,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 		return nil
 
 	default:
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 }
 
@@ -88,10 +88,10 @@ func (f *vfsFile) Unlock(lock LockLevel) error {
 	switch {
 	case lock != LOCK_NONE && lock != LOCK_SHARED:
 		// Argument check.
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	case f.lock < LOCK_NONE || f.lock > LOCK_EXCLUSIVE:
 		// Connection state check.
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 
 	// If we don't have a more restrictive lock, do nothing.
@@ -111,14 +111,14 @@ func (f *vfsFile) Unlock(lock LockLevel) error {
 		return err
 
 	default:
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 }
 
 func (f *vfsFile) CheckReservedLock() (bool, error) {
 	// Connection state check.
 	if f.lock < LOCK_NONE || f.lock > LOCK_EXCLUSIVE {
-		panic(util.AssertErr())
+		panic(errutil.AssertErr())
 	}
 
 	if f.lock >= LOCK_RESERVED {

@@ -1,6 +1,6 @@
 package vfs
 
-import "github.com/ncruces/go-sqlite3/internal/util"
+import "github.com/ncruces/go-sqlite3/internal/sqlite3_wrap"
 
 const (
 	_MAX_NAME            = 1e6 // Self-imposed limit for most NUL terminated strings.
@@ -8,63 +8,62 @@ const (
 	_MAX_PATHNAME        = 1024
 	_DEFAULT_SECTOR_SIZE = 4096
 
-	ptrlen = util.PtrLen
+	ptrlen = sqlite3_wrap.PtrLen
 )
 
-type (
-	stk_t = util.Stk_t
-	ptr_t = util.Ptr_t
-)
+type ptr_t = sqlite3_wrap.Ptr_t
 
 // https://sqlite.org/rescode.html
 type _ErrorCode uint32
 
 func (e _ErrorCode) Error() string {
-	return util.ErrorCodeString(e)
+	return sqlite3_wrap.ErrorCodeString(e)
 }
 
 const (
-	_OK                                 = util.OK
-	_ERROR                   _ErrorCode = util.ERROR
-	_PERM                    _ErrorCode = util.PERM
-	_BUSY                    _ErrorCode = util.BUSY
-	_READONLY                _ErrorCode = util.READONLY
-	_IOERR                   _ErrorCode = util.IOERR
-	_NOTFOUND                _ErrorCode = util.NOTFOUND
-	_FULL                    _ErrorCode = util.FULL
-	_CANTOPEN                _ErrorCode = util.CANTOPEN
-	_IOERR_READ              _ErrorCode = util.IOERR_READ
-	_IOERR_SHORT_READ        _ErrorCode = util.IOERR_SHORT_READ
-	_IOERR_WRITE             _ErrorCode = util.IOERR_WRITE
-	_IOERR_FSYNC             _ErrorCode = util.IOERR_FSYNC
-	_IOERR_DIR_FSYNC         _ErrorCode = util.IOERR_DIR_FSYNC
-	_IOERR_TRUNCATE          _ErrorCode = util.IOERR_TRUNCATE
-	_IOERR_FSTAT             _ErrorCode = util.IOERR_FSTAT
-	_IOERR_UNLOCK            _ErrorCode = util.IOERR_UNLOCK
-	_IOERR_RDLOCK            _ErrorCode = util.IOERR_RDLOCK
-	_IOERR_DELETE            _ErrorCode = util.IOERR_DELETE
-	_IOERR_ACCESS            _ErrorCode = util.IOERR_ACCESS
-	_IOERR_CHECKRESERVEDLOCK _ErrorCode = util.IOERR_CHECKRESERVEDLOCK
-	_IOERR_LOCK              _ErrorCode = util.IOERR_LOCK
-	_IOERR_CLOSE             _ErrorCode = util.IOERR_CLOSE
-	_IOERR_SHMOPEN           _ErrorCode = util.IOERR_SHMOPEN
-	_IOERR_SHMSIZE           _ErrorCode = util.IOERR_SHMSIZE
-	_IOERR_SHMLOCK           _ErrorCode = util.IOERR_SHMLOCK
-	_IOERR_SHMMAP            _ErrorCode = util.IOERR_SHMMAP
-	_IOERR_SEEK              _ErrorCode = util.IOERR_SEEK
-	_IOERR_DELETE_NOENT      _ErrorCode = util.IOERR_DELETE_NOENT
-	_IOERR_GETTEMPPATH       _ErrorCode = util.IOERR_GETTEMPPATH
-	_IOERR_BEGIN_ATOMIC      _ErrorCode = util.IOERR_BEGIN_ATOMIC
-	_IOERR_COMMIT_ATOMIC     _ErrorCode = util.IOERR_COMMIT_ATOMIC
-	_IOERR_ROLLBACK_ATOMIC   _ErrorCode = util.IOERR_ROLLBACK_ATOMIC
-	_IOERR_DATA              _ErrorCode = util.IOERR_DATA
-	_IOERR_CORRUPTFS         _ErrorCode = util.IOERR_CORRUPTFS
-	_BUSY_SNAPSHOT           _ErrorCode = util.BUSY_SNAPSHOT
-	_CANTOPEN_FULLPATH       _ErrorCode = util.CANTOPEN_FULLPATH
-	_CANTOPEN_ISDIR          _ErrorCode = util.CANTOPEN_ISDIR
-	_READONLY_CANTINIT       _ErrorCode = util.READONLY_CANTINIT
-	_READONLY_DIRECTORY      _ErrorCode = util.READONLY_DIRECTORY
-	_OK_SYMLINK              _ErrorCode = util.OK_SYMLINK
+	_OK                                 = sqlite3_wrap.OK
+	_ERROR                   _ErrorCode = sqlite3_wrap.ERROR
+	_PERM                    _ErrorCode = sqlite3_wrap.PERM
+	_BUSY                    _ErrorCode = sqlite3_wrap.BUSY
+	_READONLY                _ErrorCode = sqlite3_wrap.READONLY
+	_IOERR                   _ErrorCode = sqlite3_wrap.IOERR
+	_NOTFOUND                _ErrorCode = sqlite3_wrap.NOTFOUND
+	_FULL                    _ErrorCode = sqlite3_wrap.FULL
+	_CANTOPEN                _ErrorCode = sqlite3_wrap.CANTOPEN
+	_IOERR_READ              _ErrorCode = sqlite3_wrap.IOERR_READ
+	_IOERR_SHORT_READ        _ErrorCode = sqlite3_wrap.IOERR_SHORT_READ
+	_IOERR_WRITE             _ErrorCode = sqlite3_wrap.IOERR_WRITE
+	_IOERR_FSYNC             _ErrorCode = sqlite3_wrap.IOERR_FSYNC
+	_IOERR_DIR_FSYNC         _ErrorCode = sqlite3_wrap.IOERR_DIR_FSYNC
+	_IOERR_TRUNCATE          _ErrorCode = sqlite3_wrap.IOERR_TRUNCATE
+	_IOERR_FSTAT             _ErrorCode = sqlite3_wrap.IOERR_FSTAT
+	_IOERR_UNLOCK            _ErrorCode = sqlite3_wrap.IOERR_UNLOCK
+	_IOERR_RDLOCK            _ErrorCode = sqlite3_wrap.IOERR_RDLOCK
+	_IOERR_DELETE            _ErrorCode = sqlite3_wrap.IOERR_DELETE
+	_IOERR_NOMEM             _ErrorCode = sqlite3_wrap.IOERR_NOMEM
+	_IOERR_ACCESS            _ErrorCode = sqlite3_wrap.IOERR_ACCESS
+	_IOERR_CHECKRESERVEDLOCK _ErrorCode = sqlite3_wrap.IOERR_CHECKRESERVEDLOCK
+	_IOERR_LOCK              _ErrorCode = sqlite3_wrap.IOERR_LOCK
+	_IOERR_CLOSE             _ErrorCode = sqlite3_wrap.IOERR_CLOSE
+	_IOERR_SHMOPEN           _ErrorCode = sqlite3_wrap.IOERR_SHMOPEN
+	_IOERR_SHMSIZE           _ErrorCode = sqlite3_wrap.IOERR_SHMSIZE
+	_IOERR_SHMLOCK           _ErrorCode = sqlite3_wrap.IOERR_SHMLOCK
+	_IOERR_SHMMAP            _ErrorCode = sqlite3_wrap.IOERR_SHMMAP
+	_IOERR_SEEK              _ErrorCode = sqlite3_wrap.IOERR_SEEK
+	_IOERR_DELETE_NOENT      _ErrorCode = sqlite3_wrap.IOERR_DELETE_NOENT
+	_IOERR_MMAP              _ErrorCode = sqlite3_wrap.IOERR_MMAP
+	_IOERR_GETTEMPPATH       _ErrorCode = sqlite3_wrap.IOERR_GETTEMPPATH
+	_IOERR_BEGIN_ATOMIC      _ErrorCode = sqlite3_wrap.IOERR_BEGIN_ATOMIC
+	_IOERR_COMMIT_ATOMIC     _ErrorCode = sqlite3_wrap.IOERR_COMMIT_ATOMIC
+	_IOERR_ROLLBACK_ATOMIC   _ErrorCode = sqlite3_wrap.IOERR_ROLLBACK_ATOMIC
+	_IOERR_DATA              _ErrorCode = sqlite3_wrap.IOERR_DATA
+	_IOERR_CORRUPTFS         _ErrorCode = sqlite3_wrap.IOERR_CORRUPTFS
+	_BUSY_SNAPSHOT           _ErrorCode = sqlite3_wrap.BUSY_SNAPSHOT
+	_CANTOPEN_FULLPATH       _ErrorCode = sqlite3_wrap.CANTOPEN_FULLPATH
+	_CANTOPEN_ISDIR          _ErrorCode = sqlite3_wrap.CANTOPEN_ISDIR
+	_READONLY_CANTINIT       _ErrorCode = sqlite3_wrap.READONLY_CANTINIT
+	_READONLY_DIRECTORY      _ErrorCode = sqlite3_wrap.READONLY_DIRECTORY
+	_OK_SYMLINK              _ErrorCode = sqlite3_wrap.OK_SYMLINK
 )
 
 // OpenFlag is a flag for the [VFS] Open method.
@@ -239,6 +238,7 @@ const (
 	_FCNTL_RESET_CACHE           _FcntlOpcode = 42
 	_FCNTL_NULL_IO               _FcntlOpcode = 43
 	_FCNTL_BLOCK_ON_CONNECT      _FcntlOpcode = 44
+	_FCNTL_FILESTAT              _FcntlOpcode = 45
 )
 
 // https://sqlite.org/c3ref/c_shm_exclusive.html

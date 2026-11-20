@@ -3,7 +3,7 @@ package sqlite3
 import (
 	"strconv"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/ncruces/go-sqlite3/internal/sqlite3_wrap"
 )
 
 const (
@@ -15,14 +15,13 @@ const (
 	_MAX_LENGTH     = 1e9
 	_MAX_SQL_LENGTH = 1e9
 
-	ptrlen = util.PtrLen
-	intlen = util.IntLen
+	ptrlen = sqlite3_wrap.PtrLen
+	intlen = sqlite3_wrap.IntLen
 )
 
 type (
-	stk_t = util.Stk_t
-	ptr_t = util.Ptr_t
-	res_t = util.Res_t
+	ptr_t = sqlite3_wrap.Ptr_t
+	res_t = sqlite3_wrap.Res_t
 )
 
 // ErrorCode is a result code that [Error.Code] might return.
@@ -173,7 +172,7 @@ const (
 
 // PrepareFlag is a flag that can be passed to [Conn.PrepareFlags].
 //
-// https://sqlite.org/c3ref/c_prepare_normalize.html
+// https://sqlite.org/c3ref/c_prepare_dont_log.html
 type PrepareFlag uint32
 
 const (
@@ -181,6 +180,7 @@ const (
 	PREPARE_NORMALIZE  PrepareFlag = 0x02
 	PREPARE_NO_VTAB    PrepareFlag = 0x04
 	PREPARE_DONT_LOG   PrepareFlag = 0x10
+	PREPARE_FROM_DDL   PrepareFlag = 0x20
 )
 
 // FunctionFlag is a flag that can be passed to
@@ -267,7 +267,8 @@ const (
 	DBCONFIG_ENABLE_ATTACH_CREATE  DBConfig = 1020
 	DBCONFIG_ENABLE_ATTACH_WRITE   DBConfig = 1021
 	DBCONFIG_ENABLE_COMMENTS       DBConfig = 1022
-	// DBCONFIG_MAX                DBConfig = 1022
+	DBCONFIG_FP_DIGITS             DBConfig = 1023
+	// DBCONFIG_MAX                DBConfig = 1023
 )
 
 // FcntlOpcode are the available opcodes for [Conn.FileControl].
@@ -280,6 +281,7 @@ const (
 	FCNTL_CHUNK_SIZE          FcntlOpcode = 6
 	FCNTL_FILE_POINTER        FcntlOpcode = 7
 	FCNTL_PERSIST_WAL         FcntlOpcode = 10
+	FCNTL_VFSNAME             FcntlOpcode = 12
 	FCNTL_POWERSAFE_OVERWRITE FcntlOpcode = 13
 	FCNTL_VFS_POINTER         FcntlOpcode = 27
 	FCNTL_JOURNAL_POINTER     FcntlOpcode = 28
@@ -307,6 +309,7 @@ const (
 	LIMIT_VARIABLE_NUMBER     LimitCategory = 9
 	LIMIT_TRIGGER_DEPTH       LimitCategory = 10
 	LIMIT_WORKER_THREADS      LimitCategory = 11
+	LIMIT_PARSER_DEPTH        LimitCategory = 12
 )
 
 // AuthorizerActionCode are the integer action codes
