@@ -106,6 +106,11 @@ const (
 
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	retainWorkspace, err := retainWorkspaceFromFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	if preview, _ := cmd.Flags().GetBool("plan"); preview {
 		previewGeneratePlan(cmd, con, false)
 		return
@@ -125,7 +130,6 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			return
 		}
 	}
-
 	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -141,7 +145,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	useRemote, explicit, pin := remoteStepFlags(cmd)
 	if !useRemote {
-		compile(name, config, spoofMetadata, save, con)
+		compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
 	} else if compatibilityErr := remoteStepCompatibility(cmd, config); compatibilityErr == nil || explicit {
 		if compatibilityErr != nil {
 			con.PrintErrorf("Assigned-step build cannot preserve this configuration: %s\n", compatibilityErr)
@@ -168,6 +172,26 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			return
 		}
 	}
+}
+
+func retainWorkspaceFromFlags(cmd *cobra.Command) (bool, error) {
+	if cmd == nil {
+		return false, errors.New("missing generate command")
+	}
+	raw, err := cmd.Flags().GetString("cleanup")
+	if err != nil {
+		return false, fmt.Errorf("read --cleanup: %w", err)
+	}
+	cleanup, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("invalid --cleanup value %q: expected a boolean", raw)
+	}
+	if !cleanup {
+		if remote, _, _ := remoteStepFlags(cmd); remote {
+			return false, errors.New("--cleanup false is supported only for local generation; remote and legacy external builders do not return a local server workspace")
+		}
+	}
+	return !cleanup, nil
 }
 
 func shouldRunGenerateForm(cmd *cobra.Command, con *console.SliverClient, args []string) bool {
@@ -1866,6 +1890,11 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 }
 
 func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+	return compileWithWorkspaceRetention(name, config, spoofMetadata, save, false, con)
+}
+
+func compileWithWorkspaceRetention(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig,
+	save string, retainWorkspace bool, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -1883,9 +1912,10 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
 	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
-		Name:          name,
-		Config:        config,
-		SpoofMetadata: spoofMetadata,
+		Name:            name,
+		Config:          config,
+		SpoofMetadata:   spoofMetadata,
+		RetainWorkspace: retainWorkspace,
 	})
 	ctrl <- true
 	<-ctrl
@@ -1923,6 +1953,14 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 		return nil, err
 	}
 	con.PrintInfof("Implant saved to %s\n", saveTo)
+	if retainWorkspace {
+		if generated.GetWorkspacePath() == "" {
+			err := errors.New("--cleanup false was requested, but the server did not return a retained workspace path; check that the server supports workspace retention")
+			con.PrintErrorf("%s\n", err)
+			return file, err
+		}
+		con.PrintInfof("Build workspace retained on server at %q\n", generated.GetWorkspacePath())
+	}
 	return file, nil
 }
 

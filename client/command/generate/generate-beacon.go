@@ -21,6 +21,11 @@ var (
 
 // GenerateBeaconCmd - The main command used to generate implant binaries
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	retainWorkspace, err := retainWorkspaceFromFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	if preview, _ := cmd.Flags().GetBool("plan"); preview {
 		previewGeneratePlan(cmd, con, true)
 		return
@@ -40,7 +45,6 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 			return
 		}
 	}
-
 	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -62,7 +66,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 	useRemote, explicit, pin := remoteStepFlags(cmd)
 	if !useRemote {
-		compile(name, config, spoofMetadata, save, con)
+		compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
 	} else if compatibilityErr := remoteStepCompatibility(cmd, config); compatibilityErr == nil || explicit {
 		if compatibilityErr != nil {
 			con.PrintErrorf("Assigned-step build cannot preserve this configuration: %s\n", compatibilityErr)

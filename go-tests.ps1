@@ -432,6 +432,7 @@ try {
         # Each case has its own timeout and build workspace.
         $rpcGenerateTests = @(
             "TestExecuteBuildSliverNativeExecutable",
+            "TestGenerateRetainedWorkspace",
             "TestM4GenerateShellcodeFinalParity",
             "TestM4GenerateStageFinalParity",
             "TestGenerateSpoofMetadataAppliesPETimestampOverBufnet",

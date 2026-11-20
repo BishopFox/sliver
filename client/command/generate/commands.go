@@ -42,6 +42,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// Session flags and completions.
 	coreImplantFlags("session", generateCmd)
 	compileImplantFlags("session", generateCmd)
+	generateCmd.Flags().String("cleanup", "true", "remove the server build workspace after generation; false retains secret-bearing source and inputs")
 	generateCmd.Flags().Bool("plan", false, "preview the resolved build route without compiling")
 	coreImplantFlagCompletions(generateCmd, con)
 
@@ -57,6 +58,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// Beacon flags and completions.
 	coreImplantFlags("beacon", generateBeaconCmd)
 	compileImplantFlags("beacon", generateBeaconCmd)
+	generateBeaconCmd.Flags().String("cleanup", "true", "remove the server build workspace after generation; false retains secret-bearing source and inputs")
 	generateBeaconCmd.Flags().Bool("plan", false, "preview the resolved build route without compiling")
 	coreBeaconFlags("beacon", generateBeaconCmd)
 	coreImplantFlagCompletions(generateBeaconCmd, con)

@@ -24,6 +24,7 @@ type generateCompatibilityRPC struct {
 	rpcpb.SliverRPCClient
 	generateReq    *clientpb.GenerateReq
 	generateName   string
+	workspacePath  string
 	regenerateName string
 	spoofReq       *clientpb.GenerateSpoofMetadataReq
 	encodeReq      *clientpb.ShellcodeEncodeReq
@@ -41,7 +42,7 @@ func (rpc *generateCompatibilityRPC) Generate(_ context.Context, req *clientpb.G
 		name = "payload.exe"
 	}
 	return &clientpb.Generate{File: &commonpb.File{Name: name, Data: []byte("raw")},
-		ImplantName: "payload", ImplantBuildID: "build-id"}, nil
+		ImplantName: "payload", ImplantBuildID: "build-id", WorkspacePath: rpc.workspacePath}, nil
 }
 
 func (rpc *generateCompatibilityRPC) GetBuildRecord(_ context.Context, _ *clientpb.BuildRecordRef, _ ...grpc.CallOption) (*clientpb.BuildRecord, error) {

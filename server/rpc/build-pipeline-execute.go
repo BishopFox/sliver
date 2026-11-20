@@ -15,6 +15,7 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/buildcore"
 	"github.com/bishopfox/sliver/server/buildcore/artifactaccept"
+	"github.com/bishopfox/sliver/server/buildcore/workspace"
 	"github.com/bishopfox/sliver/server/buildplan"
 	"github.com/bishopfox/sliver/server/buildtransform"
 	"github.com/bishopfox/sliver/server/db"
@@ -48,6 +49,13 @@ func (rpc *Server) executeResolvedPlan(ctx context.Context, plan buildplan.Plan,
 		defer func() {
 			if finalErr == nil {
 				return
+			}
+			if run.result.WorkspacePath != "" {
+				placeholder := filepath.Join(run.result.WorkspacePath, "bin", "retained")
+				if err := workspace.RemoveOutputWorkspace(assets.GetRootAppDir(), plan.Request.Target.OS,
+					plan.Request.Target.Arch, run.result.ImplantName, placeholder); err != nil {
+					finalErr = errors.Join(finalErr, fmt.Errorf("remove retained workspace after record failure: %w", err))
+				}
 			}
 			if err := rollbackSavedRuntimeBuild(run.result.BuildID, run.result.ImplantName); err != nil {
 				finalErr = errors.Join(finalErr, fmt.Errorf("roll back saved runtime build: %w", err))

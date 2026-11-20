@@ -150,3 +150,10 @@ row while retaining completed builds, snapshots, and final bytes.
 
 The [acceptance matrix](m7-acceptance.md) separates static checks, compiled
 artifacts, two-process remote builds, and live implant connections.
+
+For a local Sliver `generate` or `generate beacon` build, pass `--cleanup
+false` to keep the rendered source, Magefile, per-build inputs, and compiler
+output in the server's private workspace. The command prints the workspace
+path. The retained input and source files contain cryptographic material;
+see [source and Mage handoff](mage-core-builds.md) for the layout. The default
+`--cleanup true` removes the workspace after saving the final artifact.

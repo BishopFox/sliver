@@ -7614,8 +7614,10 @@ type GenerateReq struct {
 	Name   string                 `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
 	// Optional per-build metadata input. Its bytes are never stored in BuildPlan.
 	SpoofMetadata *SpoofMetadataConfig `protobuf:"bytes,3,opt,name=SpoofMetadata,proto3" json:"SpoofMetadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Opt out of cleanup of secret-bearing files on the server build host.
+	RetainWorkspace bool `protobuf:"varint,4,opt,name=RetainWorkspace,proto3" json:"RetainWorkspace,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GenerateReq) Reset() {
@@ -7667,6 +7669,13 @@ func (x *GenerateReq) GetSpoofMetadata() *SpoofMetadataConfig {
 		return x.SpoofMetadata
 	}
 	return nil
+}
+
+func (x *GenerateReq) GetRetainWorkspace() bool {
+	if x != nil {
+		return x.RetainWorkspace
+	}
+	return false
 }
 
 type GenerateStageReq struct {
@@ -7774,8 +7783,10 @@ type Generate struct {
 	File           *commonpb.File         `protobuf:"bytes,1,opt,name=File,proto3" json:"File,omitempty"`
 	ImplantName    string                 `protobuf:"bytes,2,opt,name=ImplantName,proto3" json:"ImplantName,omitempty"`
 	ImplantBuildID string                 `protobuf:"bytes,3,opt,name=ImplantBuildID,proto3" json:"ImplantBuildID,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Absolute path on the server build host, not the client.
+	WorkspacePath string `protobuf:"bytes,4,opt,name=WorkspacePath,proto3" json:"WorkspacePath,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Generate) Reset() {
@@ -7825,6 +7836,13 @@ func (x *Generate) GetImplantName() string {
 func (x *Generate) GetImplantBuildID() string {
 	if x != nil {
 		return x.ImplantBuildID
+	}
+	return ""
+}
+
+func (x *Generate) GetWorkspacePath() string {
+	if x != nil {
+		return x.WorkspacePath
 	}
 	return ""
 }
@@ -20580,11 +20598,12 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\tRenameReq\x12\x1c\n" +
 	"\tSessionID\x18\x01 \x01(\tR\tSessionID\x12\x1a\n" +
 	"\bBeaconID\x18\x02 \x01(\tR\bBeaconID\x12\x12\n" +
-	"\x04Name\x18\x03 \x01(\tR\x04Name\"\x97\x01\n" +
+	"\x04Name\x18\x03 \x01(\tR\x04Name\"\xc1\x01\n" +
 	"\vGenerateReq\x12/\n" +
 	"\x06Config\x18\x01 \x01(\v2\x17.clientpb.ImplantConfigR\x06Config\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12C\n" +
-	"\rSpoofMetadata\x18\x03 \x01(\v2\x1d.clientpb.SpoofMetadataConfigR\rSpoofMetadata\"\x8c\x02\n" +
+	"\rSpoofMetadata\x18\x03 \x01(\v2\x1d.clientpb.SpoofMetadataConfigR\rSpoofMetadata\x12(\n" +
+	"\x0fRetainWorkspace\x18\x04 \x01(\bR\x0fRetainWorkspace\"\x8c\x02\n" +
 	"\x10GenerateStageReq\x12\x18\n" +
 	"\aProfile\x18\x01 \x01(\tR\aProfile\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12$\n" +
@@ -20593,11 +20612,12 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\rRC4EncryptKey\x18\x05 \x01(\tR\rRC4EncryptKey\x12 \n" +
 	"\vPrependSize\x18\x06 \x01(\bR\vPrependSize\x12\x1c\n" +
 	"\tCompressF\x18\a \x01(\tR\tCompressF\x12\x1a\n" +
-	"\bCompress\x18\b \x01(\tR\bCompress\"x\n" +
+	"\bCompress\x18\b \x01(\tR\bCompress\"\x9e\x01\n" +
 	"\bGenerate\x12\"\n" +
 	"\x04File\x18\x01 \x01(\v2\x0e.commonpb.FileR\x04File\x12 \n" +
 	"\vImplantName\x18\x02 \x01(\tR\vImplantName\x12&\n" +
-	"\x0eImplantBuildID\x18\x03 \x01(\tR\x0eImplantBuildID\"\xc9\x01\n" +
+	"\x0eImplantBuildID\x18\x03 \x01(\tR\x0eImplantBuildID\x12$\n" +
+	"\rWorkspacePath\x18\x04 \x01(\tR\rWorkspacePath\"\xc9\x01\n" +
 	"\x18GenerateSpoofMetadataReq\x12&\n" +
 	"\x0eImplantBuildID\x18\x01 \x01(\tR\x0eImplantBuildID\x12 \n" +
 	"\vImplantName\x18\x02 \x01(\tR\vImplantName\x12\x1e\n" +

@@ -87,7 +87,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config = req.Config
 	}
 
-	adapter := generate.SliverCoreAdapter{}
+	adapter := generate.SliverCoreAdapter{KeepWorkspace: req.GetRetainWorkspace()}
 	if err := adapter.Normalize(config); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -105,6 +105,9 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	plan, err := rpc.resolveBuildPlan(ctx, planRequest)
 	if err != nil {
 		return nil, buildPlanRPCError(err)
+	}
+	if req.GetRetainWorkspace() && hasRemoteStep(plan) {
+		return nil, status.Error(codes.InvalidArgument, "retaining a build workspace requires a local server provider")
 	}
 	if snapshot := planRequest.ProfileSnapshot; snapshot != nil && snapshot.Migrated {
 		if err := verifyMigratedProfileSnapshot(snapshot, plan); err != nil {
@@ -128,6 +131,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		},
 		ImplantName:    result.ImplantName,
 		ImplantBuildID: result.BuildID,
+		WorkspacePath:  result.WorkspacePath,
 	}, err
 }
 

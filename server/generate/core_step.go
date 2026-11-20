@@ -124,8 +124,9 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 	}
 
 	var stateMu sync.Mutex
-	closed, saveAttempted := false, false
+	closed, saveAttempted, saved := false, false, false
 	var closeErr error
+	workspacePath := filepath.Dir(filepath.Dir(output))
 	closeProduct := func() error {
 		stateMu.Lock()
 		defer stateMu.Unlock()
@@ -133,6 +134,9 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 			return closeErr
 		}
 		closed = true
+		if adapter.KeepWorkspace && saved {
+			return nil
+		}
 		closeErr = workspace.RemoveOutputWorkspace(assets.GetRootAppDir(), config.GOOS, config.GOARCH, name, output)
 		return closeErr
 	}
@@ -185,10 +189,15 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 		if build.ID == "" {
 			return "", errors.New("legacy Sliver storage did not assign a build ID")
 		}
+		saved = true
 		return build.ID, nil
 	}
+	result := buildcore.Result{ImplantName: name, FileName: artifact.Name, Data: coreBytes, ToolchainIdentity: sliverToolchainIdentity()}
+	if adapter.KeepWorkspace {
+		result.WorkspacePath = workspacePath
+	}
 	return buildcore.CoreProduct{
-		Result:    buildcore.Result{ImplantName: name, FileName: artifact.Name, Data: coreBytes, ToolchainIdentity: sliverToolchainIdentity()},
+		Result:    result,
 		SaveFinal: saveFinal, Close: closeProduct,
 	}, nil
 }

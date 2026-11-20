@@ -129,6 +129,87 @@ func TestExecuteBuildSliverNativeExecutable(t *testing.T) {
 	}
 }
 
+// TestGenerateRetainedWorkspace verifies that retention is explicit and that
+// the response points at the exact private source and Mage build directory.
+func TestGenerateRetainedWorkspace(t *testing.T) {
+	if !generate.SupportedCompilerTargets[runtime.GOOS+"/"+runtime.GOARCH] {
+		t.Skip("native host is not a supported Sliver target")
+	}
+	setupGenerateSpoofTest(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Minute)
+	defer cancel()
+	for _, retain := range []bool{true, false} {
+		label := "default"
+		if retain {
+			label = "retained"
+		}
+		t.Run(label, func(t *testing.T) {
+			name := fmt.Sprintf("m7-workspace-%s-%d", label, time.Now().UnixNano())
+			parent := filepath.Join(generate.GetSliversDir(), runtime.GOOS, runtime.GOARCH, name)
+			t.Cleanup(func() {
+				_ = RemoveBuildByName(name)
+				_ = os.RemoveAll(parent)
+			})
+			response, err := (&Server{}).Generate(ctx, &clientpb.GenerateReq{
+				Name: name, RetainWorkspace: retain,
+				Config: &clientpb.ImplantConfig{
+					GOOS: runtime.GOOS, GOARCH: runtime.GOARCH,
+					Format: clientpb.OutputFormat_EXECUTABLE, Debug: true,
+					C2:               []*clientpb.ImplantC2{{URL: "mtls://127.0.0.1:8888"}},
+					HTTPC2ConfigName: "default",
+				},
+			})
+			if err != nil {
+				t.Fatalf("Generate: %v", err)
+			}
+			if response.GetImplantBuildID() == "" || len(response.GetFile().GetData()) == 0 {
+				t.Fatal("Generate returned no saved build")
+			}
+			entries, err := os.ReadDir(parent)
+			if err != nil {
+				t.Fatalf("read build parent: %v", err)
+			}
+			if !retain {
+				if response.GetWorkspacePath() != "" || len(entries) != 0 {
+					t.Fatalf("default build retained a workspace: path=%q entries=%d", response.GetWorkspacePath(), len(entries))
+				}
+				return
+			}
+			if len(entries) != 1 || !entries[0].IsDir() ||
+				response.GetWorkspacePath() != filepath.Join(parent, entries[0].Name()) {
+				t.Fatalf("retained workspace path %q does not match %v", response.GetWorkspacePath(), entries)
+			}
+			for _, relative := range []string{
+				".", "src", "magefiles", "inputs", "bin", "src/main.go", "magefiles/magefile.go",
+				"inputs/sliver-material.json",
+			} {
+				info, err := os.Stat(filepath.Join(response.WorkspacePath, relative))
+				if err != nil {
+					t.Fatalf("retained workspace missing %s: %v", relative, err)
+				}
+				if runtime.GOOS != "windows" {
+					want := os.FileMode(0600)
+					if info.IsDir() {
+						want = 0700
+					}
+					if info.Mode().Perm() != want {
+						t.Fatalf("retained %s permissions = %v, want %v", relative, info.Mode().Perm(), want)
+					}
+				}
+			}
+			compiledPath := filepath.Join(response.WorkspacePath, "bin", response.GetFile().GetName())
+			info, err := os.Stat(compiledPath)
+			if err != nil || info.Size() != int64(len(response.GetFile().GetData())) {
+				t.Fatalf("retained compiler output size differs from returned artifact: %v", err)
+			}
+			compiled, err := os.ReadFile(compiledPath)
+			if err != nil || !bytes.Equal(compiled, response.GetFile().GetData()) {
+				t.Fatalf("retained compiler output differs from returned artifact: %v", err)
+			}
+		})
+	}
+}
+
 func TestM4GenerateShellcodeFinalParity(t *testing.T) {
 	setupGenerateSpoofTest(t)
 	targets := []struct{ os, arch string }{}

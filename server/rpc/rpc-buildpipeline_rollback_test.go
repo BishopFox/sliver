@@ -9,15 +9,17 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/buildcore"
+	"github.com/bishopfox/sliver/server/buildcore/workspace"
 	"github.com/bishopfox/sliver/server/buildplan"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 )
 
 type rollbackCoreAdapter struct {
-	name    string
-	appDir  string
-	savedID *string
+	name          string
+	appDir        string
+	savedID       *string
+	workspacePath string
 }
 
 func (rollbackCoreAdapter) ExecutorID() string { return "test-rollback-core" }
@@ -31,7 +33,8 @@ func (rollbackCoreAdapter) Build(context.Context, buildplan.Plan) (buildcore.Res
 func (adapter rollbackCoreAdapter) BuildCore(context.Context, buildplan.Plan) (buildcore.CoreProduct, error) {
 	data := testCorePE()
 	return buildcore.CoreProduct{
-		Result: buildcore.Result{ImplantName: adapter.name, FileName: adapter.name + ".exe", Data: data},
+		Result: buildcore.Result{ImplantName: adapter.name, FileName: adapter.name + ".exe", Data: data,
+			WorkspacePath: adapter.workspacePath},
 		SaveFinal: func(_ context.Context, _ buildplan.Artifact, _ string, final []byte) (string, error) {
 			path := filepath.Join(adapter.appDir, "rollback-final.exe")
 			if err := os.WriteFile(path, final, 0600); err != nil {
@@ -56,6 +59,13 @@ func TestResolvedPipelineRollsBackRuntimeBuildWhenRecordStoreFails(t *testing.T)
 		t.Fatal(err)
 	}
 	name := "rollback-runtime-build"
+	work, err := workspace.New(appDir, "windows", "amd64", name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work.InputsDir, "material.bin"), []byte("private test material"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	artifact := buildplan.Artifact{Kind: "executable", Container: "pe", Target: buildplan.Target{OS: "windows", Arch: "amd64"}, GoBuildMode: "default"}
 	plan := buildplan.Plan{
 		Request:       buildplan.Request{Name: name, Target: artifact.Target, Mode: "session", FinalFormat: "exe"},
@@ -63,8 +73,8 @@ func TestResolvedPipelineRollsBackRuntimeBuildWhenRecordStoreFails(t *testing.T)
 		FinalArtifact: artifact,
 	}
 	savedID := ""
-	_, _, err := (&Server{}).executeResolvedPlan(t.Context(), plan,
-		rollbackCoreAdapter{name: name, appDir: appDir, savedID: &savedID}, nil, nil)
+	_, _, err = (&Server{}).executeResolvedPlan(t.Context(), plan,
+		rollbackCoreAdapter{name: name, appDir: appDir, savedID: &savedID, workspacePath: work.Root}, nil, nil)
 	if err == nil || savedID == "" {
 		t.Fatalf("expected record store failure after runtime save: buildID=%q err=%v", savedID, err)
 	}
@@ -77,5 +87,8 @@ func TestResolvedPipelineRollsBackRuntimeBuildWhenRecordStoreFails(t *testing.T)
 	}
 	if _, fileErr := os.Stat(filepath.Join(appDir, "builds", savedID)); !errors.Is(fileErr, os.ErrNotExist) {
 		t.Fatalf("saved runtime build %s retained final file: %v", savedID, fileErr)
+	}
+	if _, workspaceErr := os.Stat(work.Root); !errors.Is(workspaceErr, os.ErrNotExist) {
+		t.Fatalf("record failure retained private workspace: %v", workspaceErr)
 	}
 }

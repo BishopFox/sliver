@@ -35,7 +35,11 @@ const sliverExecutorID = "builtin-sliver-go-v1"
 // rendering, and output-specific compilation. The neutral executor invokes it
 // through buildcore.Adapter; legacy generation still uses the exported helper
 // functions in this package.
-type SliverCoreAdapter struct{}
+type SliverCoreAdapter struct {
+	// KeepWorkspace retains the exact local build directory, including private
+	// material and rendered source, only after a successful final save.
+	KeepWorkspace bool
+}
 
 func init() {
 	if err := buildcore.RegisterDefault(SliverCoreAdapter{}); err != nil {
@@ -116,7 +120,13 @@ func (adapter SliverCoreAdapter) BuildLegacy(ctx context.Context, name string, c
 	if err != nil {
 		return buildcore.Result{}, err
 	}
+	workspacePath := filepath.Dir(filepath.Dir(output))
+	saved := false
 	defer func() {
+		if adapter.KeepWorkspace && saved && buildErr == nil {
+			result.WorkspacePath = workspacePath
+			return
+		}
 		if err := workspace.RemoveOutputWorkspace(assets.GetRootAppDir(), config.GOOS, config.GOARCH, name, output); err != nil {
 			buildErr = errors.Join(buildErr, fmt.Errorf("remove private build workspace: %w", err))
 			result = buildcore.Result{}
@@ -139,6 +149,7 @@ func (adapter SliverCoreAdapter) BuildLegacy(ctx context.Context, name string, c
 	if err := ImplantBuildSave(build, config, output); err != nil {
 		return buildcore.Result{}, err
 	}
+	saved = true
 	return buildcore.Result{
 		BuildID: build.ID, ImplantName: build.Name, FileName: artifact.Name, Data: data,
 		ToolchainIdentity: sliverToolchainIdentity(),

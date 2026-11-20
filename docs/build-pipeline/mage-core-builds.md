@@ -69,12 +69,29 @@ contract. A failed step is recorded with the prior steps' observed hashes.
 
 Intermediate bytes live only in the executing process. Malasada's temporary
 shared object and the PE metadata scratch files are private and removed after
-their steps. The Sliver core workspace and cryptographic material are removed
-after the final artifact is saved. Each completed step records its actual
-artifact type, filename, size, and SHA-256; only the final bytes are retained
-in the build record and legacy Sliver storage. `regenerate` reads the recorded
-final stream. Stage keys and PE donor/configuration bytes enter through
-per-build inputs; the plan stores typed references, not their contents.
+their steps. By default, the Sliver core workspace and cryptographic material
+are removed after the final artifact is saved. Each completed step records
+its actual artifact type, filename, size, and SHA-256; only the final bytes
+are retained in the build record and legacy Sliver storage. `regenerate`
+reads the recorded final stream. Stage keys and PE donor/configuration bytes
+enter through per-build inputs; the plan stores typed references, not their
+contents.
+
+For a local Sliver build, `generate --cleanup false` (or `generate beacon
+--cleanup false`) keeps the exact per-build workspace after the build
+completes. The command prints its server-side path under
+`<server app root>/slivers/<os>/<arch>/<name>/<workspace-id>/`. Its `src/`
+contains rendered source, `magefiles/` contains the Magefile, `inputs/`
+contains the per-build manifest and cryptographic material, and `bin/`
+contains compiler output. This directory contains private implant keys and
+must be handled like the server's other secret-bearing files. Its directories
+are owner-only; the default `--cleanup true` avoids retaining this material.
+`--save` still controls only the client-side binary destination. The opt-out
+applies to local builds; remote and legacy external builders keep their own
+private workspaces and do not support this flag. The client requires an updated
+server to return the retained path; an older server still saves the binary but
+reports that it did not confirm workspace retention.
 
 Legacy direct build helpers continue to return a file path. The RPC build
-path consumes and removes its private workspace after saving the output.
+path removes its private workspace after saving the output unless the caller
+explicitly requests retention.

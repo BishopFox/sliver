@@ -76,3 +76,18 @@ docker run --rm -e GOPROXY=off sliver-m7-clean-test:local \
   cross-platform CI result exists. Under the roadmap's publication rule M7
   remains In progress until those links and remaining matrix decisions are
   recorded.
+
+## Explicit workspace retention follow-up
+
+The later `generate --cleanup false` change keeps the exact private local
+Sliver build workspace and returns its server-side path. The flag defaults to
+`true`, so existing requests still remove the workspace. The retained tree
+contains rendered source and per-build keys; see [the Mage handoff](mage-core-builds.md).
+
+| Gate | Exact command | Platform | Result |
+| --- | --- | --- | --- |
+| Focused client and server checks | `./go-tests.sh --offline-build-pipeline` | macOS/arm64 | Passed 27 groups, including space-separated flag parsing, old-server response handling, default cleanup, and failed-record rollback. |
+| Real retained and default builds | `./go-tests.sh --generate-only --run '^TestGenerateRetainedWorkspace$'` | Linux/arm64 Docker with current source over the clean compiler-asset image | Passed both subtests: retained `src/`, `magefiles/`, `inputs/`, and `bin/` matched the returned path and artifact; default build left no workspace. |
+| Native retained and default builds | Same focused generation command | macOS/arm64 | Passed both subtests against the native compiler. |
+| Full unit suite after retention change | `DOCKER_CONFIG=/tmp/sliver-m6-docker-config docker buildx build --target test --build-arg GO_TESTS_FLAGS=--skip-generate -t sliver-retain-full-test:local --load --progress=plain .` | Linux/arm64 Docker | Passed all 106 test groups. |
+| Full generation suite after retention change | `docker run --rm -e GOPROXY=off sliver-retain-full-test:local ./go-tests.sh --generate-only` | Linux/arm64 Docker | Passed `server/generate` and all 11 real RPC generation cases, including retained source, default cleanup, local transforms, profiles, and remote workers. |

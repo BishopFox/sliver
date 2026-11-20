@@ -543,6 +543,8 @@ message GenerateReq {
   string Name = 2;
   // Optional per-build metadata input. Its bytes are never stored in BuildPlan.
   SpoofMetadataConfig SpoofMetadata = 3;
+  // Opt out of cleanup of secret-bearing files on the server build host.
+  bool RetainWorkspace = 4;
 }
 
 message GenerateStageReq {
@@ -560,6 +562,8 @@ message Generate {
   commonpb.File File = 1;
   string ImplantName = 2;
   string ImplantBuildID = 3;
+  // Absolute path on the server build host, not the client.
+  string WorkspacePath = 4;
 }
 
 message GenerateSpoofMetadataReq {

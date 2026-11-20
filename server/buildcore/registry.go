@@ -19,6 +19,8 @@ type Result struct {
 	FileName          string
 	Data              []byte
 	ToolchainIdentity string
+	// WorkspacePath is returned only for an explicitly retained local build.
+	WorkspacePath string
 }
 
 // CoreProduct holds one accepted core artifact until the ordered transform
