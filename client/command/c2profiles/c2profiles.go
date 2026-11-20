@@ -542,15 +542,24 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 
 	tw.AppendRow(table.Row{
 		"Paths",
-		strings.Join(paths[:], ",")[:50] + "...",
+		clipList(strings.Join(paths, ",")),
 	})
 	tw.AppendRow(table.Row{
 		"Files",
-		strings.Join(files[:], ",")[:50] + "...",
+		clipList(strings.Join(files, ",")),
 	})
 
 	con.Println(tw.Render())
 	con.Println("\n")
+}
+
+// clipList truncates a comma-joined list for table display. Slicing [:50]
+// unconditionally panicked on lists shorter than 50 characters.
+func clipList(s string) string {
+	if len(s) <= 50 {
+		return s
+	}
+	return s[:50] + "..."
 }
 
 func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) (string, error) {
