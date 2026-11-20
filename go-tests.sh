@@ -264,17 +264,20 @@ run_generate_tests() {
 	# Keep real RPC builds in the generation gate without running the whole
 	# RPC package again. Respect --run when selecting focused cases.
 	local rpc_generate_tests=(TestExecuteBuildSliverNativeExecutable TestGenerateRetainedWorkspace TestOnDemandShellcodeBuildRecord TestM4GenerateShellcodeFinalParity TestM4GenerateStageFinalParity TestGenerateSpoofMetadataAppliesPETimestampOverBufnet TestM6AuthoredProfileBuildFreezesSnapshot TestM6MigratedProfileBuildPreservesLegacyConfig TestM7MinimalCoreAdvertisedTargets TestM7MinimalCoreLiveMTLSPing TestM7RemoteMinimalCoreLiveWorker TestM7RemoteMinimalCoreSeparateProcessWorker)
+	local rpc_test_cmd=(
+		"$HOST_GO" test -vet=off -timeout 30m
+		-p "$generate_go_p" -parallel "$generate_test_parallel"
+		-tags="server,$TAGS,sliver_generate" -count=1
+	)
 	local rpc_generate_test
-	local rpc_verbose=()
 	if [ -n "$GENERATE_RUN" ]; then
-		rpc_verbose=(-v)
+		rpc_test_cmd+=(-v)
 	fi
 	for rpc_generate_test in "${rpc_generate_tests[@]}"; do
 		if [ -z "$GENERATE_RUN" ] || [[ "$rpc_generate_test" =~ $GENERATE_RUN ]]; then
 			run_test_cmd "./server/rpc ($rpc_generate_test)" \
-				env GOMAXPROCS="$generate_gomaxprocs" "$HOST_GO" test -vet=off -timeout 30m \
-				-p "$generate_go_p" -parallel "$generate_test_parallel" \
-				-tags="server,$TAGS,sliver_generate" -run "^${rpc_generate_test}$" -count=1 "${rpc_verbose[@]}" ./server/rpc || return 1
+				env GOMAXPROCS="$generate_gomaxprocs" "${rpc_test_cmd[@]}" \
+				-run "^${rpc_generate_test}$" ./server/rpc || return 1
 		fi
 	done
 }

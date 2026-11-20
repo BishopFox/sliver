@@ -68,12 +68,13 @@ func TestMageCoreAdapterPreservesLiteralSourceAndMaterial(t *testing.T) {
 		Steps:         []buildplan.Step{{ID: "core", Kind: "core", Provider: "server", Output: artifact, Toolchain: buildplan.Toolchain{Driver: "fixture"}}},
 		FinalArtifact: artifact,
 	}
+	var stderr bytes.Buffer
 	adapter := MageCoreAdapter{
 		ID: "fixture-mage-v1", AppDir: root,
 		BindingSpec:  MageBinding{SourceMode: "copy", Magefile: "magefiles", Target: "Build"},
 		Source:       fstest.MapFS{"payload.txt": &fstest.MapFile{Data: []byte("literal {{ .Value }}")}},
 		Magefiles:    fstest.MapFS{"magefiles/magefile.go": &fstest.MapFile{Data: []byte(fixtureMagefile)}},
-		BundleDigest: digest, GoCmd: goCmd,
+		BundleDigest: digest, GoCmd: goCmd, Stderr: &stderr,
 		Available: func(target buildplan.Target, toolchain buildplan.Toolchain) bool {
 			return target == artifact.Target && toolchain.Driver == "fixture"
 		},
@@ -90,7 +91,7 @@ func TestMageCoreAdapterPreservesLiteralSourceAndMaterial(t *testing.T) {
 	defer cancel()
 	result, err := adapter.Build(ctx, plan)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Mage fixture build: %v\n%s", err, stderr.String())
 	}
 	if !bytes.Equal(result.Data, []byte("literal {{ .Value }}")) || result.FileName != "payload.bin" || result.BuildID == "" {
 		t.Fatalf("literal source or artifact was changed: %+v", result)

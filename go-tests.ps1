@@ -219,8 +219,13 @@ try {
 
     $tags = "osusergo,netgo,go_sqlite"
 
-    $script:TestTmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sliver-go-tests-" + [System.Guid]::NewGuid().ToString("N"))
-    New-Item -ItemType Directory -Path $script:TestTmpRoot -Force | Out-Null
+    # Mage builds run Go from deeply nested temporary working directories.
+    $testTempDir = [System.IO.Path]::GetTempPath()
+    if ($env:RUNNER_TEMP) {
+        $testTempDir = $env:RUNNER_TEMP
+    }
+    $script:TestTmpRoot = Join-Path $testTempDir ("slv-" + [System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $script:TestTmpRoot | Out-Null
     $script:CreatedTestRoot = $true
 
     $env:SLIVER_ROOT_DIR = Join-Path $script:TestTmpRoot "sliver"
@@ -234,7 +239,7 @@ try {
     $env:TMP = $env:TMPDIR
     $env:TEMP = $env:TMPDIR
     $env:GOCACHE = Join-Path $script:TestTmpRoot "go-cache"
-    $env:GOTMPDIR = Join-Path $script:TestTmpRoot "go-tmp"
+    $env:GOTMPDIR = Join-Path $script:TestTmpRoot "g"
     if ($env:GOFLAGS) {
         $env:GOFLAGS = ($env:GOFLAGS.Trim() + " -mod=vendor").Trim()
     } else {
