@@ -122,11 +122,16 @@ func (adapter SliverCoreAdapter) BuildCoreWithConfig(ctx context.Context, plan b
 	if err != nil {
 		return buildcore.CoreProduct{}, fmt.Errorf("accept Sliver core output: %w", err)
 	}
+	workspacePath := filepath.Dir(filepath.Dir(output))
+	if adapter.KeepWorkspace {
+		if err := writeRetainedBuildScript(workspacePath, runtime.GOOS); err != nil {
+			return buildcore.CoreProduct{}, fmt.Errorf("prepare retained Sliver workspace: %w", err)
+		}
+	}
 
 	var stateMu sync.Mutex
 	closed, saveAttempted, saved := false, false, false
 	var closeErr error
-	workspacePath := filepath.Dir(filepath.Dir(output))
 	closeProduct := func() error {
 		stateMu.Lock()
 		defer stateMu.Unlock()

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,6 +196,40 @@ func TestGenerateRetainedWorkspace(t *testing.T) {
 					if info.Mode().Perm() != want {
 						t.Fatalf("retained %s permissions = %v, want %v", relative, info.Mode().Perm(), want)
 					}
+				}
+			}
+			manifestEntries, err := os.ReadDir(filepath.Join(response.WorkspacePath, "inputs"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifestName := ""
+			for _, entry := range manifestEntries {
+				if strings.HasPrefix(entry.Name(), "go-build-") && strings.HasSuffix(entry.Name(), ".json") {
+					if manifestName != "" || !entry.Type().IsRegular() {
+						t.Fatal("retained workspace has ambiguous or nonregular Go build manifests")
+					}
+					manifestName = entry.Name()
+				}
+			}
+			if manifestName == "" {
+				t.Fatal("retained workspace has no Go build manifest")
+			}
+			scriptName := "build.sh"
+			if runtime.GOOS == "windows" {
+				scriptName = "build.ps1"
+			}
+			scriptPath := filepath.Join(response.WorkspacePath, scriptName)
+			script, err := os.ReadFile(scriptPath)
+			if err != nil {
+				t.Fatalf("retained workspace missing %s: %v", scriptName, err)
+			}
+			if !strings.Contains(string(script), manifestName) || !strings.Contains(string(script), "magefiles") ||
+				!strings.Contains(string(script), "mage") {
+				t.Fatalf("%s does not point at the retained Mage build manifest", scriptName)
+			}
+			if runtime.GOOS != "windows" {
+				if info, err := os.Lstat(scriptPath); err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o700 {
+					t.Fatalf("retained build script is not private and executable: %v, %v", info, err)
 				}
 			}
 			compiledPath := filepath.Join(response.WorkspacePath, "bin", response.GetFile().GetName())

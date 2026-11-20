@@ -83,7 +83,12 @@ completes. The command prints its server-side path under
 `<server app root>/slivers/<os>/<arch>/<name>/<workspace-id>/`. Its `src/`
 contains rendered source, `magefiles/` contains the Magefile, `inputs/`
 contains the per-build manifest and cryptographic material, and `bin/`
-contains compiler output. This directory contains private implant keys and
+contains compiler output. The workspace root also contains an executable
+`build.sh` on macOS/Linux servers, or `build.ps1` on Windows servers. Run the
+script from a shell with `mage` on `PATH` to rebuild the staged core using its
+saved manifest. This only rebuilds the core output in `bin/`; it does not run
+later transforms or update Sliver's saved build record. Sliver's Go build path
+does not execute the script. This directory contains private implant keys and
 must be handled like the server's other secret-bearing files. Its directories
 are owner-only; the default `--cleanup true` avoids retaining this material.
 `--save` still controls only the client-side binary destination. The opt-out
