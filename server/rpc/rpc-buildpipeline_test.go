@@ -217,11 +217,14 @@ func TestRegisteredCoreAdapterExecutesWithoutSliverChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw := bytes.Replace(builtin.RawYAML, []byte("name: builtin/sliver"), []byte("name: test/core"), 1)
+	raw := bytes.ReplaceAll(builtin.RawYAML, []byte("\r\n"), []byte("\n"))
+	raw = bytes.Replace(raw, []byte("name: builtin/sliver"), []byte("name: test/core"), 1)
 	raw = bytes.Replace(raw, []byte("id: builtin-sliver-go-v1"), []byte("id: "+adapter.ExecutorID()), 1)
-	raw = bytes.Replace(raw,
-		[]byte("commandSource: installed-catalog\n  commandCatalog: builtin-sliver-v1"),
-		[]byte("commandSource: declared-subset\n  commands:\n  - MsgPing"), 1)
+	installedCatalog := []byte("commandSource: installed-catalog\n  commandCatalog: builtin-sliver-v1")
+	if bytes.Count(raw, installedCatalog) != 1 {
+		t.Fatal("expected one installed command catalog in the core fixture")
+	}
+	raw = bytes.Replace(raw, installedCatalog, []byte("commandSource: declared-subset\n  commands:\n  - MsgPing"), 1)
 	var document map[string]any
 	if err := yaml.Unmarshal(raw, &document); err != nil {
 		t.Fatal(err)
