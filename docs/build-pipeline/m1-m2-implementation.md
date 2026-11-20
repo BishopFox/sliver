@@ -18,6 +18,9 @@ transforms info builtin/malasada
 ```
 
 `list` can filter by target and `all`, `available`, or `unavailable` status.
+The `cores` and `transforms` tables omit digests by default; add
+`--show-digests` to either command or its `list` subcommand to include the
+`Digest` column.
 `info` shows capability tuples, toolchain requirements, source, digest, and
 provider status. Names and targets complete from the server catalog. The RPCs
 `ListBuildSpecs` and `GetBuildSpec` expose the same read-only inventory.

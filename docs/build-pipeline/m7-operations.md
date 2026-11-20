@@ -62,6 +62,10 @@ transforms list --availability available
 transforms info builtin/malasada
 ```
 
+The `cores` and `transforms` list tables omit digests by default. Add
+`--show-digests` to include the `Digest` column; `info` continues to show the
+selected spec's digest.
+
 An offline remote spec remains visible. Availability on the catalog means an
 executor/provider is present; planning still checks the requested compiler,
 target, and toolchain tuple.

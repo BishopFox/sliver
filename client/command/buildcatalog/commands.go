@@ -39,6 +39,7 @@ func catalogCommand(name string, kind clientpb.BuildSpecKind, con *console.Slive
 	flags.Bind(name, true, root, func(f *pflag.FlagSet) {
 		f.String("target", "", "filter by target GOOS/GOARCH")
 		f.String("availability", "all", "filter by all, available, or unavailable specs")
+		f.Bool("show-digests", false, "show digest column in list output")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
@@ -141,8 +142,22 @@ func listSpecs(cmd *cobra.Command, kind clientpb.BuildSpecKind, con *console.Sli
 	}
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{"Name", "Version", "Digest", "Source", "Available", "Providers"})
-	for _, spec := range result.Specs {
+	showDigests := false
+	if flag := cmd.Flag("show-digests"); flag != nil {
+		showDigests = flag.Value.String() == "true"
+	}
+	appendSpecTable(tw, result.Specs, showDigests)
+	con.Printf("%s\n", tw.Render())
+}
+
+func appendSpecTable(tw table.Writer, specs []*clientpb.BuildSpec, showDigests bool) {
+	header := table.Row{"Name", "Version"}
+	if showDigests {
+		header = append(header, "Digest")
+	}
+	header = append(header, "Source", "Available", "Providers")
+	tw.AppendHeader(header)
+	for _, spec := range specs {
 		providers := make([]string, 0, len(spec.Providers))
 		for _, provider := range spec.Providers {
 			state := "offline"
@@ -157,9 +172,13 @@ func listSpecs(cmd *cobra.Command, kind clientpb.BuildSpecKind, con *console.Sli
 			sources = append(sources, origin.Source)
 		}
 		slices.Sort(sources)
-		tw.AppendRow(table.Row{spec.Ref.Name, spec.Ref.Version, spec.Ref.Digest, strings.Join(sources, ", "), spec.Available, strings.Join(providers, ", ")})
+		row := table.Row{spec.Ref.Name, spec.Ref.Version}
+		if showDigests {
+			row = append(row, spec.Ref.Digest)
+		}
+		row = append(row, strings.Join(sources, ", "), spec.Available, strings.Join(providers, ", "))
+		tw.AppendRow(row)
 	}
-	con.Printf("%s\n", tw.Render())
 }
 
 func infoSpec(cmd *cobra.Command, kind clientpb.BuildSpecKind, name string, con *console.SliverClient) {

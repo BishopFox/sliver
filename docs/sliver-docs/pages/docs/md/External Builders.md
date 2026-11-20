@@ -24,7 +24,7 @@ Update older builders and clients with the server before using remote builds. Wo
 
 ## Inspect builders and build
 
-Run `builders` to see each builder's availability, status age, capacity, installed spec references, and compiler targets. Offline or stale builders remain visible for diagnosis but cannot receive new steps. Run `cores` and `transforms` to inspect the server's installed build specs; `cores info <name> --yaml` shows an exact core definition.
+Run `builders` to see each builder's availability, status age, capacity, installed spec references, and compiler targets. Offline or stale builders remain visible for diagnosis but cannot receive new steps. Run `cores` and `transforms` to inspect the server's installed build specs. Their tables omit digests by default; use `--show-digests` to include the digest column. `cores info <name> --yaml` shows an exact core definition and digest.
 
 Use `-E` (or `--external-builder`) to request an assigned-step build. `--builder <name>` pins the request to a particular connected builder. The server checks compatibility and capacity before assigning work, and the client verifies the downloaded final artifact against the build record.
 
