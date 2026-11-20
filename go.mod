@@ -47,7 +47,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	github.com/mark3labs/mcp-go v0.45.0
 	github.com/mattn/go-sqlite3 v1.14.52
-	github.com/miekg/dns v1.1.70
+	github.com/miekg/dns v1.1.73
 	github.com/moloch--/asciicast v0.1.1
 	github.com/moloch--/go-keystone v0.0.2
 	github.com/moloch--/sgn v0.1.2
@@ -307,7 +307,6 @@ require (
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	google.golang.org/appengine/v2 v2.0.6 // indirect
