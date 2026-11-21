@@ -1,0 +1,43 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: CoreSpec
+metadata:
+  name: example/native-core
+  version: 1.1.0
+  digest: sha256:0546d750c7a4105928dcfcb4b6fe1c8896eabaa984f526d4b412cea458df0d1d
+runtime:
+  protocol: sliver-v1
+  commandSource: declared-subset
+  commands:
+  - MsgPing
+  - MsgLsReq
+executor:
+  id: hypothetical-native-core-v1
+source:
+  mode: copy
+builder:
+  engine: mage
+  magefile: magefiles/native
+  target: Build
+options:
+- name: message
+  type: string
+  required: false
+  default: hello
+capabilities:
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: executable
+      container: elf
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: native
+    requirements:
+    - preinstalled-native-toolchain

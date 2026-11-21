@@ -6,4 +6,8 @@ Managed traffic encoder templates bundled with the server. Provides default enco
 
 ## Go Files
 
-- `traffic-encoder_test.go` *(tests)* – Validates that embedded traffic encoder templates compile and run.
+- `traffic-encoder_test.go` *(tests)* – Validates that the same encoder artifact runs in both the server and implant runtimes, including TCP, UDP, DNS, HTTPS, reactor initialization, cancellation, and ABI validation.
+
+`testdata/network-encoder` is a Go WASI reactor compiled with
+`sliver-wasm-go -buildmode=c-shared`. It uses only standard-library networking;
+the wrapper converts those calls into the shared `sliver_wasi_net_v1` imports.

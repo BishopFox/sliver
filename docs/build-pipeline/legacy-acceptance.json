@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "17724ef9b8de89ed53e64bdccb9852592a651599",
+  "description": "Source-level acceptance routes; conditional CGo cases need a host or cross compiler and all cases need later build and live verification.",
+  "routes": [
+    {"id":"exe-darwin-amd64","target":"darwin/amd64","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"macho-executable","extension":"","toolchain":"go"},
+    {"id":"exe-darwin-arm64","target":"darwin/arm64","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"macho-executable","extension":"","toolchain":"go"},
+    {"id":"exe-linux-386","target":"linux/386","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"elf-executable","extension":"","toolchain":"go"},
+    {"id":"exe-linux-amd64","target":"linux/amd64","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"elf-executable","extension":"","toolchain":"go"},
+    {"id":"exe-linux-arm64","target":"linux/arm64","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"elf-executable","extension":"","toolchain":"go"},
+    {"id":"exe-windows-386","target":"windows/386","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"pe-executable","extension":".exe","toolchain":"go"},
+    {"id":"exe-windows-amd64","target":"windows/amd64","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"pe-executable","extension":".exe","toolchain":"go"},
+    {"id":"exe-windows-arm64","target":"windows/arm64","modes":["session","beacon"],"format":"exe","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"pe-executable","extension":".exe","toolchain":"go"},
+
+    {"id":"service-windows-386","target":"windows/386","modes":["session","beacon"],"format":"service","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"pe-service-executable","extension":".exe","toolchain":"go"},
+    {"id":"service-windows-amd64","target":"windows/amd64","modes":["session","beacon"],"format":"service","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"pe-service-executable","extension":".exe","toolchain":"go"},
+    {"id":"service-windows-arm64","target":"windows/arm64","modes":["session","beacon"],"format":"service","expected":"route","rpc":"SliverExecutable","goBuildMode":"default","converter":"none","artifact":"pe-service-executable","extension":".exe","toolchain":"go"},
+
+    {"id":"shared-darwin-amd64","target":"darwin/amd64","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"macho-shared-library","extension":".dylib","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-darwin-arm64","target":"darwin/arm64","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"macho-shared-library","extension":".dylib","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-linux-386","target":"linux/386","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"elf-shared-library","extension":".so","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-linux-amd64","target":"linux/amd64","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"elf-shared-library","extension":".so","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-linux-arm64","target":"linux/arm64","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"elf-shared-library","extension":".so","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-windows-386","target":"windows/386","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"pe-shared-library","extension":".dll","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-windows-amd64","target":"windows/amd64","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"pe-shared-library","extension":".dll","toolchain":"cgo-host-or-cross"},
+    {"id":"shared-windows-arm64","target":"windows/arm64","modes":["session","beacon"],"format":"shared","expected":"route-if-toolchain","rpc":"SliverSharedLibrary","goBuildMode":"c-shared","converter":"none","artifact":"pe-shared-library","extension":".dll","toolchain":"cgo-host-or-cross"},
+
+    {"id":"archive-darwin-amd64","target":"darwin/amd64","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-darwin-arm64","target":"darwin/arm64","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-linux-386","target":"linux/386","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-linux-amd64","target":"linux/amd64","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-linux-arm64","target":"linux/arm64","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-windows-386","target":"windows/386","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-windows-amd64","target":"windows/amd64","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+    {"id":"archive-windows-arm64","target":"windows/arm64","modes":["session","beacon"],"format":"archive","expected":"route-if-toolchain","rpc":"SliverArchive","goBuildMode":"c-archive","converter":"zip-archive-headers","artifact":"c-archive-bundle","extension":".zip","toolchain":"cgo-host-or-cross"},
+
+    {"id":"shellcode-windows-386","target":"windows/386","modes":["session","beacon"],"format":"shellcode","expected":"route","rpc":"SliverShellcode","goBuildMode":"pie","converter":"donut","artifact":"shellcode-386","extension":".bin","toolchain":"go"},
+    {"id":"shellcode-windows-amd64","target":"windows/amd64","modes":["session","beacon"],"format":"shellcode","expected":"route","rpc":"SliverShellcode","goBuildMode":"pie","converter":"donut","artifact":"shellcode-amd64","extension":".bin","toolchain":"go"},
+    {"id":"shellcode-darwin-arm64","target":"darwin/arm64","modes":["session","beacon"],"format":"shellcode","expected":"route-if-toolchain","rpc":"SliverShellcode","goBuildMode":"c-shared","converter":"beignet","artifact":"shellcode-arm64","extension":".bin","toolchain":"cgo-host-or-cross"},
+    {"id":"shellcode-linux-amd64","target":"linux/amd64","modes":["session","beacon"],"format":"shellcode","expected":"route-if-toolchain","rpc":"SliverShellcode","goBuildMode":"c-shared","converter":"malasada","artifact":"shellcode-amd64","extension":".bin","toolchain":"cgo-host-or-cross"},
+    {"id":"shellcode-linux-arm64","target":"linux/arm64","modes":["session","beacon"],"format":"shellcode","expected":"route-if-toolchain","rpc":"SliverShellcode","goBuildMode":"c-shared","converter":"malasada","artifact":"shellcode-arm64","extension":".bin","toolchain":"cgo-host-or-cross"}
+  ],
+  "edgeCases": [
+    {"id":"shellcode-windows-arm64","target":"windows/arm64","mode":"session","format":"shellcode","expected":"client-reject","reason":"Windows shellcode parser allows only 386 and amd64"},
+    {"id":"shellcode-darwin-amd64","target":"darwin/amd64","mode":"session","format":"shellcode","expected":"client-reject","reason":"Darwin shellcode parser allows only arm64"},
+    {"id":"shellcode-linux-386","target":"linux/386","mode":"session","format":"shellcode","expected":"client-reject","reason":"Linux shellcode parser allows only amd64 and arm64"},
+    {"id":"named-pipe-linux","target":"linux/amd64","mode":"session","format":"exe","protocol":"named-pipe","expected":"client-reject","reason":"Named pipe pivoting is Windows-only"},
+    {"id":"no-c2","target":"windows/amd64","mode":"session","format":"exe","protocol":"none","expected":"client-reject","reason":"At least one parsed C2 URL is required"},
+    {"id":"unknown-format","target":"windows/amd64","mode":"session","format":"unknown-format","expected":"legacy-fallback-exe","reason":"The current client silently maps an unknown format to EXECUTABLE; M2 changes this"},
+    {"id":"service-nonwindows","target":"linux/amd64","mode":"session","format":"service","expected":"not-advertised-legacy-rpc-route","reason":"GetCompilerTargets only advertises Windows service, but the legacy RPC switch uses SliverExecutable without enforcing the OS"},
+    {"id":"darwin-host-linux-386-cgo","target":"linux/386","mode":"session","format":"shared","host":"darwin","expected":"not-advertised-even-with-cross-compiler","reason":"GetCompilerTargets explicitly skips Linux/386 CGO outputs on Darwin hosts"},
+    {"id":"beacon-named-pipe","target":"windows/amd64","mode":"beacon","format":"exe","protocol":"named-pipe","expected":"client-accepts-runtime-unsupported","reason":"The parser accepts it; the beacon transport has no namedpipe handler"},
+    {"id":"beacon-tcp-pivot","target":"linux/amd64","mode":"beacon","format":"exe","protocol":"tcp-pivot","expected":"client-accepts-runtime-unsupported","reason":"The parser accepts it; the beacon transport has no tcppivot handler"}
+  ],
+  "protocols": [
+    {"id":"mtls","modes":["session","beacon"],"expected":"supported","targetRule":"all-static-targets"},
+    {"id":"wg","modes":["session","beacon"],"expected":"supported","targetRule":"all-static-targets"},
+    {"id":"http","modes":["session","beacon"],"expected":"supported","targetRule":"all-static-targets"},
+    {"id":"https","modes":["session","beacon"],"expected":"supported","targetRule":"all-static-targets"},
+    {"id":"dns","modes":["session","beacon"],"expected":"supported","targetRule":"all-static-targets"},
+    {"id":"named-pipe","modes":["session"],"expected":"supported","targetRule":"windows-only"},
+    {"id":"tcp-pivot","modes":["session"],"expected":"supported","targetRule":"all-static-targets"}
+  ]
+}

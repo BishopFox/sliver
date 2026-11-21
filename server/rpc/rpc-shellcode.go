@@ -26,6 +26,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/buildtransform"
 	"github.com/bishopfox/sliver/server/encoders/shellcode"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -89,10 +90,7 @@ func (rpc *Server) ShellcodeEncoder(ctx context.Context, req *clientpb.Shellcode
 
 	rpcLog.Infof("[rpc] Shellcode encoder request for: %s (%s)", encoderName, arch)
 	rpcLog.Infof("[rpc] Encoding shellcode (%d bytes) for architecture %s with %d iterations and badchars: %v", len(req.Data), arch, iterations, req.BadChars)
-	encoded, err := encoder.Encode(req.Data, shellcode.ShellcodeEncoderArgs{
-		Iterations: iterations,
-		BadChars:   req.BadChars,
-	})
+	encoded, err := buildtransform.EncodeShellcodeCompat(ctx, encoderName, arch, iterations, req.BadChars, req.Data)
 	if err != nil {
 		rpcLog.Errorf("[rpc] Failed to encode shellcode: %v", err)
 		return nil, status.Error(codes.Internal, fmt.Sprintf("Failed to encode shellcode (%s)", err))

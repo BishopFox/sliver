@@ -1,0 +1,82 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: windows-stage
+  revision: 1
+target:
+  os: windows
+  arch: amd64
+mode: session
+c2:
+  endpoints:
+  - protocol: mtls
+    address: mtls://c2.example.invalid:8888
+  connectionStrategy: random
+  reconnectSeconds: 60
+  pollTimeoutSeconds: 360
+  maxConnectionErrors: 1000
+  httpC2Profile: default
+core:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+coreOutput:
+  kind: executable
+  container: pe
+  goBuildMode: default
+coreOptions: []
+transforms:
+- spec:
+    name: example/pe-metadata
+    version: 1.0.0
+    digest: sha256:f62ff584a280231cde509dcd51bda65fa0cbd5d2ecafd8daf6bb508cefbc43cf
+  options:
+  - name: donorArtifact
+    value:
+      kind: input-artifact
+      name: donor-pe
+- spec:
+    name: example/stage-frame
+    version: 1.0.0
+    digest: sha256:8d70ac2cdcd154ecaace22411c3113931e312fdc0e76c50b639020734b7b6b78
+  options:
+  - name: prependSize
+    value: true
+- spec:
+    name: example/stage-compress
+    version: 1.0.0
+    digest: sha256:b649f1df178703e14530bd248d63037a2006f5dc273db6d2e2374ad4035298bb
+  options:
+  - name: algorithm
+    value: gzip
+- spec:
+    name: example/stage-aes
+    version: 1.0.0
+    digest: sha256:94aeaca953e121a65e58c3927ff3d6fe267073274a45447b5d322405b6186091
+  options:
+  - name: key
+    value:
+      kind: secret
+      name: stage-aes-key
+  - name: iv
+    value:
+      kind: secret
+      name: stage-aes-iv
+finalOutput:
+  format: stage
+  artifact:
+    kind: stage
+    container: raw
+provider:
+  policy: automatic
+perBuildInputs:
+- name: donor-pe
+  kind: input-artifact
+  artifact:
+    kind: executable
+    container: pe
+- name: stage-aes-key
+  kind: secret
+- name: stage-aes-iv
+  kind: secret

@@ -25,11 +25,13 @@ type Instruction struct {
 	v3         Value
 	vs         Values
 	typ        Type
-	blk        BasicBlock
-	targets    []BasicBlock
 	prev, next *Instruction
 
-	rValue         Value
+	// rValue is the (first) return value of this instruction.
+	// For branching instructions except for OpcodeBrTable, they hold BlockID to jump cast to Value.
+	rValue Value
+	// rValues are the rest of the return values of this instruction.
+	// For OpcodeBrTable, it holds the list of BlockID to jump cast to Value.
 	rValues        Values
 	gid            InstructionGroupID
 	sourceOffset   SourceOffset
@@ -105,6 +107,9 @@ type InstructionGroupID uint32
 // Returns Value(s) produced by this instruction if any.
 // The `first` is the first return value, and `rest` is the rest of the values.
 func (i *Instruction) Returns() (first Value, rest []Value) {
+	if i.IsBranching() {
+		return ValueInvalid, nil
+	}
 	return i.rValue, i.rValues.View()
 }
 
@@ -628,6 +633,14 @@ const (
 	// OpcodeFence is a memory fence operation.
 	OpcodeFence
 
+	// OpcodeTailCallReturnCall is the equivalent of OpcodeCall (a "near" call)
+	// for tail calls. Semantically, it combines Call + Return into a single operation.
+	OpcodeTailCallReturnCall
+
+	// OpcodeTailCallReturnCallIndirect is the equivalent of OpcodeCallIndirect (a call to a function address)
+	// for tail calls. Semantically, it combines CallIndirect + Return into a single operation.
+	OpcodeTailCallReturnCallIndirect
+
 	// opcodeEnd marks the end of the opcode list.
 	opcodeEnd
 )
@@ -674,12 +687,44 @@ func (op AtomicRmwOp) String() string {
 type returnTypesFn func(b *builder, instr *Instruction) (t1 Type, ts []Type)
 
 var (
-	returnTypesFnNoReturns returnTypesFn = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return typeInvalid, nil }
-	returnTypesFnSingle                  = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return instr.typ, nil }
-	returnTypesFnI32                     = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeI32, nil }
-	returnTypesFnF32                     = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeF32, nil }
-	returnTypesFnF64                     = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeF64, nil }
-	returnTypesFnV128                    = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeV128, nil }
+	returnTypesFnNoReturns    returnTypesFn = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return typeInvalid, nil }
+	returnTypesFnSingle                     = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return instr.typ, nil }
+	returnTypesFnI32                        = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeI32, nil }
+	returnTypesFnF32                        = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeF32, nil }
+	returnTypesFnF64                        = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeF64, nil }
+	returnTypesFnV128                       = func(b *builder, instr *Instruction) (t1 Type, ts []Type) { return TypeV128, nil }
+	returnTypesFnCallIndirect               = func(b *builder, instr *Instruction) (t1 Type, ts []Type) {
+		sigID := SignatureID(instr.u1)
+		sig, ok := b.signatures[sigID]
+		if !ok {
+			panic("BUG")
+		}
+		switch len(sig.Results) {
+		case 0:
+			t1 = typeInvalid
+		case 1:
+			t1 = sig.Results[0]
+		default:
+			t1, ts = sig.Results[0], sig.Results[1:]
+		}
+		return
+	}
+	returnTypesFnCall = func(b *builder, instr *Instruction) (t1 Type, ts []Type) {
+		sigID := SignatureID(instr.u2)
+		sig, ok := b.signatures[sigID]
+		if !ok {
+			panic("BUG")
+		}
+		switch len(sig.Results) {
+		case 0:
+			t1 = typeInvalid
+		case 1:
+			t1 = sig.Results[0]
+		default:
+			t1, ts = sig.Results[0], sig.Results[1:]
+		}
+		return
+	}
 )
 
 // sideEffect provides the info to determine if an instruction has side effects which
@@ -841,6 +886,8 @@ var instructionSideEffects = [opcodeEnd]sideEffect{
 	OpcodeAtomicStore:                 sideEffectStrict,
 	OpcodeAtomicCas:                   sideEffectStrict,
 	OpcodeFence:                       sideEffectStrict,
+	OpcodeTailCallReturnCall:          sideEffectStrict,
+	OpcodeTailCallReturnCallIndirect:  sideEffectStrict,
 	OpcodeWideningPairwiseDotProductS: sideEffectNone,
 }
 
@@ -855,105 +902,75 @@ func (i *Instruction) sideEffect() sideEffect {
 
 // instructionReturnTypes provides the function to determine the return types of an instruction.
 var instructionReturnTypes = [opcodeEnd]returnTypesFn{
-	OpcodeExtIaddPairwise: returnTypesFnV128,
-	OpcodeVbor:            returnTypesFnV128,
-	OpcodeVbxor:           returnTypesFnV128,
-	OpcodeVband:           returnTypesFnV128,
-	OpcodeVbnot:           returnTypesFnV128,
-	OpcodeVbandnot:        returnTypesFnV128,
-	OpcodeVbitselect:      returnTypesFnV128,
-	OpcodeVanyTrue:        returnTypesFnI32,
-	OpcodeVallTrue:        returnTypesFnI32,
-	OpcodeVhighBits:       returnTypesFnI32,
-	OpcodeVIadd:           returnTypesFnV128,
-	OpcodeVSaddSat:        returnTypesFnV128,
-	OpcodeVUaddSat:        returnTypesFnV128,
-	OpcodeVIsub:           returnTypesFnV128,
-	OpcodeVSsubSat:        returnTypesFnV128,
-	OpcodeVUsubSat:        returnTypesFnV128,
-	OpcodeVIcmp:           returnTypesFnV128,
-	OpcodeVImin:           returnTypesFnV128,
-	OpcodeVUmin:           returnTypesFnV128,
-	OpcodeVImax:           returnTypesFnV128,
-	OpcodeVUmax:           returnTypesFnV128,
-	OpcodeVImul:           returnTypesFnV128,
-	OpcodeVAvgRound:       returnTypesFnV128,
-	OpcodeVIabs:           returnTypesFnV128,
-	OpcodeVIneg:           returnTypesFnV128,
-	OpcodeVIpopcnt:        returnTypesFnV128,
-	OpcodeVIshl:           returnTypesFnV128,
-	OpcodeVSshr:           returnTypesFnV128,
-	OpcodeVUshr:           returnTypesFnV128,
-	OpcodeExtractlane:     returnTypesFnSingle,
-	OpcodeInsertlane:      returnTypesFnV128,
-	OpcodeBand:            returnTypesFnSingle,
-	OpcodeFcopysign:       returnTypesFnSingle,
-	OpcodeBitcast:         returnTypesFnSingle,
-	OpcodeBor:             returnTypesFnSingle,
-	OpcodeBxor:            returnTypesFnSingle,
-	OpcodeRotl:            returnTypesFnSingle,
-	OpcodeRotr:            returnTypesFnSingle,
-	OpcodeIshl:            returnTypesFnSingle,
-	OpcodeSshr:            returnTypesFnSingle,
-	OpcodeSdiv:            returnTypesFnSingle,
-	OpcodeSrem:            returnTypesFnSingle,
-	OpcodeUdiv:            returnTypesFnSingle,
-	OpcodeUrem:            returnTypesFnSingle,
-	OpcodeUshr:            returnTypesFnSingle,
-	OpcodeJump:            returnTypesFnNoReturns,
-	OpcodeUndefined:       returnTypesFnNoReturns,
-	OpcodeIconst:          returnTypesFnSingle,
-	OpcodeSelect:          returnTypesFnSingle,
-	OpcodeSExtend:         returnTypesFnSingle,
-	OpcodeUExtend:         returnTypesFnSingle,
-	OpcodeSwidenLow:       returnTypesFnV128,
-	OpcodeUwidenLow:       returnTypesFnV128,
-	OpcodeSwidenHigh:      returnTypesFnV128,
-	OpcodeUwidenHigh:      returnTypesFnV128,
-	OpcodeSnarrow:         returnTypesFnV128,
-	OpcodeUnarrow:         returnTypesFnV128,
-	OpcodeSwizzle:         returnTypesFnSingle,
-	OpcodeShuffle:         returnTypesFnV128,
-	OpcodeSplat:           returnTypesFnV128,
-	OpcodeIreduce:         returnTypesFnSingle,
-	OpcodeFabs:            returnTypesFnSingle,
-	OpcodeSqrt:            returnTypesFnSingle,
-	OpcodeCeil:            returnTypesFnSingle,
-	OpcodeFloor:           returnTypesFnSingle,
-	OpcodeTrunc:           returnTypesFnSingle,
-	OpcodeNearest:         returnTypesFnSingle,
-	OpcodeCallIndirect: func(b *builder, instr *Instruction) (t1 Type, ts []Type) {
-		sigID := SignatureID(instr.u1)
-		sig, ok := b.signatures[sigID]
-		if !ok {
-			panic("BUG")
-		}
-		switch len(sig.Results) {
-		case 0:
-			t1 = typeInvalid
-		case 1:
-			t1 = sig.Results[0]
-		default:
-			t1, ts = sig.Results[0], sig.Results[1:]
-		}
-		return
-	},
-	OpcodeCall: func(b *builder, instr *Instruction) (t1 Type, ts []Type) {
-		sigID := SignatureID(instr.u2)
-		sig, ok := b.signatures[sigID]
-		if !ok {
-			panic("BUG")
-		}
-		switch len(sig.Results) {
-		case 0:
-			t1 = typeInvalid
-		case 1:
-			t1 = sig.Results[0]
-		default:
-			t1, ts = sig.Results[0], sig.Results[1:]
-		}
-		return
-	},
+	OpcodeExtIaddPairwise:             returnTypesFnV128,
+	OpcodeVbor:                        returnTypesFnV128,
+	OpcodeVbxor:                       returnTypesFnV128,
+	OpcodeVband:                       returnTypesFnV128,
+	OpcodeVbnot:                       returnTypesFnV128,
+	OpcodeVbandnot:                    returnTypesFnV128,
+	OpcodeVbitselect:                  returnTypesFnV128,
+	OpcodeVanyTrue:                    returnTypesFnI32,
+	OpcodeVallTrue:                    returnTypesFnI32,
+	OpcodeVhighBits:                   returnTypesFnI32,
+	OpcodeVIadd:                       returnTypesFnV128,
+	OpcodeVSaddSat:                    returnTypesFnV128,
+	OpcodeVUaddSat:                    returnTypesFnV128,
+	OpcodeVIsub:                       returnTypesFnV128,
+	OpcodeVSsubSat:                    returnTypesFnV128,
+	OpcodeVUsubSat:                    returnTypesFnV128,
+	OpcodeVIcmp:                       returnTypesFnV128,
+	OpcodeVImin:                       returnTypesFnV128,
+	OpcodeVUmin:                       returnTypesFnV128,
+	OpcodeVImax:                       returnTypesFnV128,
+	OpcodeVUmax:                       returnTypesFnV128,
+	OpcodeVImul:                       returnTypesFnV128,
+	OpcodeVAvgRound:                   returnTypesFnV128,
+	OpcodeVIabs:                       returnTypesFnV128,
+	OpcodeVIneg:                       returnTypesFnV128,
+	OpcodeVIpopcnt:                    returnTypesFnV128,
+	OpcodeVIshl:                       returnTypesFnV128,
+	OpcodeVSshr:                       returnTypesFnV128,
+	OpcodeVUshr:                       returnTypesFnV128,
+	OpcodeExtractlane:                 returnTypesFnSingle,
+	OpcodeInsertlane:                  returnTypesFnV128,
+	OpcodeBand:                        returnTypesFnSingle,
+	OpcodeFcopysign:                   returnTypesFnSingle,
+	OpcodeBitcast:                     returnTypesFnSingle,
+	OpcodeBor:                         returnTypesFnSingle,
+	OpcodeBxor:                        returnTypesFnSingle,
+	OpcodeRotl:                        returnTypesFnSingle,
+	OpcodeRotr:                        returnTypesFnSingle,
+	OpcodeIshl:                        returnTypesFnSingle,
+	OpcodeSshr:                        returnTypesFnSingle,
+	OpcodeSdiv:                        returnTypesFnSingle,
+	OpcodeSrem:                        returnTypesFnSingle,
+	OpcodeUdiv:                        returnTypesFnSingle,
+	OpcodeUrem:                        returnTypesFnSingle,
+	OpcodeUshr:                        returnTypesFnSingle,
+	OpcodeJump:                        returnTypesFnNoReturns,
+	OpcodeUndefined:                   returnTypesFnNoReturns,
+	OpcodeIconst:                      returnTypesFnSingle,
+	OpcodeSelect:                      returnTypesFnSingle,
+	OpcodeSExtend:                     returnTypesFnSingle,
+	OpcodeUExtend:                     returnTypesFnSingle,
+	OpcodeSwidenLow:                   returnTypesFnV128,
+	OpcodeUwidenLow:                   returnTypesFnV128,
+	OpcodeSwidenHigh:                  returnTypesFnV128,
+	OpcodeUwidenHigh:                  returnTypesFnV128,
+	OpcodeSnarrow:                     returnTypesFnV128,
+	OpcodeUnarrow:                     returnTypesFnV128,
+	OpcodeSwizzle:                     returnTypesFnSingle,
+	OpcodeShuffle:                     returnTypesFnV128,
+	OpcodeSplat:                       returnTypesFnV128,
+	OpcodeIreduce:                     returnTypesFnSingle,
+	OpcodeFabs:                        returnTypesFnSingle,
+	OpcodeSqrt:                        returnTypesFnSingle,
+	OpcodeCeil:                        returnTypesFnSingle,
+	OpcodeFloor:                       returnTypesFnSingle,
+	OpcodeTrunc:                       returnTypesFnSingle,
+	OpcodeNearest:                     returnTypesFnSingle,
+	OpcodeCallIndirect:                returnTypesFnCallIndirect,
+	OpcodeCall:                        returnTypesFnCall,
 	OpcodeLoad:                        returnTypesFnSingle,
 	OpcodeVZeroExtLoad:                returnTypesFnV128,
 	OpcodeLoadSplat:                   returnTypesFnV128,
@@ -1027,6 +1044,8 @@ var instructionReturnTypes = [opcodeEnd]returnTypesFn{
 	OpcodeAtomicStore:                 returnTypesFnNoReturns,
 	OpcodeAtomicCas:                   returnTypesFnSingle,
 	OpcodeFence:                       returnTypesFnNoReturns,
+	OpcodeTailCallReturnCallIndirect:  returnTypesFnCallIndirect,
+	OpcodeTailCallReturnCall:          returnTypesFnCall,
 	OpcodeWideningPairwiseDotProductS: returnTypesFnV128,
 }
 
@@ -2033,6 +2052,25 @@ func (i *Instruction) AtomicTargetSize() (size uint64) {
 	return i.u1
 }
 
+// AsTailCallReturnCall initializes this instruction as a call instruction with OpcodeTailCallReturnCall.
+func (i *Instruction) AsTailCallReturnCall(ref FuncRef, sig *Signature, args Values) {
+	i.opcode = OpcodeTailCallReturnCall
+	i.u1 = uint64(ref)
+	i.vs = args
+	i.u2 = uint64(sig.ID)
+	sig.used = true
+}
+
+// AsTailCallReturnCallIndirect initializes this instruction as a call-indirect instruction with OpcodeTailCallReturnCallIndirect.
+func (i *Instruction) AsTailCallReturnCallIndirect(funcPtr Value, sig *Signature, args Values) *Instruction {
+	i.opcode = OpcodeTailCallReturnCallIndirect
+	i.vs = args
+	i.v = funcPtr
+	i.u1 = uint64(sig.ID)
+	sig.used = true
+	return i
+}
+
 // ReturnVals returns the return values of OpcodeReturn.
 func (i *Instruction) ReturnVals() []Value {
 	return i.vs.View()
@@ -2077,7 +2115,7 @@ func (i *Instruction) InvertBrx() {
 }
 
 // BranchData returns the branch data for this instruction necessary for backends.
-func (i *Instruction) BranchData() (condVal Value, blockArgs []Value, target BasicBlock) {
+func (i *Instruction) BranchData() (condVal Value, blockArgs []Value, target BasicBlockID) {
 	switch i.opcode {
 	case OpcodeJump:
 		condVal = ValueInvalid
@@ -2087,17 +2125,17 @@ func (i *Instruction) BranchData() (condVal Value, blockArgs []Value, target Bas
 		panic("BUG")
 	}
 	blockArgs = i.vs.View()
-	target = i.blk
+	target = BasicBlockID(i.rValue)
 	return
 }
 
 // BrTableData returns the branch table data for this instruction necessary for backends.
-func (i *Instruction) BrTableData() (index Value, targets []BasicBlock) {
+func (i *Instruction) BrTableData() (index Value, targets Values) {
 	if i.opcode != OpcodeBrTable {
 		panic("BUG: BrTableData only available for OpcodeBrTable")
 	}
 	index = i.v
-	targets = i.targets
+	targets = i.rValues
 	return
 }
 
@@ -2105,7 +2143,7 @@ func (i *Instruction) BrTableData() (index Value, targets []BasicBlock) {
 func (i *Instruction) AsJump(vs Values, target BasicBlock) *Instruction {
 	i.opcode = OpcodeJump
 	i.vs = vs
-	i.blk = target
+	i.rValue = Value(target.ID())
 	return i
 }
 
@@ -2130,7 +2168,7 @@ func (i *Instruction) AsBrz(v Value, args Values, target BasicBlock) {
 	i.opcode = OpcodeBrz
 	i.v = v
 	i.vs = args
-	i.blk = target
+	i.rValue = Value(target.ID())
 }
 
 // AsBrnz initializes this instruction as a branch-if-not-zero instruction with OpcodeBrnz.
@@ -2138,15 +2176,16 @@ func (i *Instruction) AsBrnz(v Value, args Values, target BasicBlock) *Instructi
 	i.opcode = OpcodeBrnz
 	i.v = v
 	i.vs = args
-	i.blk = target
+	i.rValue = Value(target.ID())
 	return i
 }
 
 // AsBrTable initializes this instruction as a branch-table instruction with OpcodeBrTable.
-func (i *Instruction) AsBrTable(index Value, targets []BasicBlock) {
+// targets is a list of basic block IDs cast to Values.
+func (i *Instruction) AsBrTable(index Value, targets Values) {
 	i.opcode = OpcodeBrTable
 	i.v = index
-	i.targets = targets
+	i.rValues = targets
 }
 
 // AsCall initializes this instruction as a call instruction with OpcodeCall.
@@ -2160,7 +2199,7 @@ func (i *Instruction) AsCall(ref FuncRef, sig *Signature, args Values) {
 
 // CallData returns the call data for this instruction necessary for backends.
 func (i *Instruction) CallData() (ref FuncRef, sigID SignatureID, args []Value) {
-	if i.opcode != OpcodeCall {
+	if i.opcode != OpcodeCall && i.opcode != OpcodeTailCallReturnCall {
 		panic("BUG: CallData only available for OpcodeCall")
 	}
 	ref = FuncRef(i.u1)
@@ -2180,14 +2219,22 @@ func (i *Instruction) AsCallIndirect(funcPtr Value, sig *Signature, args Values)
 	return i
 }
 
+// AsCallGoRuntimeMemmove is the same as AsCallIndirect, but with a special flag set to indicate that it is a call to the Go runtime memmove function.
+func (i *Instruction) AsCallGoRuntimeMemmove(funcPtr Value, sig *Signature, args Values) *Instruction {
+	i.AsCallIndirect(funcPtr, sig, args)
+	i.u2 = 1
+	return i
+}
+
 // CallIndirectData returns the call indirect data for this instruction necessary for backends.
-func (i *Instruction) CallIndirectData() (funcPtr Value, sigID SignatureID, args []Value) {
-	if i.opcode != OpcodeCallIndirect {
-		panic("BUG: CallIndirectData only available for OpcodeCallIndirect")
+func (i *Instruction) CallIndirectData() (funcPtr Value, sigID SignatureID, args []Value, isGoMemmove bool) {
+	if i.opcode != OpcodeCallIndirect && i.opcode != OpcodeTailCallReturnCallIndirect {
+		panic("BUG: CallIndirectData only available for OpcodeCallIndirect and OpcodeTailCallReturnCallIndirect")
 	}
 	funcPtr = i.v
 	sigID = SignatureID(i.u1)
 	args = i.vs.View()
+	isGoMemmove = i.u2 == 1
 	return
 }
 
@@ -2523,7 +2570,8 @@ func (i *Instruction) Format(b Builder) string {
 		if i.IsFallthroughJump() {
 			vs[0] = " fallthrough"
 		} else {
-			vs[0] = " " + i.blk.(*basicBlock).Name()
+			blockId := BasicBlockID(i.rValue)
+			vs[0] = " " + b.BasicBlock(blockId).Name()
 		}
 		for idx := range view {
 			vs[idx+1] = view[idx].Format(b)
@@ -2534,7 +2582,8 @@ func (i *Instruction) Format(b Builder) string {
 		view := i.vs.View()
 		vs := make([]string, len(view)+2)
 		vs[0] = " " + i.v.Format(b)
-		vs[1] = i.blk.(*basicBlock).Name()
+		blockId := BasicBlockID(i.rValue)
+		vs[1] = b.BasicBlock(blockId).Name()
 		for idx := range view {
 			vs[idx+2] = view[idx].Format(b)
 		}
@@ -2543,8 +2592,8 @@ func (i *Instruction) Format(b Builder) string {
 		// `BrTable index, [label1, label2, ... labelN]`
 		instSuffix = fmt.Sprintf(" %s", i.v.Format(b))
 		instSuffix += ", ["
-		for i, target := range i.targets {
-			blk := target.(*basicBlock)
+		for i, target := range i.rValues.View() {
+			blk := b.BasicBlock(BasicBlockID(target))
 			if i == 0 {
 				instSuffix += blk.Name()
 			} else {
@@ -2604,6 +2653,17 @@ func (i *Instruction) Format(b Builder) string {
 		instSuffix = fmt.Sprintf("_%d, %s, %s, %s", 8*i.u1, i.v.Format(b), i.v2.Format(b), i.v3.Format(b))
 	case OpcodeFence:
 		instSuffix = fmt.Sprintf(" %d", i.u1)
+	case OpcodeTailCallReturnCall, OpcodeTailCallReturnCallIndirect:
+		view := i.vs.View()
+		vs := make([]string, len(view))
+		for idx := range vs {
+			vs[idx] = view[idx].Format(b)
+		}
+		if i.opcode == OpcodeCallIndirect {
+			instSuffix = fmt.Sprintf(" %s:%s, %s", i.v.Format(b), SignatureID(i.u1), strings.Join(vs, ", "))
+		} else {
+			instSuffix = fmt.Sprintf(" %s:%s, %s", FuncRef(i.u1), SignatureID(i.u2), strings.Join(vs, ", "))
+		}
 	case OpcodeWideningPairwiseDotProductS:
 		instSuffix = fmt.Sprintf(" %s, %s", i.v.Format(b), i.v2.Format(b))
 	default:
@@ -2613,11 +2673,12 @@ func (i *Instruction) Format(b Builder) string {
 	instr := i.opcode.String() + instSuffix
 
 	var rvs []string
-	if rv := i.rValue; rv.Valid() {
-		rvs = append(rvs, rv.formatWithType(b))
+	r1, rs := i.Returns()
+	if r1.Valid() {
+		rvs = append(rvs, r1.formatWithType(b))
 	}
 
-	for _, v := range i.rValues.View() {
+	for _, v := range rs {
 		rvs = append(rvs, v.formatWithType(b))
 	}
 
@@ -2862,6 +2923,10 @@ func (o Opcode) String() (ret string) {
 		return "AtomicStore"
 	case OpcodeFence:
 		return "Fence"
+	case OpcodeTailCallReturnCall:
+		return "ReturnCall"
+	case OpcodeTailCallReturnCallIndirect:
+		return "ReturnCallIndirect"
 	case OpcodeVbor:
 		return "Vbor"
 	case OpcodeVbxor:

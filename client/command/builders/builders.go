@@ -21,7 +21,9 @@ package builders
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -49,23 +51,76 @@ func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverClie
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
-		"Name", "Operator", "Templates", "Platform", "Compiler Targets",
+		"Name", "Operator", "Platform", "CPU", "Available MB", "Report Age", "Availability", "Specs", "Compiler Targets",
 	})
 	for _, builder := range externalBuilders {
+		if builder == nil {
+			continue
+		}
 
 		targets := []string{}
 		for _, target := range builder.Targets {
 			targets = append(targets, fmt.Sprintf("%s:%s/%s", target.Format, target.GOOS, target.GOARCH))
 		}
+		sort.Strings(targets)
+		cpu, availableMB, reportAge, availability := builderStatusColumns(builder.GetStatus(), time.Now())
 
 		row := table.Row{
 			builder.Name,
 			builder.OperatorName,
-			strings.Join(builder.Templates, ", "),
 			fmt.Sprintf("%s/%s", builder.GOOS, builder.GOARCH),
+			cpu,
+			availableMB,
+			reportAge,
+			availability,
+			builderSpecSupport(builder.GetSpecRefs()),
 			strings.Join(targets, "\n"),
 		}
 		tw.AppendRow(table.Row(row))
 	}
 	con.Printf("%s\n", tw.Render())
+}
+
+// Decimal MB matches the scheduler's memory ordering unit. The status age is
+// based on the server's receipt time, so builder clock skew cannot affect it.
+func builderStatusColumns(status *clientpb.BuilderStatus, now time.Time) (cpu, availableMB, reportAge, availability string) {
+	if status == nil || status.ReportedUnix == 0 {
+		return "unknown", "unknown", "never", "unavailable"
+	}
+	mb := status.AvailableMemoryBytes / 1_000_000
+	if status.AvailableMemoryBytes%1_000_000 >= 500_000 {
+		mb++
+	}
+	cpu = fmt.Sprintf("%d", status.EffectiveCPUCores)
+	availableMB = fmt.Sprintf("%d", mb)
+	base := time.Unix(status.ReportedUnix, 0)
+	age := now.Sub(base)
+	if age < 0 {
+		age = 0
+	}
+	reportAge = age.Truncate(time.Second).String()
+	switch {
+	case !status.Online:
+		availability = "offline"
+	case status.Available:
+		availability = "available"
+	default:
+		availability = "unavailable"
+	}
+	return
+}
+
+func builderSpecSupport(refs []*clientpb.BuildSpecRef) string {
+	specs := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref == nil {
+			continue
+		}
+		specs = append(specs, fmt.Sprintf("%s@%s %s", ref.Name, ref.Version, ref.Digest))
+	}
+	sort.Strings(specs)
+	if len(specs) == 0 {
+		return "none advertised"
+	}
+	return strings.Join(specs, "\n")
 }

@@ -3,7 +3,9 @@ package rpc
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -128,6 +130,57 @@ func TestGenerateSpoofMetadataAppliesPETimestampOverBufnet(t *testing.T) {
 	}
 	if modifiedTimestamp == origTimestamp {
 		t.Fatalf("expected PE timestamp to change from %d", origTimestamp)
+	}
+
+	// The generation-time route now performs the same metadata change as an
+	// ordered step and returns the already saved final bytes.
+	orderedName := fmt.Sprintf("rpc-ordered-metadata-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		_ = RemoveBuildByName(orderedName)
+		_ = os.RemoveAll(filepath.Join(generatePkg.GetSliversDir(), "windows", "amd64", orderedName))
+	})
+	ordered, err := client.Generate(ctx, &clientpb.GenerateReq{
+		Name: orderedName,
+		Config: &clientpb.ImplantConfig{
+			GOOS: "windows", GOARCH: "amd64", Format: clientpb.OutputFormat_EXECUTABLE,
+			Debug: true, ObfuscateSymbols: false,
+			C2:               []*clientpb.ImplantC2{{URL: "http://127.0.0.1"}},
+			HTTPC2ConfigName: consts.DefaultC2Profile,
+		},
+		SpoofMetadata: spoofReq.SpoofMetadata,
+	})
+	if err != nil {
+		t.Fatalf("Generate() with metadata step: %v", err)
+	}
+	if ordered.GetFile() == nil || len(ordered.GetFile().GetData()) == 0 {
+		t.Fatal("ordered metadata generation returned no final bytes")
+	}
+	orderedTimestamp, err := peFileTimestamp(ordered.File.Data)
+	if err != nil || orderedTimestamp != spoofTimestamp {
+		t.Fatalf("ordered metadata timestamp: got=%#x want=%#x err=%v", orderedTimestamp, spoofTimestamp, err)
+	}
+	record, err := client.GetBuildRecord(ctx, &clientpb.BuildRecordRef{ID: ordered.ImplantBuildID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(record.Steps) != 2 || record.Plan.Steps[1].Spec.Name != "builtin/pe-metadata" ||
+		record.FinalArtifact == nil || record.Steps[0].Artifact == nil || record.Steps[1].Artifact == nil {
+		t.Fatalf("metadata step was not recorded with both artifact hashes: %+v", record)
+	}
+	stored, err := client.GetBuildArtifact(ctx, &clientpb.BuildRecordRef{ID: ordered.ImplantBuildID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	regeneratedFinal, err := client.Regenerate(ctx, &clientpb.RegenerateReq{ImplantName: orderedName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(ordered.File.Data)
+	wantHash := hex.EncodeToString(hash[:])
+	if record.FinalArtifact.SHA256 != wantHash || stored.Metadata.SHA256 != wantHash ||
+		!bytes.Equal(ordered.File.Data, stored.File.Data) ||
+		!bytes.Equal(ordered.File.Data, regeneratedFinal.File.Data) {
+		t.Fatal("returned, stored, and regenerated metadata outputs differ")
 	}
 }
 

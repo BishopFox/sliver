@@ -194,7 +194,6 @@ func (s *suite) shellcodeImplantConfig(listener *listener, mode string, compress
 	config := &clientpb.ImplantConfig{
 		GOOS:                s.opts.targetOS,
 		GOARCH:              s.opts.targetArch,
-		TemplateName:        "sliver",
 		Debug:               s.opts.implantDebug,
 		ObfuscateSymbols:    false,
 		IsBeacon:            mode == shellcodecoverage.ImplantModeBeacon,

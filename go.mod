@@ -45,6 +45,7 @@ require (
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lesnuages/snitch v0.6.0
 	github.com/lucasb-eyer/go-colorful v1.4.1
+	github.com/magefile/mage v1.17.2
 	github.com/mark3labs/mcp-go v0.45.0
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/miekg/dns v1.1.70

@@ -29,11 +29,13 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // PsExecCmd - psexec command implementation.
@@ -70,27 +72,24 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			return
 		}
 
-		// generate sliver
-		generateCtrl := make(chan bool)
-		con.SpinUntil(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
-		profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+		definition, legacyProfile, err := generate.GetProfileDefinitionOrLegacy(context.Background(), profile, con)
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err)
+			con.PrintErrorf("Could not load profile %s: %v\n", profile, err)
 			return
 		}
-		generateCtrl <- true
-		<-generateCtrl
-		var implantProfile *clientpb.ImplantProfile
-		for _, prof := range profiles.Profiles {
-			if prof.Name == profile {
-				implantProfile = prof
-			}
-		}
-		if implantProfile.GetName() == "" {
-			con.PrintErrorf("No profile found for name %s\n", profile)
+		if !legacyProfile && definition.GetMigrationError() != "" {
+			con.PrintErrorf("Profile %s cannot be used for PsExec: %s\n", profile, definition.GetMigrationError())
 			return
 		}
-		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
+		if !legacyProfile && !psexecProfileArtifact(definition.GetFinalArtifact()) {
+			con.PrintErrorf("PsExec requires a Windows service-executable/pe profile final artifact\n")
+			return
+		}
+		serviceBinary, err = psexecProfileBinary(profile, definition, con)
+		if err != nil {
+			con.PrintErrorf("Could not generate profile %s: %v\n", profile, err)
+			return
+		}
 	} else {
 		// use a custom exe instead of generating a new Sliver
 		fileBytes, err := os.ReadFile(customExe)
@@ -170,6 +169,38 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	con.PrintInfof("Successfully removed service %s on %s\n", serviceName, hostname)
+}
+
+// psexecProfileBinary uses the legacy profile API only when the newer profile
+// build RPC is unavailable for a migrated profile or on an older server.
+func psexecProfileBinary(name string, definition *clientpb.BuildProfileDocument, con *console.SliverClient) ([]byte, error) {
+	if definition != nil {
+		generateCtrl := make(chan bool)
+		con.SpinUntil(fmt.Sprintf("Generating service binary for %s\n", name), generateCtrl)
+		record, file, err := generate.ExecuteProfile(context.Background(), &clientpb.BuildProfileExecuteRequest{Name: name}, con)
+		generateCtrl <- true
+		<-generateCtrl
+		if err == nil {
+			finalType := record.GetFinalArtifact().GetType()
+			if file == nil || !psexecProfileArtifact(finalType) ||
+				!proto.Equal(finalType, definition.GetFinalArtifact()) {
+				return nil, fmt.Errorf("profile final artifact changed during service generation")
+			}
+			return file.Data, nil
+		}
+		if status.Code(err) != codes.Unimplemented || !definition.GetMigrated() || definition.GetMigrationError() != "" {
+			return nil, err
+		}
+	}
+	legacy := generate.GetImplantProfileByName(name, con)
+	if legacy == nil {
+		return nil, fmt.Errorf("profile %s not found", name)
+	}
+	return generate.GetSliverBinary(legacy, con)
+}
+
+func psexecProfileArtifact(artifact *clientpb.BuildArtifactType) bool {
+	return artifact != nil && artifact.Kind == "service-executable" && artifact.Container == "pe" && artifact.GOOS == "windows" && artifact.GOARCH != ""
 }
 
 func randomString() string {

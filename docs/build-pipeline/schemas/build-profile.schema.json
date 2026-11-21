@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "build-profile.schema.json",
+  "title": "Sliver BuildProfile v1alpha1",
+  "type": "object",
+  "required": [
+    "apiVersion", "kind", "metadata", "target", "mode", "c2", "core",
+    "coreOutput", "coreOptions", "transforms", "finalOutput", "provider"
+  ],
+  "properties": {
+    "apiVersion": { "const": "sliver.bishopfox.com/v1alpha1" },
+    "kind": { "const": "BuildProfile" },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "revision"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$", "maxLength": 255 },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      },
+      "additionalProperties": false
+    },
+    "target": { "$ref": "common.schema.json#/$defs/target" },
+    "mode": { "$ref": "common.schema.json#/$defs/mode" },
+    "c2": {
+      "type": "object",
+      "required": ["endpoints", "connectionStrategy", "reconnectSeconds", "pollTimeoutSeconds", "maxConnectionErrors"],
+      "properties": {
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["protocol", "address"],
+            "properties": {
+              "protocol": { "$ref": "common.schema.json#/$defs/protocol" },
+              "address": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "includeProtocols": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/protocol" },
+          "uniqueItems": true
+        },
+        "connectionStrategy": { "enum": ["random", "random-domain", "sequential"] },
+        "reconnectSeconds": { "type": "integer", "minimum": 0 },
+        "pollTimeoutSeconds": { "type": "integer", "minimum": 0 },
+        "maxConnectionErrors": { "type": "integer", "minimum": 0 },
+        "httpC2Profile": { "type": "string", "minLength": 1 },
+        "wireguardKeyExchangePort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "wireguardTCPCommsPort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      },
+      "additionalProperties": false
+    },
+    "beacon": {
+      "type": "object",
+      "required": ["intervalSeconds", "jitterSeconds"],
+      "properties": {
+        "intervalSeconds": { "type": "integer", "minimum": 1 },
+        "jitterSeconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "perBuildInputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "kind"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "kind": { "enum": ["secret", "input-artifact"] },
+          "artifact": { "$ref": "common.schema.json#/$defs/artifactSelector" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "kind": { "const": "input-artifact" } }, "required": ["kind"] },
+            "then": { "required": ["artifact"] },
+            "else": { "not": { "required": ["artifact"] } }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "core": { "$ref": "common.schema.json#/$defs/specReference" },
+    "coreOutput": { "$ref": "common.schema.json#/$defs/artifactSelector" },
+    "coreOptions": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/optionAssignment" }
+    },
+    "transforms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["spec", "options"],
+        "properties": {
+          "spec": { "$ref": "common.schema.json#/$defs/specReference" },
+          "options": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/optionAssignment" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "finalOutput": {
+      "type": "object",
+      "required": ["format", "artifact"],
+      "properties": {
+        "format": { "$ref": "common.schema.json#/$defs/operatorFormat" },
+        "artifact": { "$ref": "common.schema.json#/$defs/artifactSelector" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "format": { "const": "exe" } }, "required": ["format"] },
+          "then": { "properties": { "artifact": { "properties": { "kind": { "const": "executable" } } } } }
+        },
+        {
+          "if": { "properties": { "format": { "const": "service" } }, "required": ["format"] },
+          "then": { "properties": { "artifact": { "properties": { "kind": { "const": "service-executable" } } } } }
+        },
+        {
+          "if": { "properties": { "format": { "const": "shared" } }, "required": ["format"] },
+          "then": { "properties": { "artifact": { "properties": { "kind": { "const": "shared-library" } } } } }
+        },
+        {
+          "if": { "properties": { "format": { "const": "archive" } }, "required": ["format"] },
+          "then": { "properties": { "artifact": { "properties": { "kind": { "const": "c-archive-bundle" } } } } }
+        },
+        {
+          "if": { "properties": { "format": { "const": "shellcode" } }, "required": ["format"] },
+          "then": { "properties": { "artifact": { "properties": { "kind": { "const": "shellcode" } } } } }
+        },
+        {
+          "if": { "properties": { "format": { "const": "stage" } }, "required": ["format"] },
+          "then": { "properties": { "artifact": { "properties": { "kind": { "const": "stage" } } } } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "required": ["policy"],
+      "properties": {
+        "policy": { "enum": ["automatic", "pinned"] },
+        "builder": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "policy": { "const": "pinned" } }, "required": ["policy"] },
+          "then": { "required": ["builder"] },
+          "else": { "not": { "required": ["builder"] } }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "beacon" } }, "required": ["mode"] },
+      "then": { "required": ["beacon"] },
+      "else": { "not": { "required": ["beacon"] } }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "beacon" } }, "required": ["mode"] },
+      "then": {
+        "properties": {
+          "c2": {
+            "properties": {
+              "endpoints": {
+                "items": {
+                  "properties": {
+                    "protocol": { "enum": ["mtls", "http", "https", "dns", "wireguard"] }
+                  }
+                }
+              },
+              "includeProtocols": {
+                "items": { "enum": ["mtls", "http", "https", "dns", "wireguard"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "c2": {
+            "properties": {
+              "endpoints": {
+                "contains": { "properties": { "protocol": { "const": "named-pipe" } } }
+              }
+            }
+          }
+        }
+      },
+      "then": { "properties": { "target": { "properties": { "os": { "const": "windows" } } } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "c2": {
+            "properties": { "includeProtocols": { "contains": { "const": "named-pipe" } } },
+            "required": ["includeProtocols"]
+          }
+        }
+      },
+      "then": { "properties": { "target": { "properties": { "os": { "const": "windows" } } } } }
+    }
+  ],
+  "additionalProperties": false
+}

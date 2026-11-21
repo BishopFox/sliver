@@ -95,12 +95,6 @@ const (
 	// BeaconTaskResult - Beacon task completed with a result.
 	BeaconTaskResultEvent = "beacon-taskresult"
 
-	// ExternalBuildEvent.
-	ExternalBuildEvent          = "external-build"
-	AcknowledgeBuildEvent       = "external-acknowledge"
-	ExternalBuildFailedEvent    = "external-build-failed"
-	ExternalBuildCompletedEvent = "external-build-completed"
-
 	// TrafficEncoder Events.
 	TrafficEncoderTestProgressEvent = "traffic-encoder-test-progress"
 

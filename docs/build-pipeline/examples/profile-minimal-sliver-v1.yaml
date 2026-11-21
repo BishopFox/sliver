@@ -1,0 +1,38 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: minimal-sliver-v1
+  revision: 1
+target:
+  os: linux
+  arch: amd64
+mode: session
+c2:
+  endpoints:
+  - protocol: mtls
+    address: mtls://c2.example.invalid:8888
+  connectionStrategy: sequential
+  reconnectSeconds: 5
+  # This session core has no polling timeout or connection error cap.
+  pollTimeoutSeconds: 0
+  maxConnectionErrors: 0
+  httpC2Profile: default
+core:
+  name: fixture/minimal-sliver-v1
+  version: 1.0.0
+  digest: sha256:6e6654928672f3862aa49f14639b9f038dbf7e661223644e3b3f8586de10b78c
+coreOutput:
+  kind: executable
+  container: elf
+  goBuildMode: default
+coreOptions: []
+transforms: []
+finalOutput:
+  format: exe
+  artifact:
+    kind: executable
+    container: elf
+    goBuildMode: default
+provider:
+  policy: automatic

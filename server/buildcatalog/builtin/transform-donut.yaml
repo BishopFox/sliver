@@ -1,0 +1,67 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/donut
+  version: 1.0.0
+  digest: sha256:eda20801b552f474a32bb5157fa0260261213286dd46f094fc8bae58547781c3
+executor:
+  id: donut-v1
+options:
+- name: entropy
+  type: integer
+  required: false
+  default: 1
+  minimum: 1
+  maximum: 3
+- name: compress
+  type: boolean
+  required: false
+  default: false
+- name: exitOption
+  type: integer
+  required: false
+  default: 1
+  minimum: 1
+  maximum: 3
+- name: bypass
+  type: integer
+  required: false
+  default: 3
+  minimum: 1
+  maximum: 3
+- name: headers
+  type: integer
+  required: false
+  default: 1
+  minimum: 1
+  maximum: 2
+- name: thread
+  type: boolean
+  required: false
+  default: false
+- name: unicode
+  type: boolean
+  required: false
+  default: false
+- name: originalEntryPoint
+  type: integer
+  required: false
+  default: 0
+  minimum: 0
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  input:
+    kind: executable
+    container: pe
+    goBuildMode: pie
+  output:
+    kind: shellcode
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

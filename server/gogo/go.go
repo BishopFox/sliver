@@ -20,6 +20,7 @@ package gogo
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -144,6 +145,14 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 
 // GarbleCmd - Execute a go command
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
+	return GarbleCmdContext(context.Background(), config, cwd, command)
+}
+
+// GarbleCmdContext executes a garble command and stops it when ctx is canceled.
+func GarbleCmdContext(ctx context.Context, config GoConfig, cwd string, command []string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
@@ -151,7 +160,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	garbleBinPath := goToolPath(config.GOROOT, "garble")
 	garbleFlags := []string{"-seed=random", "-literals", "-literals-shared", "-literals-shared-short", "-tiny"}
 	command = append(garbleFlags, command...)
-	cmd := exec.Command(garbleBinPath, command...)
+	cmd := exec.CommandContext(ctx, garbleBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = buildCommandEnv(config, map[string]string{
 		"GOGARBLE": config.GOGARBLE,
@@ -181,8 +190,16 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
+	return GoCmdContext(context.Background(), config, cwd, command)
+}
+
+// GoCmdContext executes a Go command and stops it when ctx is canceled.
+func GoCmdContext(ctx context.Context, config GoConfig, cwd string, command []string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	goBinPath := goToolPath(config.GOROOT, "go")
-	cmd := exec.Command(goBinPath, command...)
+	cmd := exec.CommandContext(ctx, goBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = buildCommandEnv(config, nil)
 	var stdout bytes.Buffer
@@ -207,6 +224,16 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoBuild - Execute a go build command, returns stdout/error
 func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
+	return GoBuildContext(context.Background(), config, src, dest, buildmode, tags, ldflags, gcflags, asmflags)
+}
+
+// GoBuildContext is the context-aware Go compiler entry point used by the
+// build driver. It preserves GoBuild's environment, flags, Zig, and Garble
+// behavior while allowing cancellation of the compiler process.
+func GoBuildContext(ctx context.Context, config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
@@ -236,9 +263,9 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 	}
 	goCommand = append(goCommand, []string{"-o", dest, "."}...)
 	if config.Obfuscation {
-		return GarbleCmd(config, src, goCommand)
+		return GarbleCmdContext(ctx, config, src, goCommand)
 	}
-	return GoCmd(config, src, goCommand)
+	return GoCmdContext(ctx, config, src, goCommand)
 }
 
 func withDarwinNoCGOLinknameCompatibility(config GoConfig, ldflags []string) []string {

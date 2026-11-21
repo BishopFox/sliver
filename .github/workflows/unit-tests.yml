@@ -15,6 +15,7 @@ on:
       - "**/*.h"
       - "**/*.sh"
       - "**/*.ps1"
+      - "server/buildcatalog/builtin/**"
     types:
       - opened
       - reopened
@@ -59,7 +60,8 @@ jobs:
           set -euo pipefail
           base_sha="${{ github.event.pull_request.base.sha }}"
           head_sha="${{ github.sha }}"
-          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+          # Consume the full diff so pipefail cannot mistake SIGPIPE for no matching changes.
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '^(implant/|server/assets/|server/gogo/|server/generate/|server/build[^/]*/|server/rpc/(build-|rpc-(build|generate|minimalcore|c2profile)|legacy-build|profile-consumers)|protobuf/|client/command/(generate/|jobs/stage\.go|exec/psexec\.go)|go-tests\.(sh|ps1)$|\.github/workflows/unit-tests\.yml$)' >/dev/null; then
             echo "args=" >> "$GITHUB_OUTPUT"
           else
             echo "args=--skip-generate" >> "$GITHUB_OUTPUT"
@@ -98,7 +100,7 @@ jobs:
           $headSha = "${{ github.sha }}"
           $changedFiles = git diff --name-only $baseSha $headSha
 
-          if ($changedFiles | Select-String -Pattern '^(implant/|server/gogo/|server/generate/)') {
+          if ($changedFiles | Select-String -Pattern '^(implant/|server/assets/|server/gogo/|server/generate/|server/build[^/]*/|server/rpc/(build-|rpc-(build|generate|minimalcore|c2profile)|legacy-build|profile-consumers)|protobuf/|client/command/(generate/|jobs/stage\.go|exec/psexec\.go)|go-tests\.(sh|ps1)$|\.github/workflows/unit-tests\.yml$)') {
             "args=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           } else {
             "args=--skip-generate" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -141,7 +143,8 @@ jobs:
           set -euo pipefail
           base_sha="${{ github.event.pull_request.base.sha }}"
           head_sha="${{ github.sha }}"
-          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+          # Consume the full diff so pipefail cannot mistake SIGPIPE for no matching changes.
+          if git diff --name-only "$base_sha" "$head_sha" | grep -E '^(implant/|server/assets/|server/gogo/|server/generate/|server/build[^/]*/|server/rpc/(build-|rpc-(build|generate|minimalcore|c2profile)|legacy-build|profile-consumers)|protobuf/|client/command/(generate/|jobs/stage\.go|exec/psexec\.go)|go-tests\.(sh|ps1)$|\.github/workflows/unit-tests\.yml$)' >/dev/null; then
             echo "args=" >> "$GITHUB_OUTPUT"
           else
             echo "args=--skip-generate" >> "$GITHUB_OUTPUT"

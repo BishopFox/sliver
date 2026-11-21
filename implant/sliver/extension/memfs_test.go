@@ -64,7 +64,7 @@ func TestMemFSOpenRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantEntries := map[string]bool{"memfs/test.1": false, "memfs/test.2": false, "memfs/a": true}
+	wantEntries := map[string]bool{"test.1": false, "test.2": false, "a": true}
 	if len(entries) != len(wantEntries) {
 		t.Fatalf("expected %d entries, got %d", len(wantEntries), len(entries))
 	}

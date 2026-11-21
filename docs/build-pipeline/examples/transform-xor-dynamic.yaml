@@ -1,0 +1,33 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/xor-dynamic
+  version: 1.0.0
+  digest: sha256:858e892a666672e46841117f0713f3e4917e660144ae669d50510096c9dd99ac
+executor:
+  id: xor-dynamic-v1
+options: []
+capabilities:
+- targets:
+  - os: windows
+    arch: amd64
+  - os: linux
+    arch: amd64
+  - os: darwin
+    arch: amd64
+  - os: windows
+    arch: arm64
+  - os: linux
+    arch: arm64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: shellcode
+    container: raw
+  output:
+    kind: shellcode
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

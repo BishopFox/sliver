@@ -79,7 +79,7 @@ func rpcError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, core.ErrDuplicateHosts):
 		return status.Error(codes.AlreadyExists, err.Error())
-	case errors.Is(err, core.ErrDuplicateExternalBuilderName):
+	case errors.Is(err, core.ErrDuplicateBuilderName):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, db.ErrRecordNotFound):
 		return status.Error(codes.NotFound, err.Error())

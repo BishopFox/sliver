@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "transform-spec.schema.json",
+  "title": "Sliver TransformSpec v1alpha1",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "executor", "options", "capabilities"],
+  "properties": {
+    "apiVersion": { "const": "sliver.bishopfox.com/v1alpha1" },
+    "kind": { "const": "TransformSpec" },
+    "metadata": { "$ref": "common.schema.json#/$defs/specReference" },
+    "executor": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+      },
+      "additionalProperties": false
+    },
+    "options": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/optionDefinition" }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["targets", "input", "output", "toolchain"],
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/target" },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "input": { "$ref": "common.schema.json#/$defs/artifactSelector" },
+          "output": { "$ref": "common.schema.json#/$defs/artifactSelector" },
+          "toolchain": { "$ref": "common.schema.json#/$defs/toolchain" },
+          "resources": { "$ref": "common.schema.json#/$defs/resources" },
+          "requiresEntrySymbol": { "type": "boolean" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "input": { "properties": { "container": { "const": "pe" } } } } },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "windows" } } } } } }
+          },
+          {
+            "if": { "properties": { "input": { "properties": { "container": { "const": "elf" } } } } },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "linux" } } } } } }
+          },
+          {
+            "if": { "properties": { "input": { "properties": { "container": { "const": "macho" } } } } },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "darwin" } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "container": { "const": "pe" } } } } },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "windows" } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "container": { "const": "elf" } } } } },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "linux" } } } } } }
+          },
+          {
+            "if": { "properties": { "output": { "properties": { "container": { "const": "macho" } } } } },
+            "then": { "properties": { "targets": { "items": { "properties": { "os": { "const": "darwin" } } } } } }
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

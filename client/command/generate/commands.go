@@ -42,6 +42,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// Session flags and completions.
 	coreImplantFlags("session", generateCmd)
 	compileImplantFlags("session", generateCmd)
+	generateCmd.Flags().String("cleanup", "true", "remove the server build workspace after generation; false retains secret-bearing source and inputs")
+	generateCmd.Flags().Bool("plan", false, "preview the resolved build route without compiling")
 	coreImplantFlagCompletions(generateCmd, con)
 
 	generateBeaconCmd := &cobra.Command{
@@ -56,6 +58,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// Beacon flags and completions.
 	coreImplantFlags("beacon", generateBeaconCmd)
 	compileImplantFlags("beacon", generateBeaconCmd)
+	generateBeaconCmd.Flags().String("cleanup", "true", "remove the server build workspace after generation; false retains secret-bearing source and inputs")
+	generateBeaconCmd.Flags().Bool("plan", false, "preview the resolved build route without compiling")
 	coreBeaconFlags("beacon", generateBeaconCmd)
 	coreImplantFlagCompletions(generateBeaconCmd, con)
 
@@ -159,7 +163,10 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("name", "n", "", "Implant name")
-		f.BoolP("external-builder", "E", false, "use an external builder")
+		f.BoolP("external-builder", "E", false, "use a remote assigned-step builder")
+		f.String("builder", "", "pin generation to a connected assigned-step builder")
+		f.StringArray("input-artifact", nil, "per-build artifact input as name=path (repeatable)")
+		f.StringArray("secret-file", nil, "per-build secret input as name=path (repeatable)")
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
@@ -168,6 +175,41 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	completers.RegisterLocalFilePathFlagCompletion(profilesGenerateCmd, "save")
 	carapace.Gen(profilesGenerateCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesGenerateCmd)
+
+	profilesImportCmd := &cobra.Command{
+		Use:   "import <file.yaml>",
+		Short: "Import and validate a server-side YAML build profile",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ProfilesImportCmd(cmd, con, args)
+		},
+	}
+	carapace.Gen(profilesImportCmd).PositionalCompletion(carapace.ActionFiles("yaml", "yml").Tag("profile YAML"))
+	profilesCmd.AddCommand(profilesImportCmd)
+
+	profilesValidateCmd := &cobra.Command{
+		Use:   "validate <file.yaml>",
+		Short: "Validate a YAML build profile without saving it",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ProfilesValidateCmd(cmd, con, args)
+		},
+	}
+	carapace.Gen(profilesValidateCmd).PositionalCompletion(carapace.ActionFiles("yaml", "yml").Tag("profile YAML"))
+	profilesCmd.AddCommand(profilesValidateCmd)
+
+	profilesExportCmd := &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export canonical profile YAML",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ProfilesExportCmd(cmd, con, args)
+		},
+	}
+	profilesExportCmd.Flags().StringP("save", "s", "", "file or directory for exported YAML")
+	completers.RegisterLocalFilePathFlagCompletion(profilesExportCmd, "save")
+	carapace.Gen(profilesExportCmd).PositionalCompletion(ProfileNameCompleter(con))
+	profilesCmd.AddCommand(profilesExportCmd)
 
 	profilesNewCmd := &cobra.Command{
 		Use:   consts.NewStr,
@@ -196,6 +238,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("rc4-encrypt-key", "r", "", "RC4 encryption key")
 		f.BoolP("prepend-size", "p", false, "Prepend stage size")
 		f.StringP("compress", "c", "", "Compress stage (zlib, gzip, deflate9 or deflate)")
+		f.StringArray("input-artifact", nil, "per-build artifact input as name=path (repeatable)")
+		f.StringArray("secret-file", nil, "per-build secret input as name=path (repeatable)")
 	})
 	completers.RegisterLocalFilePathFlagCompletion(profilesStageCmd, "save")
 
@@ -472,8 +516,9 @@ func coreBeaconFlags(name string, cmd *cobra.Command) {
 func compileImplantFlags(name string, cmd *cobra.Command) {
 	flags.Bind(name, false, cmd, func(f *pflag.FlagSet) {
 		f.StringP("name", "N", "", "agent name")
-		f.StringP("template", "I", "sliver", "implant code template")
-		f.BoolP("external-builder", "E", false, "use an external builder")
+		f.BoolP("external-builder", "E", false, "use a remote assigned-step builder")
+		f.Bool("remote-step", false, "run the neutral assigned-step pipeline on a remote builder")
+		f.String("builder", "", "pin generation to a connected assigned-step builder")
 		f.StringP("save", "s", "", "directory/file to the binary to")
 	})
 }

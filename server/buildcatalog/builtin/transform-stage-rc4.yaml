@@ -1,0 +1,40 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/stage-rc4
+  version: 1.0.0
+  digest: sha256:c573ed5628a478b3de79ef66f142d599c7ce3fa3fb4e2e7a2e6d02b095e40a39
+executor:
+  id: stage-rc4-v1
+options:
+- name: key
+  type: secret-ref
+  required: true
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: stage
+    container: raw
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

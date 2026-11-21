@@ -29,15 +29,17 @@ SKIP_GENERATE=0
 UNIT_ONLY=0
 GENERATE_ONLY=0
 GENERATE_RUN=""
+OFFLINE_BUILD_PIPELINE=0
 
 usage() {
 	cat <<'EOF'
-Usage: ./go-tests.sh [--skip-generate | --unit-only | --generate-only] [--run REGEX]
+Usage: ./go-tests.sh [--skip-generate | --unit-only | --generate-only | --offline-build-pipeline] [--run REGEX]
 
   --skip-generate  Skip implant compilation tests.
   --unit-only      Skip implant compilation and C2 end-to-end tests.
-  --generate-only  Run only the server/generate package tests.
-  --run REGEX      Select generation tests by Go test name regex; requires --generate-only.
+  --generate-only  Run tagged server/generate tests and live core RPC build tests.
+  --offline-build-pipeline  Run focused catalog, planner, adapter, RPC, and console unit tests without generated compiler assets.
+  --run REGEX      Select tagged generation tests by Go test name regex; requires --generate-only.
   --help          Show this help.
 EOF
 }
@@ -53,6 +55,11 @@ while [ "$#" -gt 0 ]; do
 		;;
 	--generate-only)
 		GENERATE_ONLY=1
+		;;
+	--offline-build-pipeline)
+		OFFLINE_BUILD_PIPELINE=1
+		UNIT_ONLY=1
+		SKIP_GENERATE=1
 		;;
 	--run)
 		if [ "$#" -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then
@@ -84,6 +91,10 @@ done
 
 if [ "$GENERATE_ONLY" -eq 1 ] && [ "$SKIP_GENERATE" -eq 1 ]; then
 	echo "--generate-only cannot be combined with --skip-generate or --unit-only" >&2
+	exit 2
+fi
+if [ "$OFFLINE_BUILD_PIPELINE" -eq 1 ] && [ -n "$GENERATE_RUN" ]; then
+	echo "--run is only supported with --generate-only" >&2
 	exit 2
 fi
 if [ -n "$GENERATE_RUN" ] && [ "$GENERATE_ONLY" -eq 0 ]; then
@@ -248,8 +259,60 @@ run_generate_tests() {
 	fi
 	generate_test_cmd+=(./server/generate)
 	run_test_cmd "./server/generate" \
-		env GOMAXPROCS="$generate_gomaxprocs" "${generate_test_cmd[@]}"
+		env GOMAXPROCS="$generate_gomaxprocs" "${generate_test_cmd[@]}" || return 1
+
+	# Keep real RPC builds in the generation gate without running the whole
+	# RPC package again. Respect --run when selecting focused cases.
+	local rpc_generate_tests=(TestExecuteBuildSliverNativeExecutable TestGenerateRetainedWorkspace TestOnDemandShellcodeBuildRecord TestM4GenerateShellcodeFinalParity TestM4GenerateStageFinalParity TestGenerateSpoofMetadataAppliesPETimestampOverBufnet TestM6AuthoredProfileBuildFreezesSnapshot TestM6MigratedProfileBuildPreservesLegacyConfig TestM7MinimalCoreAdvertisedTargets TestM7MinimalCoreLiveMTLSPing TestM7RemoteMinimalCoreLiveWorker TestM7RemoteMinimalCoreSeparateProcessWorker)
+	local rpc_test_cmd=(
+		"$HOST_GO" test -vet=off -timeout 30m
+		-p "$generate_go_p" -parallel "$generate_test_parallel"
+		-tags="server,$TAGS,sliver_generate" -count=1
+	)
+	local rpc_generate_test
+	if [ -n "$GENERATE_RUN" ]; then
+		rpc_test_cmd+=(-v)
+	fi
+	for rpc_generate_test in "${rpc_generate_tests[@]}"; do
+		if [ -z "$GENERATE_RUN" ] || [[ "$rpc_generate_test" =~ $GENERATE_RUN ]]; then
+			run_test_cmd "./server/rpc ($rpc_generate_test)" \
+				env GOMAXPROCS="$generate_gomaxprocs" "${rpc_test_cmd[@]}" \
+				-run "^${rpc_generate_test}$" ./server/rpc || return 1
+		fi
+	done
 }
+
+if [ "$OFFLINE_BUILD_PIPELINE" -eq 1 ]; then
+	echo "Running focused build-pipeline unit tests with sliver_lint assets; compiler assets are not unpacked"
+	run_test_cmd "./server/buildcatalog" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcatalog || exit 1
+	run_test_cmd "./server/buildplan" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildplan || exit 1
+	run_test_cmd "./server/buildprofile" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildprofile || exit 1
+	run_test_cmd "./server/buildscheduler" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildscheduler || exit 1
+	run_test_cmd "./server/core (builder registration)" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/core -run 'TestRemoveBuilderIfCurrentPreservesReplacement' -count=1 || exit 1
+	run_test_cmd "./server/db (profile retention)" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/db -run 'TestDeleteProfilePreservesCompletedBuildReferences' -count=1 || exit 1
+	run_test_cmd "./server/builder" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/builder || exit 1
+	run_test_cmd "./server/buildcore" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcore || exit 1
+	run_test_cmd "./server/buildcore/minimal" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcore/minimal || exit 1
+	run_test_cmd "./server/buildcore/workspace" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcore/workspace || exit 1
+	run_test_cmd "./server/buildcore/magebuild" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcore/magebuild || exit 1
+	run_test_cmd "./server/buildcore/artifactaccept" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcore/artifactaccept || exit 1
+	run_test_cmd "./server/buildtransform" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildtransform || exit 1
+	run_test_cmd "./server/buildcompiler" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/buildcompiler || exit 1
+	run_test_cmd "./server/gogo" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/gogo || exit 1
+	run_test_cmd "./server/assets (source and archive safety)" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/assets -run 'Test(SetupGoPathCopiesTransportTiming|ServerArchive|Archive)' -count=1 || exit 1
+	run_test_cmd "./server/generate (core adapter, save, and retained script)" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/generate -run 'Test(SliverCoreAdapter|ImplantBuildSave|WriteRetainedBuildScript)' -count=1 || exit 1
+	run_test_cmd "./server/transport (build permissions and audit)" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./server/transport -run 'TestBuild' -count=1 || exit 1
+	run_test_cmd "./server/rpc (build pipeline)" "$HOST_GO" test -vet=off -tags="server,$TAGS,sliver_lint" ./server/rpc -run 'Test(BuildCatalogRPC|BuildProfile|M6|M7|ServerProfileConsumer|SliverAdapterConfigFromPlan|BuildRecordRPC|LegacyBuildRequest|LegacyStage|LegacyMetadata|BuildInputs|ResolvedPipeline|RecordCoreBuild|CoreAdapterForPlan|RegisteredCoreAdapter|BuilderRegister|PlanBuild|StepBuilder|AssignedStep|TwoBuilder|RemotePreparedSliver|ImplantBuildsReportsRecordedCore|ImplantBuildsWithoutRecordStore|OnDemandShellcodeConfigAndName|GetSystemRejectsInvalidNamedBuild)' -count=1 || exit 1
+	run_test_cmd "./test/e2e/coverage (RPC disposition)" "$HOST_GO" test -tags="server,$TAGS,sliver_lint" ./test/e2e/coverage -run 'TestRPCDispositionRegistryMatchesGeneratedSliverRPC' -count=1 || exit 1
+	run_test_cmd "./client/command/buildcatalog" "$HOST_GO" test -tags="client,$TAGS,sliver_lint" ./client/command/buildcatalog || exit 1
+	run_test_cmd "./client/command/builders" "$HOST_GO" test -tags="client,$TAGS,sliver_lint" ./client/command/builders || exit 1
+	run_test_cmd "./client/command/generate (build plan and profiles)" "$HOST_GO" test -tags="client,$TAGS,sliver_lint" ./client/command/generate -run 'Test(SelectOutputFormat|PlanRequestFromFlags|ProfileInputs|ProfileInputBounds|ProfileOverrides|ProfileExportFileNamePortableAtNameLimit|AuthoredProfileStageFlags|ProfileYAMLReadBound|ProfileCommandsRegistered|ProfileInfoMigrationDiagnostic|NewProfileAuthoredYAMLGuard|SaveLocationPaths|SaveLocationRejectsUnsafeArtifactName|GenerateOldServerCompatibility|GenerateRejectsUnsafeServerArtifactName|GenerateCleanupFlagSpaceFormAndRouting|GenerateWorkspaceRetention|ImplantsTableShowsRecordedCore|ExternalBuilderFlagUsesAssignedStepPlan|AssignedStepCompatibilityRejectsUnrepresentedSettings|RemoteBuildSkipsLocalCompilerCheck|RemoteBuildCarriesSelectedShellcodeEncoder|VerifiedRemoteStepArtifactRejectsMismatchedHandoff|GetProfileDefinitionOrLegacy)' -count=1 || exit 1
+	run_test_cmd "./client/command/jobs (profile stage)" "$HOST_GO" test -tags="client,$TAGS,sliver_lint" ./client/command/jobs -run 'Test(StageListenerProfileFinalArtifactPolicy|StageListenerLegacyProfileFallback|TCPStageListenerFramesFinalPayloadBytes)' -count=1 || exit 1
+	run_test_cmd "./client/command/exec (profile psexec)" "$HOST_GO" test -tags="client,$TAGS,sliver_lint" ./client/command/exec -run 'TestPsExec(ProfileFinalArtifactPolicy|LegacyProfileFallback)' -count=1 || exit 1
+	run_test_cmd "./util (portable artifact names)" "$HOST_GO" test -tags="$TAGS,sliver_lint" ./util -run 'TestValidPortableFileName' -count=1 || exit 1
+	run_test_cmd "./util/matcher" "$HOST_GO" test -tags="$TAGS,sliver_lint" ./util/matcher || exit 1
+	exit 0
+fi
 
 run_test_cmd "unpack server assets" unpack_server_assets || exit 1
 

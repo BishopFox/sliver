@@ -865,7 +865,6 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	config := &clientpb.ImplantConfig{
 		GOOS:                s.opts.targetOS,
 		GOARCH:              s.opts.targetArch,
-		TemplateName:        "sliver",
 		Debug:               s.opts.implantDebug,
 		ObfuscateSymbols:    s.opts.implantObfuscate,
 		IsBeacon:            beacon,

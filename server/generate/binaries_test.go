@@ -63,6 +63,19 @@ func cleanupGeneratedArtifacts(t *testing.T, outputPath string) {
 	}
 }
 
+func assertGeneratedOutputPath(t *testing.T, outputPath, targetOS, targetArch, name, fileName string) {
+	t.Helper()
+	root := filepath.Join(GetSliversDir(), targetOS, targetArch, name)
+	rel, err := filepath.Rel(root, outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	if len(parts) != 3 || len(parts[0]) != 32 || parts[1] != "bin" || parts[2] != fileName {
+		t.Fatalf("output path %q is outside the per-build workspace under %q", outputPath, root)
+	}
+}
+
 func TestSliverExecutableWindows(t *testing.T) {
 
 	// Wireguard C2

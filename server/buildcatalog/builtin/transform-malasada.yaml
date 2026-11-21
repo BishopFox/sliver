@@ -1,0 +1,31 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/malasada
+  version: 1.0.0
+  digest: sha256:c021df62cb59723569038fd13a9b29eeaddb0ed6a244435d9adbc388954e8b1f
+executor:
+  id: malasada-v1
+options:
+- name: compress
+  type: boolean
+  required: false
+  default: false
+capabilities:
+- targets:
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  input:
+    kind: shared-library
+    container: elf
+    goBuildMode: c-shared
+  output:
+    kind: shellcode
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+  requiresEntrySymbol: true

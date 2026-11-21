@@ -60,12 +60,17 @@ func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 // PrintImplantBuilds - Print the implant builds on the server
 func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilter, con *console.SliverClient) {
+	con.Println(renderImplantBuilds(builds, filters, con))
+	con.Println("\n")
+}
+
+func renderImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilter, con *console.SliverClient) string {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Implant Type",
-		"Template",
+		"Core",
 		"OS/Arch",
 		"Format",
 		"Command & Control",
@@ -79,23 +84,7 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 	})
 
 	for sliverName, config := range builds.Configs {
-		if filters.GOOS != "" && config.GOOS != filters.GOOS {
-			continue
-		}
-		if filters.GOARCH != "" && config.GOARCH != filters.GOARCH {
-			continue
-		}
-		if filters.Beacon && !config.IsBeacon {
-			continue
-		}
-		if filters.Session && config.IsBeacon {
-			continue
-		}
-		if filters.Debug && config.Debug {
-			continue
-		}
-		if filters.Format != "" && (!strings.EqualFold(config.Format.String(), filters.Format) ||
-			!strings.HasPrefix(strings.ToLower(config.Format.String()), strings.ToLower(filters.Format))) {
+		if !matchesBuildFilters(config, filters) {
 			continue
 		}
 
@@ -113,13 +102,17 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 		for index, c2 := range config.C2 {
 			c2URLs = append(c2URLs, fmt.Sprintf("[%d] %s", index+1, c2.URL))
 		}
-		if config.TemplateName == "" {
-			config.TemplateName = "sliver"
+		coreName := "Unknown (legacy)"
+		if core := builds.CoreSpecs[sliverName]; core != nil && core.Name != "" {
+			coreName = core.Name
+			if core.Version != "" {
+				coreName += "@" + core.Version
+			}
 		}
 		tw.AppendRow(table.Row{
 			sliverName,
 			implantType,
-			config.TemplateName,
+			coreName,
 			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
 			config.Format,
 			strings.Join(c2URLs, "\n"),
@@ -130,8 +123,19 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 		})
 	}
 
-	con.Println(tw.Render())
-	con.Println("\n")
+	return tw.Render()
+}
+
+func matchesBuildFilters(config *clientpb.ImplantConfig, filters ImplantBuildFilter) bool {
+	if (filters.GOOS != "" && config.GOOS != filters.GOOS) ||
+		(filters.GOARCH != "" && config.GOARCH != filters.GOARCH) ||
+		(filters.Beacon && !config.IsBeacon) || (filters.Session && config.IsBeacon) ||
+		(filters.Debug && config.Debug) {
+		return false
+	}
+	format := config.Format.String()
+	return filters.Format == "" || (strings.EqualFold(format, filters.Format) &&
+		strings.HasPrefix(strings.ToLower(format), strings.ToLower(filters.Format)))
 }
 
 // ImplantBuildNameCompleter - Completer for implant build names.
