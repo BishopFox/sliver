@@ -48,9 +48,10 @@ target reads a private JSON manifest and writes one primary file plus
 `bin/result.json`. The server checks regular-file paths, type, size, format,
 target, and SHA-256 before the next step. See the [Mage handoff](mage-core-builds.md).
 
-Place a CoreSpec or TransformSpec YAML file in
-`<SLIVER_ROOT_DIR>/build-catalog/admin/` and restart the server. The catalog
-rejects an unknown executor ID or a name/version conflict. Built-in specs
+Place a `CoreSpec` YAML file in `$SLIVER_ROOT_DIR/catalog/cores/` or a
+`TransformSpec` YAML file in `$SLIVER_ROOT_DIR/catalog/transforms/`, then restart
+the server. The catalog rejects a spec in the wrong directory, an unknown
+executor ID, or a name/version conflict. Built-in specs
 ship in `server/buildcatalog/builtin/`; administrator and remote snapshots
 persist in `<SLIVER_ROOT_DIR>/build-catalog/snapshots.json`. The console shows
 definition and availability separately:

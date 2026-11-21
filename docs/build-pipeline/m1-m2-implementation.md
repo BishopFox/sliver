@@ -28,8 +28,9 @@ Availability means an installed executor has an online provider; whether a
 specific compiler tuple is currently usable is checked during planning.
 
 To add an administrator spec, place a validated `.yaml` or `.yml` file in
-`<server app root>/build-catalog/admin/` and restart the server. The catalog
-loads these files on first access after startup and writes its snapshot index to
+`<server app root>/catalog/cores/` for a `CoreSpec` or
+`<server app root>/catalog/transforms/` for a `TransformSpec`, then restart the
+server. The catalog loads these files on first access and stores snapshots in
 `<server app root>/build-catalog/snapshots.json`. This release only accepts
 installed executor IDs; YAML cannot run arbitrary commands. Imports reject
 floating-point values until the canonical JSON number serializer is extended.

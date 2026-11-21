@@ -1,11 +1,14 @@
 # Server build spec catalog
 
 `buildcatalog.Open(appRoot, installedExecutorIDs)` embeds the shipped Sliver
-core and transform specs. The server reads administrator specs from
-`<appRoot>/build-catalog/admin/*.yaml` or `*.yml` at startup. Place a complete
-`CoreSpec` or `TransformSpec` there, with a digest calculated by the
-[M0 contract](../../docs/build-pipeline/README.md), and restart the server.
-An unknown executor ID or conflicting name/version prevents startup.
+core and transform specs. Place administrator `CoreSpec` YAML in
+`<appRoot>/catalog/cores/` and `TransformSpec` YAML in
+`<appRoot>/catalog/transforms/`. Both directories accept `.yaml` and `.yml`
+files. Calculate each digest using the
+[M0 contract](../../docs/build-pipeline/README.md) and restart the server.
+A misplaced spec, unknown executor ID, or conflicting name/version prevents
+the catalog from loading. When upgrading, move existing source YAML from
+`<appRoot>/build-catalog/admin/` into the directory for its kind.
 `installedExecutorIDs` extends the built-in allowlist only for integrations
 that the server has actually installed.
 

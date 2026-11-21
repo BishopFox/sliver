@@ -288,37 +288,86 @@ func assertOfflineRemoteSpec(t *testing.T, catalog *Catalog, seen time.Time, raw
 	}
 }
 
-func TestAdministratorDirectoryAndPersistence(t *testing.T) {
-	root := t.TempDir()
-	adminDir := filepath.Join(root, "build-catalog", "admin")
-	if err := os.MkdirAll(adminDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	unique := changedFixture(t, "name: builtin/xor", "name: test/xor")
-	if err := os.WriteFile(filepath.Join(adminDir, "xor.yaml"), unique, 0600); err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := Open(root, nil)
+func TestAdministratorDirectoriesAndPersistence(t *testing.T) {
+	core, err := builtinSpecs.ReadFile("builtin/core-sliver.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	admin, err := catalog.Get(Reference{Name: "test/xor"})
-	if err != nil || !admin.Available || len(admin.Sources) != 1 || admin.Sources[0].Source != "administrator" {
-		t.Fatalf("administrator spec was not imported: %+v, %v", admin, err)
+	for _, test := range []struct {
+		directory, filename, kind, name string
+		raw                             []byte
+	}{
+		{
+			directory: "cores", filename: "core.yaml", kind: "CoreSpec", name: "test/core",
+			raw: redigestFixture(t, replaceFixture(t, core, "name: builtin/sliver", "name: test/core")),
+		},
+		{
+			directory: "transforms", filename: "xor.yml", kind: "TransformSpec", name: "test/xor",
+			raw: changedFixture(t, "name: builtin/xor", "name: test/xor"),
+		},
+	} {
+		t.Run(test.kind, func(t *testing.T) {
+			root := t.TempDir()
+			adminDir := filepath.Join(root, "catalog", test.directory)
+			if err := os.MkdirAll(adminDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(adminDir, test.filename)
+			if err := os.WriteFile(path, test.raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			catalog, err := Open(root, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ref := Reference{Name: test.name}
+			assertAdministratorSnapshot(t, catalog, ref, test.kind, test.raw)
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			reopened, err := Open(root, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertAdministratorSnapshot(t, reopened, ref, test.kind, test.raw)
+		})
 	}
-	if err := os.Remove(filepath.Join(adminDir, "xor.yaml")); err != nil {
-		t.Fatal(err)
+}
+
+func assertAdministratorSnapshot(t *testing.T, catalog *Catalog, ref Reference, kind string, raw []byte) {
+	t.Helper()
+	spec, err := catalog.Get(ref)
+	if err != nil || spec.Kind != kind || !spec.Available || len(spec.Sources) != 1 || spec.Sources[0].Source != "administrator" {
+		t.Fatalf("administrator snapshot %s = %+v, %v", ref.Name, spec, err)
 	}
-	reopened, err := Open(root, nil)
-	if err != nil {
-		t.Fatal(err)
+	if !bytes.Equal(spec.RawYAML, raw) {
+		t.Fatalf("raw YAML for %s was not preserved", ref.Name)
 	}
-	persisted, err := reopened.Get(Reference{Name: "test/xor"})
-	if err != nil || !persisted.Available || !bytes.Equal(persisted.RawYAML, unique) {
-		t.Fatalf("administrator snapshot was not retained: %+v, %v", persisted, err)
-	}
-	if !strings.HasPrefix(string(admin.RawYAML), "---") {
-		t.Fatal("raw YAML header was not preserved")
+}
+
+func TestAdministratorDirectoryRejectsWrongKind(t *testing.T) {
+	for _, test := range []struct{ directory, filename, want string }{
+		{"cores", "transform-xor.yaml", `has kind "TransformSpec", want "CoreSpec"`},
+		{"transforms", "core-sliver.yaml", `has kind "CoreSpec", want "TransformSpec"`},
+	} {
+		t.Run(test.directory, func(t *testing.T) {
+			root := t.TempDir()
+			adminDir := filepath.Join(root, "catalog", test.directory)
+			if err := os.MkdirAll(adminDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := builtinSpecs.ReadFile("builtin/" + test.filename)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(adminDir, test.filename)
+			if err := os.WriteFile(path, raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Open(root, nil); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Open with %s = %v, want %s", path, err, test.want)
+			}
+		})
 	}
 }
 
@@ -341,7 +390,7 @@ func TestAmbiguousReference(t *testing.T) {
 
 func TestRemovedAdministratorExecutorLeavesOfflineSnapshot(t *testing.T) {
 	root := t.TempDir()
-	adminDir := filepath.Join(root, "build-catalog", "admin")
+	adminDir := filepath.Join(root, "catalog", "transforms")
 	if err := os.MkdirAll(adminDir, 0700); err != nil {
 		t.Fatal(err)
 	}

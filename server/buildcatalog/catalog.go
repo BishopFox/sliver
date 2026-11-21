@@ -79,7 +79,8 @@ type Catalog struct {
 }
 
 // Open loads shipped specs, stored snapshots, and administrator YAML from
-// <rootDir>/build-catalog/admin. Dropped remote connections start offline.
+// <rootDir>/catalog/cores and <rootDir>/catalog/transforms. Dropped remote
+// connections start offline.
 func Open(rootDir string, installed []string) (*Catalog, error) {
 	if rootDir == "" {
 		return nil, errors.New("catalog root directory is empty")
@@ -105,8 +106,14 @@ func Open(rootDir string, installed []string) (*Catalog, error) {
 	if err := catalog.load(); err != nil {
 		return nil, err
 	}
-	if err := catalog.loadAdministratorSpecs(filepath.Join(directory, "admin")); err != nil {
-		return nil, err
+	for _, source := range []struct{ directory, kind string }{
+		{"cores", "CoreSpec"},
+		{"transforms", "TransformSpec"},
+	} {
+		adminDir := filepath.Join(rootDir, "catalog", source.directory)
+		if err := catalog.loadAdministratorSpecs(adminDir, source.kind); err != nil {
+			return nil, err
+		}
 	}
 	return catalog, nil
 }
@@ -141,7 +148,7 @@ func (catalog *Catalog) loadBuiltins() error {
 	return nil
 }
 
-func (catalog *Catalog) loadAdministratorSpecs(adminDir string) error {
+func (catalog *Catalog) loadAdministratorSpecs(adminDir, kind string) error {
 	if err := os.MkdirAll(adminDir, 0700); err != nil {
 		return fmt.Errorf("create administrator spec directory: %w", err)
 	}
@@ -153,13 +160,17 @@ func (catalog *Catalog) loadAdministratorSpecs(adminDir string) error {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml") {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(adminDir, entry.Name()))
+		path := filepath.Join(adminDir, entry.Name())
+		raw, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("read administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("read administrator spec %s: %w", path, err)
 		}
 		spec, err := parseSpec(raw)
 		if err != nil {
-			return fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("import administrator spec %s: %w", path, err)
+		}
+		if spec.kind != kind {
+			return fmt.Errorf("administrator spec %s has kind %q, want %q", path, spec.kind, kind)
 		}
 		if err := catalog.checkInstalled(spec); err != nil {
 			stored := catalog.records[recordKey(spec.kind, spec.reference)]
@@ -170,10 +181,10 @@ func (catalog *Catalog) loadAdministratorSpecs(adminDir string) error {
 					continue
 				}
 			}
-			return fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("import administrator spec %s: %w", path, err)
 		}
 		if _, err := catalog.ImportAdministrator(raw); err != nil {
-			return fmt.Errorf("import administrator spec %s: %w", entry.Name(), err)
+			return fmt.Errorf("import administrator spec %s: %w", path, err)
 		}
 	}
 	return nil
