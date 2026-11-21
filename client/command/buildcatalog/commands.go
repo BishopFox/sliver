@@ -4,6 +4,7 @@ package buildcatalog
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -53,9 +54,10 @@ func catalogCommand(name string, kind clientpb.BuildSpecKind, con *console.Slive
 		},
 	}
 	infoCmd := &cobra.Command{
-		Use:   "info <name>",
-		Short: "Show a build spec and its supported capabilities",
-		Args:  cobra.ExactArgs(1),
+		Use:               "info <name>",
+		Short:             "Show a build spec and its supported capabilities",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: specNameCompletion(kind, con),
 		Run: func(cmd *cobra.Command, args []string) {
 			infoSpec(cmd, kind, args[0], con)
 		},
@@ -76,7 +78,6 @@ func catalogCommand(name string, kind clientpb.BuildSpecKind, con *console.Slive
 			(*completions)["availability"] = carapace.ActionValues("all", "available", "unavailable")
 		})
 	}
-	carapace.Gen(infoCmd).PositionalCompletion(specNameAction(kind, con))
 	return root
 }
 
@@ -327,27 +328,24 @@ func targetCompletion(kind clientpb.BuildSpecKind, con *console.SliverClient) fu
 	}
 }
 
-func specNameAction(kind clientpb.BuildSpecKind, con *console.SliverClient) carapace.Action {
-	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		if con == nil || con.Rpc == nil {
-			return carapace.ActionMessage("Not connected to a server")
+func specNameCompletion(kind clientpb.BuildSpecKind, con *console.SliverClient) cobra.CompletionFunc {
+	return func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) != 0 || con == nil || con.Rpc == nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(flags.DefaultTimeout)*time.Second)
 		defer cancel()
 		result, err := con.Rpc.ListBuildSpecs(ctx, &clientpb.BuildSpecQuery{Kind: kind})
 		if err != nil {
-			return carapace.ActionMessage("Catalog unavailable: %s", err.Error())
+			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		names := make([]string, 0, len(result.Specs))
-		seen := map[string]struct{}{}
-		for _, spec := range result.Specs {
-			if _, exists := seen[spec.Ref.Name]; exists {
-				continue
+		names := make(map[string]struct{}, len(result.GetSpecs()))
+		for _, spec := range result.GetSpecs() {
+			name := spec.GetRef().GetName()
+			if name != "" && strings.HasPrefix(name, toComplete) {
+				names[name] = struct{}{}
 			}
-			seen[spec.Ref.Name] = struct{}{}
-			names = append(names, spec.Ref.Name)
 		}
-		slices.Sort(names)
-		return carapace.ActionValues(names...).Tag("build spec names")
-	})
+		return slices.Sorted(maps.Keys(names)), cobra.ShellCompDirectiveNoFileComp
+	}
 }
