@@ -67,6 +67,7 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 	if enableAuth {
 		return []grpc.ServerOption{
 			grpc.ChainUnaryInterceptor(
+				recoveryUnaryServerInterceptor(),
 				grpc_auth.UnaryServerInterceptor(tokenAuthFunc),
 				permissionsUnaryServerInterceptor(),
 				auditLogUnaryServerInterceptor(),
@@ -75,6 +76,7 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
 			),
 			grpc.ChainStreamInterceptor(
+				recoveryStreamServerInterceptor(),
 				grpc_auth.StreamServerInterceptor(tokenAuthFunc),
 				permissionsStreamServerInterceptor(),
 				trackOperatorStreamInterceptor(),
@@ -86,6 +88,7 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 	} else {
 		return []grpc.ServerOption{
 			grpc.ChainUnaryInterceptor(
+				recoveryUnaryServerInterceptor(),
 				grpc_auth.UnaryServerInterceptor(serverAuthFunc),
 				auditLogUnaryServerInterceptor(),
 				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
@@ -93,6 +96,7 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
 			),
 			grpc.ChainStreamInterceptor(
+				recoveryStreamServerInterceptor(),
 				grpc_auth.StreamServerInterceptor(serverAuthFunc),
 				trackOperatorStreamInterceptor(),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
@@ -486,14 +490,24 @@ func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, er
 	}
 
 	// RPC is not a session/beacon request
-	if _, ok := request["Request"]; !ok {
+	rawRequestField, ok := request["Request"]
+	if !ok {
 		return nil, nil, nil
 	}
 
-	rpcRequest := request["Request"].(map[string]interface{})
+	rpcRequest, ok := rawRequestField.(map[string]interface{})
+	if !ok {
+		// The Request field is not a JSON object (e.g. a []byte field that
+		// marshals to a base64 string). There is no active target to attach.
+		return nil, nil, nil
+	}
 
 	if rawBeaconID, ok := rpcRequest["BeaconID"]; ok {
-		beaconID := rawBeaconID.(string)
+		beaconID, ok := rawBeaconID.(string)
+		if !ok {
+			// BeaconID is not a string; cannot resolve an active beacon target.
+			return nil, nil, nil
+		}
 		middlewareLog.Debugf("Found Beacon ID: %s", beaconID)
 		beacon, err := db.BeaconByID(beaconID)
 		middlewareLog.Infof("query complete")
@@ -505,7 +519,11 @@ func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, er
 	}
 
 	if rawSessionID, ok := rpcRequest["SessionID"]; ok {
-		sessionID := rawSessionID.(string)
+		sessionID, ok := rawSessionID.(string)
+		if !ok {
+			// SessionID is not a string; cannot resolve an active session target.
+			return nil, nil, nil
+		}
 		middlewareLog.Debugf("Found Session ID: %s", sessionID)
 		session := core.Sessions.Get(sessionID)
 		if session != nil {
@@ -514,4 +532,32 @@ func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, er
 	}
 
 	return activeSession, activeBeacon, nil
+}
+
+// recoveryUnaryServerInterceptor recovers from any panic in a unary handler and
+// converts it into a codes.Internal error instead of aborting the entire process.
+func recoveryUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				middlewareLog.Errorf("recovered from panic in unary RPC %s: %v", info.FullMethod, r)
+				err = status.Error(codes.Internal, "internal server error")
+			}
+		}()
+		return handler(ctx, req)
+	}
+}
+
+// recoveryStreamServerInterceptor recovers from any panic in a stream handler and
+// converts it into a codes.Internal error instead of aborting the entire process.
+func recoveryStreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				middlewareLog.Errorf("recovered from panic in stream RPC: %v", r)
+				err = status.Error(codes.Internal, "internal server error")
+			}
+		}()
+		return handler(srv, ss)
+	}
 }
