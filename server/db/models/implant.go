@@ -278,6 +278,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IsService:         ic.IsService,
 		IsShellcode:       ic.IsShellcode,
 		ServiceName:       ic.ServiceName,
+		RunAtLoad:         ic.RunAtLoad,
 		Format:            ic.Format,
 		WGPeerTunIP:       ic.WGPeerTunIP,
 		WGKeyExchangePort: ic.WGKeyExchangePort,
