@@ -54,9 +54,6 @@ type Builder interface {
 	// MustFindValue searches the latest definition of the given Variable and returns the result.
 	MustFindValue(variable Variable) Value
 
-	// MustFindValueInBlk is the same as MustFindValue except it searches the latest definition from the given BasicBlock.
-	MustFindValueInBlk(variable Variable, blk BasicBlock) Value
-
 	// FindValueInLinearPath tries to find the latest definition of the given Variable in the linear path to the current BasicBlock.
 	// If it cannot find the definition, or it's not sealed yet, it returns ValueInvalid.
 	FindValueInLinearPath(variable Variable) Value
@@ -97,9 +94,9 @@ type Builder interface {
 	// Returns nil if there's no unseen BasicBlock.
 	BlockIteratorNext() BasicBlock
 
-	// ValueRefCounts returns the map of ValueID to its reference count.
-	// The returned slice must not be modified.
-	ValueRefCounts() []int
+	// ValuesInfo returns the data per Value used to lower the SSA in backend.
+	// This is indexed by ValueID.
+	ValuesInfo() []ValueInfo
 
 	// BlockIteratorReversePostOrderBegin is almost the same as BlockIteratorBegin except it returns the BasicBlock in the reverse post-order.
 	// This is available after RunPasses is run.
@@ -127,21 +124,29 @@ type Builder interface {
 	// Idom returns the immediate dominator of the given BasicBlock.
 	Idom(blk BasicBlock) BasicBlock
 
+	// VarLengthPool returns the VarLengthPool of Value.
 	VarLengthPool() *wazevoapi.VarLengthPool[Value]
+
+	// InsertZeroValue inserts a zero value constant instruction of the given type.
+	InsertZeroValue(t Type)
+
+	// BasicBlock returns the BasicBlock of the given ID.
+	BasicBlock(id BasicBlockID) BasicBlock
+
+	// InstructionOfValue returns the Instruction that produces the given Value or nil if the Value is not produced by any Instruction.
+	InstructionOfValue(v Value) *Instruction
 }
 
 // NewBuilder returns a new Builder implementation.
 func NewBuilder() Builder {
 	return &builder{
-		instructionsPool:               wazevoapi.NewPool[Instruction](resetInstruction),
-		basicBlocksPool:                wazevoapi.NewPool[basicBlock](resetBasicBlock),
-		varLengthPool:                  wazevoapi.NewVarLengthPool[Value](),
-		valueAnnotations:               make(map[ValueID]string),
-		signatures:                     make(map[SignatureID]*Signature),
-		blkVisited:                     make(map[*basicBlock]int),
-		valueIDAliases:                 make(map[ValueID]Value),
-		redundantParameterIndexToValue: make(map[int]Value),
-		returnBlk:                      &basicBlock{id: basicBlockIDReturnBlock},
+		instructionsPool:        wazevoapi.NewPool[Instruction](resetInstruction),
+		basicBlocksPool:         wazevoapi.NewPool[basicBlock](resetBasicBlock),
+		varLengthBasicBlockPool: wazevoapi.NewVarLengthPool[BasicBlock](),
+		varLengthPool:           wazevoapi.NewVarLengthPool[Value](),
+		valueAnnotations:        make(map[ValueID]string),
+		signatures:              make(map[SignatureID]*Signature),
+		returnBlk:               &basicBlock{id: basicBlockIDReturnBlock},
 	}
 }
 
@@ -158,36 +163,32 @@ type builder struct {
 	currentBB                     *basicBlock
 	returnBlk                     *basicBlock
 
-	// variables track the types for Variable with the index regarded Variable.
-	variables []Type
 	// nextValueID is used by builder.AllocateValue.
 	nextValueID ValueID
 	// nextVariable is used by builder.AllocateVariable.
 	nextVariable Variable
 
-	valueIDAliases   map[ValueID]Value
+	// valueAnnotations contains the annotations for each Value, only used for debugging.
 	valueAnnotations map[ValueID]string
 
-	// valueRefCounts is used to lower the SSA in backend, and will be calculated
-	// by the last SSA-level optimization pass.
-	valueRefCounts []int
+	// valuesInfo contains the data per Value used to lower the SSA in backend. This is indexed by ValueID.
+	valuesInfo []ValueInfo
 
 	// dominators stores the immediate dominator of each BasicBlock.
 	// The index is blockID of the BasicBlock.
 	dominators []*basicBlock
 	sparseTree dominatorSparseTree
 
+	varLengthBasicBlockPool wazevoapi.VarLengthPool[BasicBlock]
+
 	// loopNestingForestRoots are the roots of the loop nesting forest.
 	loopNestingForestRoots []BasicBlock
 
 	// The followings are used for optimization passes/deterministic compilation.
-	instStack                      []*Instruction
-	blkVisited                     map[*basicBlock]int
-	valueIDToInstruction           []*Instruction
-	blkStack                       []*basicBlock
-	blkStack2                      []*basicBlock
-	ints                           []int
-	redundantParameterIndexToValue map[int]Value
+	instStack       []*Instruction
+	blkStack        []*basicBlock
+	blkStack2       []*basicBlock
+	redundantParams []redundantParam
 
 	// blockIterCur is used to implement blockIteratorBegin and blockIteratorNext.
 	blockIterCur int
@@ -200,6 +201,60 @@ type builder struct {
 	donePostBlockLayoutPasses bool
 
 	currentSourceOffset SourceOffset
+
+	// zeros are the zero value constants for each type.
+	zeros [typeEnd]Value
+}
+
+// ValueInfo contains the data per Value used to lower the SSA in backend.
+type ValueInfo struct {
+	// RefCount is the reference count of the Value.
+	RefCount uint32
+	alias    Value
+}
+
+// redundantParam is a pair of the index of the redundant parameter and the Value.
+// This is used to eliminate the redundant parameters in the optimization pass.
+type redundantParam struct {
+	// index is the index of the redundant parameter in the basicBlock.
+	index int
+	// uniqueValue is the Value which is passed to the redundant parameter.
+	uniqueValue Value
+}
+
+// BasicBlock implements Builder.BasicBlock.
+func (b *builder) BasicBlock(id BasicBlockID) BasicBlock {
+	return b.basicBlock(id)
+}
+
+func (b *builder) basicBlock(id BasicBlockID) *basicBlock {
+	if id == basicBlockIDReturnBlock {
+		return b.returnBlk
+	}
+	return b.basicBlocksPool.View(int(id))
+}
+
+// InsertZeroValue implements Builder.InsertZeroValue.
+func (b *builder) InsertZeroValue(t Type) {
+	if b.zeros[t].Valid() {
+		return
+	}
+	zeroInst := b.AllocateInstruction()
+	switch t {
+	case TypeI32:
+		zeroInst.AsIconst32(0)
+	case TypeI64:
+		zeroInst.AsIconst64(0)
+	case TypeF32:
+		zeroInst.AsF32const(0)
+	case TypeF64:
+		zeroInst.AsF64const(0)
+	case TypeV128:
+		zeroInst.AsVconst(0, 0)
+	default:
+		panic("TODO: " + t.String())
+	}
+	b.zeros[t] = zeroInst.Insert(b).Return()
 }
 
 func (b *builder) VarLengthPool() *wazevoapi.VarLengthPool[Value] {
@@ -215,10 +270,12 @@ func (b *builder) ReturnBlock() BasicBlock {
 func (b *builder) Init(s *Signature) {
 	b.nextVariable = 0
 	b.currentSignature = s
+	b.zeros = [typeEnd]Value{ValueInvalid, ValueInvalid, ValueInvalid, ValueInvalid, ValueInvalid, ValueInvalid}
 	resetBasicBlock(b.returnBlk)
 	b.instructionsPool.Reset()
 	b.basicBlocksPool.Reset()
 	b.varLengthPool.Reset()
+	b.varLengthBasicBlockPool.Reset()
 	b.donePreBlockLayoutPasses = false
 	b.doneBlockLayout = false
 	b.donePostBlockLayoutPasses = false
@@ -226,31 +283,20 @@ func (b *builder) Init(s *Signature) {
 		sig.used = false
 	}
 
-	b.ints = b.ints[:0]
+	b.redundantParams = b.redundantParams[:0]
 	b.blkStack = b.blkStack[:0]
 	b.blkStack2 = b.blkStack2[:0]
 	b.dominators = b.dominators[:0]
 	b.loopNestingForestRoots = b.loopNestingForestRoots[:0]
-
-	for i := 0; i < b.basicBlocksPool.Allocated(); i++ {
-		blk := b.basicBlocksPool.View(i)
-		delete(b.blkVisited, blk)
-	}
 	b.basicBlocksPool.Reset()
 
 	for v := ValueID(0); v < b.nextValueID; v++ {
 		delete(b.valueAnnotations, v)
-		delete(b.valueIDAliases, v)
-		b.valueRefCounts[v] = 0
-		b.valueIDToInstruction[v] = nil
+		b.valuesInfo[v] = ValueInfo{alias: ValueInvalid}
 	}
 	b.nextValueID = 0
 	b.reversePostOrderedBasicBlocks = b.reversePostOrderedBasicBlocks[:0]
 	b.doneBlockLayout = false
-	for i := range b.valueRefCounts {
-		b.valueRefCounts[i] = 0
-	}
-
 	b.currentSourceOffset = sourceOffsetUnknown
 }
 
@@ -330,7 +376,7 @@ func (b *builder) Idom(blk BasicBlock) BasicBlock {
 
 // InsertInstruction implements Builder.InsertInstruction.
 func (b *builder) InsertInstruction(instr *Instruction) {
-	b.currentBB.InsertInstruction(instr)
+	b.currentBB.insertInstruction(b, instr)
 
 	if l := b.currentSourceOffset; l.Valid() {
 		// Emit the source offset info only when the instruction has side effect because
@@ -352,7 +398,7 @@ func (b *builder) InsertInstruction(instr *Instruction) {
 	}
 
 	r1 := b.allocateValue(t1)
-	instr.rValue = r1
+	instr.rValue = r1.setInstructionID(instr.id)
 
 	tsl := len(ts)
 	if tsl == 0 {
@@ -361,20 +407,14 @@ func (b *builder) InsertInstruction(instr *Instruction) {
 
 	rValues := b.varLengthPool.Allocate(tsl)
 	for i := 0; i < tsl; i++ {
-		rValues = rValues.Append(&b.varLengthPool, b.allocateValue(ts[i]))
+		rn := b.allocateValue(ts[i])
+		rValues = rValues.Append(&b.varLengthPool, rn.setInstructionID(instr.id))
 	}
 	instr.rValues = rValues
 }
 
 // DefineVariable implements Builder.DefineVariable.
 func (b *builder) DefineVariable(variable Variable, value Value, block BasicBlock) {
-	if b.variables[variable].invalid() {
-		panic("BUG: trying to define variable " + variable.String() + " but is not declared yet")
-	}
-
-	if b.variables[variable] != value.Type() {
-		panic(fmt.Sprintf("BUG: inconsistent type for variable %d: expected %s but got %s", variable, b.variables[variable], value.Type()))
-	}
 	bb := block.(*basicBlock)
 	bb.lastDefinitions[variable] = value
 }
@@ -401,20 +441,9 @@ func (b *builder) EntryBlock() BasicBlock {
 
 // DeclareVariable implements Builder.DeclareVariable.
 func (b *builder) DeclareVariable(typ Type) Variable {
-	v := b.allocateVariable()
-	iv := int(v)
-	if l := len(b.variables); l <= iv {
-		b.variables = append(b.variables, make([]Type, 2*(l+1))...)
-	}
-	b.variables[v] = typ
-	return v
-}
-
-// allocateVariable allocates a new variable.
-func (b *builder) allocateVariable() (ret Variable) {
-	ret = b.nextVariable
+	v := b.nextVariable
 	b.nextVariable++
-	return
+	return v.setType(typ)
 }
 
 // allocateValue implements Builder.AllocateValue.
@@ -448,15 +477,9 @@ func (b *builder) findValueInLinearPath(variable Variable, blk *basicBlock) Valu
 	return ValueInvalid
 }
 
-func (b *builder) MustFindValueInBlk(variable Variable, blk BasicBlock) Value {
-	typ := b.definedVariableType(variable)
-	return b.findValue(typ, variable, blk.(*basicBlock))
-}
-
 // MustFindValue implements Builder.MustFindValue.
 func (b *builder) MustFindValue(variable Variable) Value {
-	typ := b.definedVariableType(variable)
-	return b.findValue(typ, variable, b.currentBB)
+	return b.findValue(variable.getType(), variable, b.currentBB)
 }
 
 // findValue recursively tries to find the latest definition of a `variable`. The algorithm is described in
@@ -482,6 +505,9 @@ func (b *builder) findValue(typ Type, variable Variable, blk *basicBlock) Value 
 			value:    value,
 		})
 		return value
+	} else if blk.EntryBlock() {
+		// If this is the entry block, we reach the uninitialized variable which has zero value.
+		return b.zeros[variable.getType()]
 	}
 
 	if pred := blk.singlePred; pred != nil {
@@ -495,21 +521,41 @@ func (b *builder) findValue(typ Type, variable Variable, blk *basicBlock) Value 
 	// If this block has multiple predecessors, we have to gather the definitions,
 	// and treat them as an argument to this block.
 	//
-	// The first thing is to define a new parameter to this block which may or may not be redundant, but
-	// later we eliminate trivial params in an optimization pass. This must be done before finding the
-	// definitions in the predecessors so that we can break the cycle.
-	paramValue := blk.AddParam(b, typ)
-	b.DefineVariable(variable, paramValue, blk)
-
-	// After the new param is added, we have to manipulate the original branching instructions
-	// in predecessors so that they would pass the definition of `variable` as the argument to
-	// the newly added PHI.
+	// But before that, we have to check if the possible definitions are the same Value.
+	tmpValue := b.allocateValue(typ)
+	// Break the cycle by defining the variable with the tmpValue.
+	b.DefineVariable(variable, tmpValue, blk)
+	// Check all the predecessors if they have the same definition.
+	uniqueValue := ValueInvalid
 	for i := range blk.preds {
-		pred := &blk.preds[i]
-		value := b.findValue(typ, variable, pred.blk)
-		pred.branch.addArgumentBranchInst(b, value)
+		predValue := b.findValue(typ, variable, blk.preds[i].blk)
+		if uniqueValue == ValueInvalid {
+			uniqueValue = predValue
+		} else if uniqueValue != predValue {
+			uniqueValue = ValueInvalid
+			break
+		}
 	}
-	return paramValue
+
+	if uniqueValue != ValueInvalid {
+		// If all the predecessors have the same definition, we can use that value.
+		b.alias(tmpValue, uniqueValue)
+		return uniqueValue
+	} else {
+		// Otherwise, add the tmpValue to this block as a parameter which may or may not be redundant, but
+		// later we eliminate trivial params in an optimization pass. This must be done before finding the
+		// definitions in the predecessors so that we can break the cycle.
+		blk.addParamOn(b, tmpValue)
+		// After the new param is added, we have to manipulate the original branching instructions
+		// in predecessors so that they would pass the definition of `variable` as the argument to
+		// the newly added PHI.
+		for i := range blk.preds {
+			pred := &blk.preds[i]
+			value := b.findValue(typ, variable, pred.blk)
+			pred.branch.addArgumentBranchInst(b, value)
+		}
+		return tmpValue
+	}
 }
 
 // Seal implements Builder.Seal.
@@ -522,8 +568,8 @@ func (b *builder) Seal(raw BasicBlock) {
 
 	for _, v := range blk.unknownValues {
 		variable, phiValue := v.variable, v.value
-		typ := b.definedVariableType(variable)
-		blk.addParamOn(typ, phiValue)
+		typ := variable.getType()
+		blk.addParamOn(b, phiValue)
 		for i := range blk.preds {
 			pred := &blk.preds[i]
 			predValue := b.findValue(typ, variable, pred.blk)
@@ -533,15 +579,6 @@ func (b *builder) Seal(raw BasicBlock) {
 			pred.branch.addArgumentBranchInst(b, predValue)
 		}
 	}
-}
-
-// definedVariableType returns the type of the given variable. If the variable is not defined yet, it panics.
-func (b *builder) definedVariableType(variable Variable) Type {
-	typ := b.variables[variable]
-	if typ.invalid() {
-		panic(fmt.Sprintf("%s is not defined yet", variable))
-	}
-	return typ
 }
 
 // Format implements Builder.Format.
@@ -566,7 +603,7 @@ func (b *builder) Format() string {
 	}
 	for bb := iterBegin(); bb != nil; bb = iterNext() {
 		str.WriteByte('\n')
-		str.WriteString(bb.FormatHeader(b))
+		str.WriteString(bb.formatHeader(b))
 		str.WriteByte('\n')
 
 		for cur := bb.Root(); cur != nil; cur = cur.Next() {
@@ -645,15 +682,24 @@ func (b *builder) blockIteratorReversePostOrderNext() *basicBlock {
 	}
 }
 
-// ValueRefCounts implements Builder.ValueRefCounts.
-func (b *builder) ValueRefCounts() []int {
-	return b.valueRefCounts
+// ValuesInfo implements Builder.ValuesInfo.
+func (b *builder) ValuesInfo() []ValueInfo {
+	return b.valuesInfo
 }
 
 // alias records the alias of the given values. The alias(es) will be
 // eliminated in the optimization pass via resolveArgumentAlias.
 func (b *builder) alias(dst, src Value) {
-	b.valueIDAliases[dst.ID()] = src
+	did := int(dst.ID())
+	if did >= len(b.valuesInfo) {
+		l := did + 1 - len(b.valuesInfo)
+		b.valuesInfo = append(b.valuesInfo, make([]ValueInfo, l)...)
+		view := b.valuesInfo[len(b.valuesInfo)-l:]
+		for i := range view {
+			view[i].alias = ValueInvalid
+		}
+	}
+	b.valuesInfo[did].alias = src
 }
 
 // resolveArgumentAlias resolves the alias of the arguments of the given instruction.
@@ -678,10 +724,13 @@ func (b *builder) resolveArgumentAlias(instr *Instruction) {
 
 // resolveAlias resolves the alias of the given value.
 func (b *builder) resolveAlias(v Value) Value {
+	info := b.valuesInfo
+	l := ValueID(len(info))
 	// Some aliases are chained, so we need to resolve them recursively.
 	for {
-		if src, ok := b.valueIDAliases[v.ID()]; ok {
-			v = src
+		vid := v.ID()
+		if vid < l && info[vid].alias.Valid() {
+			v = info[vid].alias
 		} else {
 			break
 		}
@@ -728,4 +777,14 @@ func (b *builder) LoopNestingForestRoots() []BasicBlock {
 // LowestCommonAncestor implements Builder.LowestCommonAncestor.
 func (b *builder) LowestCommonAncestor(blk1, blk2 BasicBlock) BasicBlock {
 	return b.sparseTree.findLCA(blk1.ID(), blk2.ID())
+}
+
+// InstructionOfValue returns the instruction that produces the given Value, or nil
+// if the Value is not produced by any instruction.
+func (b *builder) InstructionOfValue(v Value) *Instruction {
+	instrID := v.instructionID()
+	if instrID <= 0 {
+		return nil
+	}
+	return b.instructionsPool.View(instrID - 1)
 }

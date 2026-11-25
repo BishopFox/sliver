@@ -15,7 +15,7 @@ Implements the 'generate' command group for the Sliver client console. Handlers 
 - `implants-rm.go` – Deletes stored implant builds from the server catalog.
 - `implants-stage.go` – Uploads generated implants into staging slots for later deployment.
 - `implants.go` – Lists implant builds, filters them, and resolves selected build metadata.
-- `profiles-generate.go` – Generates new implant profiles from templates and selected options.
+- `profiles-generate.go` – Builds implants from saved profiles, including authored YAML build pipelines.
 - `profiles-new.go` – Creates empty implant profiles populated with default settings.
 - `profiles-rm.go` – Removes saved implant profiles and confirms deletion state.
 - `profiles-stage.go` – Stages implant profiles to facilitate rapid build operations.

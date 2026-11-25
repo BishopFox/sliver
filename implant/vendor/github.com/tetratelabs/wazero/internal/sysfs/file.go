@@ -7,11 +7,10 @@ import (
 	"time"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/sys"
 )
 
-func NewStdioFile(stdin bool, f fs.File) (fsapi.File, error) {
+func NewStdioFile(stdin bool, f fs.File) (experimentalsys.File, error) {
 	// Return constant stat, which has fake times, but keep the underlying
 	// file mode. Fake times are needed to pass wasi-testsuite.
 	// https://github.com/WebAssembly/wasi-testsuite/blob/af57727/tests/rust/src/bin/fd_filestat_get.rs#L1-L19
@@ -27,7 +26,7 @@ func NewStdioFile(stdin bool, f fs.File) (fsapi.File, error) {
 	} else {
 		flag = experimentalsys.O_WRONLY
 	}
-	var file fsapi.File
+	var file experimentalsys.File
 	if of, ok := f.(*os.File); ok {
 		// This is ok because functions that need path aren't used by stdioFile
 		file = newOsFile("", flag, 0, of)
@@ -38,9 +37,6 @@ func NewStdioFile(stdin bool, f fs.File) (fsapi.File, error) {
 }
 
 func OpenFile(path string, flag experimentalsys.Oflag, perm fs.FileMode) (*os.File, experimentalsys.Errno) {
-	if flag&experimentalsys.O_DIRECTORY != 0 && flag&(experimentalsys.O_WRONLY|experimentalsys.O_RDWR) != 0 {
-		return nil, experimentalsys.EISDIR // invalid to open a directory writeable
-	}
 	return openFile(path, flag, perm)
 }
 
@@ -66,8 +62,35 @@ func OpenFSFile(fs fs.FS, path string, flag experimentalsys.Oflag, perm fs.FileM
 }
 
 type stdioFile struct {
-	fsapi.File
+	experimentalsys.File
 	st sys.Stat_t
+}
+
+// IsNonblock implements experimentalsys.PollableFile by forwarding to the
+// underlying file if it supports it.
+func (f *stdioFile) IsNonblock() bool {
+	if pf, ok := f.File.(experimentalsys.PollableFile); ok {
+		return pf.IsNonblock()
+	}
+	return false
+}
+
+// SetNonblock implements experimentalsys.PollableFile by forwarding to the
+// underlying file if it supports it.
+func (f *stdioFile) SetNonblock(enable bool) experimentalsys.Errno {
+	if pf, ok := f.File.(experimentalsys.PollableFile); ok {
+		return pf.SetNonblock(enable)
+	}
+	return experimentalsys.ENOSYS
+}
+
+// Poll implements experimentalsys.Pollable by forwarding to the underlying file
+// if it supports polling.
+func (f *stdioFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+	if p, ok := f.File.(experimentalsys.Pollable); ok {
+		return p.Poll(flag, timeoutMillis)
+	}
+	return false, experimentalsys.ENOSYS
 }
 
 // SetAppend implements File.SetAppend
@@ -272,7 +295,7 @@ func (f *fsFile) Readdir(n int) (dirents []experimentalsys.Dirent, errno experim
 
 	if f.reopenDir { // re-open the directory if needed.
 		f.reopenDir = false
-		if errno = adjustReaddirErr(f, f.closed, f.reopen()); errno != 0 {
+		if errno = adjustReaddirErr(f, f.closed, f.rewindDir()); errno != 0 {
 			return
 		}
 	}
@@ -344,18 +367,45 @@ func (f *fsFile) close() experimentalsys.Errno {
 	return experimentalsys.UnwrapOSError(f.file.Close())
 }
 
-// IsNonblock implements the same method as documented on fsapi.File
+// nonblocker is a subset of PollableFile for checking non-blocking mode on
+// an fs.File. fs.File cannot implement PollableFile due to conflicting Close
+// signatures (error vs Errno), so we use this narrower interface.
+type nonblocker interface {
+	IsNonblock() bool
+	SetNonblock(enable bool) experimentalsys.Errno
+}
+
+// IsNonblock implements experimentalsys.PollableFile by forwarding to the
+// underlying fs.File if it supports it.
 func (f *fsFile) IsNonblock() bool {
+	if nb, ok := f.file.(nonblocker); ok {
+		return nb.IsNonblock()
+	}
 	return false
 }
 
-// SetNonblock implements the same method as documented on fsapi.File
-func (f *fsFile) SetNonblock(bool) experimentalsys.Errno {
+// SetNonblock implements experimentalsys.PollableFile by forwarding to the
+// underlying fs.File if it supports it.
+func (f *fsFile) SetNonblock(enable bool) experimentalsys.Errno {
+	if nb, ok := f.file.(nonblocker); ok {
+		return nb.SetNonblock(enable)
+	}
+	if !enable {
+		return 0 // disabling nonblock on a file that doesn't support it is a no-op
+	}
 	return experimentalsys.ENOSYS
 }
 
-// Poll implements the same method as documented on fsapi.File
-func (f *fsFile) Poll(fsapi.Pflag, int32) (ready bool, errno experimentalsys.Errno) {
+// Poll implements experimentalsys.Pollable by forwarding to the underlying
+// fs.File if it supports polling.
+//
+// Note: fsFile cannot implement PollableFile because fs.File and
+// experimentalsys.File have conflicting Close signatures (error vs Errno),
+// so no type can satisfy both. Pollable has no such conflict.
+func (f *fsFile) Poll(flag experimentalsys.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+	if p, ok := f.file.(experimentalsys.Pollable); ok {
+		return p.Poll(flag, timeoutMillis)
+	}
 	return false, experimentalsys.ENOSYS
 }
 
@@ -421,19 +471,25 @@ func seek(s io.Seeker, offset int64, whence int) (int64, experimentalsys.Errno) 
 	return newOffset, experimentalsys.UnwrapOSError(err)
 }
 
-// reopenFile allows re-opening a file for reasons such as applying flags or
-// directory iteration.
-type reopenFile func() experimentalsys.Errno
-
-// compile-time check to ensure fsFile.reopen implements reopenFile.
-var _ reopenFile = (*fsFile)(nil).reopen
-
-// reopen implements the same method as documented on reopenFile.
-func (f *fsFile) reopen() experimentalsys.Errno {
-	_ = f.close()
-	var err error
-	f.file, err = f.fs.Open(f.name)
-	return experimentalsys.UnwrapOSError(err)
+func (f *fsFile) rewindDir() experimentalsys.Errno {
+	// Reopen the directory to rewind it.
+	file, err := f.fs.Open(f.name)
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	// Can't check if it's still the same file,
+	// but is it still a directory, at least?
+	if !fi.IsDir() {
+		return experimentalsys.ENOTDIR
+	}
+	// Only update f on success.
+	_ = f.file.Close()
+	f.file = file
+	return 0
 }
 
 // readdirFile allows masking the `Readdir` function on os.File.

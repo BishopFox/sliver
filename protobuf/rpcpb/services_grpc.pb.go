@@ -76,17 +76,28 @@ const (
 	SliverRPC_HostIOCRm_FullMethodName                        = "/rpcpb.SliverRPC/HostIOCRm"
 	SliverRPC_Generate_FullMethodName                         = "/rpcpb.SliverRPC/Generate"
 	SliverRPC_GenerateSpoofMetadata_FullMethodName            = "/rpcpb.SliverRPC/GenerateSpoofMetadata"
-	SliverRPC_GenerateExternal_FullMethodName                 = "/rpcpb.SliverRPC/GenerateExternal"
-	SliverRPC_GenerateExternalSaveBuild_FullMethodName        = "/rpcpb.SliverRPC/GenerateExternalSaveBuild"
-	SliverRPC_GenerateExternalGetBuildConfig_FullMethodName   = "/rpcpb.SliverRPC/GenerateExternalGetBuildConfig"
 	SliverRPC_GenerateStage_FullMethodName                    = "/rpcpb.SliverRPC/GenerateStage"
 	SliverRPC_StageImplantBuild_FullMethodName                = "/rpcpb.SliverRPC/StageImplantBuild"
+	SliverRPC_ListBuildSpecs_FullMethodName                   = "/rpcpb.SliverRPC/ListBuildSpecs"
+	SliverRPC_GetBuildSpec_FullMethodName                     = "/rpcpb.SliverRPC/GetBuildSpec"
+	SliverRPC_PlanBuild_FullMethodName                        = "/rpcpb.SliverRPC/PlanBuild"
+	SliverRPC_ExecuteBuild_FullMethodName                     = "/rpcpb.SliverRPC/ExecuteBuild"
+	SliverRPC_GetBuildRecord_FullMethodName                   = "/rpcpb.SliverRPC/GetBuildRecord"
+	SliverRPC_GetBuildArtifact_FullMethodName                 = "/rpcpb.SliverRPC/GetBuildArtifact"
+	SliverRPC_ListBuildProfiles_FullMethodName                = "/rpcpb.SliverRPC/ListBuildProfiles"
+	SliverRPC_GetBuildProfile_FullMethodName                  = "/rpcpb.SliverRPC/GetBuildProfile"
+	SliverRPC_ValidateBuildProfile_FullMethodName             = "/rpcpb.SliverRPC/ValidateBuildProfile"
+	SliverRPC_ImportBuildProfile_FullMethodName               = "/rpcpb.SliverRPC/ImportBuildProfile"
+	SliverRPC_DeleteBuildProfile_FullMethodName               = "/rpcpb.SliverRPC/DeleteBuildProfile"
+	SliverRPC_ExecuteProfileBuild_FullMethodName              = "/rpcpb.SliverRPC/ExecuteProfileBuild"
 	SliverRPC_GetHTTPC2Profiles_FullMethodName                = "/rpcpb.SliverRPC/GetHTTPC2Profiles"
 	SliverRPC_GetHTTPC2ProfileByName_FullMethodName           = "/rpcpb.SliverRPC/GetHTTPC2ProfileByName"
 	SliverRPC_SaveHTTPC2Profile_FullMethodName                = "/rpcpb.SliverRPC/SaveHTTPC2Profile"
 	SliverRPC_BuilderRegister_FullMethodName                  = "/rpcpb.SliverRPC/BuilderRegister"
-	SliverRPC_BuilderTrigger_FullMethodName                   = "/rpcpb.SliverRPC/BuilderTrigger"
 	SliverRPC_Builders_FullMethodName                         = "/rpcpb.SliverRPC/Builders"
+	SliverRPC_BuilderUpdateStatus_FullMethodName              = "/rpcpb.SliverRPC/BuilderUpdateStatus"
+	SliverRPC_BuilderGetStep_FullMethodName                   = "/rpcpb.SliverRPC/BuilderGetStep"
+	SliverRPC_BuilderSubmitStep_FullMethodName                = "/rpcpb.SliverRPC/BuilderSubmitStep"
 	SliverRPC_GetCertificateInfo_FullMethodName               = "/rpcpb.SliverRPC/GetCertificateInfo"
 	SliverRPC_GetCertificateAuthorityInfo_FullMethodName      = "/rpcpb.SliverRPC/GetCertificateAuthorityInfo"
 	SliverRPC_Crack_FullMethodName                            = "/rpcpb.SliverRPC/Crack"
@@ -298,19 +309,32 @@ type SliverRPCClient interface {
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	GenerateSpoofMetadata(ctx context.Context, in *clientpb.GenerateSpoofMetadataReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	GenerateExternal(ctx context.Context, in *clientpb.ExternalGenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
-	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	GenerateExternalGetBuildConfig(ctx context.Context, in *clientpb.ImplantBuild, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	GenerateStage(ctx context.Context, in *clientpb.GenerateStageReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	StageImplantBuild(ctx context.Context, in *clientpb.ImplantStageReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	// *** Build catalog and neutral build APIs ***
+	ListBuildSpecs(ctx context.Context, in *clientpb.BuildSpecQuery, opts ...grpc.CallOption) (*clientpb.BuildSpecList, error)
+	GetBuildSpec(ctx context.Context, in *clientpb.BuildSpecRequest, opts ...grpc.CallOption) (*clientpb.BuildSpec, error)
+	PlanBuild(ctx context.Context, in *clientpb.BuildRequest, opts ...grpc.CallOption) (*clientpb.BuildPlan, error)
+	ExecuteBuild(ctx context.Context, in *clientpb.BuildRequest, opts ...grpc.CallOption) (*clientpb.BuildRecord, error)
+	GetBuildRecord(ctx context.Context, in *clientpb.BuildRecordRef, opts ...grpc.CallOption) (*clientpb.BuildRecord, error)
+	GetBuildArtifact(ctx context.Context, in *clientpb.BuildRecordRef, opts ...grpc.CallOption) (*clientpb.BuildArtifactResponse, error)
+	// *** Server-owned YAML build profiles ***
+	ListBuildProfiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.BuildProfileList, error)
+	GetBuildProfile(ctx context.Context, in *clientpb.BuildProfileRef, opts ...grpc.CallOption) (*clientpb.BuildProfileDocument, error)
+	ValidateBuildProfile(ctx context.Context, in *clientpb.BuildProfileImportRequest, opts ...grpc.CallOption) (*clientpb.BuildProfileDocument, error)
+	ImportBuildProfile(ctx context.Context, in *clientpb.BuildProfileImportRequest, opts ...grpc.CallOption) (*clientpb.BuildProfileDocument, error)
+	DeleteBuildProfile(ctx context.Context, in *clientpb.BuildProfileRef, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	ExecuteProfileBuild(ctx context.Context, in *clientpb.BuildProfileExecuteRequest, opts ...grpc.CallOption) (*clientpb.BuildRecord, error)
 	// *** HTTP C2 Profiles ***
 	GetHTTPC2Profiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.HTTPC2Configs, error)
 	GetHTTPC2ProfileByName(ctx context.Context, in *clientpb.C2ProfileReq, opts ...grpc.CallOption) (*clientpb.HTTPC2Config, error)
 	SaveHTTPC2Profile(ctx context.Context, in *clientpb.HTTPC2ConfigReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Builders ***
 	BuilderRegister(ctx context.Context, in *clientpb.Builder, opts ...grpc.CallOption) (grpc.ServerStreamingClient[clientpb.Event], error)
-	BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error)
+	BuilderUpdateStatus(ctx context.Context, in *clientpb.BuilderStatusReport, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	BuilderGetStep(ctx context.Context, in *clientpb.BuilderStepRef, opts ...grpc.CallOption) (*clientpb.BuilderStepRequest, error)
+	BuilderSubmitStep(ctx context.Context, in *clientpb.BuilderStepResult, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Certificates ***
 	GetCertificateInfo(ctx context.Context, in *clientpb.CertificatesReq, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error)
 	GetCertificateAuthorityInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateAuthorityInfo, error)
@@ -1015,36 +1039,6 @@ func (c *sliverRPCClient) GenerateSpoofMetadata(ctx context.Context, in *clientp
 	return out, nil
 }
 
-func (c *sliverRPCClient) GenerateExternal(ctx context.Context, in *clientpb.ExternalGenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(clientpb.ExternalImplantConfig)
-	err := c.cc.Invoke(ctx, SliverRPC_GenerateExternal_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sliverRPCClient) GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(commonpb.Empty)
-	err := c.cc.Invoke(ctx, SliverRPC_GenerateExternalSaveBuild_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sliverRPCClient) GenerateExternalGetBuildConfig(ctx context.Context, in *clientpb.ImplantBuild, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(clientpb.ExternalImplantConfig)
-	err := c.cc.Invoke(ctx, SliverRPC_GenerateExternalGetBuildConfig_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *sliverRPCClient) GenerateStage(ctx context.Context, in *clientpb.GenerateStageReq, opts ...grpc.CallOption) (*clientpb.Generate, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(clientpb.Generate)
@@ -1059,6 +1053,126 @@ func (c *sliverRPCClient) StageImplantBuild(ctx context.Context, in *clientpb.Im
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(commonpb.Empty)
 	err := c.cc.Invoke(ctx, SliverRPC_StageImplantBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ListBuildSpecs(ctx context.Context, in *clientpb.BuildSpecQuery, opts ...grpc.CallOption) (*clientpb.BuildSpecList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildSpecList)
+	err := c.cc.Invoke(ctx, SliverRPC_ListBuildSpecs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBuildSpec(ctx context.Context, in *clientpb.BuildSpecRequest, opts ...grpc.CallOption) (*clientpb.BuildSpec, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildSpec)
+	err := c.cc.Invoke(ctx, SliverRPC_GetBuildSpec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) PlanBuild(ctx context.Context, in *clientpb.BuildRequest, opts ...grpc.CallOption) (*clientpb.BuildPlan, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildPlan)
+	err := c.cc.Invoke(ctx, SliverRPC_PlanBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ExecuteBuild(ctx context.Context, in *clientpb.BuildRequest, opts ...grpc.CallOption) (*clientpb.BuildRecord, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildRecord)
+	err := c.cc.Invoke(ctx, SliverRPC_ExecuteBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBuildRecord(ctx context.Context, in *clientpb.BuildRecordRef, opts ...grpc.CallOption) (*clientpb.BuildRecord, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildRecord)
+	err := c.cc.Invoke(ctx, SliverRPC_GetBuildRecord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBuildArtifact(ctx context.Context, in *clientpb.BuildRecordRef, opts ...grpc.CallOption) (*clientpb.BuildArtifactResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildArtifactResponse)
+	err := c.cc.Invoke(ctx, SliverRPC_GetBuildArtifact_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ListBuildProfiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.BuildProfileList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildProfileList)
+	err := c.cc.Invoke(ctx, SliverRPC_ListBuildProfiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetBuildProfile(ctx context.Context, in *clientpb.BuildProfileRef, opts ...grpc.CallOption) (*clientpb.BuildProfileDocument, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildProfileDocument)
+	err := c.cc.Invoke(ctx, SliverRPC_GetBuildProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ValidateBuildProfile(ctx context.Context, in *clientpb.BuildProfileImportRequest, opts ...grpc.CallOption) (*clientpb.BuildProfileDocument, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildProfileDocument)
+	err := c.cc.Invoke(ctx, SliverRPC_ValidateBuildProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ImportBuildProfile(ctx context.Context, in *clientpb.BuildProfileImportRequest, opts ...grpc.CallOption) (*clientpb.BuildProfileDocument, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildProfileDocument)
+	err := c.cc.Invoke(ctx, SliverRPC_ImportBuildProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) DeleteBuildProfile(ctx context.Context, in *clientpb.BuildProfileRef, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, SliverRPC_DeleteBuildProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ExecuteProfileBuild(ctx context.Context, in *clientpb.BuildProfileExecuteRequest, opts ...grpc.CallOption) (*clientpb.BuildRecord, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuildRecord)
+	err := c.cc.Invoke(ctx, SliverRPC_ExecuteProfileBuild_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1114,20 +1228,40 @@ func (c *sliverRPCClient) BuilderRegister(ctx context.Context, in *clientpb.Buil
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SliverRPC_BuilderRegisterClient = grpc.ServerStreamingClient[clientpb.Event]
 
-func (c *sliverRPCClient) BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+func (c *sliverRPCClient) Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(commonpb.Empty)
-	err := c.cc.Invoke(ctx, SliverRPC_BuilderTrigger_FullMethodName, in, out, cOpts...)
+	out := new(clientpb.Builders)
+	err := c.cc.Invoke(ctx, SliverRPC_Builders_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sliverRPCClient) Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error) {
+func (c *sliverRPCClient) BuilderUpdateStatus(ctx context.Context, in *clientpb.BuilderStatusReport, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(clientpb.Builders)
-	err := c.cc.Invoke(ctx, SliverRPC_Builders_FullMethodName, in, out, cOpts...)
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, SliverRPC_BuilderUpdateStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) BuilderGetStep(ctx context.Context, in *clientpb.BuilderStepRef, opts ...grpc.CallOption) (*clientpb.BuilderStepRequest, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(clientpb.BuilderStepRequest)
+	err := c.cc.Invoke(ctx, SliverRPC_BuilderGetStep_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) BuilderSubmitStep(ctx context.Context, in *clientpb.BuilderStepResult, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, SliverRPC_BuilderSubmitStep_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2591,19 +2725,32 @@ type SliverRPCServer interface {
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
 	GenerateSpoofMetadata(context.Context, *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error)
-	GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error)
-	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
-	GenerateExternalGetBuildConfig(context.Context, *clientpb.ImplantBuild) (*clientpb.ExternalImplantConfig, error)
 	GenerateStage(context.Context, *clientpb.GenerateStageReq) (*clientpb.Generate, error)
 	StageImplantBuild(context.Context, *clientpb.ImplantStageReq) (*commonpb.Empty, error)
+	// *** Build catalog and neutral build APIs ***
+	ListBuildSpecs(context.Context, *clientpb.BuildSpecQuery) (*clientpb.BuildSpecList, error)
+	GetBuildSpec(context.Context, *clientpb.BuildSpecRequest) (*clientpb.BuildSpec, error)
+	PlanBuild(context.Context, *clientpb.BuildRequest) (*clientpb.BuildPlan, error)
+	ExecuteBuild(context.Context, *clientpb.BuildRequest) (*clientpb.BuildRecord, error)
+	GetBuildRecord(context.Context, *clientpb.BuildRecordRef) (*clientpb.BuildRecord, error)
+	GetBuildArtifact(context.Context, *clientpb.BuildRecordRef) (*clientpb.BuildArtifactResponse, error)
+	// *** Server-owned YAML build profiles ***
+	ListBuildProfiles(context.Context, *commonpb.Empty) (*clientpb.BuildProfileList, error)
+	GetBuildProfile(context.Context, *clientpb.BuildProfileRef) (*clientpb.BuildProfileDocument, error)
+	ValidateBuildProfile(context.Context, *clientpb.BuildProfileImportRequest) (*clientpb.BuildProfileDocument, error)
+	ImportBuildProfile(context.Context, *clientpb.BuildProfileImportRequest) (*clientpb.BuildProfileDocument, error)
+	DeleteBuildProfile(context.Context, *clientpb.BuildProfileRef) (*commonpb.Empty, error)
+	ExecuteProfileBuild(context.Context, *clientpb.BuildProfileExecuteRequest) (*clientpb.BuildRecord, error)
 	// *** HTTP C2 Profiles ***
 	GetHTTPC2Profiles(context.Context, *commonpb.Empty) (*clientpb.HTTPC2Configs, error)
 	GetHTTPC2ProfileByName(context.Context, *clientpb.C2ProfileReq) (*clientpb.HTTPC2Config, error)
 	SaveHTTPC2Profile(context.Context, *clientpb.HTTPC2ConfigReq) (*commonpb.Empty, error)
 	// *** Builders ***
 	BuilderRegister(*clientpb.Builder, grpc.ServerStreamingServer[clientpb.Event]) error
-	BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error)
+	BuilderUpdateStatus(context.Context, *clientpb.BuilderStatusReport) (*commonpb.Empty, error)
+	BuilderGetStep(context.Context, *clientpb.BuilderStepRef) (*clientpb.BuilderStepRequest, error)
+	BuilderSubmitStep(context.Context, *clientpb.BuilderStepResult) (*commonpb.Empty, error)
 	// *** Certificates ***
 	GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error)
 	GetCertificateAuthorityInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateAuthorityInfo, error)
@@ -2927,20 +3074,47 @@ func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.Generate
 func (UnimplementedSliverRPCServer) GenerateSpoofMetadata(context.Context, *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateSpoofMetadata not implemented")
 }
-func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
-	return nil, status.Error(codes.Unimplemented, "method GenerateExternal not implemented")
-}
-func (UnimplementedSliverRPCServer) GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method GenerateExternalSaveBuild not implemented")
-}
-func (UnimplementedSliverRPCServer) GenerateExternalGetBuildConfig(context.Context, *clientpb.ImplantBuild) (*clientpb.ExternalImplantConfig, error) {
-	return nil, status.Error(codes.Unimplemented, "method GenerateExternalGetBuildConfig not implemented")
-}
 func (UnimplementedSliverRPCServer) GenerateStage(context.Context, *clientpb.GenerateStageReq) (*clientpb.Generate, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateStage not implemented")
 }
 func (UnimplementedSliverRPCServer) StageImplantBuild(context.Context, *clientpb.ImplantStageReq) (*commonpb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method StageImplantBuild not implemented")
+}
+func (UnimplementedSliverRPCServer) ListBuildSpecs(context.Context, *clientpb.BuildSpecQuery) (*clientpb.BuildSpecList, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBuildSpecs not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBuildSpec(context.Context, *clientpb.BuildSpecRequest) (*clientpb.BuildSpec, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBuildSpec not implemented")
+}
+func (UnimplementedSliverRPCServer) PlanBuild(context.Context, *clientpb.BuildRequest) (*clientpb.BuildPlan, error) {
+	return nil, status.Error(codes.Unimplemented, "method PlanBuild not implemented")
+}
+func (UnimplementedSliverRPCServer) ExecuteBuild(context.Context, *clientpb.BuildRequest) (*clientpb.BuildRecord, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExecuteBuild not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBuildRecord(context.Context, *clientpb.BuildRecordRef) (*clientpb.BuildRecord, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBuildRecord not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBuildArtifact(context.Context, *clientpb.BuildRecordRef) (*clientpb.BuildArtifactResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBuildArtifact not implemented")
+}
+func (UnimplementedSliverRPCServer) ListBuildProfiles(context.Context, *commonpb.Empty) (*clientpb.BuildProfileList, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBuildProfiles not implemented")
+}
+func (UnimplementedSliverRPCServer) GetBuildProfile(context.Context, *clientpb.BuildProfileRef) (*clientpb.BuildProfileDocument, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBuildProfile not implemented")
+}
+func (UnimplementedSliverRPCServer) ValidateBuildProfile(context.Context, *clientpb.BuildProfileImportRequest) (*clientpb.BuildProfileDocument, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateBuildProfile not implemented")
+}
+func (UnimplementedSliverRPCServer) ImportBuildProfile(context.Context, *clientpb.BuildProfileImportRequest) (*clientpb.BuildProfileDocument, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportBuildProfile not implemented")
+}
+func (UnimplementedSliverRPCServer) DeleteBuildProfile(context.Context, *clientpb.BuildProfileRef) (*commonpb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteBuildProfile not implemented")
+}
+func (UnimplementedSliverRPCServer) ExecuteProfileBuild(context.Context, *clientpb.BuildProfileExecuteRequest) (*clientpb.BuildRecord, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExecuteProfileBuild not implemented")
 }
 func (UnimplementedSliverRPCServer) GetHTTPC2Profiles(context.Context, *commonpb.Empty) (*clientpb.HTTPC2Configs, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetHTTPC2Profiles not implemented")
@@ -2954,11 +3128,17 @@ func (UnimplementedSliverRPCServer) SaveHTTPC2Profile(context.Context, *clientpb
 func (UnimplementedSliverRPCServer) BuilderRegister(*clientpb.Builder, grpc.ServerStreamingServer[clientpb.Event]) error {
 	return status.Error(codes.Unimplemented, "method BuilderRegister not implemented")
 }
-func (UnimplementedSliverRPCServer) BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method BuilderTrigger not implemented")
-}
 func (UnimplementedSliverRPCServer) Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error) {
 	return nil, status.Error(codes.Unimplemented, "method Builders not implemented")
+}
+func (UnimplementedSliverRPCServer) BuilderUpdateStatus(context.Context, *clientpb.BuilderStatusReport) (*commonpb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method BuilderUpdateStatus not implemented")
+}
+func (UnimplementedSliverRPCServer) BuilderGetStep(context.Context, *clientpb.BuilderStepRef) (*clientpb.BuilderStepRequest, error) {
+	return nil, status.Error(codes.Unimplemented, "method BuilderGetStep not implemented")
+}
+func (UnimplementedSliverRPCServer) BuilderSubmitStep(context.Context, *clientpb.BuilderStepResult) (*commonpb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method BuilderSubmitStep not implemented")
 }
 func (UnimplementedSliverRPCServer) GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCertificateInfo not implemented")
@@ -4350,60 +4530,6 @@ func _SliverRPC_GenerateSpoofMetadata_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_GenerateExternal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.ExternalGenerateReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SliverRPCServer).GenerateExternal(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SliverRPC_GenerateExternal_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GenerateExternal(ctx, req.(*clientpb.ExternalGenerateReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SliverRPC_GenerateExternalSaveBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.ExternalImplantBinary)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SliverRPCServer).GenerateExternalSaveBuild(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SliverRPC_GenerateExternalSaveBuild_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GenerateExternalSaveBuild(ctx, req.(*clientpb.ExternalImplantBinary))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SliverRPC_GenerateExternalGetBuildConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.ImplantBuild)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SliverRPCServer).GenerateExternalGetBuildConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SliverRPC_GenerateExternalGetBuildConfig_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GenerateExternalGetBuildConfig(ctx, req.(*clientpb.ImplantBuild))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _SliverRPC_GenerateStage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(clientpb.GenerateStageReq)
 	if err := dec(in); err != nil {
@@ -4436,6 +4562,222 @@ func _SliverRPC_StageImplantBuild_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).StageImplantBuild(ctx, req.(*clientpb.ImplantStageReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ListBuildSpecs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildSpecQuery)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ListBuildSpecs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_ListBuildSpecs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ListBuildSpecs(ctx, req.(*clientpb.BuildSpecQuery))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBuildSpec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildSpecRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBuildSpec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetBuildSpec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBuildSpec(ctx, req.(*clientpb.BuildSpecRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_PlanBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).PlanBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_PlanBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).PlanBuild(ctx, req.(*clientpb.BuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ExecuteBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ExecuteBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_ExecuteBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ExecuteBuild(ctx, req.(*clientpb.BuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBuildRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildRecordRef)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBuildRecord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetBuildRecord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBuildRecord(ctx, req.(*clientpb.BuildRecordRef))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBuildArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildRecordRef)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBuildArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetBuildArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBuildArtifact(ctx, req.(*clientpb.BuildRecordRef))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ListBuildProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ListBuildProfiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_ListBuildProfiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ListBuildProfiles(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetBuildProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildProfileRef)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetBuildProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetBuildProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetBuildProfile(ctx, req.(*clientpb.BuildProfileRef))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ValidateBuildProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildProfileImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ValidateBuildProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_ValidateBuildProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ValidateBuildProfile(ctx, req.(*clientpb.BuildProfileImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ImportBuildProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildProfileImportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ImportBuildProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_ImportBuildProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ImportBuildProfile(ctx, req.(*clientpb.BuildProfileImportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_DeleteBuildProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildProfileRef)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).DeleteBuildProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_DeleteBuildProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).DeleteBuildProfile(ctx, req.(*clientpb.BuildProfileRef))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ExecuteProfileBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuildProfileExecuteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ExecuteProfileBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_ExecuteProfileBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ExecuteProfileBuild(ctx, req.(*clientpb.BuildProfileExecuteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4505,24 +4847,6 @@ func _SliverRPC_BuilderRegister_Handler(srv interface{}, stream grpc.ServerStrea
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SliverRPC_BuilderRegisterServer = grpc.ServerStreamingServer[clientpb.Event]
 
-func _SliverRPC_BuilderTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.Event)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SliverRPCServer).BuilderTrigger(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SliverRPC_BuilderTrigger_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).BuilderTrigger(ctx, req.(*clientpb.Event))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _SliverRPC_Builders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(commonpb.Empty)
 	if err := dec(in); err != nil {
@@ -4537,6 +4861,60 @@ func _SliverRPC_Builders_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Builders(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_BuilderUpdateStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuilderStatusReport)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).BuilderUpdateStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_BuilderUpdateStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).BuilderUpdateStatus(ctx, req.(*clientpb.BuilderStatusReport))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_BuilderGetStep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuilderStepRef)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).BuilderGetStep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_BuilderGetStep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).BuilderGetStep(ctx, req.(*clientpb.BuilderStepRef))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_BuilderSubmitStep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BuilderStepResult)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).BuilderSubmitStep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_BuilderSubmitStep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).BuilderSubmitStep(ctx, req.(*clientpb.BuilderStepResult))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -7173,24 +7551,60 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_GenerateSpoofMetadata_Handler,
 		},
 		{
-			MethodName: "GenerateExternal",
-			Handler:    _SliverRPC_GenerateExternal_Handler,
-		},
-		{
-			MethodName: "GenerateExternalSaveBuild",
-			Handler:    _SliverRPC_GenerateExternalSaveBuild_Handler,
-		},
-		{
-			MethodName: "GenerateExternalGetBuildConfig",
-			Handler:    _SliverRPC_GenerateExternalGetBuildConfig_Handler,
-		},
-		{
 			MethodName: "GenerateStage",
 			Handler:    _SliverRPC_GenerateStage_Handler,
 		},
 		{
 			MethodName: "StageImplantBuild",
 			Handler:    _SliverRPC_StageImplantBuild_Handler,
+		},
+		{
+			MethodName: "ListBuildSpecs",
+			Handler:    _SliverRPC_ListBuildSpecs_Handler,
+		},
+		{
+			MethodName: "GetBuildSpec",
+			Handler:    _SliverRPC_GetBuildSpec_Handler,
+		},
+		{
+			MethodName: "PlanBuild",
+			Handler:    _SliverRPC_PlanBuild_Handler,
+		},
+		{
+			MethodName: "ExecuteBuild",
+			Handler:    _SliverRPC_ExecuteBuild_Handler,
+		},
+		{
+			MethodName: "GetBuildRecord",
+			Handler:    _SliverRPC_GetBuildRecord_Handler,
+		},
+		{
+			MethodName: "GetBuildArtifact",
+			Handler:    _SliverRPC_GetBuildArtifact_Handler,
+		},
+		{
+			MethodName: "ListBuildProfiles",
+			Handler:    _SliverRPC_ListBuildProfiles_Handler,
+		},
+		{
+			MethodName: "GetBuildProfile",
+			Handler:    _SliverRPC_GetBuildProfile_Handler,
+		},
+		{
+			MethodName: "ValidateBuildProfile",
+			Handler:    _SliverRPC_ValidateBuildProfile_Handler,
+		},
+		{
+			MethodName: "ImportBuildProfile",
+			Handler:    _SliverRPC_ImportBuildProfile_Handler,
+		},
+		{
+			MethodName: "DeleteBuildProfile",
+			Handler:    _SliverRPC_DeleteBuildProfile_Handler,
+		},
+		{
+			MethodName: "ExecuteProfileBuild",
+			Handler:    _SliverRPC_ExecuteProfileBuild_Handler,
 		},
 		{
 			MethodName: "GetHTTPC2Profiles",
@@ -7205,12 +7619,20 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_SaveHTTPC2Profile_Handler,
 		},
 		{
-			MethodName: "BuilderTrigger",
-			Handler:    _SliverRPC_BuilderTrigger_Handler,
-		},
-		{
 			MethodName: "Builders",
 			Handler:    _SliverRPC_Builders_Handler,
+		},
+		{
+			MethodName: "BuilderUpdateStatus",
+			Handler:    _SliverRPC_BuilderUpdateStatus_Handler,
+		},
+		{
+			MethodName: "BuilderGetStep",
+			Handler:    _SliverRPC_BuilderGetStep_Handler,
+		},
+		{
+			MethodName: "BuilderSubmitStep",
+			Handler:    _SliverRPC_BuilderSubmitStep_Handler,
 		},
 		{
 			MethodName: "GetCertificateInfo",

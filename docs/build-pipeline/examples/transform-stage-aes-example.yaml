@@ -1,0 +1,43 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: example/stage-aes
+  version: 1.0.0
+  digest: sha256:94aeaca953e121a65e58c3927ff3d6fe267073274a45447b5d322405b6186091
+executor:
+  id: hypothetical-stage-aes-v1
+options:
+- name: key
+  type: secret-ref
+  required: true
+- name: iv
+  type: secret-ref
+  required: true
+capabilities:
+- targets:
+  - os: windows
+    arch: '386'
+  - os: windows
+    arch: amd64
+  - os: windows
+    arch: arm64
+  - os: linux
+    arch: '386'
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  - os: darwin
+    arch: amd64
+  - os: darwin
+    arch: arm64
+  input:
+    kind: stage
+    container: raw
+  output:
+    kind: stage
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []

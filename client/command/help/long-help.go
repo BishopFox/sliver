@@ -114,8 +114,8 @@ var (
 		consts.LootStr: lootHelp,
 
 		// Creds
-		consts.CredsStr:                       credsHelp,
-		consts.CredsStr + sep + consts.AddStr: credsAddHelp,
+		consts.CredsStr:                                              credsHelp,
+		consts.CredsStr + sep + consts.AddStr:                        credsAddHelp,
 		consts.CredsStr + sep + consts.AddStr + sep + consts.FileStr: credsAddFileHelp,
 		// Profiles
 		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
@@ -258,6 +258,9 @@ To output a MacOS Mach-O executable file, the following command would be used
 
 To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
+
+To assign compatible build steps to a connected builder, use -E or --builder <name>.
+Use --plan to preview the resolved core, transforms, and providers before building.
 
 
 [[.Bold]][[.Underline]]++ Shellcode Options ++[[.Normal]]
@@ -924,10 +927,11 @@ More information: https://github.com/mandatoryprogrammer/CursedChrome
 `
 
 	buildersHelp = `[[.Bold]]Command:[[.Normal]] builders
-[[.Bold]]About:[[.Normal]] Lists external builders currently registered with the server.
+[[.Bold]]About:[[.Normal]] Lists assigned-step builders known to the server.
 
-External builders allow the Sliver server offload implant builds onto external machines.
-For more information: https://github.com/BishopFox/sliver/wiki/External-Builders
+Builders advertise exact core and transform specs, compiler targets, and current capacity.
+The server can assign compatible build steps to a connected builder with generate -E or --builder <name>.
+Use cores and transforms to inspect installed build specs.
 `
 
 	credsHelp = `[[.Bold]]Command:[[.Normal]] creds

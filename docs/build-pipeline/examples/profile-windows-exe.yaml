@@ -1,0 +1,41 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: windows-exe
+  revision: 1
+target:
+  os: windows
+  arch: amd64
+mode: session
+c2:
+  endpoints:
+  - protocol: mtls
+    address: mtls://c2.example.invalid:8888
+  connectionStrategy: random
+  reconnectSeconds: 60
+  pollTimeoutSeconds: 360
+  maxConnectionErrors: 1000
+  httpC2Profile: default
+core:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+coreOutput:
+  kind: executable
+  container: pe
+  goBuildMode: default
+coreOptions:
+- name: debug
+  value: false
+- name: obfuscateSymbols
+  value: true
+transforms: []
+finalOutput:
+  format: exe
+  artifact:
+    kind: executable
+    container: pe
+    goBuildMode: default
+provider:
+  policy: automatic

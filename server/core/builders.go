@@ -27,15 +27,19 @@ import (
 
 var (
 	// ClientID -> *clientpb.Builder
-	builders = &sync.Map{}
+	builders   = &sync.Map{}
+	buildersMu sync.Mutex
 
-	ErrDuplicateExternalBuilderName = errors.New("builder name must be unique, this name is already in use")
+	// ErrDuplicateBuilderName indicates that a builder name is already registered.
+	ErrDuplicateBuilderName = errors.New("builder name must be unique, this name is already in use")
 )
 
 func AddBuilder(builder *clientpb.Builder) error {
+	buildersMu.Lock()
+	defer buildersMu.Unlock()
 	_, loaded := builders.LoadOrStore(builder.Name, builder)
 	if loaded {
-		return ErrDuplicateExternalBuilderName
+		return ErrDuplicateBuilderName
 	}
 	return nil
 }
@@ -58,5 +62,23 @@ func AllBuilders() []*clientpb.Builder {
 }
 
 func RemoveBuilder(builderName string) {
+	buildersMu.Lock()
+	defer buildersMu.Unlock()
 	builders.Delete(builderName)
+}
+
+// RemoveBuilderIfCurrent tears down only the registration represented by
+// expected. A stale disconnect cannot remove a replacement with the same name.
+func RemoveBuilderIfCurrent(expected *clientpb.Builder) bool {
+	if expected == nil {
+		return false
+	}
+	buildersMu.Lock()
+	defer buildersMu.Unlock()
+	current, ok := builders.Load(expected.Name)
+	if !ok || current != expected {
+		return false
+	}
+	builders.Delete(expected.Name)
+	return true
 }

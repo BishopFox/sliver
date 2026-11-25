@@ -164,11 +164,11 @@ var (
 	builderMethods = map[string]bool{
 		"/rpcpb.SliverRPC/GetVersion": true,
 
-		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig": true,
-		"/rpcpb.SliverRPC/GenerateExternalSaveBuild":      true,
-		"/rpcpb.SliverRPC/BuilderRegister":                true,
-		"/rpcpb.SliverRPC/BuilderTrigger":                 true,
-		"/rpcpb.SliverRPC/Builders":                       true,
+		"/rpcpb.SliverRPC/BuilderRegister":     true,
+		"/rpcpb.SliverRPC/BuilderUpdateStatus": true,
+		"/rpcpb.SliverRPC/BuilderGetStep":      true,
+		"/rpcpb.SliverRPC/BuilderSubmitStep":   true,
+		"/rpcpb.SliverRPC/Builders":            true,
 	}
 	// Crackstation - Allowed methods
 	crackstationMethods = map[string]bool{
@@ -236,6 +236,19 @@ func permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
 func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
 	switch fullMethod {
 	case "/rpcpb.SliverRPC/Crack",
+		"/rpcpb.SliverRPC/Generate",
+		"/rpcpb.SliverRPC/GenerateStage",
+		"/rpcpb.SliverRPC/Regenerate",
+		"/rpcpb.SliverRPC/GenerateWGClientConfig",
+		"/rpcpb.SliverRPC/PlanBuild",
+		"/rpcpb.SliverRPC/ExecuteBuild",
+		"/rpcpb.SliverRPC/GetBuildArtifact",
+		"/rpcpb.SliverRPC/ValidateBuildProfile",
+		"/rpcpb.SliverRPC/ImportBuildProfile",
+		"/rpcpb.SliverRPC/ExecuteProfileBuild",
+		"/rpcpb.SliverRPC/BuilderUpdateStatus",
+		"/rpcpb.SliverRPC/BuilderGetStep",
+		"/rpcpb.SliverRPC/BuilderSubmitStep",
 		"/rpcpb.SliverRPC/CrackJobByID",
 		"/rpcpb.SliverRPC/CrackJobCancel",
 		"/rpcpb.SliverRPC/CrackJobPause",
@@ -264,7 +277,7 @@ func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
 }
 
 func deciderStream(_ context.Context, fullMethod string, _ interface{}) bool {
-	if fullMethod == "/rpcpb.SliverRPC/CrackstationRegister" {
+	if fullMethod == "/rpcpb.SliverRPC/CrackstationRegister" || fullMethod == "/rpcpb.SliverRPC/BuilderRegister" {
 		return false
 	}
 	return serverConfig.Logs.GRPCStreamPayloads
@@ -337,6 +350,70 @@ func auditCredentialMetadata(cred *clientpb.Credential) *clientpb.Credential {
 
 func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
 	switch fullMethod {
+	case "/rpcpb.SliverRPC/PlanBuild", "/rpcpb.SliverRPC/ExecuteBuild":
+		build, ok := req.(*clientpb.BuildRequest)
+		if !ok || build == nil {
+			return req
+		}
+		// Options and per-build inputs can contain secrets or donor bytes.
+		// Keep only the routing identity in the audit record.
+		return &clientpb.BuildRequest{
+			Name: build.Name, Target: build.Target, Mode: build.Mode,
+			Format: build.Format, Core: build.Core, Provider: build.Provider,
+		}
+	case "/rpcpb.SliverRPC/ExecuteProfileBuild":
+		build, ok := req.(*clientpb.BuildProfileExecuteRequest)
+		if !ok || build == nil {
+			return req
+		}
+		return &clientpb.BuildProfileExecuteRequest{
+			Name: build.Name, BuildName: build.BuildName, Provider: build.Provider,
+		}
+	case "/rpcpb.SliverRPC/Generate":
+		build, ok := req.(*clientpb.GenerateReq)
+		if !ok || build == nil {
+			return req
+		}
+		return &clientpb.GenerateReq{Name: build.Name}
+	case "/rpcpb.SliverRPC/GenerateStage":
+		stage, ok := req.(*clientpb.GenerateStageReq)
+		if !ok || stage == nil {
+			return req
+		}
+		return &clientpb.GenerateStageReq{
+			Profile: stage.Profile, Name: stage.Name, PrependSize: stage.PrependSize,
+			CompressF: stage.CompressF, Compress: stage.Compress,
+		}
+	case "/rpcpb.SliverRPC/ValidateBuildProfile", "/rpcpb.SliverRPC/ImportBuildProfile":
+		profile, ok := req.(*clientpb.BuildProfileImportRequest)
+		if !ok || profile == nil {
+			return req
+		}
+		return &clientpb.BuildProfileImportRequest{}
+	case "/rpcpb.SliverRPC/BuilderUpdateStatus":
+		report, ok := req.(*clientpb.BuilderStatusReport)
+		if !ok || report == nil {
+			return req
+		}
+		return &clientpb.BuilderStatusReport{
+			Name: report.Name, EffectiveCPUCores: report.EffectiveCPUCores,
+			AvailableMemoryBytes: report.AvailableMemoryBytes,
+		}
+	case "/rpcpb.SliverRPC/BuilderGetStep":
+		step, ok := req.(*clientpb.BuilderStepRef)
+		if !ok || step == nil {
+			return req
+		}
+		return &clientpb.BuilderStepRef{BuilderName: step.BuilderName, AssignmentID: step.AssignmentID}
+	case "/rpcpb.SliverRPC/BuilderSubmitStep":
+		result, ok := req.(*clientpb.BuilderStepResult)
+		if !ok || result == nil {
+			return req
+		}
+		return &clientpb.BuilderStepResult{
+			BuilderName: result.BuilderName, AssignmentID: result.AssignmentID,
+			Spec: result.Spec, Target: result.Target, ToolchainIdentity: result.ToolchainIdentity,
+		}
 	case "/rpcpb.SliverRPC/CredsAdd",
 		"/rpcpb.SliverRPC/CredsRm",
 		"/rpcpb.SliverRPC/CredsUpdate":

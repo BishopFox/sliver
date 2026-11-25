@@ -23,6 +23,7 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -33,6 +34,9 @@ import (
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // StageListenerCmd --url [tcp://ip:port | http://ip:port ] --profile name.
@@ -62,9 +66,26 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		return
 	}
 
-	profile := generate.GetImplantProfileByName(profileName, con)
-	if profile == nil {
-		con.PrintErrorf("Profile not found\n")
+	profile, legacyProfile, err := generate.GetProfileDefinitionOrLegacy(context.Background(), profileName, con)
+	if err != nil {
+		con.PrintErrorf("Could not load profile %s: %v\n", profileName, err)
+		return
+	}
+	if !legacyProfile && profile.GetMigrationError() != "" {
+		con.PrintErrorf("Profile %s cannot be used for a stage listener: %s\n", profileName, profile.GetMigrationError())
+		return
+	}
+	preparedStage := false
+	if !legacyProfile {
+		var supported bool
+		preparedStage, supported = stageListenerProfileArtifact(profile.GetFinalArtifact())
+		if !supported {
+			con.PrintErrorf("Stage listener requires shellcode/raw or stage/raw as the profile's final artifact\n")
+			return
+		}
+	}
+	if preparedStage && (compress != "none" || aesEncryptKey != "" || rc4EncryptKey != "") {
+		con.PrintErrorf("A stage/raw profile already defines its payload transforms; remove listener compression and encryption options\n")
 		return
 	}
 
@@ -105,50 +126,54 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		aesEncrypt = true
 	}
 
-	stage2, err := generate.GetSliverBinary(profile, con)
+	stage2, err := stageListenerProfilePayload(profileName, profile, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
-	switch compress {
-	case "zlib":
-		// use zlib to compress the stage2
-		var compBuff bytes.Buffer
-		zlibWriter := zlib.NewWriter(&compBuff)
-		zlibWriter.Write(stage2)
-		zlibWriter.Close()
-		stage2 = compBuff.Bytes()
-	case "gzip":
-		stage2, _ = encoders.GzipBuf(stage2)
-	case "deflate9":
-		fallthrough
-	case "deflate":
-		stage2 = util.DeflateBuf(stage2)
-	}
+	if !preparedStage {
+		switch compress {
+		case "zlib":
+			// use zlib to compress the stage2
+			var compBuff bytes.Buffer
+			zlibWriter := zlib.NewWriter(&compBuff)
+			// The output is an in-memory buffer, whose writes do not return errors.
+			_, _ = zlibWriter.Write(stage2)
+			_ = zlibWriter.Close()
+			stage2 = compBuff.Bytes()
+		case "gzip":
+			stage2, _ = encoders.GzipBuf(stage2)
+		case "deflate9":
+			fallthrough
+		case "deflate":
+			stage2 = util.DeflateBuf(stage2)
+		}
 
-	if aesEncrypt {
-		// PreludeEncrypt is vanilla AES, we typically only use it for interoperability with Prelude
-		// but it's also useful here as more advanced cipher modes are often difficult to implement in
-		// a stager.
-		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
-	}
+		if aesEncrypt {
+			// PreludeEncrypt is vanilla AES, we typically only use it for interoperability with Prelude
+			// but it's also useful here as more advanced cipher modes are often difficult to implement in
+			// a stager.
+			stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
+		}
 
-	if rc4Encrypt {
-		stage2 = util.RC4EncryptUnsafe(stage2, []byte(rc4EncryptKey))
+		if rc4Encrypt {
+			stage2 = util.RC4EncryptUnsafe(stage2, []byte(rc4EncryptKey))
+		}
 	}
 
 	switch stagingURL.Scheme {
 	case "tcp":
-		// Always prepend payload size for TCP stagers
+		// TCP length framing is transport-level, including for stage/raw payloads.
 		stage2 = prependPayloadSize(stage2)
 		ctrl := make(chan bool)
 		con.SpinUntil("Starting TCP staging listener...", ctrl)
 		stageListener, err := con.Rpc.StartTCPStagerListener(context.Background(), &clientpb.StagerListenerReq{
-			Protocol: clientpb.StageProtocol_TCP,
-			Data:     stage2,
-			Host:     stagingURL.Hostname(),
-			Port:     uint32(stagingPort),
+			Protocol:    clientpb.StageProtocol_TCP,
+			Data:        stage2,
+			Host:        stagingURL.Hostname(),
+			Port:        uint32(stagingPort),
+			ProfileName: profileName,
 		})
 		ctrl <- true
 		<-ctrl
@@ -170,6 +195,46 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 
 	if rc4Encrypt {
 		con.PrintInfof("RC4 KEY: %v\n", rc4EncryptKey)
+	}
+}
+
+// stageListenerProfilePayload falls back only when the server does not support
+// profile builds. A fetched authored YAML profile must use its declared pipeline.
+func stageListenerProfilePayload(name string, profile *clientpb.BuildProfileDocument, con *console.SliverClient) ([]byte, error) {
+	if profile != nil {
+		record, file, err := generate.ExecuteProfile(context.Background(), &clientpb.BuildProfileExecuteRequest{Name: name}, con)
+		if err == nil {
+			finalType := record.GetFinalArtifact().GetType()
+			finalPreparedStage, finalSupported := stageListenerProfileArtifact(finalType)
+			preparedStage, supported := stageListenerProfileArtifact(profile.GetFinalArtifact())
+			if !supported || !finalSupported || finalPreparedStage != preparedStage || file == nil ||
+				!proto.Equal(finalType, profile.GetFinalArtifact()) {
+				return nil, errors.New("profile final artifact changed during stage generation")
+			}
+			return file.Data, nil
+		}
+		if status.Code(err) != codes.Unimplemented || !profile.GetMigrated() || profile.GetMigrationError() != "" {
+			return nil, err
+		}
+	}
+	legacy := generate.GetImplantProfileByName(name, con)
+	if legacy == nil {
+		return nil, errors.New("profile not found")
+	}
+	return generate.GetSliverBinary(legacy, con)
+}
+
+func stageListenerProfileArtifact(artifact *clientpb.BuildArtifactType) (prepared bool, supported bool) {
+	if artifact == nil || artifact.Container != "raw" || artifact.GOOS == "" || artifact.GOARCH == "" {
+		return false, false
+	}
+	switch artifact.Kind {
+	case "shellcode":
+		return false, true
+	case "stage":
+		return true, true
+	default:
+		return false, false
 	}
 }
 

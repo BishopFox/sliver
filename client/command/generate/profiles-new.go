@@ -20,12 +20,15 @@ package generate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ProfilesNewCmd - Create a new implant profile.
@@ -49,6 +52,10 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	} else if len(args) > 0 {
 		name = args[0]
 	}
+	if err := checkNewProfileName(context.Background(), name, con); err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	// name := ctx.Args.String("name")
 	_, config := parseCompileFlags(cmd, con)
 	if config == nil {
@@ -62,7 +69,7 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Saved new implant profile %s\n", resp.Name)
+		reportSavedProfile(resp.Name, false, con)
 	}
 }
 
@@ -92,6 +99,10 @@ func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		con.PrintErrorf("No profile name specified\n")
 		return
 	}
+	if err := checkNewProfileName(context.Background(), name, con); err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	_, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -110,8 +121,59 @@ func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Saved new implant profile (beacon) %s\n", resp.Name)
+		reportSavedProfile(resp.Name, true, con)
 	}
+}
+
+func checkNewProfileName(ctx context.Context, name string, con *console.SliverClient) error {
+	if name == "" {
+		return nil // Preserve the legacy server's missing-name behavior.
+	}
+	doc, err := GetProfileDefinition(ctx, name, con)
+	if status.Code(err) == codes.NotFound || status.Code(err) == codes.Unimplemented {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check existing profile %q: %w", name, err)
+	}
+	if doc == nil {
+		return fmt.Errorf("check existing profile %q: server returned no profile status", name)
+	}
+	if !doc.Migrated {
+		return fmt.Errorf("profile %q is an authored YAML profile; export and edit its YAML, then use profiles import", name)
+	}
+	return nil
+}
+
+func reportSavedProfile(name string, beacon bool, con *console.SliverClient) {
+	label := "implant profile"
+	if beacon {
+		label = "implant profile (beacon)"
+	}
+	doc, err := GetProfileDefinition(context.Background(), name, con)
+	if status.Code(err) == codes.Unimplemented {
+		con.PrintInfof("Saved new %s %s (legacy server; canonical YAML unavailable)\n", label, name)
+		return
+	}
+	if err != nil {
+		con.PrintWarnf("Saved new %s %s, but could not verify canonical YAML: %s\n", label, name, err)
+		return
+	}
+	if doc == nil {
+		con.PrintWarnf("Saved new %s %s, but the server returned no profile status\n", label, name)
+		return
+	}
+	if doc.MigrationError != "" {
+		con.PrintWarnf("Saved new %s %s as a legacy profile; canonical YAML migration failed: %s\n",
+			label, name, doc.MigrationError)
+		return
+	}
+	if doc.YAML == "" || doc.FinalArtifact == nil {
+		con.PrintWarnf("Saved new %s %s, but the server returned no canonical YAML definition\n", label, name)
+		return
+	}
+	con.PrintInfof("Saved new %s %s with canonical YAML revision %d (%s/%s)\n",
+		label, name, doc.Revision, doc.FinalArtifact.Kind, doc.FinalArtifact.Container)
 }
 
 func shouldRunGenerateProfilesNewForm(cmd *cobra.Command, con *console.SliverClient, args []string) bool {

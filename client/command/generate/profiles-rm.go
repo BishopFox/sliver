@@ -19,13 +19,14 @@ package generate
 */
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ProfilesRmCmd - Delete an implant profile.
@@ -39,6 +40,24 @@ func ProfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		con.PrintErrorf("No profile name specified\n")
 		return
 	}
+	ctx, cancel := con.GrpcContext(cmd)
+	defer cancel()
+	if _, err := GetProfileDefinition(ctx, name, con); err == nil {
+		confirm := false
+		_ = forms.Confirm(fmt.Sprintf("Remove profile definition %q? Completed builds remain available.", name), &confirm)
+		if !confirm {
+			return
+		}
+		if _, err := con.Rpc.DeleteBuildProfile(ctx, &clientpb.BuildProfileRef{Name: name}); err != nil {
+			con.PrintErrorf("Failed to delete profile %s: %s\n", name, err)
+			return
+		}
+		con.PrintInfof("Removed profile %s; completed builds remain available\n", name)
+		return
+	} else if status.Code(err) != codes.Unimplemented {
+		con.PrintErrorf("Get profile %s: %s\n", name, err)
+		return
+	}
 	profile := GetImplantProfileByName(name, con)
 	if profile == nil {
 		con.PrintErrorf("No profile found with name '%s'\n", name)
@@ -49,7 +68,7 @@ func ProfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	if !confirm {
 		return
 	}
-	_, err := con.Rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
+	_, err := con.Rpc.DeleteImplantProfile(ctx, &clientpb.DeleteReq{
 		Name: name,
 	})
 	if err != nil {

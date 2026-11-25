@@ -21,6 +21,15 @@ var (
 
 // GenerateBeaconCmd - The main command used to generate implant binaries
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	retainWorkspace, err := retainWorkspaceFromFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if preview, _ := cmd.Flags().GetBool("plan"); preview {
+		previewGeneratePlan(cmd, con, true)
+		return
+	}
 	if shouldRunGenerateBeaconForm(cmd, con, args) {
 		compiler, _ := compilerTargets(con)
 		result, err := forms.GenerateBeaconForm(compiler)
@@ -36,7 +45,6 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 			return
 		}
 	}
-
 	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -56,10 +64,16 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, spoofMetadata, save, con)
+	if !remoteStepRequested(cmd) {
+		_, _ = compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
 	} else {
-		externalBuild(name, config, spoofMetadata, save, con)
+		if err := remoteStepCompatibility(cmd, config); err != nil {
+			con.PrintErrorf("Remote assigned-step build cannot preserve this configuration: %s\n", err)
+			return
+		}
+		if _, err := remoteStepBuild(cmd, name, config, spoofMetadata, save, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+		}
 	}
 }
 
@@ -88,6 +102,9 @@ func parseBeaconFlags(cmd *cobra.Command, config *clientpb.ImplantConfig) error 
 	}
 
 	beaconJitter, _ := cmd.Flags().GetInt64("jitter")
+	if beaconJitter < 0 {
+		return errors.New("beacon jitter cannot be negative")
+	}
 	config.BeaconInterval = int64(interval)
 	config.BeaconJitter = int64(time.Duration(beaconJitter) * time.Second)
 	return nil

@@ -10,7 +10,7 @@
 
 # STAGE: base
 ## Compiles Sliver for use
-FROM golang:latest AS base
+FROM golang:1.27.4-bookworm AS base
 
 ### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -35,10 +35,9 @@ FROM base AS test
 ARG GO_TESTS_FLAGS=""
 ENV GO_TESTS_FLAGS="${GO_TESTS_FLAGS}"
 
-RUN apt-get update --fix-missing \
-    && apt-get -y upgrade \
-    && apt-get -y install \
-    curl
+# The pinned Go base image already includes curl. Check it locally instead of
+# making test execution depend on a fresh Debian package mirror response.
+RUN command -v curl
 
 RUN /opt/sliver-server unpack --force 
 

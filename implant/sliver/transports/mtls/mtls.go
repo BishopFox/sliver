@@ -31,7 +31,6 @@ import (
 	"io"
 	"reflect"
 	"sync"
-	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -48,7 +47,7 @@ import (
 
 var (
 	// PingInterval - Amount of time between in-band "pings"
-	PingInterval = 2 * time.Minute
+	PingInterval = pb.MTLSPingInterval
 
 	// YamuxPreface - Magic bytes sent before yamux frames
 	YamuxPreface = "MUX/1"

@@ -32,10 +32,25 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ProfilesCmd - Display implant profiles.
 func ProfilesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	ctx, cancel := con.GrpcContext(cmd)
+	defer cancel()
+	if listed, err := con.Rpc.ListBuildProfiles(ctx, &commonpb.Empty{}); err == nil {
+		if len(listed.Profiles) == 0 {
+			con.PrintInfof("No profiles, see `profiles new` or `profiles import`\n")
+			return
+		}
+		printBuildProfileList(listed.Profiles, con)
+		return
+	} else if status.Code(err) != codes.Unimplemented {
+		con.PrintErrorf("List profiles: %s\n", err)
+		return
+	}
 	profiles := getImplantProfiles(con)
 	if profiles == nil {
 		return
@@ -46,6 +61,28 @@ func ProfilesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	} else {
 		PrintProfiles(profiles, con)
 	}
+}
+
+func printBuildProfileList(profiles []*clientpb.BuildProfileDocument, con *console.SliverClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{"Name", "Revision", "Final Artifact", "Origin"})
+	tw.SortBy([]table.SortBy{{Name: "Name", Mode: table.Asc}})
+	for _, profile := range profiles {
+		if profile == nil {
+			continue
+		}
+		origin := "YAML"
+		if profile.Migrated {
+			origin = "legacy migration"
+			if profile.MigrationError != "" {
+				origin = "legacy migration: " + profile.MigrationError
+			}
+		}
+		tw.AppendRow(table.Row{profile.Name, profile.Revision,
+			fmt.Sprintf("%s/%s", profile.GetFinalArtifact().GetKind(), profile.GetFinalArtifact().GetContainer()), origin})
+	}
+	con.Printf("%s\n", tw.Render())
 }
 
 // PrintProfiles - Print the profiles.
@@ -281,6 +318,15 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 
 // PrintProfileInfo - Print detailed information about a given profile.
 func PrintProfileInfo(name string, con *console.SliverClient) {
+	if doc, err := GetProfileDefinition(context.Background(), name, con); err == nil {
+		if err := printBuildProfileInfo(doc, con); err != nil {
+			con.PrintErrorf("Read profile: %s\n", err)
+		}
+		return
+	} else if status.Code(err) != codes.Unimplemented {
+		con.PrintErrorf("Get profile: %s\n", err)
+		return
+	}
 	profile := GetImplantProfileByName(name, con)
 	if profile == nil {
 		con.PrintErrorf("Could not find a profile with the name \"%s\"", name)
@@ -440,6 +486,23 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 func ProfileNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action
+		if listed, err := con.Rpc.ListBuildProfiles(context.Background(), &commonpb.Empty{}); err == nil {
+			if len(listed.Profiles) == 0 {
+				return carapace.ActionMessage("No saved build profiles")
+			}
+			values := make([]string, 0, len(listed.Profiles)*2)
+			for _, profile := range listed.Profiles {
+				if profile == nil {
+					continue
+				}
+				values = append(values, profile.Name,
+					fmt.Sprintf("revision %d %s/%s", profile.Revision,
+						profile.GetFinalArtifact().GetKind(), profile.GetFinalArtifact().GetContainer()))
+			}
+			return carapace.ActionValuesDescribed(values...).Invoke(ctx).ToA()
+		} else if status.Code(err) != codes.Unimplemented {
+			return carapace.ActionMessage(fmt.Sprintf("No profiles, err: %s", err))
+		}
 
 		pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 		if err != nil {

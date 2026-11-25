@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
-	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core/rtunnels"
@@ -98,13 +96,13 @@ func (s *Session) IsDead() bool {
 		return false
 	}
 	if s.Connection.Transport == consts.MtlsStr {
-		if timePassed < mtls.PingInterval+padding {
+		if timePassed < sliverpb.MTLSPingInterval+padding {
 			sessionsLog.Debugf("Last message within ping interval with padding")
 			return false
 		}
 	}
 	if s.Connection.Transport == consts.WGStr {
-		if timePassed < wireguard.PingInterval+padding {
+		if timePassed < sliverpb.WireGuardPingInterval+padding {
 			sessionsLog.Debugf("Last message with ping interval with padding")
 			return false
 		}

@@ -107,35 +107,46 @@ func ImplantBuildByPublicKeyDigest(publicKeyDigest [32]byte) (*clientpb.ImplantB
 	return build.ToProtobuf(), err
 }
 
-// ImplantBuilds - Return all implant builds
-func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
+// ImplantBuildsWithIDs returns a listing and the IDs from the same build-row
+// query, so callers can join entries with their immutable build records.
+func ImplantBuildsWithIDs() (*clientpb.ImplantBuilds, map[string]string, error) {
 	builds := []*models.ImplantBuild{}
 	err := Session().Where(&models.ImplantBuild{}).Find(&builds).Error
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	pbBuilds := &clientpb.ImplantBuilds{
 		Configs:     map[string]*clientpb.ImplantConfig{},
 		ResourceIDs: map[string]*clientpb.ResourceID{},
 		Staged:      map[string]bool{},
 	}
+	ids := make(map[string]string, len(builds))
 	for _, dbBuild := range builds {
 		config, err := ImplantConfigByID(dbBuild.ImplantConfigID.String())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		pbBuilds.Configs[dbBuild.Name] = config
+		ids[dbBuild.Name] = dbBuild.ID.String()
 
 		resource, err := ResourceIDByName(dbBuild.Name)
-		if err != nil {
-			return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			resource = &clientpb.ResourceID{Name: dbBuild.Name}
+		} else if err != nil {
+			return nil, nil, err
 		}
 		pbBuilds.ResourceIDs[dbBuild.Name] = resource
 
 		pbBuilds.Staged[dbBuild.Name] = dbBuild.Stage
 	}
 
-	return pbBuilds, err
+	return pbBuilds, ids, nil
+}
+
+// ImplantBuilds - Return all implant builds.
+func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
+	builds, _, err := ImplantBuildsWithIDs()
+	return builds, err
 }
 
 // SaveImplantBuild
@@ -709,24 +720,21 @@ func ProfileByName(name string) (*clientpb.ImplantProfile, error) {
 	return pbProfile, err
 }
 
-// DeleteProfile - Delete a profile from the database
+// DeleteProfile removes only the profile definition. Its ImplantConfig and
+// completed builds remain for Regenerate and frozen build-record retrieval.
+// A build is purged explicitly through DeleteImplantBuild.
 func DeleteProfile(name string) error {
-	profile, err := ProfileByName(name)
-	if err != nil {
-		return err
-	}
-
-	uuid, _ := models.ParseUUID(profile.Config.ID)
-
-	// delete linked ImplantC2
-	err = Session().Where(&models.ImplantC2{ImplantConfigID: uuid}).Delete(&models.ImplantC2{}).Error
-
-	// delete linked ImplantConfig
-	err = Session().Where(&models.ImplantConfig{ID: uuid}).Delete(&models.ImplantConfig{}).Error
-
-	// delete profile
-	err = Session().Where(&models.ImplantProfile{Name: name}).Delete(&models.ImplantProfile{}).Error
-	return err
+	return Session().Transaction(func(tx *gorm.DB) error {
+		var profile models.ImplantProfile
+		if err := tx.Where("name = ?", name).First(&profile).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.ImplantConfig{}).Where("implant_profile_id = ?", profile.ID).
+			Update("implant_profile_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&profile).Error
+	})
 }
 
 // ListCanaries - List of all embedded canaries

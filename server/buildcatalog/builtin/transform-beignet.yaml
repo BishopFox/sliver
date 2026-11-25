@@ -1,0 +1,29 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: TransformSpec
+metadata:
+  name: builtin/beignet
+  version: 1.0.0
+  digest: sha256:0e07ef6cfc047b6b87760a1fcf316f8fc5ffc8d8613e7c613917f10ced4bf971
+executor:
+  id: beignet-v1
+options:
+- name: compress
+  type: boolean
+  required: false
+  default: false
+capabilities:
+- targets:
+  - os: darwin
+    arch: arm64
+  input:
+    kind: shared-library
+    container: macho
+    goBuildMode: c-shared
+  output:
+    kind: shellcode
+    container: raw
+  toolchain:
+    driver: builtin
+    requirements: []
+  requiresEntrySymbol: true

@@ -21,13 +21,14 @@ package generate
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -40,11 +41,12 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/forms"
-	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -89,10 +91,6 @@ var (
 		"windows/amd64": true,
 		"windows/arm64": true,
 	}
-
-	ErrNoExternalBuilder = errors.New("no external builders are available")
-	ErrNoValidBuilders   = errors.New("no valid external builders for target")
-	ErrNoSelection       = errors.New("no selection")
 )
 
 const (
@@ -102,6 +100,15 @@ const (
 
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	retainWorkspace, err := retainWorkspaceFromFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if preview, _ := cmd.Flags().GetBool("plan"); preview {
+		previewGeneratePlan(cmd, con, false)
+		return
+	}
 	if shouldRunGenerateForm(cmd, con, args) {
 		compiler, _ := compilerTargets(con)
 		result, err := forms.GenerateForm(compiler)
@@ -117,7 +124,6 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			return
 		}
 	}
-
 	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -131,25 +137,37 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, spoofMetadata, save, con)
+	if !remoteStepRequested(cmd) {
+		_, _ = compileWithWorkspaceRetention(name, config, spoofMetadata, save, retainWorkspace, con)
 	} else {
-		_, err := externalBuild(name, config, spoofMetadata, save, con)
-		if err != nil {
-			switch err {
-			case ErrNoExternalBuilder:
-				con.PrintErrorf("There are no external builders currently connected to the server\n")
-				con.PrintErrorf("See 'builders' command for more information\n")
-			case ErrNoValidBuilders:
-				con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
-				con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
-				con.PrintErrorf("See 'builders' command for more information\n")
-			default:
-				con.PrintErrorf("%s\n", err)
-			}
+		if err := remoteStepCompatibility(cmd, config); err != nil {
+			con.PrintErrorf("Remote assigned-step build cannot preserve this configuration: %s\n", err)
 			return
 		}
+		if _, err := remoteStepBuild(cmd, name, config, spoofMetadata, save, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+		}
 	}
+}
+
+func retainWorkspaceFromFlags(cmd *cobra.Command) (bool, error) {
+	if cmd == nil {
+		return false, errors.New("missing generate command")
+	}
+	raw, err := cmd.Flags().GetString("cleanup")
+	if err != nil {
+		return false, fmt.Errorf("read --cleanup: %w", err)
+	}
+	cleanup, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("invalid --cleanup value %q: expected a boolean", raw)
+	}
+	if !cleanup {
+		if remoteStepRequested(cmd) {
+			return false, errors.New("--cleanup false is supported only for local generation; remote builders do not return a local server workspace")
+		}
+	}
+	return !cleanup, nil
 }
 
 func shouldRunGenerateForm(cmd *cobra.Command, con *console.SliverClient, args []string) bool {
@@ -214,37 +232,46 @@ func expandPath(path string) string {
 }
 
 func saveLocation(save, DefaultName string, con *console.SliverClient) (string, error) {
+	if !util.ValidPortableFileName(DefaultName) {
+		return "", errors.New("unsafe artifact filename")
+	}
 	var saveTo string
 	if save == "" {
-		save, _ = os.Getwd()
+		var err error
+		save, err = os.Getwd()
+		if err != nil {
+			return "", err
+		}
 	}
 	save = expandPath(save)
 	fi, err := os.Stat(save)
-	if os.IsNotExist(err) {
-		if strings.HasSuffix(save, "/") {
-			os.MkdirAll(save, 0o700)
-			saveTo, _ = filepath.Abs(filepath.Join(saveTo, DefaultName))
-		} else {
-			saveDir := filepath.Dir(save)
-			_, err := os.Stat(saveTo)
-			if os.IsNotExist(err) {
-				os.MkdirAll(saveDir, 0o700)
-			}
-			saveTo, _ = filepath.Abs(save)
-		}
-	} else {
+	if err == nil {
 		if fi.IsDir() {
-			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
+			saveTo = filepath.Join(save, DefaultName)
 		} else {
 			var confirm bool
 			_ = forms.Confirm("Overwrite existing file?", &confirm)
 			if !confirm {
 				return "", errors.New("file already exists")
 			}
-			saveTo, _ = filepath.Abs(save)
+			saveTo = save
 		}
+	} else if os.IsNotExist(err) {
+		if strings.HasSuffix(save, "/") || strings.HasSuffix(save, string(os.PathSeparator)) {
+			if err := os.MkdirAll(save, 0o700); err != nil {
+				return "", err
+			}
+			saveTo = filepath.Join(save, DefaultName)
+		} else {
+			if err := os.MkdirAll(filepath.Dir(save), 0o700); err != nil {
+				return "", err
+			}
+			saveTo = save
+		}
+	} else {
+		return "", err
 	}
-	return saveTo, nil
+	return filepath.Abs(saveTo)
 }
 
 func nameOfOutputFormat(value clientpb.OutputFormat) string {
@@ -261,6 +288,30 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 		return "Shellcode"
 	default:
 		return "Unknown"
+	}
+}
+
+type outputFormatSelection struct {
+	format    clientpb.OutputFormat
+	shared    bool
+	service   bool
+	shellcode bool
+}
+
+func selectOutputFormat(value string) (outputFormatSelection, error) {
+	switch value {
+	case "exe":
+		return outputFormatSelection{format: clientpb.OutputFormat_EXECUTABLE}, nil
+	case "shared":
+		return outputFormatSelection{format: clientpb.OutputFormat_SHARED_LIB, shared: true}, nil
+	case "archive":
+		return outputFormatSelection{format: clientpb.OutputFormat_GO_ARCHIVE, shared: true}, nil
+	case "shellcode":
+		return outputFormatSelection{format: clientpb.OutputFormat_SHELLCODE, shellcode: true}, nil
+	case "service":
+		return outputFormatSelection{format: clientpb.OutputFormat_SERVICE, service: true}, nil
+	default:
+		return outputFormatSelection{}, fmt.Errorf("no core capability for output format %q", value)
 	}
 }
 
@@ -355,7 +406,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 	debug, _ := cmd.Flags().GetBool("debug")
 	evasion, _ := cmd.Flags().GetBool("evasion")
-	templateName, _ := cmd.Flags().GetString("template")
 
 	reconnectInterval, _ := cmd.Flags().GetInt64("reconnect")
 	pollTimeout, _ := cmd.Flags().GetInt64("poll-timeout")
@@ -369,10 +419,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	limitLocale, _ := cmd.Flags().GetString("limit-locale")
 	debugFile, _ := cmd.Flags().GetString("debug-file")
 
-	isSharedLib := false
-	isService := false
-	isShellcode := false
-
 	var exports []string
 	exportsArg, _ := cmd.Flags().GetString("exports")
 	if exportsArg == "" {
@@ -384,26 +430,17 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
-	var configFormat clientpb.OutputFormat
-	switch format {
-	case "exe":
-		configFormat = clientpb.OutputFormat_EXECUTABLE
-	case "shared":
-		configFormat = clientpb.OutputFormat_SHARED_LIB
-		isSharedLib = true
+	selection, err := selectOutputFormat(format)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
+	}
+	configFormat := selection.format
+	isSharedLib := selection.shared
+	isService := selection.service
+	isShellcode := selection.shellcode
+	if format == "shared" {
 		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
-	case "archive":
-		configFormat = clientpb.OutputFormat_GO_ARCHIVE
-		isSharedLib = true
-	case "shellcode":
-		configFormat = clientpb.OutputFormat_SHELLCODE
-		isShellcode = true
-	case "service":
-		configFormat = clientpb.OutputFormat_SERVICE
-		isService = true
-	default:
-		// Default to exe
-		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 	serviceName, _ := cmd.Flags().GetString("service-name")
 	if !isService {
@@ -446,8 +483,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 
-	// Check to see if we can *probably* build the target binary
-	if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
+	// Only the local server needs its own cross-compiler for this request.
+	if !remoteStepRequested(cmd) && !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
 		return "", nil
 	}
 
@@ -522,7 +559,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
-		TemplateName:     templateName,
 
 		WGPeerTunIP:       tunIP.String(),
 		WGKeyExchangePort: wgKeyExchangePort,
@@ -1647,182 +1683,12 @@ func outputSavePath(save string, defaultName string, config *clientpb.ImplantCon
 	return adjustedPath, nil
 }
 
-func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
-	potentialBuilders, err := findExternalBuilders(config, con)
-	if err != nil {
-		return nil, err
-	}
-	var externalBuilder *clientpb.Builder
-	if len(potentialBuilders) == 1 {
-		externalBuilder = potentialBuilders[0]
-	} else {
-		con.PrintInfof("Found %d external builders that can compile this configuration", len(potentialBuilders))
-		externalBuilder, err = selectExternalBuilder(potentialBuilders, con)
-		if err != nil {
-			return nil, err
-		}
-	}
-	con.PrintInfof("Using external builder: %s\n", externalBuilder.Name)
-
-	if config.IsBeacon {
-		interval := time.Duration(config.BeaconInterval)
-		con.PrintInfof("Externally generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
-	} else {
-		con.PrintInfof("Externally generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
-	}
-	if config.ObfuscateSymbols {
-		con.PrintInfof("%s\n", console.StyleBold.Render("Symbol obfuscation is enabled"))
-	} else if !config.Debug {
-		con.PrintErrorf("Symbol obfuscation is %s\n", console.StyleBold.Render("disabled"))
-	}
-	start := time.Now()
-
-	listenerID, listener := con.CreateEventListener()
-
-	waiting := true
-	spinner := spin.New()
-
-	sigint := make(chan os.Signal, 1) // Catch keyboard interrupts
-	signal.Notify(sigint, os.Interrupt)
-
-	con.PrintInfof("Creating external build ... ")
-	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.ExternalGenerateReq{
-		Name:        name,
-		Config:      config,
-		BuilderName: externalBuilder.Name,
-	})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return nil, err
-	}
-	con.Printf("done\n")
-
-	msgF := "Waiting for external builder to acknowledge build (template: %s) ... %s"
-	for waiting {
-		select {
-
-		case <-time.After(100 * time.Millisecond):
-			elapsed := time.Since(start)
-			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
-			fmt.Fprintf(con.App.ActiveMenu().OutOrStdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
-
-		case event := <-listener:
-			switch event.EventType {
-
-			case consts.ExternalBuildFailedEvent:
-				parts := strings.SplitN(string(event.Data), ":", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				if parts[0] == externalImplantConfig.Build.ID {
-					con.RemoveEventListener(listenerID)
-					return nil, fmt.Errorf("external build failed: %s", parts[1])
-				}
-
-			case consts.AcknowledgeBuildEvent:
-				if string(event.Data) == externalImplantConfig.Build.ID {
-					msgF = "External build acknowledged by builder (template: %s) ... %s"
-				}
-
-			case consts.ExternalBuildCompletedEvent:
-				parts := strings.SplitN(string(event.Data), ":", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				if parts[0] == externalImplantConfig.Build.ID {
-					con.RemoveEventListener(listenerID)
-					name = parts[1]
-					waiting = false
-				}
-
-			}
-
-		case <-sigint:
-			waiting = false
-			con.Printf("\n")
-			return nil, fmt.Errorf("user interrupt")
-		}
-	}
-
-	elapsed := time.Since(start)
-	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
-
-	if spoofMetadata != nil {
-		if err := applySpoofMetadataToBuild("", name, spoofMetadata, con); err != nil {
-			return nil, err
-		}
-	}
-
-	generated, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-		ImplantName: name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
-
-	fileData := generated.File.Data
-	if config.IsShellcode {
-		encoder := config.ShellcodeEncoder
-		legacySGN := false
-		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
-			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-			legacySGN = true
-		}
-		if encoder != clientpb.ShellcodeEncoder_NONE {
-			encoderName := map[clientpb.ShellcodeEncoder]string{
-				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
-				clientpb.ShellcodeEncoder_XOR:            "xor",
-				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
-			}[encoder]
-			if encoderName == "" {
-				return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
-			}
-			encoderMap, err := fetchShellcodeEncoderMap(con)
-			if err != nil {
-				return nil, err
-			}
-			if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
-				msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
-				if legacySGN {
-					con.PrintWarnf("%s, skipping.\n", msg)
-				} else {
-					return nil, errors.New(msg)
-				}
-			} else {
-				con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
-				resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-					Encoder:      encoder,
-					Architecture: config.GOARCH,
-					Iterations:   1,
-					BadChars:     []byte{},
-					Data:         fileData,
-				})
-				if err != nil {
-					return nil, err
-				}
-				con.Printf("success!\n")
-				fileData = resp.GetData()
-			}
-		}
-	}
-
-	saveTo, err := outputSavePath(save, filepath.Base(generated.File.Name), config, con)
-	if err != nil {
-		return nil, err
-	}
-
-	err = os.WriteFile(saveTo, fileData, 0o700)
-	if err != nil {
-		con.PrintErrorf("Failed to write to: %s\n", saveTo)
-		return nil, err
-	}
-	con.PrintInfof("Implant saved to %s\n", saveTo)
-
-	return nil, nil
+func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+	return compileWithWorkspaceRetention(name, config, spoofMetadata, save, false, con)
 }
 
-func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func compileWithWorkspaceRetention(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig,
+	save string, retainWorkspace bool, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -1840,8 +1706,10 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
 	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
-		Name:   name,
-		Config: config,
+		Name:            name,
+		Config:          config,
+		SpoofMetadata:   spoofMetadata,
+		RetainWorkspace: retainWorkspace,
 	})
 	ctrl <- true
 	<-ctrl
@@ -1850,93 +1718,169 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 		return nil, err
 	}
 
-	if spoofMetadata != nil {
-		if err := applySpoofMetadataToBuild(generated.GetImplantBuildID(), generated.GetImplantName(), spoofMetadata, con); err != nil {
-			con.PrintErrorf("%s\n", err)
-			return nil, err
-		}
-
-		implantName := generated.GetImplantName()
-		if implantName == "" {
-			implantName = name
-		}
-		generated, err = con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-			ImplantName: implantName,
-		})
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return nil, err
-		}
-	}
-
 	elapsed := time.Since(start)
 	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
-	if len(generated.File.Data) == 0 {
+	if generated == nil || generated.File == nil || len(generated.File.Data) == 0 {
 		con.PrintErrorf("Build failed, no file data\n")
 		return nil, errors.New("no file data")
 	}
 
-	fileData := generated.File.Data
-	if config.IsShellcode {
-		encoder := config.ShellcodeEncoder
-		legacySGN := false
-		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
-			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-			legacySGN = true
-		}
-		if encoder != clientpb.ShellcodeEncoder_NONE {
-			encoderName := map[clientpb.ShellcodeEncoder]string{
-				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
-				clientpb.ShellcodeEncoder_XOR:            "xor",
-				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
-			}[encoder]
-			if encoderName == "" {
-				con.PrintWarnf("Unknown shellcode encoder enum %d, skipping.\n", int32(encoder))
-			} else {
-				encoderMap, err := fetchShellcodeEncoderMap(con)
-				if err != nil {
-					return nil, err
-				}
-				if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
-					msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
-					if legacySGN {
-						con.PrintWarnf("%s, skipping.\n", msg)
-					} else {
-						con.PrintErrorf("%s\n", msg)
-						return nil, errors.New(msg)
-					}
-				} else {
-					con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
-					resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-						Encoder:      encoder,
-						Architecture: config.GOARCH,
-						Iterations:   1,
-						BadChars:     []byte{},
-						Data:         fileData,
-					})
-					if err != nil {
-						con.PrintErrorf("%s\n", err)
-					} else {
-						con.Printf("success!\n")
-						fileData = resp.GetData()
-					}
-				}
-			}
-		}
+	// New servers return the completed pipeline's final bytes. Older servers
+	// ignore GenerateReq.SpoofMetadata and leave shellcode encoding to the
+	// client, so inspect the build record before trusting those bytes.
+	file, err := verifiedGenerateOutput(generated, name, config, spoofMetadata, con)
+	if err != nil {
+		return nil, err
+	}
+	if !util.ValidPortableFileName(file.Name) {
+		return nil, errors.New("unsafe generated artifact filename")
 	}
 
-	saveTo, err := outputSavePath(save, generated.File.Name, config, con)
+	saveTo, err := outputSavePath(save, file.Name, config, con)
 	if err != nil {
 		return nil, err
 	}
 
-	err = os.WriteFile(saveTo, fileData, 0o700)
+	err = os.WriteFile(saveTo, file.Data, 0o700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err
 	}
 	con.PrintInfof("Implant saved to %s\n", saveTo)
-	return generated.File, err
+	if retainWorkspace {
+		if generated.GetWorkspacePath() == "" {
+			err := errors.New("--cleanup false was requested, but the server did not return a retained workspace path; check that the server supports workspace retention")
+			con.PrintErrorf("%s\n", err)
+			return file, err
+		}
+		con.PrintInfof("Build workspace retained on server at %q\n", generated.GetWorkspacePath())
+	}
+	return file, nil
+}
+
+//nolint:gocyclo // Compatibility dispatch and verification share the decision to trust generated bytes.
+func verifiedGenerateOutput(generated *clientpb.Generate, requestedName string, config *clientpb.ImplantConfig,
+	spoofMetadata *clientpb.SpoofMetadataConfig, con *console.SliverClient) (*commonpb.File, error) {
+	if generated == nil || generated.File == nil || len(generated.File.Data) == 0 || config == nil || con == nil || con.Rpc == nil {
+		return nil, errors.New("generation returned no artifact or connection")
+	}
+	encoder := config.ShellcodeEncoder
+	if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
+		encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
+	}
+	if config.Format != clientpb.OutputFormat_SHELLCODE && !config.IsShellcode {
+		encoder = clientpb.ShellcodeEncoder_NONE
+	}
+	if spoofMetadata == nil && encoder == clientpb.ShellcodeEncoder_NONE {
+		return generated.File, nil
+	}
+
+	record, err := con.Rpc.GetBuildRecord(context.Background(), &clientpb.BuildRecordRef{ID: generated.ImplantBuildID})
+	if status.Code(err) == codes.Unimplemented {
+		return finishLegacyGenerate(generated, requestedName, config, spoofMetadata, encoder, con)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot verify server-side generation transforms: %w", err)
+	}
+	if err := verifyGenerateRecord(record, generated, spoofMetadata != nil, encoder); err != nil {
+		return nil, err
+	}
+	return generated.File, nil
+}
+
+//nolint:gocyclo // Check record identity, artifact bytes, and requested transforms as one verification.
+func verifyGenerateRecord(record *clientpb.BuildRecord, generated *clientpb.Generate, metadata bool,
+	encoder clientpb.ShellcodeEncoder) error {
+	if record == nil || record.ID == "" || record.ID != generated.ImplantBuildID ||
+		record.State != clientpb.BuildRecordState_BUILD_RECORD_SUCCEEDED || record.Plan == nil ||
+		record.FinalArtifact == nil || record.FinalArtifact.Type == nil {
+		return errors.New("server did not provide a completed build record for generation")
+	}
+	hash := sha256.Sum256(generated.File.Data)
+	if record.FinalArtifact.FileName != generated.File.Name ||
+		record.FinalArtifact.SizeBytes != uint64(len(generated.File.Data)) ||
+		record.FinalArtifact.SHA256 != hex.EncodeToString(hash[:]) {
+		return errors.New("generated bytes differ from the completed build record")
+	}
+	want := map[string]bool{}
+	if metadata {
+		want["builtin/pe-metadata"] = true
+	}
+	if encoder != clientpb.ShellcodeEncoder_NONE {
+		name := map[clientpb.ShellcodeEncoder]string{
+			clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "builtin/shikata-ga-nai",
+			clientpb.ShellcodeEncoder_XOR:            "builtin/xor",
+			clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "builtin/xor-dynamic",
+		}[encoder]
+		if name == "" {
+			return fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
+		}
+		want[name] = true
+	}
+	for _, step := range record.Plan.Steps {
+		delete(want, step.GetSpec().GetName())
+	}
+	if len(want) != 0 {
+		return fmt.Errorf("server build record omits requested generation transform(s): %v", want)
+	}
+	return nil
+}
+
+//nolint:gocyclo // Keep the legacy transform order and its error handling together.
+func finishLegacyGenerate(generated *clientpb.Generate, requestedName string, config *clientpb.ImplantConfig,
+	spoofMetadata *clientpb.SpoofMetadataConfig, encoder clientpb.ShellcodeEncoder,
+	con *console.SliverClient) (*commonpb.File, error) {
+	file := generated.File
+	if spoofMetadata != nil {
+		if err := applySpoofMetadataToBuild(generated.ImplantBuildID, generated.ImplantName, spoofMetadata, con); err != nil {
+			return nil, fmt.Errorf("legacy metadata spoofing failed: %w", err)
+		}
+		name := generated.ImplantName
+		if name == "" {
+			name = requestedName
+		}
+		if name == "" {
+			return nil, errors.New("legacy metadata spoofing cannot regenerate an unnamed build")
+		}
+		regenerated, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{ImplantName: name})
+		if err != nil {
+			return nil, fmt.Errorf("retrieve legacy spoofed artifact: %w", err)
+		}
+		if regenerated == nil || regenerated.File == nil || len(regenerated.File.Data) == 0 {
+			return nil, errors.New("legacy metadata spoofing returned no artifact")
+		}
+		file = regenerated.File
+	}
+	if encoder == clientpb.ShellcodeEncoder_NONE {
+		return file, nil
+	}
+	encoderName := map[clientpb.ShellcodeEncoder]string{
+		clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
+		clientpb.ShellcodeEncoder_XOR:            "xor",
+		clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
+	}[encoder]
+	if encoderName == "" {
+		return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
+	}
+	encoderMap, err := fetchShellcodeEncoderMap(con)
+	if err != nil {
+		return nil, fmt.Errorf("fetch legacy shellcode encoders: %w", err)
+	}
+	if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
+		return nil, fmt.Errorf("shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
+	}
+	con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
+	response, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+		Encoder: encoder, Architecture: config.GOARCH, Iterations: 1, Data: file.Data,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("legacy shellcode encoding failed: %w", err)
+	}
+	if response == nil || len(response.Data) == 0 {
+		return nil, errors.New("legacy shellcode encoder returned no artifact")
+	}
+	con.Printf("success!\n")
+	return &commonpb.File{Name: file.Name, Data: response.Data}, nil
 }
 
 func getLimitsString(config *clientpb.ImplantConfig) string {
@@ -2002,50 +1946,4 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	confirm := false
 	_ = forms.Confirm("Try to compile anyways (will likely fail)?", &confirm)
 	return confirm
-}
-
-func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverClient) ([]*clientpb.Builder, error) {
-	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	if len(builders.Builders) < 1 {
-		return []*clientpb.Builder{}, ErrNoExternalBuilder
-	}
-
-	validBuilders := []*clientpb.Builder{}
-	for _, builder := range builders.Builders {
-		for _, target := range builder.Targets {
-			if target.GOOS == config.GOOS && target.GOARCH == config.GOARCH && config.Format == target.Format {
-				validBuilders = append(validBuilders, builder)
-				break
-			}
-		}
-	}
-
-	if len(validBuilders) < 1 {
-		return []*clientpb.Builder{}, ErrNoValidBuilders
-	}
-
-	return validBuilders, nil
-}
-
-func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient) (*clientpb.Builder, error) {
-	choices := []string{}
-	for _, builder := range builders {
-		choices = append(choices, builder.Name)
-	}
-	choice := ""
-	_ = forms.Select("Select an external builder:", choices, &choice)
-
-	if choice == "" {
-		return nil, ErrNoSelection
-	}
-
-	for _, builder := range builders {
-		if builder.Name == choice {
-			return builder, nil
-		}
-	}
-	return nil, ErrNoValidBuilders
 }

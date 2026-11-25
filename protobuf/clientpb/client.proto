@@ -172,7 +172,8 @@ message ImplantConfig {
   bool Debug = 10;
   bool Evasion = 11;
   bool ObfuscateSymbols = 12;
-  string TemplateName = 13;
+  reserved 13;
+  reserved "TemplateName";
   bool SGNEnabled = 14;
   string GoPackage = 15;
 
@@ -325,17 +326,14 @@ message ExternalImplantConfig {
   map<string, uint64> encoders = 4;
 }
 
-message ExternalImplantBinary {
-  string Name = 1;
-  string ImplantBuildID = 2;
-  commonpb.File File = 3;
-}
-
 // Configs of previously built implants
 message ImplantBuilds { 
   map<string, ImplantConfig> Configs = 1; 
   map<string, ResourceID> ResourceIDs = 2; 
   map<string, bool> staged = 3;
+  // Exact core spec from each build's immutable record, keyed by build name.
+  // Historical builds without a record have no entry.
+  map<string, BuildSpecRef> CoreSpecs = 4;
 }
 
 message ImplantStageReq {
@@ -541,6 +539,10 @@ message RenameReq {
 message GenerateReq { 
   ImplantConfig Config = 1; 
   string Name = 2;
+  // Optional per-build metadata input. Its bytes are never stored in BuildPlan.
+  SpoofMetadataConfig SpoofMetadata = 3;
+  // Opt out of cleanup of secret-bearing files on the server build host.
+  bool RetainWorkspace = 4;
 }
 
 message GenerateStageReq {
@@ -558,6 +560,8 @@ message Generate {
   commonpb.File File = 1;
   string ImplantName = 2;
   string ImplantBuildID = 3;
+  // Absolute path on the server build host, not the client.
+  string WorkspacePath = 4;
 }
 
 message GenerateSpoofMetadataReq {
@@ -832,12 +836,6 @@ message ShellcodeEncoderMap {
 
 // [ Builder ] ----------------------------------------
 
-message ExternalGenerateReq {
-  ImplantConfig Config = 1;
-  string BuilderName = 2;
-  string Name = 3;
-}
-
 message Builders { repeated Builder Builders = 1; }
 
 message Builder {
@@ -845,10 +843,89 @@ message Builder {
   string OperatorName = 2;
   string GOOS = 3;   // The builder's OS
   string GOARCH = 4; // The builder's Arch
-  repeated string Templates = 5;
+  reserved 5;
+  reserved "Templates";
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
+  // Immutable CoreSpec and TransformSpec YAML advertised by this connection.
+  repeated string SpecYAML = 8;
+  // Exact immutable definitions and the capability tuples this worker supports.
+  repeated BuildSpecRef SpecRefs = 9;
+  repeated BuilderCapability Capabilities = 10;
+  // Inventory snapshot populated by the server from authenticated reports.
+  BuilderStatus Status = 11;
+  // Random per-connection credential. Never include this in Builders responses.
+  bytes SessionToken = 12;
+}
 
+message BuilderCapability {
+  BuildSpecRef Spec = 1;
+  BuildSpecCapability Capability = 2;
+}
+
+message BuilderToolchainStatus {
+  string Driver = 1;
+  BuildTarget Target = 2;
+  repeated string Requirements = 3;
+  string Identity = 4;
+  bool Available = 5;
+}
+
+message BuilderStatus {
+  uint32 EffectiveCPUCores = 1;
+  uint64 AvailableMemoryBytes = 2;
+  int64 ReportedUnix = 3; // Server observation time, not a client clock.
+  bool Online = 4;
+  bool Available = 5; // Online, fresh, and schedulable.
+  uint64 ReservedMemoryBytes = 6;
+  repeated BuilderToolchainStatus Toolchains = 7;
+}
+
+message BuilderStatusReport {
+  string Name = 1;
+  bytes SessionToken = 2;
+  uint32 EffectiveCPUCores = 3;
+  uint64 AvailableMemoryBytes = 4;
+  repeated BuilderToolchainStatus Toolchains = 5;
+}
+
+// BuilderStepRef identifies an assignment and authenticates its assigned
+// worker. The assignment ID is unpredictable; the session token is secret.
+message BuilderStepRef {
+  string BuilderName = 1;
+  bytes SessionToken = 2;
+  string AssignmentID = 3;
+}
+
+message BuildArtifactPayload {
+  BuildArtifactType Type = 1;
+  string FileName = 2;
+  bytes Data = 3;
+  string SHA256 = 4;
+}
+
+message BuilderStepRequest {
+  string AssignmentID = 1;
+  string BuildID = 2;
+  BuildPlanStep Step = 3;
+  BuildRequest Request = 4;
+  BuildArtifactPayload Input = 5;
+  ExternalImplantConfig SliverConfig = 6;
+  repeated BuildInput Inputs = 7;
+  // Opaque per-build material for an installed non-Sliver core. The server
+  // sends it only to the authenticated assigned worker; it is never recorded.
+  bytes CoreMaterial = 8;
+}
+
+message BuilderStepResult {
+  string BuilderName = 1;
+  bytes SessionToken = 2;
+  string AssignmentID = 3;
+  BuildSpecRef Spec = 4;
+  BuildTarget Target = 5;
+  BuildArtifactPayload Output = 6;
+  string ToolchainIdentity = 7;
+  BuildFailure Failure = 8;
 }
 
 // [ HTTP C2 ] ----------------------------------------
@@ -2374,4 +2451,304 @@ message CrackBenchmarkSnapshot {
 
 message CrackBenchmarkSnapshots {
   repeated CrackBenchmarkSnapshot Snapshots = 1;
+}
+
+// [ Build catalog and plans ] -------------------------------
+
+enum BuildSpecKind {
+  BUILD_SPEC_UNSPECIFIED = 0;
+  BUILD_SPEC_CORE = 1;
+  BUILD_SPEC_TRANSFORM = 2;
+}
+
+enum BuildSpecAvailability {
+  BUILD_SPEC_ALL = 0;
+  BUILD_SPEC_AVAILABLE = 1;
+  BUILD_SPEC_UNAVAILABLE = 2;
+}
+
+message BuildTarget {
+  string GOOS = 1;
+  string GOARCH = 2;
+}
+
+// A spec reference is exact when all three identity fields are present.
+message BuildSpecRef {
+  string Name = 1;
+  string Version = 2;
+  string Digest = 3;
+}
+
+message BuildArtifactType {
+  string Kind = 1;
+  string Container = 2;
+  string GOOS = 3;
+  string GOARCH = 4;
+  string GoBuildMode = 5;
+  repeated string EntrySymbols = 6;
+}
+
+message BuildSpecCapability {
+  repeated BuildTarget Targets = 1;
+  string Mode = 2;
+  repeated string Protocols = 3;
+  BuildArtifactType Input = 4;
+  BuildArtifactType Output = 5;
+  repeated string OperatorFormats = 6;
+  string ToolchainDriver = 7;
+  repeated string ToolchainRequirements = 8;
+  uint64 EstimatedPeakMemoryBytes = 9;
+  bool RequiresEntrySymbol = 10;
+}
+
+message BuildSpecOrigin {
+  string Source = 1;
+  string Provider = 2;
+  int64 LastSeenUnix = 3;
+}
+
+message BuildSpecProvider {
+  string Name = 1;
+  bool Online = 2;
+  int64 LastSeenUnix = 3;
+}
+
+message BuildSpec {
+  BuildSpecKind Kind = 1;
+  BuildSpecRef Ref = 2;
+  string ExecutorID = 3;
+  string RuntimeProtocol = 4;
+  string CommandSource = 5;
+  repeated string RuntimeCommands = 6;
+  repeated BuildSpecCapability Capabilities = 7;
+  repeated BuildSpecOrigin Origins = 8;
+  repeated BuildSpecProvider Providers = 9;
+  bool Available = 10;
+  bytes YAML = 11;
+}
+
+message BuildSpecQuery {
+  BuildSpecKind Kind = 1;
+  string Name = 2;
+  string TargetGOOS = 3;
+  string TargetGOARCH = 4;
+  BuildSpecAvailability Availability = 5;
+}
+
+message BuildSpecRequest {
+  BuildSpecKind Kind = 1;
+  BuildSpecRef Ref = 2;
+}
+
+message BuildSpecList { repeated BuildSpec Specs = 1; }
+
+// ValueJSON contains one JSON value. The referenced spec defines its type;
+// an option can also be a typed per-build input or secret reference.
+message BuildOption {
+  string Name = 1;
+  bytes ValueJSON = 2;
+}
+
+message BuildEndpoint {
+  string Protocol = 1;
+  string Address = 2;
+}
+
+message BuildTransformRequest {
+  BuildSpecRef Spec = 1;
+  repeated BuildOption Options = 2;
+}
+
+message BuildProviderPolicy {
+  string Mode = 1; // automatic or pinned
+  string Builder = 2;
+}
+
+// Per-build material is carried to the executor and omitted from the plan.
+message BuildInput {
+  string Kind = 1; // secret, input-artifact, or metadata-config
+  string Name = 2;
+  bytes Data = 3;
+}
+
+// The neutral request contains references and typed options, never executor
+// commands or source bundles. Inputs carry ephemeral per-build material;
+// normalized BuildPlan requests omit that material.
+message BuildRequest {
+  string Name = 1;
+  BuildTarget Target = 2;
+  string Mode = 3; // session or beacon
+  repeated BuildEndpoint C2 = 4;
+  repeated string IncludeProtocols = 5;
+  string Format = 6;
+  BuildSpecRef Core = 7;
+  BuildArtifactType CoreOutput = 8;
+  repeated BuildOption CoreOptions = 9;
+  repeated BuildTransformRequest Transforms = 10;
+  BuildProviderPolicy Provider = 11;
+  repeated BuildInput Inputs = 12;
+  BuildC2Settings C2Settings = 13;
+  BuildBeaconSettings BeaconSettings = 14;
+}
+
+message BuildC2Settings {
+  string ConnectionStrategy = 1; // sequential, random, random-domain
+  uint64 ReconnectSeconds = 2;
+  uint64 PollTimeoutSeconds = 3;
+  uint32 MaxConnectionErrors = 4;
+  string HTTPC2Profile = 5;
+  uint32 WireguardKeyExchangePort = 6;
+  uint32 WireguardTCPCommsPort = 7;
+}
+
+message BuildBeaconSettings {
+  uint64 IntervalSeconds = 1;
+  uint64 JitterSeconds = 2;
+}
+
+// BuildProfileDocument is a canonical server-owned YAML profile. Its final
+// artifact type is resolved from the full ordered pipeline, not a legacy
+// ImplantConfig format flag.
+message BuildProfileDocument {
+  string Name = 1;
+  uint64 Revision = 2;
+  string YAML = 3;
+  BuildArtifactType FinalArtifact = 4;
+  bool Migrated = 5;
+  string MigrationError = 6; // Legacy definition cannot be represented faithfully.
+}
+
+message BuildProfileRef {
+  string Name = 1;
+}
+
+message BuildProfileList {
+  repeated BuildProfileDocument Profiles = 1;
+}
+
+message BuildProfileImportRequest {
+  string YAML = 1;
+}
+
+// Only these per-build values may override a saved profile. Each override is
+// checked by the planner again before any build work starts.
+message BuildProfileExecuteRequest {
+  string Name = 1;
+  string BuildName = 2;
+  BuildProviderPolicy Provider = 3;
+  repeated BuildInput Inputs = 4;
+  string ShellcodeEncoder = 5;
+}
+
+message BuildPlanStep {
+  string ID = 1;
+  string Kind = 2; // core or transform
+  BuildSpecRef Spec = 3;
+  string Provider = 4;
+  string Toolchain = 5;
+  BuildArtifactType Input = 6;
+  BuildArtifactType Output = 7;
+  repeated string ToolchainRequirements = 8;
+  string ToolchainIdentity = 9;
+  repeated BuildOption Options = 10;
+}
+
+message BuildPlan {
+  BuildRequest Request = 1;
+  repeated BuildPlanStep Steps = 2;
+  BuildArtifactType FinalArtifact = 3;
+  string PlanSHA256 = 4;
+}
+
+enum BuildStepState {
+  BUILD_STEP_PENDING = 0;
+  BUILD_STEP_RUNNING = 1;
+  BUILD_STEP_SUCCEEDED = 2;
+  BUILD_STEP_FAILED = 3;
+  BUILD_STEP_CANCELLED = 4;
+}
+
+enum BuildRecordState {
+  BUILD_RECORD_PENDING = 0;
+  BUILD_RECORD_RUNNING = 1;
+  BUILD_RECORD_SUCCEEDED = 2;
+  BUILD_RECORD_FAILED = 3;
+  BUILD_RECORD_CANCELLED = 4;
+}
+
+message BuildFailure {
+  string Code = 1;
+  string Message = 2;
+  string StepID = 3;
+}
+
+message BuildArtifactMetadata {
+  BuildArtifactType Type = 1;
+  string FileName = 2;
+  uint64 SizeBytes = 3;
+  string SHA256 = 4;
+}
+
+message BuildArtifactRevision {
+  uint32 Number = 1;
+  int64 UpdatedUnix = 2;
+  BuildArtifactMetadata Artifact = 3;
+}
+
+message BuildStepCandidate {
+  string Name = 1;
+  int64 ReportedUnix = 2;
+  uint64 AvailableMemoryBytes = 3;
+  uint64 ReservedMemoryBytes = 4;
+  uint64 RoundedAvailableMB = 5;
+  uint32 EffectiveCPUCores = 6;
+  string ToolchainIdentity = 7;
+}
+
+// The server records the status report and scheduling decision used for an
+// assigned step. Values are captured at selection, not recomputed later.
+message BuildStepSelection {
+  string Builder = 1;
+  int64 ReportedUnix = 2;
+  uint64 AvailableMemoryBytes = 3;
+  uint64 ReservedMemoryBytes = 4;
+  uint64 RoundedAvailableMB = 5;
+  uint32 EffectiveCPUCores = 6;
+  uint64 RequiredPeakMemoryBytes = 7;
+  string Decision = 8;
+  repeated BuildStepCandidate Candidates = 9;
+}
+
+message BuildStepProgress {
+  string StepID = 1;
+  BuildStepState State = 2;
+  string Message = 3;
+  int64 StartedUnix = 4;
+  int64 FinishedUnix = 5;
+  BuildArtifactMetadata Artifact = 6;
+  BuildFailure Failure = 7;
+  uint32 ProgressPercent = 8;
+  string ToolchainIdentity = 9;
+  BuildStepSelection Selection = 10;
+}
+
+message BuildRecord {
+  string ID = 1;
+  BuildRecordState State = 2;
+  BuildPlan Plan = 3;
+  repeated BuildStepProgress Steps = 4;
+  BuildArtifactMetadata FinalArtifact = 5;
+  BuildFailure Failure = 6;
+  int64 CreatedUnix = 7;
+  int64 FinishedUnix = 8;
+  int64 UpdatedUnix = 9;
+  uint32 FinalRevision = 10;
+  repeated BuildArtifactRevision FinalHistory = 11;
+}
+
+message BuildRecordRef { string ID = 1; }
+
+message BuildArtifactResponse {
+  commonpb.File File = 1;
+  BuildArtifactMetadata Metadata = 2;
 }

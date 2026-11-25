@@ -37,7 +37,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -70,7 +69,8 @@ var (
 	wgSessPrivKey string
 	wgSessPubKey  string
 
-	PingInterval = 2 * time.Minute
+	// PingInterval is the default interval between WireGuard pings.
+	PingInterval = pb.WireGuardPingInterval
 	failedConn   = 0
 )
 

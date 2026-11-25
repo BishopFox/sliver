@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.schema.json",
+  "title": "Sliver build pipeline common types",
+  "$defs": {
+    "canonicalName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*)+$"
+    },
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "specReference": {
+      "type": "object",
+      "required": ["name", "version", "digest"],
+      "properties": {
+        "name": { "$ref": "#/$defs/canonicalName" },
+        "version": { "$ref": "#/$defs/semanticVersion" },
+        "digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": ["os", "arch"],
+      "properties": {
+        "os": { "enum": ["darwin", "linux", "windows"] },
+        "arch": { "enum": ["386", "amd64", "arm64"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "os": { "const": "darwin" } }, "required": ["os"] },
+          "then": { "properties": { "arch": { "enum": ["amd64", "arm64"] } } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "mode": { "enum": ["session", "beacon"] },
+    "protocol": {
+      "enum": ["mtls", "http", "https", "dns", "wireguard", "named-pipe", "tcp-pivot"]
+    },
+    "operatorFormat": {
+      "enum": ["exe", "service", "shared", "archive", "shellcode", "stage"]
+    },
+    "goBuildMode": {
+      "enum": ["archive", "c-archive", "c-shared", "default", "exe", "pie", "plugin", "shared"]
+    },
+    "artifactSelector": {
+      "type": "object",
+      "required": ["kind", "container"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "executable", "service-executable", "shared-library", "go-archive",
+            "c-archive", "c-archive-bundle", "go-plugin", "go-shared-library",
+            "shellcode", "stage"
+          ]
+        },
+        "container": { "enum": ["pe", "elf", "macho", "ar", "zip", "raw"] },
+        "goBuildMode": { "$ref": "#/$defs/goBuildMode" },
+        "entrySymbols": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "executable" } }, "required": ["kind"] },
+          "then": {
+            "properties": {
+              "container": { "enum": ["pe", "elf", "macho"] },
+              "goBuildMode": { "enum": ["default", "exe", "pie"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "service-executable" } }, "required": ["kind"] },
+          "then": {
+            "properties": { "container": { "const": "pe" }, "goBuildMode": { "const": "default" } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "shared-library" } }, "required": ["kind"] },
+          "then": {
+            "properties": {
+              "container": { "enum": ["pe", "elf", "macho"] },
+              "goBuildMode": { "const": "c-shared" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "go-archive" } }, "required": ["kind"] },
+          "then": {
+            "required": ["goBuildMode"],
+            "properties": { "container": { "const": "ar" }, "goBuildMode": { "const": "archive" } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "c-archive" } }, "required": ["kind"] },
+          "then": {
+            "required": ["goBuildMode"],
+            "properties": { "container": { "const": "ar" }, "goBuildMode": { "const": "c-archive" } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "c-archive-bundle" } }, "required": ["kind"] },
+          "then": {
+            "required": ["goBuildMode"],
+            "properties": { "container": { "const": "zip" }, "goBuildMode": { "const": "c-archive" } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "go-plugin" } }, "required": ["kind"] },
+          "then": {
+            "required": ["goBuildMode"],
+            "properties": {
+              "container": { "enum": ["elf", "macho"] },
+              "goBuildMode": { "const": "plugin" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "go-shared-library" } }, "required": ["kind"] },
+          "then": {
+            "required": ["goBuildMode"],
+            "properties": {
+              "container": { "enum": ["elf", "macho"] },
+              "goBuildMode": { "const": "shared" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["shellcode", "stage"] } }, "required": ["kind"] },
+          "then": {
+            "properties": { "container": { "const": "raw" } },
+            "not": { "required": ["goBuildMode"] }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "toolchain": {
+      "type": "object",
+      "required": ["driver", "requirements"],
+      "properties": {
+        "driver": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "requirements": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object",
+      "required": ["estimatedPeakMemoryBytes"],
+      "properties": {
+        "estimatedPeakMemoryBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      },
+      "additionalProperties": false
+    },
+    "optionDefinition": {
+      "type": "object",
+      "required": ["name", "type", "required"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+        "type": { "enum": ["boolean", "string", "integer", "number", "enum", "string-list", "secret-ref", "input-artifact-ref"] },
+        "required": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1 },
+        "default": {},
+        "values": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "minimum": { "type": "number", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        "maximum": { "type": "number", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "boolean" } }, "required": ["type"] },
+          "then": { "properties": { "default": { "type": "boolean" } }, "not": { "anyOf": [{ "required": ["values"] }, { "required": ["minimum"] }, { "required": ["maximum"] }] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "string" } }, "required": ["type"] },
+          "then": { "properties": { "default": { "type": "string" } }, "not": { "anyOf": [{ "required": ["values"] }, { "required": ["minimum"] }, { "required": ["maximum"] }] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "integer" } }, "required": ["type"] },
+          "then": { "properties": { "default": { "type": "integer" }, "minimum": { "type": "integer" }, "maximum": { "type": "integer" } }, "not": { "required": ["values"] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "number" } }, "required": ["type"] },
+          "then": { "properties": { "default": { "type": "number" } }, "not": { "required": ["values"] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "enum" } }, "required": ["type"] },
+          "then": { "required": ["values"], "properties": { "default": { "type": "string" } }, "not": { "anyOf": [{ "required": ["minimum"] }, { "required": ["maximum"] }] } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "string-list" } }, "required": ["type"] },
+          "then": { "properties": { "default": { "type": "array", "items": { "type": "string" } } }, "not": { "anyOf": [{ "required": ["values"] }, { "required": ["minimum"] }, { "required": ["maximum"] }] } }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["secret-ref", "input-artifact-ref"] } }, "required": ["type"] },
+          "then": { "not": { "anyOf": [{ "required": ["default"] }, { "required": ["values"] }, { "required": ["minimum"] }, { "required": ["maximum"] }] } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "optionAssignment": {
+      "type": "object",
+      "required": ["name", "value"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$" },
+        "value": {
+          "anyOf": [
+            { "type": "boolean" },
+            { "type": "string" },
+            { "type": "integer" },
+            { "type": "number" },
+            { "type": "array", "items": { "type": "string" } },
+            {
+              "type": "object",
+              "required": ["kind", "name"],
+              "properties": {
+                "kind": { "enum": ["secret", "input-artifact"] },
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

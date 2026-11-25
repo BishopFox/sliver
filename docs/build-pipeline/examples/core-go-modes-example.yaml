@@ -1,0 +1,164 @@
+---
+apiVersion: sliver.bishopfox.com/v1alpha1
+kind: CoreSpec
+metadata:
+  name: example/go-modes
+  version: 1.0.0
+  digest: sha256:b3e9afc7add1b02fc5fb1c357ddc93625e9bc80260b440dae03a5ae4e0894c89
+runtime:
+  protocol: sliver-v1
+  commandSource: declared-subset
+  commands:
+  - MsgPing
+executor:
+  id: hypothetical-go-modes-v1
+options: []
+capabilities:
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: go-archive
+      container: ar
+      goBuildMode: archive
+    operatorFormats: []
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: c-archive
+      container: ar
+      goBuildMode: c-archive
+    operatorFormats: []
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: shared-library
+      container: elf
+      goBuildMode: c-shared
+    operatorFormats:
+    - shared
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: executable
+      container: elf
+      goBuildMode: default
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: executable
+      container: elf
+      goBuildMode: exe
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: executable
+      container: elf
+      goBuildMode: pie
+    operatorFormats:
+    - exe
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: go-plugin
+      container: elf
+      goBuildMode: plugin
+    operatorFormats: []
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc
+- targets:
+  - os: linux
+    arch: amd64
+  mode: session
+  protocols:
+  - mtls
+  output:
+    artifact:
+      kind: go-shared-library
+      container: elf
+      goBuildMode: shared
+    operatorFormats: []
+  toolchain:
+    driver: go
+    requirements:
+    - go
+    - cgo
+    - native-or-zig-cc

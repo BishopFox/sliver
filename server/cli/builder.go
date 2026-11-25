@@ -76,7 +76,7 @@ var builders []*builder.Builder
 
 var builderCmd = &cobra.Command{
 	Use:   "builder",
-	Short: "Start the process as an external builder",
+	Short: "Start the process as an assigned-step builder",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		configPath, err := cmd.Flags().GetString(operatorConfigFlagStr)
@@ -102,7 +102,7 @@ var builderCmd = &cobra.Command{
 		if !quiet {
 			log.RootLogger.AddHook(log.NewStdoutHook(log.RootLoggerName))
 		}
-		builderLog.Infof("Initializing Sliver external builder - %s", version.FullVersion())
+		builderLog.Infof("Initializing Sliver assigned-step builder - %s", version.FullVersion())
 
 		level, err := cmd.Flags().GetInt(logLevelFlagStr)
 		if err != nil {
@@ -236,7 +236,6 @@ func reloadBuilders(cmd *cobra.Command, config string, multiple bool) {
 
 func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) (*builder.Builder, error) {
 	externalBuilder := parseBuilderConfigFlags(cmd)
-	externalBuilder.Templates = []string{"sliver"}
 
 	// load the client configuration from the filesystem
 	config, err := clientAssets.ReadConfig(configPath)
@@ -253,6 +252,9 @@ func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) (*b
 		}
 	}
 	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
+	if err := builder.ConfigureInstalledCapabilities(externalBuilder); err != nil {
+		return nil, fmt.Errorf("prepare builder capabilities: %w", err)
+	}
 
 	// connect to the server
 	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
