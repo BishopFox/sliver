@@ -84,6 +84,7 @@ var (
 		"darwin/arm64":  true,
 		"linux/386":     true,
 		"linux/amd64":   true,
+		"linux/arm":     true,
 		"linux/arm64":   true,
 		"windows/386":   true,
 		"windows/amd64": true,
@@ -1174,6 +1175,9 @@ func getTargets(targetOS string, targetArch string, con *console.SliverClient) (
 	}
 	if targetArch == "386" || targetArch == "x86" || strings.HasPrefix(targetArch, "32") {
 		targetArch = "386"
+	}
+	if targetArch == "arm" || targetArch == "armv7" || targetArch == "armhf" || targetArch == "armv6" {
+		targetArch = "arm"
 	}
 
 	target := fmt.Sprintf("%s/%s", targetOS, targetArch)
