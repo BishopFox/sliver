@@ -260,7 +260,6 @@ important
 long
 young
 national
-british
 right
 early
 possible
@@ -283,7 +282,6 @@ economic
 only
 likely
 real
-black
 particular
 international
 special
@@ -291,12 +289,10 @@ difficult
 certain
 open
 whole
-white
 free
 short
 easy
 strong
-european
 central
 similar
 human
@@ -312,18 +308,15 @@ foreign
 simple
 recent
 concerned
-american
 various
 close
 fine
-english
 wrong
 present
 royal
 natural
 individual
 nice
-french
 following
 current
 modern
@@ -343,7 +336,6 @@ sorry
 specific
 appropriate
 top
-soviet
 basic
 military
 original
@@ -362,8 +354,6 @@ useful
 effective
 western
 traditional
-scottish
-german
 independent
 interesting
 considerable
@@ -414,7 +404,6 @@ light
 warm
 middle
 fresh
-sexual
 front
 domestic
 actual
@@ -463,7 +452,6 @@ scientific
 eastern
 correct
 inc
-irish
 expensive
 educational
 mental
@@ -540,7 +528,6 @@ massive
 unique
 secondary
 parliamentary
-african
 unknown
 subsequent
 angry
@@ -561,12 +548,10 @@ remaining
 agricultural
 alright
 healthy
-italian
 principal
 tired
 efficient
 comfortable
-chinese
 relative
 friendly
 conventional
@@ -583,11 +568,9 @@ federal
 keen
 flat
 silent
-indian
 worried
 pale
 statutory
-welsh
 dependent
 competitive
 armed
@@ -615,12 +598,10 @@ mass
 brilliant
 maximum
 absolute
-tory
 electronic
 visual
 electric
 cool
-spanish
 literary
 continuing
 supreme
@@ -636,7 +617,6 @@ fit
 widespread
 confident
 straight
-catholic
 proud
 numerous
 opposite
@@ -644,7 +624,6 @@ distinct
 mad
 helpful
 given
-disabled
 consistent
 anxious
 nervous
@@ -674,7 +653,6 @@ visible
 accurate
 distant
 still
-greek
 complicated
 musical
 precise
@@ -727,12 +705,10 @@ raw
 sophisticated
 asleep
 vulnerable
-illegal
 outer
 revolutionary
 bitter
 changing
-australian
 native
 imperial
 strict
@@ -745,7 +721,6 @@ experimental
 spiritual
 intense
 rational
-ethnic
 generous
 inadequate
 prominent
@@ -753,7 +728,6 @@ logical
 bare
 historic
 modest
-dutch
 acute
 electrical
 valid
@@ -769,7 +743,6 @@ ruling
 curious
 sole
 managing
-latin
 nearby
 exact
 underlying
@@ -840,7 +813,6 @@ explicit
 nasty
 just
 faint
-coloured
 ridiculous
 amazing
 comparable
@@ -904,7 +876,6 @@ obliged
 payable
 fun
 horrible
-primitive
 fascinating
 ideological
 metropolitan
@@ -966,8 +937,6 @@ missing
 blank
 absent
 favourable
-polish
-israeli
 developed
 profound
 enthusiastic
@@ -977,15 +946,11 @@ reduced
 cruel
 coastal
 peculiar
-racial
 ugly
-swiss
 crude
 extended
 selected
 eager
-feminist
-canadian
 bold
 relaxed
 corresponding
@@ -1062,7 +1027,6 @@ sound
 protective
 fortunate
 slim
-islamic
 defensive
 divine
 stuck
@@ -1114,13 +1078,11 @@ miserable
 resident
 polite
 scared
-marxist
 gothic
 civilian
 instant
 lengthy
 adverse
-korean
 unconscious
 anonymous
 aesthetic
@@ -1146,7 +1108,6 @@ cautious
 visiting
 aggregate
 ethical
-protestant
 large-scale
 dying
 disastrous
@@ -1207,7 +1168,6 @@ vocational
 mighty
 puzzled
 worldwide
-handicapped
 sunny
 eldest
 eventual
@@ -1308,7 +1268,6 @@ bad
 better
 beautiful
 big
-black
 blue
 bright
 clumsy 
