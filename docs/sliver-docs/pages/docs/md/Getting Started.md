@@ -76,7 +76,7 @@ Name                    OS/Arch        Debug  Format
 CAUTIOUS_PANPIPE        darwin/amd64   false  EXECUTABLE
 LATE_SUBCOMPONENT       windows/amd64  false  SHARED_LIB
 RUBBER_PRINTER          windows/amd64  true   SHARED_LIB
-RACIAL_SPECTACLES       darwin/amd64   false  EXECUTABLE
+GENTLE_SPECTACLES       darwin/amd64   false  EXECUTABLE
 MATHEMATICAL_SASH       darwin/amd64   true   SHARED_LIB
 MUSHY_TRADITIONALISM    windows/amd64  false  SHARED_LIB
 SICK_SPY                darwin/amd64   false  EXECUTABLE

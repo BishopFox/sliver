@@ -129,7 +129,6 @@ anybody
 anything
 anywhere
 apartment
-ape
 aperitif
 apology
 apparatus
@@ -330,7 +329,6 @@ beginner
 beginning
 begonia
 behavior
-beheading
 behest
 being
 belfry
@@ -345,7 +343,6 @@ bench
 bend
 beneficiary
 benefit
-bengal
 beret
 berry
 bestseller
@@ -379,7 +376,6 @@ birthday
 bit
 bite
 bitter
-black
 blackberry
 blackboard
 blackfish
@@ -869,7 +865,6 @@ confirmation
 conflict
 confusion
 conga
-congo
 congress
 congressman
 congressperson
@@ -906,7 +901,6 @@ convertible
 cook
 cookie
 cooking
-coonskin
 cope
 cop-out
 copper
@@ -1381,7 +1375,6 @@ ethernet
 ethics
 euphonium
 eurocentrism
-europe
 evaluator
 evening
 evening-wear
@@ -1450,7 +1443,6 @@ family
 fan
 fang
 fanlight
-fanny
 fanny-pack
 farm
 farmer
@@ -1513,7 +1505,6 @@ fishery
 fishing
 fishmonger
 fishnet
-fisting
 fix
 fixture
 flag
@@ -1533,7 +1524,6 @@ flip-flops
 flock
 flood
 floor
-floozie
 flour
 flow
 flower
@@ -1948,7 +1938,6 @@ ideal
 if
 igloo
 ikebana
-illegal
 image
 imagination
 impact
@@ -2389,7 +2378,6 @@ melody
 membership
 memory
 men
-menorah
 mention
 menu
 mercury
@@ -2438,7 +2426,6 @@ minor-league
 mint
 minute
 mirror
-miscarriage
 miscommunication
 misfit
 misogyny
@@ -2466,7 +2453,6 @@ moment
 money
 monger
 monitor
-monkey
 monocle
 monsoon
 monster
@@ -2480,7 +2466,6 @@ morning
 morsel
 mortgage
 mortise
-mosque
 mosquito
 most
 motel
@@ -2573,7 +2558,6 @@ nondisclosure
 nonsense
 noodle
 normal
-norse
 north
 nose
 note
@@ -2866,7 +2850,6 @@ pilgrimage
 pillbox
 pillow
 pilot
-pimp
 pimple
 pin
 pinafore
@@ -2884,7 +2867,6 @@ pinworm
 pioneer
 pipe
 piracy
-piss
 pitch
 pitching
 pith
@@ -2895,7 +2877,6 @@ plan
 plane
 planet
 plant
-plantation
 planter
 plaster
 plasterboard
@@ -2944,7 +2925,6 @@ pompom
 poncho
 pond
 pony
-poof
 pool
 pop
 popcorn
@@ -3096,14 +3076,10 @@ quit
 quiver
 quotation
 quote
-rabbi
 rabbit
 raccoon
-race
 racer
 racing
-racism
-racist
 rack
 radar
 radiator
@@ -3469,7 +3445,6 @@ shoelace
 shoemaker
 shoes
 shoestring
-shofar
 shoot
 shootdown
 shop
@@ -3535,7 +3510,6 @@ skyscraper
 skywalk
 slapstick
 slash
-slave
 sled
 sledge
 sleep
@@ -3617,10 +3591,8 @@ soy
 soybean
 space
 spacing
-spade
 spaghetti
 spandex
-spank
 spare
 spark
 sparrow
@@ -3781,7 +3753,6 @@ substance
 suburb
 subway
 success
-suck
 suede
 suffocation
 sugar
@@ -3828,7 +3799,6 @@ sweats
 sweatshirt
 sweatshop
 sweatsuit
-swedish
 sweet
 sweets
 swell
@@ -3836,7 +3806,6 @@ swim
 swimming
 swimsuit
 swing
-swiss
 switch
 switchboard
 swivel
@@ -3873,7 +3842,6 @@ tanker
 tankful
 tank-top
 tap
-tard
 target
 task
 tassel
@@ -4012,7 +3980,6 @@ tornado
 torso
 tortellini
 tortoise
-tosser
 total
 tote
 touch
@@ -4096,8 +4063,6 @@ tune
 tune-up
 tunic
 tunnel
-turban
-turkish
 turn
 turnip
 turnover
@@ -4291,7 +4256,6 @@ whirlwind
 whisker
 whiskey
 whistle
-white
 whole
 wholesale
 wholesaler
@@ -4363,7 +4327,6 @@ yacht
 yak
 yam
 yard
-yarmulke
 yarn
 yawl
 year
